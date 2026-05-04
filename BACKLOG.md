@@ -353,18 +353,6 @@ Candidate token-reduction approaches not yet implemented. Each targets a differe
 
 ---
 
-### Strategy 3 — Tool Output Truncation
-
-**Problem:** Tool results (Bash output, file reads, web fetches) can dump thousands of tokens into the context even when only a few lines are relevant. Claude currently receives the full output every time.
-
-**Approach:** A PostToolUse hook that intercepts tool results before they are appended to the conversation, measures character length, and truncates to a configurable ceiling (e.g. 2,000 chars) with a `[truncated — N chars omitted]` marker. For Bash, keep the first N lines and the last M lines (head+tail) so errors at the bottom are preserved. Users configure the ceiling in `search_config.py`.
-
-**Expected savings:** 40–80% of tool-output tokens on verbose commands (`pip install`, `git log`, test runners). No model download required; pure string slicing.
-
-**New files:** `hooks/truncate-output.py`, one new config variable `MAX_TOOL_OUTPUT_CHARS`.
-
----
-
 ### Strategy 4 — Prompt Caching
 
 **Problem:** On every Claude Code session the system prompt, `CLAUDE.md`, and any large context blocks (architecture docs, schema files) are re-sent in full, consuming thousands of input tokens even though they haven't changed.

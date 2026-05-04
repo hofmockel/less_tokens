@@ -133,6 +133,8 @@ def main() -> int:
                     help="run initial index build (skipped by default — configure first)")
     ap.add_argument("--caveman", action="store_true",
                     help="copy caveman/ directory (terse output mode for Claude)")
+    ap.add_argument("--truncate", action="store_true",
+                    help="include tool output truncation hook in next-steps output (Strategy 3)")
     args = ap.parse_args()
 
     do_build = args.build
@@ -199,6 +201,14 @@ def main() -> int:
     if args.caveman:
         print(f"\n5. Append caveman mode to your CLAUDE.md:")
         print(f"       cat caveman/caveman.md >> CLAUDE.md")
+    if args.truncate:
+        step = 6 if args.caveman else 5
+        print(f"\n{step}. Wire tool output truncation hook into .claude/settings.local.json:")
+        print(f'   Add to PostToolUse (before caveman-reminder if present):')
+        print(f'     {{"matcher": "Bash|Read|WebFetch",')
+        print(f'      "hooks": [{{"type": "command",')
+        print(f'                "command": "{venv_py} .claude/hooks/truncate-output.py"}}]}}')
+        print(f"   Tune ceiling in tools/search_config.py: MAX_TOOL_OUTPUT_CHARS = 4000")
     print()
     return 0
 

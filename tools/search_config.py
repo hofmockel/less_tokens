@@ -40,3 +40,8 @@ INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
+
+# --- Strategy 3: Tool Output Truncation ---
+MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
+TOOL_OUTPUT_HEAD_LINES: int = 50    # Bash: lines kept from output start
+TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors live here)

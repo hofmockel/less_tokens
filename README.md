@@ -1,6 +1,6 @@
 # less_tokens
 
-**Cut Claude's token usage with two drop-in strategies: semantic search over your codebase and enforced terse output.**
+**Cut Claude's token usage with three drop-in strategies: semantic search over your codebase, enforced terse output, and tool result truncation.**
 
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -23,14 +23,15 @@
 
 ## What it does
 
-Most Claude token waste comes from two sources: reading entire files when only a few lines are relevant, and verbose responses full of filler. `less_tokens` attacks both.
+Claude's token waste comes from three sources: reading entire files when only a few lines are relevant, verbose responses full of filler, and tool results that dump thousands of characters into context. `less_tokens` attacks all three.
 
 | Strategy | How | Savings |
 |---|---|---|
 | **Vector search** | Pre-embeds your source files; Claude searches before reading | 5–10× fewer input tokens |
 | **Caveman mode** | CLAUDE.md instruction that enforces terse, primitive output | 30–60% fewer output tokens |
+| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40–80% fewer tool-output tokens |
 
-Both strategies are opt-in and independent — use one or both.
+All three strategies are opt-in and independent — use any combination.
 
 ### How vector search works
 
@@ -77,6 +78,7 @@ The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into 
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
 | `--build` | Build the index immediately after install |
 | `--caveman` | Also copy `caveman/` for terse output mode |
+| `--truncate` | Print next-steps wiring for the tool output truncation hook |
 
 ---
 
@@ -103,6 +105,9 @@ All variables:
 | `EXCLUDED_DIR_NAMES` | Directory names to skip (e.g. `node_modules`) |
 | `EXCLUDED_DIR_PREFIXES` | Path prefixes to skip (e.g. `legacy/`) |
 | `SOURCE_TYPES` | Labels for `--source-type` CLI filtering |
+| `MAX_TOOL_OUTPUT_CHARS` | Truncation ceiling for Bash/Read/WebFetch results (set 0 to disable) |
+| `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
+| `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 
 ---
 
@@ -213,6 +218,17 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 }
 ```
 
+**Optional — tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the caveman entry if both are present:
+
+```json
+{
+  "matcher": "Bash|Read|WebFetch",
+  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/truncate-output.py"}]
+}
+```
+
+Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
+
 ### 3. Optional: session-start preflight
 
 ```bash
@@ -237,7 +253,8 @@ less_tokens_claude/
 ├── hooks/
 │   ├── search-first.py        # PreToolUse: gate Read on indexed files
 │   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
-│   └── caveman-reminder.py    # PostToolUse: nudge back to terse output
+│   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
+│   └── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
 └── caveman/
     └── caveman.md             # CLAUDE.md snippet for caveman output style
 ```
