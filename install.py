@@ -20,6 +20,8 @@ Options:
   --skip-deps    skip pip install step
   --build        run initial index build after install (skipped by default — configure first)
   --caveman      copy caveman/ directory and wire caveman-reminder hook
+  --truncate     print next-steps wiring for the tool output truncation hook (Strategy 3)
+  --compact      print next-steps wiring for the conversation compaction trigger hook (Strategy 5)
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
@@ -135,6 +137,8 @@ def main() -> int:
                     help="copy caveman/ directory (terse output mode for Claude)")
     ap.add_argument("--truncate", action="store_true",
                     help="include tool output truncation hook in next-steps output (Strategy 3)")
+    ap.add_argument("--compact", action="store_true",
+                    help="include conversation compaction trigger hook in next-steps output (Strategy 5)")
     args = ap.parse_args()
 
     do_build = args.build
@@ -209,6 +213,14 @@ def main() -> int:
         print(f'      "hooks": [{{"type": "command",')
         print(f'                "command": "{venv_py} .claude/hooks/truncate-output.py"}}]}}')
         print(f"   Tune ceiling in tools/search_config.py: MAX_TOOL_OUTPUT_CHARS = 4000")
+    if args.compact:
+        step = 5 + int(args.caveman) + int(args.truncate)
+        print(f"\n{step}. Wire conversation compaction trigger into .claude/settings.local.json:")
+        print(f'   Add to PostToolUse:')
+        print(f'     {{"matcher": ".*",')
+        print(f'      "hooks": [{{"type": "command",')
+        print(f'                "command": "{venv_py} .claude/hooks/compact-trigger.py"}}]}}')
+        print(f"   Tune threshold in tools/search_config.py: MAX_SESSION_CHARS = 500_000")
     print()
     return 0
 
