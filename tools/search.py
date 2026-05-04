@@ -22,8 +22,10 @@ from db import connect_index  # noqa: E402
 from embeddings import DIM, embed  # noqa: E402
 from search_config import SOURCE_TYPES  # noqa: E402
 
+DEFAULT_K = 3
 
-def search(query: str, k: int = 5, source_type: str | None = None) -> list[dict]:
+
+def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> list[dict]:
     try:
         qvec = embed([query], input_type="query")[0]
     except RuntimeError as e:

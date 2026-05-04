@@ -241,37 +241,13 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 - **`search-first.py` docstring still shows `python3` in hook config** — the docstring example on lines 19–23 still uses `"command": "python3 .claude/hooks/search-first.py"` which breaks on Windows. The runtime message was fixed but the docstring was not. (`hooks/search-first.py:22`)
 
-- **`install.py` `do_build` logic reduces to `args.build`** — the expression `args.build and not args.skip_build or args.build` simplifies to `args.build` due to operator precedence (`and` binds tighter than `or`), making the `not args.skip_build` guard dead code. Misleading to future readers. (`install.py:121`)
-
 - **`is_indexed()` exclusion logic differs between `search-first.py` and `index-refresh.py`** — `search-first.py` uses `("/" + d) in ("/" + rel) or rel.startswith(d)` which matches excluded names anywhere in the path; `index-refresh.py` uses only `rel.startswith(d)`. The two hooks will disagree on whether mid-path excluded directories are blocked. (`hooks/search-first.py:49`, `hooks/index-refresh.py:37`)
 
 - **`search_config.py` default `INDEXED_SOURCE_DIRS` includes `"app/"` which is never created by the installer** — fresh install targets will have `health` report a gap for every file under `app/` until the user edits the config. The default should only include directories the installer actually creates (`tools/`, `schema/`). (`tools/search_config.py:38`)
 
-- **`caveman-reminder.py` reads `payload.get("tool_response")` but Claude Code PostToolUse payload key is `tool_result`** — if the key name is wrong the hook will silently never fire regardless of how verbose Claude's output is. (`hooks/caveman-reminder.py:51`)
-
 - **`db.py` `verify()` interpolates table name directly into SQL** — `f"SELECT COUNT(*) FROM {r[0]}"` constructs SQL from `sqlite_master` output without sanitization. Low real-world risk but bad practice; should use a whitelist or quoted identifier. (`tools/db.py:64`)
 
 - **`index-refresh.py` imports `VENV_PY` with a needless alias** — `VENV_PY as _VENV_PY` is immediately re-assigned to `VENV_PY = _VENV_PY` on the next line. The alias serves no purpose and adds confusion. (`hooks/index-refresh.py:27–29`)
-
-- **`--skip-build` flag is permanently `True` and cannot be disabled** — `action="store_true"` stores `True` when the flag is present and the `default=True` means it is also `True` when absent. `args.skip_build` is therefore always `True` regardless of what the user passes; the flag does nothing. Fix: use `default=False` and rely on `--build` as the opt-in, or restructure as a `store_false` argument. (`install.py:125`)
-
-- **`unchanged` count prints negative on first run and whenever new files exceed existing** — the formula `len(existing) - deleted - len(to_embed)` subtracts all items to embed, including brand-new chunks that were never in `existing`. On a fresh DB with an empty `existing` dict the result is `0 - 0 - N = -N` for every run. Fix: `unchanged` should be `len(seen) - len(to_embed)` — the number of current-source items that did not need re-embedding. (`tools/embeddings.py:258`)
-
-- **`enumerate_sources()` silently drops non-`.md` root glob matches** — the guard `if f.suffix == ".md"` on line 169 means any file matched by a custom `INDEXED_ROOT_GLOBS` entry like `*.rst` or `*.txt` is silently ignored. Users who add glob patterns expecting them to be indexed get no error and no results. Fix: dispatch to an appropriate chunker for each suffix, or at minimum log a warning for unsupported extensions. (`tools/embeddings.py:169`)
-
-- **Duplicate heading names within one markdown file → second chunk silently overwrites first** — `chunk_markdown` uses the heading text as `source_key`. Two sections with identical headings (e.g. two `## Usage` blocks) produce the same `(source_path, source_key)` pair; the UPSERT constraint means the second silently replaces the first and the first section's content is lost from the index. Fix: append a counter suffix to deduplicate keys within a file. (`tools/embeddings.py:80`, `schema/index.sql:19`)
-
-- **`search()` function default `k=5` disagrees with CLI default `k=3`** — programmatic callers importing and calling `search()` directly receive 5 results while CLI users receive 3. Any adapter or library consumer will see different behaviour than the documented tool. Fix: align both defaults; expose a single `DEFAULT_K` constant. (`tools/search.py:26` vs `tools/search.py:66`)
-
-- **Deletions are not committed before the embedding batch loop** — the deletion loop (lines 249–255) executes without a `conn.commit()`. The next commit is inside the batch loop. If the process is killed after deletions but before the first batch commit, `_ClosingConn.__exit__` calls `rollback()`, undoing the deletions and leaving the index as if nothing happened — but the source files have changed. A subsequent refresh will re-delete and re-embed correctly, but the window of inconsistency is undetected. Fix: call `conn.commit()` immediately after the deletion loop. (`tools/embeddings.py:255`)
-
-- **`copy_tree` copies hidden files and `__pycache__` from the source repo** — `src.rglob("*")` is unfiltered; `.DS_Store`, `__pycache__/` directories, and `.pyc` files present in the source checkout are copied verbatim into target projects. Fix: skip entries where any path component starts with `.` or equals `__pycache__`. (`install.py:62`)
-
-- **`install.py` exits 0 when no venv is found and `--skip-deps` is set, but the DB is uninitialised** — `init_db` requires the venv python and is called unconditionally after the venv check; when venv is missing the function returns before `init_db` runs, but the early return uses exit code 0 (success). Any CI pipeline or script checking the exit code will incorrectly treat a broken, DB-less install as successful. Fix: return a distinct non-zero exit code, or document that exit 0 here means "files copied, manual steps required". (`install.py:159`)
-
-- **`search-first.py` module-level import failure disables the gate silently or blocks all Reads indiscriminately** — if `search_config.py` contains a syntax error, the `from search_config import ...` on line 34 raises at startup before `main()` runs. Python exits with code 1. Whether Claude Code interprets hook exit code 1 as "allow" or "block" is not specified; either outcome (gate disabled entirely, or all Reads blocked) is wrong and neither emits a useful diagnostic. Fix: wrap the import in a try/except at the top of `main()` and exit 0 with a stderr warning on failure so the gate degrades gracefully. (`hooks/search-first.py:34–38`)
-
-- **`caveman-reminder.py` scans tool output rather than agent prose** — `PostToolUse` hooks receive what the *tool* returned (file contents from a Read, stdout from a Bash call), not Claude's conversational response. The hook will false-trigger when reading a source file that happens to contain the string "I apologize" (e.g. an error message or test fixture) and will never trigger on actual verbose Claude output. Fix: determine the correct payload field for agent response text in the Claude Code hook spec, or restructure as a `PreToolUse` hook on the next turn if the response text is not available post-tool. (`hooks/caveman-reminder.py:51`)
 
 ---
 

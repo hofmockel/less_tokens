@@ -18,8 +18,7 @@ Options:
   --force        overwrite existing files in target
   --venv PATH    path to virtualenv (auto-detected if omitted)
   --skip-deps    skip pip install step
-  --skip-build   skip initial index build (default; run embeddings.py refresh manually)
-  --build        run initial index build after install
+  --build        run initial index build after install (skipped by default — configure first)
   --caveman      copy caveman/ directory and wire caveman-reminder hook
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
@@ -52,6 +51,9 @@ def detect_venv() -> Path | None:
     return None
 
 
+_SKIP_PARTS = {"__pycache__"}
+
+
 def copy_tree(src: Path, dst: Path, force: bool, label: str) -> int:
     """Copy a directory tree. Returns count of files copied. Skips existing files unless force."""
     if not src.exists():
@@ -63,6 +65,11 @@ def copy_tree(src: Path, dst: Path, force: bool, label: str) -> int:
         if srcfile.is_dir():
             continue
         rel = srcfile.relative_to(src)
+        # Skip hidden files, __pycache__, and compiled bytecode from source.
+        if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
+            continue
+        if srcfile.suffix in (".pyc", ".pyo"):
+            continue
         target = dst / rel
         if target.exists() and not force:
             print(f"  ! skip (exists): {target.relative_to(TARGET_ROOT)}")
@@ -122,16 +129,13 @@ def main() -> int:
                     help="path to virtualenv (auto-detected if omitted)")
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
-    ap.add_argument("--skip-build", action="store_true", default=True,
-                    help="skip initial index build (default; configure search_config.py first)")
     ap.add_argument("--build", action="store_true",
-                    help="run initial index build (overrides --skip-build)")
+                    help="run initial index build (skipped by default — configure first)")
     ap.add_argument("--caveman", action="store_true",
                     help="copy caveman/ directory (terse output mode for Claude)")
     args = ap.parse_args()
 
-    # --build overrides the default --skip-build
-    do_build = args.build and not args.skip_build or args.build
+    do_build = args.build
 
     print(f"Installing less_tokens into {TARGET_ROOT}")
     print(f"Source: {SOURCE}\n")
@@ -156,7 +160,7 @@ def main() -> int:
         print("    python3 -m venv .venv    # macOS/Linux")
         print("    python -m venv .venv     # Windows")
         print("Then re-run the installer.")
-        return 0 if args.skip_deps else 1
+        return 1
 
     venv_py = venv_python(venv_dir)
     if not venv_py.exists():

@@ -86,9 +86,16 @@ def chunk_markdown(path: Path) -> list[tuple[str, str]]:
     if current:
         chunks.append((current_key, current))
     out: list[tuple[str, str]] = []
+    key_counts: dict[str, int] = {}
     for k, ls in chunks:
         body = "\n".join(ls).strip()
-        if body:
+        if not body:
+            continue
+        if k in key_counts:
+            key_counts[k] += 1
+            out.append((f"{k}_{key_counts[k]}", body))
+        else:
+            key_counts[k] = 1
             out.append((k, body))
     return out
 
@@ -171,6 +178,9 @@ def enumerate_sources() -> list[tuple[str, str, str, str]]:
                 chunks = chunk_changelog(f) if st == "changelog" else chunk_markdown(f)
                 for k, t in chunks:
                     out.append((st, f.name, k, t))
+            else:
+                print(f"  WARN: unsupported root glob extension {f.suffix!r} — {f.name} skipped",
+                      file=sys.stderr)
 
     # Python from indexed subdirs + root .py
     py_paths: list[Path] = []
@@ -253,9 +263,11 @@ def refresh(full: bool = False) -> int:
                 (sp, sk),
             )
             deleted += 1
+        conn.commit()
 
+        unchanged = len(seen) - len(to_embed)
         print(f"  to embed: {len(to_embed)}  "
-              f"unchanged: {len(existing) - deleted - len(to_embed)}  "
+              f"unchanged: {unchanged}  "
               f"deleted: {deleted}")
 
         embedded = 0

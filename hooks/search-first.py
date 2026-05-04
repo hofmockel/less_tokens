@@ -32,16 +32,32 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO / "tools"))
-from search_config import (  # noqa: E402
-    EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
-    INDEXED_ROOT_GLOBS,
-    INDEXED_SOURCE_DIRS as INDEXED_DIRS,
-    VENV_PY,
-)
 
 STATE_FILE = REPO / ".claude" / "state" / "last-search"
 WINDOW_SECONDS = 300
+
+
+_config: dict = {}
+
+
+def _load_config() -> bool:
+    """Load search_config into _config. Returns False (and warns) on failure."""
+    try:
+        sys.path.insert(0, str(REPO / "tools"))
+        from search_config import (  # noqa: E402
+            EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
+            INDEXED_ROOT_GLOBS,
+            INDEXED_SOURCE_DIRS as INDEXED_DIRS,
+            VENV_PY,
+        )
+        _config["excluded"] = EXCLUDED_DIRS
+        _config["root_globs"] = INDEXED_ROOT_GLOBS
+        _config["dirs"] = INDEXED_DIRS
+        _config["venv_py"] = VENV_PY
+        return True
+    except Exception as e:
+        print(f"search-first: could not load search_config ({e}); gate disabled", file=sys.stderr)
+        return False
 
 
 def is_indexed(path: Path) -> bool:
@@ -49,12 +65,13 @@ def is_indexed(path: Path) -> bool:
         rel = path.resolve().relative_to(REPO).as_posix()
     except ValueError:
         return False
-    if any(("/" + d) in ("/" + rel) or rel.startswith(d) for d in EXCLUDED_DIRS):
+    excluded = _config.get("excluded", [])
+    dirs = _config.get("dirs", [])
+    if any(("/" + d) in ("/" + rel) or rel.startswith(d) for d in excluded):
         return False
     if "/" not in rel:
-        # Repo-root file: only Markdown is indexed.
         return rel.endswith(".md")
-    if any(rel.startswith(d) for d in INDEXED_DIRS):
+    if any(rel.startswith(d) for d in dirs):
         return rel.endswith((".py", ".sql", ".md"))
     return False
 
@@ -66,6 +83,9 @@ def search_was_recent() -> bool:
 
 
 def main() -> int:
+    if not _load_config():
+        return 0  # degrade gracefully; don't block Reads
+
     try:
         payload = json.load(sys.stdin)
     except Exception:
@@ -83,11 +103,12 @@ def main() -> int:
     if search_was_recent():
         return 0
 
+    venv_py = _config.get("venv_py", "python3")
     rel = p.resolve().relative_to(REPO).as_posix()
     msg = (
         f"Search-first rule (CLAUDE.md): {rel} is indexed.\n"
         f"Run vector search before Read:\n"
-        f"  {VENV_PY} tools/search.py \"<your query>\"\n"
+        f"  {venv_py} tools/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
         f"{WINDOW_SECONDS}s. If you need to edit this file, search first to "
         f"satisfy the gate, then Read + Edit normally."
