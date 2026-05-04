@@ -22,7 +22,46 @@ Remove the item from this file and add an entry to [CHANGELOG.md](CHANGELOG.md) 
 | **High** | Clear value, known implementation path — good first targets |
 | **Medium** | Important but less urgent; may need more design thought |
 | **Low / Ideas** | Worth tracking, no commitment to timeline |
+---
+## Bug-Hunt Protocol
 
+How to decide when to run another hunt vs stop and fix. Eyeball-driven (no metric scripts); the rubric below keeps the eyeball calibrated.
+
+### Severity rubric (assign per bug at intake)
+
+| Tier | Definition | Example |
+|---|---|---|
+| **data-loss** | Wrong number lands in IRS-grade ledger, FIFO, wash-sale, or P&L. Real money at stake. | Lockouts dict collapse hides longer restriction; same-day rebuy missed by report adherence check. |
+| **silent** | Behavior is wrong but no immediate money impact; numbers reported are misleading. | Correlation aligns by index not date; trailing_return falls back to earliest close on IPOs. |
+| **ux** | Tool gives bad signal, false reassurance, or noise that trains the operator to ignore the gate. | parity-check baselines drift daily; universe.py refresh prints UPD on every row. |
+| **cosmetic** | Wording / formatting / log-line issue. No functional impact. | (none documented yet — surface only if encountered.) |
+
+### Three signals to assess after each hunt
+
+1. **Severity slide** — what's the median tier of THIS round vs the previous? Going `data-loss → silent → ux → cosmetic` means the high-value surface is exhausted.
+2. **Overlap rate** — when running a hunt, do NOT pre-exclude the existing bug list (let the agent rediscover). Then count: of the bugs surfaced, what fraction matches a bug already in the table by file:line or paraphrase? Rising overlap = saturated surface.
+3. **File coverage** — cumulative distinct files where bugs have been found, vs the high-yield target list (`wash.py`, `add-fills.py`, `rh-sync.py`, `dataio.py`, `db.py`, `alerts.py`, `state.py`, `snapshot-state.py`, `refresh-prices.py`, `refresh-earnings.py`, `recalc-coverage.py`, `sell-check.py`, `pnl.py`, `report.py`, `pre-buy-check.py`, `momentum.py`, `stress.py`, `size.py`, `weekly-budget.py`, `universe.py`, `universe-coverage.py`, `discover.py`, `lockout-cost.py`, `journal*.py`, `parity-check.py`, `validate-ledger.py`, `backup.py`, `restore-check.py`, `embeddings.py`, `search.py`, `commit-hygiene.py`, `doc-drift.py`, `gen-tools-readme.py`, `secret-scan.py`, `app/scan.py`, `app/layers.py`, `schema/portfolio.sql`, `schema/migrations/*.sql`). When new hunts stop landing on new files, surface is covered.
+
+### Stop rule (all three required)
+
+- Median severity of last round ≤ `ux` (no `data-loss` or `silent` finds), AND
+- Overlap rate with prior rounds ≥ 60% (mostly rediscovering known bugs), AND
+- Cumulative file coverage ≥ 80% of the high-yield list above.
+
+If 2 of 3 hold, run one more round. If ≤1 of 3, keep hunting.
+
+### How to run a hunt (one-shot agent prompt template)
+
+```
+Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/AIPortfolio/.
+- Read backlog.md ## Bugs section first; do NOT pre-exclude (overlap is a signal we want to measure).
+- Bug definition: logic / silent failure / state / financial-logic / chain-ordering / docstring drift / schema / auth-UX / encoding.
+- NOT bugs: features, refactors, "add tests", performance unless incorrect, anything in non-Bugs backlog sections, backup-section variants (deferred per memory), token instrumentation.
+- Method: search-first for indexed files; read whole files for high-yield targets; verify each candidate by tracing or sqlite3 query; rank by severity tier.
+- Output: 10 bugs in `**Bug N: title** (file:line)` + What/Why/Repro/Fix format, ≤6 lines each. If <10 solid, surface fewer + say so.
+```
+
+After the agent returns, the operator: (1) assigns each a tier, (2) checks each against the existing table for overlap, (3) scores the three signals, (4) applies the stop rule.
 ---
 
 ## Bugs
@@ -100,6 +139,46 @@ Gaps and inaccuracies found in existing docs.
 - **CHANGELOG uses Keep a Changelog version format but `chunk_changelog` expects date-only headers** — there is no note in the CHANGELOG or in `embeddings.py` that the chunker's date-pattern regex won't match the `## [version] - date` format; developers adding changelog entries won't know the index is silently not splitting them correctly
 
 - **README "Repository layout" section is missing `caveman/caveman.md` description** — the file tree lists `caveman/caveman.md` with the label `# CLAUDE.md snippet for terse output` but doesn't explain *how* it is activated (append to CLAUDE.md) the way the other files explain their purpose inline
+
+---
+
+## Proposed Strategies
+
+Candidate token-reduction approaches not yet implemented. Each targets a different part of the token budget. Evaluate and promote to High Priority once design is agreed.
+
+### Strategy 3 — Tool Output Truncation
+
+**Problem:** Tool results (Bash output, file reads, web fetches) can dump thousands of tokens into the context even when only a few lines are relevant. Claude currently receives the full output every time.
+
+**Approach:** A PostToolUse hook that intercepts tool results before they are appended to the conversation, measures character length, and truncates to a configurable ceiling (e.g. 2,000 chars) with a `[truncated — N chars omitted]` marker. For Bash, keep the first N lines and the last M lines (head+tail) so errors at the bottom are preserved. Users configure the ceiling in `search_config.py`.
+
+**Expected savings:** 40–80% of tool-output tokens on verbose commands (`pip install`, `git log`, test runners). No model download required; pure string slicing.
+
+**New files:** `hooks/truncate-output.py`, one new config variable `MAX_TOOL_OUTPUT_CHARS`.
+
+---
+
+### Strategy 4 — Prompt Caching
+
+**Problem:** On every Claude Code session the system prompt, `CLAUDE.md`, and any large context blocks (architecture docs, schema files) are re-sent in full, consuming thousands of input tokens even though they haven't changed.
+
+**Approach:** Structure the system prompt and `CLAUDE.md` to take advantage of [Anthropic's prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — place stable, large blocks at the top of the context in the cacheable position. Provide a `cache-primer.py` script users run at session start to warm the cache with their most-read files, so subsequent calls hit the 5-minute cache window instead of re-encoding. Document the cache TTL and how to structure CLAUDE.md for maximum hit rate.
+
+**Expected savings:** Up to 90% cost reduction on the cached portion of input tokens for sessions longer than one turn. Cache hits are also ~2× faster to process.
+
+**New files:** `cache/cache-primer.py`, `cache/README.md` with CLAUDE.md structuring guidance.
+
+---
+
+### Strategy 5 — Conversation Compaction Trigger
+
+**Problem:** As a Claude Code session grows, the conversation history accumulates and input tokens compound with every turn. Users typically don't compact until Claude starts degrading or they hit a wall — by which point thousands of tokens have already been wasted.
+
+**Approach:** A PostToolUse hook that estimates the current conversation size by counting characters in `.claude/state/` session logs and comparing against a configurable threshold. When the threshold is crossed, it exits with code 2 and a message instructing Claude to run `/compact` before the next tool call. This turns compaction from a reactive emergency into a proactive, tunable maintenance step.
+
+**Expected savings:** Highly variable — depends on session length and how much of the history is compactable — but typically 50–70% reduction in input tokens for sessions longer than ~30 turns.
+
+**New files:** `hooks/compact-trigger.py`, one new config variable `MAX_SESSION_CHARS`.
 
 ---
 
