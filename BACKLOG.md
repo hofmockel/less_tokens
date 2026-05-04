@@ -249,6 +249,32 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 - **`index-refresh.py` imports `VENV_PY` with a needless alias** — `VENV_PY as _VENV_PY` is immediately re-assigned to `VENV_PY = _VENV_PY` on the next line. The alias serves no purpose and adds confusion. (`hooks/index-refresh.py:27–29`)
 
+- **`search.py` raises uncaught `sqlite3.OperationalError` when `index.db` is missing or uninitialised** — only `RuntimeError` from `embed()` is caught; if the DB hasn't been initialised or the `documents` table is missing, the query path raises an exception instead of returning empty results. Fix: wrap the `c.execute(...)` block in `try/except sqlite3.OperationalError`, return `[]` with a stderr advisory. (`tools/search.py:35-41`)
+
+- **`start_new_session=True` is a no-op on Windows in `index-refresh.py`** — `subprocess.Popen(..., start_new_session=True)` is documented as POSIX-only; on Windows the kwarg is ignored and the child remains attached to the parent, defeating the detach intent. Fix: branch on `sys.platform`; on Windows pass `creationflags=subprocess.DETACHED_PROCESS` (or `CREATE_NEW_PROCESS_GROUP`) instead. (`hooks/index-refresh.py:72`)
+
+- **`datetime.utcnow()` is deprecated in Python 3.12+** — emits `DeprecationWarning` on every refresh and is slated for removal. Fix: `datetime.now(timezone.utc).isoformat()`. (`tools/embeddings.py:283`)
+
+- **README documents removed `--skip-build` flag** — the quickstart instructs `python3 install.py --skip-build`; that flag was removed in commit 7507796 and now raises `error: unrecognized arguments: --skip-build`. The default behaviour is already to skip build (`--build` is the opt-in). Fix: drop `--skip-build` from README quickstart and any examples. (`README.md:61`, `README.md:64`)
+
+- **Venv path containing `"` produces invalid Python in printed `VENV_PY` line** — `f'       VENV_PY = _venv_python("{venv_dir}")'` interpolates the path raw; a path with an embedded `"` yields a `SyntaxError` when the user pastes it. Fix: emit `repr(str(venv_dir))` or `json.dumps(str(venv_dir))` so escaping is correct. (`install.py:189-190`)
+
+- **`--source-type` argparse `choices` may drift from values actually stored in `documents.source_type`** — argparse rejects valid values present in older databases (or accepts values no longer produced) because the choices list and the column are two unsynchronised sources of truth. Fix: derive choices from `SELECT DISTINCT source_type FROM documents` at runtime, or add a `CHECK` constraint to `index.sql` that pins the vocabulary. (`tools/search.py:70`)
+
+- **`caveman-reminder.py` verbosity patterns `[,!]` miss period endings** — `r"\bCertainly[,!]"`, `r"\bAbsolutely[,!]"`, and `r"\bOf course[,!]"` won't match the most common shapes ("Certainly.", "Of course."). Fix: `[,!.]` or drop the punctuation requirement (`\b` boundary alone). (`hooks/caveman-reminder.py:29-34`)
+
+- **TOCTOU race on `.claude/state/last-search`** — `search_was_recent()` calls `STATE_FILE.exists()` then `STATE_FILE.stat().st_mtime`; if another process deletes the file between the two operations the second call raises `FileNotFoundError` and the gate exits with the wrong code. Fix: wrap `stat()` in `try/except OSError` and return `False` on miss. (`hooks/search-first.py:79-82`)
+
+- **`.gitignore` doesn't ignore venv directories** — none of `.venv/`, `venv/`, `env/`, or `app/.venv/` are listed despite being the exact paths `install.py` searches for; a contributor running `python -m venv .venv` here can accidentally commit hundreds of MB. Fix: add the four dir names to `.gitignore`. (`.gitignore`)
+
+- **Vectors stored in native byte order — `index.db` is not portable across endianness** — `np.float32 .tobytes()` writes host-native bytes; `np.frombuffer(..., dtype=np.float32)` reads with the host's endianness. A db built on little-endian and read on big-endian (POWER, s390x, some embedded ARM) returns silently wrong cosine scores. Fix: pin dtype to `<f4` (little-endian) on both write and read paths. (`tools/embeddings.py:296`, `tools/search.py:46`)
+
+- **`enumerate_sources()` aborts the entire refresh on a single permission-denied directory** — `path.rglob("*")` propagates `PermissionError` from a single unreadable subtree, killing the run and leaving the index stale. Fix: wrap each per-source enumeration in `try/except OSError`, log a warning, and continue. (`tools/embeddings.py:173`)
+
+- **Heading-dedup `_2` suffix can collide with a literal `## Foo_2` in the same file** — the dedup logic introduced in Round 2 renames repeats to `Foo_2`, but if the source already contains `## Foo_2` literally, both end up with identical `(source_path, source_key)` and the UPSERT silently overwrites. Fix: pre-scan all heading keys for the file and only suffix when the candidate is free, or use an ordinal scheme (`Foo#2`) using a character that cannot appear in a markdown heading. (`tools/embeddings.py:94-99`)
+
+- **`chunk_sql` splits on `;` inside SQL line comments** — `re.split(r";\s*\n", src)` treats a `-- explanation; with semicolon\n` as a statement boundary; the next real statement loses its `CREATE TABLE` / `CREATE INDEX` prefix and is keyed as `stmt:<hash>` instead of `table:foo`, hurting search quality. Fix: strip line-comments before splitting, or use a real SQL tokeniser. (`tools/embeddings.py:136`)
+
 ---
 
 ## Features

@@ -74,7 +74,7 @@ def main() -> int:
     # Touch state file so the search-first hook knows a search just ran.
     state = BASE / ".claude" / "state"
     state.mkdir(parents=True, exist_ok=True)
-    (state / "last-search").write_text(args.query + "\n")
+    (state / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
     results = search(args.query, k=args.k, source_type=args.source_type)
     if args.json:

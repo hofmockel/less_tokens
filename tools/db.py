@@ -47,7 +47,7 @@ def init() -> int:
         print(f"ERROR: {SCHEMA_FILE} missing", file=sys.stderr)
         return 1
     with connect_index() as c:
-        c.executescript(SCHEMA_FILE.read_text())
+        c.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
     print(f"Initialized {INDEX_DB.name}")
     return 0
 
