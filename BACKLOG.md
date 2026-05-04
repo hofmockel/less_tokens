@@ -12,8 +12,14 @@ Open a [GitHub Issue](../../issues) using the appropriate template. If the maint
 **Picking up work?**
 Choose an item from High Priority, assign yourself in the corresponding Issue, and open a PR when ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
-**When work ships:**
-Remove the item from this file and add an entry to [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`.
+**When work ships — required lifecycle:**
+
+Every completed item must follow this two-step transition before the PR merges. Items are not "done" until both steps are done. Skipping either step leaves the backlog stale and the changelog incomplete.
+
+1. **Document it in [CHANGELOG.md](CHANGELOG.md).** Add an entry under `[Unreleased]` in the appropriate Keep-a-Changelog section (`### Added` / `### Changed` / `### Fixed` / `### Removed` / `### Deprecated` / `### Security`). Write the entry from the user's perspective — what changed for them, not what files were touched.
+2. **Delete it from this file.** Remove the entry entirely. Do not strike it through, do not leave a "DONE" marker — the absence is the signal. The git history preserves the prior text if anyone needs to recover it.
+
+The README is the source of truth for what the project *is today*; the backlog is the source of truth for what it *isn't yet*. Anything appearing in both is a bookkeeping bug — fix it by removing the backlog entry.
 
 **Priority definitions:**
 
@@ -304,8 +310,6 @@ Gaps and inaccuracies found in existing docs.
 - **No explanation of what Claude does when `search.py` returns no results** — the README mentions the fallback conditions for using `Read` directly but doesn't explain whether the gate is automatically lifted or whether Claude must explicitly detect the empty result
 
 - **CHANGELOG uses Keep a Changelog version format but `chunk_changelog` expects date-only headers** — there is no note in the CHANGELOG or in `embeddings.py` that the chunker's date-pattern regex won't match the `## [version] - date` format; developers adding changelog entries won't know the index is silently not splitting them correctly
-
-- **README "Repository layout" section is missing `caveman/caveman.md` description** — the file tree lists `caveman/caveman.md` with the label `# CLAUDE.md snippet for terse output` but doesn't explain *how* it is activated (append to CLAUDE.md) the way the other files explain their purpose inline
 
 ---
 
