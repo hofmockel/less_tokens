@@ -23,6 +23,90 @@ Remove the item from this file and add an entry to [CHANGELOG.md](CHANGELOG.md) 
 | **Medium** | Important but less urgent; may need more design thought |
 | **Low / Ideas** | Worth tracking, no commitment to timeline |
 ---
+
+## Multi-Agent Expansion
+
+### What is already agent-agnostic
+
+Code inspection shows a clean split. Everything in `tools/` has zero Claude dependencies:
+
+| Component | Claude-specific? | Notes |
+|---|---|---|
+| `tools/embeddings.py` | No | Pure Python chunking + fastembed + SQLite |
+| `tools/search.py` | One line | Writes state to `.claude/state/last-search` — trivially abstracted |
+| `tools/db.py` | No | Pure SQLite helper |
+| `tools/search_config.py` | No | Config only; `.claude/` appears as an exclusion rule, not a dependency |
+| `schema/index.sql` | No | Pure SQL |
+| `caveman/caveman.md` | Format only | The instruction concept works in any LLM system prompt; only the filename/location is Claude-specific |
+| `hooks/` (all three) | Yes | Entirely built on Claude Code's `PreToolUse`/`PostToolUse` protocol, stdin JSON, exit-code 2, and `.claude/settings.local.json` |
+| `install.py` | Partially | Copies to `.claude/hooks/`; references `CLAUDE.md` and `settings.local.json` |
+
+The `tools/` core is already a portable library. Only the hook layer is Claude-specific.
+
+---
+
+### Prerequisite: decouple state file from `.claude/`
+
+Before any adapter can be built, `search.py` must stop writing to `.claude/state/last-search`. The state directory should move to a neutral location (e.g. `.less_tokens/state/`) configured in `search_config.py`, with `.claude/state/` as the default for backwards compatibility. This is the only code change needed to make `tools/` fully agent-agnostic. (`tools/search.py:73–75`, `hooks/search-first.py:43`)
+
+---
+
+### Adapter: Cursor
+
+Cursor reads instruction rules from `.cursor/rules/*.mdc` and supports MCP servers. Two integration points:
+
+- **Rules file** — `adapters/cursor/search-before-read.mdc`: equivalent of the CLAUDE.md "Search Before Read" section in Cursor's rules format. Instructs the agent to call `search.py` before opening indexed files.
+- **MCP server** — wrap `search.py` as a one-tool MCP server (`adapters/cursor/mcp-search/`). Cursor can invoke it natively, removing the need for any hook machinery. The tool definition accepts a query string and returns the top-k chunks as JSON.
+- **Caveman adapter** — `adapters/cursor/caveman.mdc`: terse output instruction in Cursor rules format.
+
+**New files:** `adapters/cursor/search-before-read.mdc`, `adapters/cursor/caveman.mdc`, `adapters/cursor/mcp-search/server.py`
+
+---
+
+### Adapter: GitHub Copilot
+
+Copilot reads a repository-level instruction file at `.github/copilot-instructions.md`. No hook system exists, so the integration is instruction-only:
+
+- **Instructions file** — `adapters/copilot/copilot-instructions.md`: search-before-read and caveman instructions in Copilot's expected format. Users append or symlink into `.github/copilot-instructions.md`.
+- **Limitation**: no equivalent of `PreToolUse` exists in Copilot, so the search-first gate cannot be enforced programmatically — it is advisory only.
+
+**New files:** `adapters/copilot/copilot-instructions.md`
+
+---
+
+### Adapter: Cline / Roo
+
+Cline and Roo read project rules from `.clinerules` (Cline) or `.roo/rules/*.md` (Roo). Both support custom tool definitions that can call local scripts:
+
+- **Rules file** — `adapters/cline/clinerules`: search-before-read and caveman instructions.
+- **Custom tool** — Cline supports MCP tool definitions; same MCP server built for Cursor can be reused.
+
+**New files:** `adapters/cline/clinerules`, `adapters/roo/rules/search-before-read.md`
+
+---
+
+### Adapter: Continue.dev
+
+Continue has a context provider system (`~/.continue/config.json`) that can call arbitrary scripts and inject their output into the prompt. This maps cleanly onto `search.py`:
+
+- **Context provider** — `adapters/continue/search-provider.py`: a Continue custom context provider that calls `search.py` with the user's query and returns chunks. Users register it in `config.json`.
+- **System message** — `adapters/continue/system-message.md`: caveman and search-before-read instructions for Continue's `systemMessage` field.
+
+**New files:** `adapters/continue/search-provider.py`, `adapters/continue/system-message.md`, `adapters/continue/README.md`
+
+---
+
+### Adapter: Generic Python / LLM API
+
+For teams calling the Anthropic, OpenAI, or Gemini API directly (LangChain, LlamaIndex, AutoGen, CrewAI, or raw SDK):
+
+- **Importable library** — expose `from less_tokens import search` so any agent framework can call it as a tool without subprocess overhead. Requires packaging `tools/` as a proper module with `__init__.py`.
+- **Tool definition templates** — `adapters/api/tool_definitions.py`: ready-made tool schemas in Anthropic, OpenAI, and Gemini function-calling formats so the search function can be registered as a callable tool in one line.
+- **Caveman system prompt** — `adapters/api/system_prompts.py`: `CAVEMAN_PROMPT` string constant importable into any system prompt construction.
+
+**New files:** `tools/__init__.py`, `adapters/api/tool_definitions.py`, `adapters/api/system_prompts.py`
+
+---
 ## Bug-Hunt Protocol
 
 How to decide when to run another hunt vs stop and fix. Eyeball-driven (no metric scripts); the rubric below keeps the eyeball calibrated.
