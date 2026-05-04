@@ -1,0 +1,44 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Check [open issues](../../issues) first to avoid duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the limitation or pain point you're experiencing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen? Be as specific as you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought of?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Vector search / embeddings
+        - Caveman mode
+        - Installer
+        - Hooks
+        - Configuration
+        - Documentation
+        - Other
+    validations:
+      required: true
