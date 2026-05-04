@@ -311,6 +311,33 @@ Gaps and inaccuracies found in existing docs.
 
 Candidate token-reduction approaches not yet implemented. Each targets a different part of the token budget. Evaluate and promote to High Priority once design is agreed.
 
+### Strategy 6 — Tiered Model + Effort
+
+**Concept:** Token cost has two independent levers — the *model* chosen and the *effort* the agent applies (output length, table rendering, reasoning depth, tool call count). Pairing the right model with the right effort level for the task type compounds savings: using Haiku at minimal effort on mechanical work costs a fraction of using Opus at full effort.
+
+**Three tiers:**
+
+| Tier | Model | Effort | Trigger examples |
+|---|---|---|---|
+| **L1 Mechanical** | `claude-haiku-4-5` | Minimal — one confirmation, no tables, no summaries | Index refresh, ledger adds, file renames, status checks |
+| **L2 Rules** | `claude-sonnet-4-6` | Medium — result + brief reasoning, tables only if ≥3 rows | Search queries, config edits, doc updates, bug fixes |
+| **L3 Planning** | `claude-opus-4-7` | Full — analysis, options, tradeoffs | Architecture decisions, new strategies, refactors, reviews |
+
+**Proactive suggestion:** Before each task, the agent emits one line stating the recommended tier and why — but only when the tier changes from the previous turn: `"L1 — recommend /model haiku, minimal effort."` Silence when the tier holds.
+
+**Implementation:**
+
+- `caveman/tier-matrix.md` — the canonical tier-trigger matrix for this project, adapted from the concept above. Lists task types mapped to L1/L2/L3. Appended to `CLAUDE.md` like `caveman.md`.
+- `search_config.py` addition — `AGENT_TIER_HINTS: bool = True` flag to enable/disable the proactive suggestion line. When disabled, effort calibration still applies but the suggestion is suppressed.
+- Aligns with and extends the `AGENT_MODEL` config variable proposed in the Model Strategy section — tier selection sets both the recommended model alias and the effort ceiling in one declaration.
+
+**Expected savings:** L1 tasks routed to Haiku at minimal effort are ~10–20× cheaper per turn than the same task on Opus at full effort. On a typical session mixing mechanical and planning work, overall cost drops 50–70% versus using a single mid-tier model throughout.
+
+**New files:** `caveman/tier-matrix.md`
+**Modified files:** `search_config.py`, `caveman/caveman.md` (cross-reference)
+
+---
+
 ### Strategy 3 — Tool Output Truncation
 
 **Problem:** Tool results (Bash output, file reads, web fetches) can dump thousands of tokens into the context even when only a few lines are relevant. Claude currently receives the full output every time.
