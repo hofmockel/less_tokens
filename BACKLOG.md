@@ -313,28 +313,47 @@ Candidate token-reduction approaches not yet implemented. Each targets a differe
 
 ### Strategy 6 — Tiered Model + Effort
 
-**Concept:** Token cost has two independent levers — the *model* chosen and the *effort* the agent applies (output length, table rendering, reasoning depth, tool call count). Pairing the right model with the right effort level for the task type compounds savings: using Haiku at minimal effort on mechanical work costs a fraction of using Opus at full effort.
+**Concept:** Token cost has two independent levers — the *model* chosen and the *effort* the agent applies (output length, reasoning depth, tool call count). These levers are orthogonal and compound: routing a mechanical task to a fast/cheap model *and* constraining effort multiplies the saving. The tier abstraction maps task complexity to the right combination of both, regardless of which provider or model family is in use.
 
-**Three tiers:**
+**Three abstract tiers:**
 
-| Tier | Model | Effort | Trigger examples |
-|---|---|---|---|
-| **L1 Mechanical** | `claude-haiku-4-5` | Minimal — one confirmation, no tables, no summaries | Index refresh, ledger adds, file renames, status checks |
-| **L2 Rules** | `claude-sonnet-4-6` | Medium — result + brief reasoning, tables only if ≥3 rows | Search queries, config edits, doc updates, bug fixes |
-| **L3 Planning** | `claude-opus-4-7` | Full — analysis, options, tradeoffs | Architecture decisions, new strategies, refactors, reviews |
+| Tier | Effort | Trigger examples |
+|---|---|---|
+| **L1 Mechanical** | Minimal — one confirmation, no tables, no summaries | File operations, index refresh, status checks, renames |
+| **L2 Rules** | Medium — result + brief reasoning, tables only if ≥3 rows | Search queries, config edits, doc updates, targeted bug fixes |
+| **L3 Planning** | Full — analysis, options, tradeoffs | Architecture decisions, new strategies, refactors, reviews |
 
-**Proactive suggestion:** Before each task, the agent emits one line stating the recommended tier and why — but only when the tier changes from the previous turn: `"L1 — recommend /model haiku, minimal effort."` Silence when the tier holds.
+**Provider profiles** — each profile maps abstract tiers to concrete model IDs. Users set `PROVIDER_PROFILE` in `search_config.py`; the system resolves L1/L2/L3 to real model names at runtime:
+
+| Tier | Anthropic | OpenAI | Google | Mistral | Local (Ollama) |
+|---|---|---|---|---|---|
+| L1 | `claude-haiku-4-5` | `gpt-4o-mini` | `gemini-2.0-flash` | `mistral-small` | `llama3.2:3b` |
+| L2 | `claude-sonnet-4-6` | `gpt-4o` | `gemini-2.0-pro` | `mistral-medium` | `llama3.1:8b` |
+| L3 | `claude-opus-4-7` | `o3` | `gemini-2.0-ultra` | `mistral-large` | `llama3.1:70b` |
+
+**Proactive suggestion:** Before each task the agent emits one line stating the recommended tier — but only when it changes from the prior turn: `"L1 — recommend fast model, minimal effort."` Provider-neutral wording so the hint works regardless of which profile is active. Silence when the tier holds.
+
+**Model-switching mechanism varies by provider/tool:**
+
+| Environment | How to switch |
+|---|---|
+| Claude Code | `/model <alias>` slash command |
+| Cursor | Model picker in UI; `model` field in `.cursor/rules` |
+| OpenAI API | `model` parameter per request |
+| Ollama | `model` parameter or env var |
+| LangChain / LlamaIndex | Swap the `llm=` constructor argument |
 
 **Implementation:**
 
-- `caveman/tier-matrix.md` — the canonical tier-trigger matrix for this project, adapted from the concept above. Lists task types mapped to L1/L2/L3. Appended to `CLAUDE.md` like `caveman.md`.
-- `search_config.py` addition — `AGENT_TIER_HINTS: bool = True` flag to enable/disable the proactive suggestion line. When disabled, effort calibration still applies but the suggestion is suppressed.
-- Aligns with and extends the `AGENT_MODEL` config variable proposed in the Model Strategy section — tier selection sets both the recommended model alias and the effort ceiling in one declaration.
+- `tools/provider_profiles.py` — the canonical profile registry. Ships with Anthropic, OpenAI, Google, Mistral, and Ollama profiles. Users add custom profiles or override individual tier entries without editing the file (via `search_config.py` overrides).
+- `caveman/tier-matrix.md` — task-type → tier mapping, provider-neutral. Appended to the agent's system prompt / `CLAUDE.md` like `caveman.md`.
+- `search_config.py` additions — `PROVIDER_PROFILE: str = "anthropic"`, `AGENT_TIER_HINTS: bool = True`, plus an optional `TIER_OVERRIDES` dict for per-project customisation.
+- Extends the `AGENT_MODEL` variable already proposed in the Model Strategy section — tier selection resolves both model and effort ceiling from a single L1/L2/L3 declaration.
 
-**Expected savings:** L1 tasks routed to Haiku at minimal effort are ~10–20× cheaper per turn than the same task on Opus at full effort. On a typical session mixing mechanical and planning work, overall cost drops 50–70% versus using a single mid-tier model throughout.
+**Expected savings:** L1 tasks on a fast model at minimal effort cost 10–20× less per turn than the equivalent on a flagship model at full effort. On a mixed session the blended reduction is 50–70%.
 
-**New files:** `caveman/tier-matrix.md`
-**Modified files:** `search_config.py`, `caveman/caveman.md` (cross-reference)
+**New files:** `tools/provider_profiles.py`, `caveman/tier-matrix.md`
+**Modified files:** `search_config.py`, `caveman/caveman.md` (cross-reference), `adapters/api/system_prompts.py` (tier hint prompt)
 
 ---
 
