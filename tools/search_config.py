@@ -1,7 +1,5 @@
 """Portable search/embeddings configuration — the only file to edit when
 transplanting the vector-search system to a new codebase.
-
-See less_tokens.md for the full porting checklist.
 """
 import sys
 from pathlib import Path

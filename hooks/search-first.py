@@ -5,7 +5,9 @@ Receives the tool call JSON on stdin. Exits 2 with a stderr message to feed
 back to the model when an indexed file is being Read without a recent search.
 The agent can satisfy the gate by running:
 
-    app/.venv/bin/python tools/search.py "QUERY"
+    <VENV_PY> tools/search.py "QUERY"
+
+where VENV_PY is configured in tools/search_config.py.
 
 That touches .claude/state/last-search; subsequent Reads within WINDOW_SECONDS
 are allowed.
@@ -35,6 +37,7 @@ from search_config import (  # noqa: E402
     EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
     INDEXED_ROOT_GLOBS,
     INDEXED_SOURCE_DIRS as INDEXED_DIRS,
+    VENV_PY,
 )
 
 STATE_FILE = REPO / ".claude" / "state" / "last-search"
@@ -84,7 +87,7 @@ def main() -> int:
     msg = (
         f"Search-first rule (CLAUDE.md): {rel} is indexed.\n"
         f"Run vector search before Read:\n"
-        f"  app/.venv/bin/python tools/search.py \"<your query>\"\n"
+        f"  {VENV_PY} tools/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
         f"{WINDOW_SECONDS}s. If you need to edit this file, search first to "
         f"satisfy the gate, then Read + Edit normally."

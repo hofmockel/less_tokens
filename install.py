@@ -2,13 +2,25 @@
 """Install less_tokens into the current project.
 
 Run from your project root:
-    python3 path/to/export_less_tokens/install.py [--force] [--venv PATH]
+    # macOS / Linux
+    python3 path/to/less_tokens_claude/install.py [options]
+
+    # Windows
+    python path/to/less_tokens_claude/install.py [options]
 
 What it does:
-  1. Copies tools/, schema/, hooks/ into your project (skips existing files unless --force)
+  1. Copies tools/, schema/, hooks/, and caveman/ into your project
   2. Detects or accepts --venv PATH; installs fastembed + numpy into it
   3. Initializes index.db from schema/index.sql
-  4. Builds the first index
+  4. Optionally builds the first index (skipped by default — configure first)
+
+Options:
+  --force        overwrite existing files in target
+  --venv PATH    path to virtualenv (auto-detected if omitted)
+  --skip-deps    skip pip install step
+  --skip-build   skip initial index build (default; run embeddings.py refresh manually)
+  --build        run initial index build after install
+  --caveman      copy caveman/ directory and wire caveman-reminder hook
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
@@ -102,16 +114,24 @@ def build_index(venv_py: Path) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--force", action="store_true",
                     help="overwrite existing files in target")
     ap.add_argument("--venv", type=Path,
                     help="path to virtualenv (auto-detected if omitted)")
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
-    ap.add_argument("--skip-build", action="store_true",
-                    help="skip initial index build (run embeddings.py refresh manually later)")
+    ap.add_argument("--skip-build", action="store_true", default=True,
+                    help="skip initial index build (default; configure search_config.py first)")
+    ap.add_argument("--build", action="store_true",
+                    help="run initial index build (overrides --skip-build)")
+    ap.add_argument("--caveman", action="store_true",
+                    help="copy caveman/ directory (terse output mode for Claude)")
     args = ap.parse_args()
+
+    # --build overrides the default --skip-build
+    do_build = args.build and not args.skip_build or args.build
 
     print(f"Installing less_tokens into {TARGET_ROOT}")
     print(f"Source: {SOURCE}\n")
@@ -126,12 +146,16 @@ def main() -> int:
     copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", args.force, "schema/")
     copy_tree(SOURCE / "hooks", TARGET_ROOT / ".claude" / "hooks",
               args.force, ".claude/hooks/")
+    if args.caveman:
+        copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman", args.force, "caveman/")
 
     venv_dir = args.venv or detect_venv()
     if venv_dir is None:
         print("\nNo venv detected at .venv, venv, env, or app/.venv.")
-        print("Pass --venv PATH or create a venv and re-run with --skip-deps:")
-        print("    python3 -m venv .venv")
+        print("Pass --venv PATH or create a venv first:")
+        print("    python3 -m venv .venv    # macOS/Linux")
+        print("    python -m venv .venv     # Windows")
+        print("Then re-run the installer.")
         return 0 if args.skip_deps else 1
 
     venv_py = venv_python(venv_dir)
@@ -147,17 +171,31 @@ def main() -> int:
     if init_db(venv_py) != 0:
         return 1
 
-    if not args.skip_build:
+    if do_build:
         if build_index(venv_py) != 0:
             return 1
+    else:
+        print("\n[4/4] Skipping initial index build (configure first, then build manually).")
 
     print("\nDone.")
-    print(f"\nNext steps:")
-    print(f"  1. Edit tools/search_config.py for your project layout")
-    print(f"     (especially VENV_PY if your venv isn't at {venv_dir.name})")
-    print(f"  2. Add the 'Search Before Read' section to CLAUDE.md")
-    print(f"  3. Wire hooks into .claude/settings.local.json (see README.md)")
-    print(f"  4. Try: {venv_py} tools/search.py \"your query\"")
+    print("\n" + "="*60)
+    print("NEXT STEPS")
+    print("="*60)
+    print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
+    print(f"   Change the VENV_PY line to:")
+    print(f'       VENV_PY = _venv_python("{venv_dir}")')
+    print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
+    print(f"\n2. Build the index:")
+    print(f"       {venv_py} tools/embeddings.py refresh")
+    print(f"\n3. Test search:")
+    print(f"       {venv_py} tools/search.py \"your query here\"")
+    print(f"\n4. Wire hooks into .claude/settings.local.json (see README.md).")
+    print(f"   Use this python path in your hook commands:")
+    print(f"       {venv_py}")
+    if args.caveman:
+        print(f"\n5. Append caveman mode to your CLAUDE.md:")
+        print(f"       cat caveman/caveman.md >> CLAUDE.md")
+    print()
     return 0
 
 
