@@ -1,0 +1,10 @@
+[project]
+name = "less-tokens-mcp-search"
+version = "0.1.0"
+description = "MCP stdio server exposing less_tokens vector search to Cline / other MCP clients"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "fastembed>=0.3.0",
+    "numpy>=1.26.0",
+]

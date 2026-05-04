@@ -143,14 +143,14 @@ Copilot reads a repository-level instruction file at `.github/copilot-instructio
 
 ---
 
-### Adapter: Cline / Roo
+### Adapter: Roo
 
-Cline and Roo read project rules from `.clinerules` (Cline) or `.roo/rules/*.md` (Roo). Both support custom tool definitions that can call local scripts:
+Roo reads project rules from `.roo/rules/*.md` and can call MCP tools. The same MCP search server built for Cline (`adapters/cline/mcp-search/server.py`) should drop in directly; only the rules-file location and naming differ.
 
-- **Rules file** — `adapters/cline/clinerules`: search-before-read and caveman instructions.
-- **Custom tool** — Cline supports MCP tool definitions; same MCP server built for Cursor can be reused.
+- **Rules files** — `adapters/roo/rules/01-search-before-read.md`, `02-caveman.md` — port the Cline equivalents to Roo's directory layout.
+- **MCP server** — reuse `adapters/cline/mcp-search/server.py` unchanged.
 
-**New files:** `adapters/cline/clinerules`, `adapters/roo/rules/search-before-read.md`
+**New files:** `adapters/roo/rules/01-search-before-read.md`, `adapters/roo/rules/02-caveman.md`, `adapters/roo/install-roo.py`
 
 ---
 
@@ -363,15 +363,16 @@ Candidate token-reduction approaches not yet implemented. Each targets a differe
 
 ---
 
-### Strategy 4 — Prompt Caching
+### Strategy 4 — Prompt Caching *(deferred — likely redundant with Claude Code defaults)*
 
-**Problem:** On every Claude Code session the system prompt, `CLAUDE.md`, and any large context blocks (architecture docs, schema files) are re-sent in full, consuming thousands of input tokens even though they haven't changed.
+**Original problem:** On every Claude Code session the system prompt, `CLAUDE.md`, and any large context blocks (architecture docs, schema files) are re-sent in full, consuming thousands of input tokens even though they haven't changed.
 
-**Approach:** Structure the system prompt and `CLAUDE.md` to take advantage of [Anthropic's prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — place stable, large blocks at the top of the context in the cacheable position. Provide a `cache-primer.py` script users run at session start to warm the cache with their most-read files, so subsequent calls hit the 5-minute cache window instead of re-encoding. Document the cache TTL and how to structure CLAUDE.md for maximum hit rate.
+**Why deferred:** Claude Code already uses Anthropic's prompt caching automatically for the system prompt and `CLAUDE.md` — adding a manual `cache-primer.py` would mostly duplicate built-in behavior. Revisit only if either of these becomes true:
 
-**Expected savings:** Up to 90% cost reduction on the cached portion of input tokens for sessions longer than one turn. Cache hits are also ~2× faster to process.
+- Measurement on a real session shows the auto-cache is missing meaningful content (large doc files Claude reads every turn that don't fit the auto-cached prefix).
+- An adapter for an LLM consumer that *doesn't* auto-cache (e.g. raw Anthropic SDK users via `adapters/api/`) needs explicit cache structuring guidance — at which point this becomes adapter-scoped, not a global Strategy.
 
-**New files:** `cache/cache-primer.py`, `cache/README.md` with CLAUDE.md structuring guidance.
+**Original approach (kept for reference):** Structure the system prompt and `CLAUDE.md` to take advantage of [Anthropic's prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — place stable, large blocks at the top of the context in the cacheable position. Provide a `cache-primer.py` script users run at session start to warm the cache with their most-read files. Up to 90% reduction on the cached portion when the auto-cache *isn't* doing the job already.
 
 ---
 

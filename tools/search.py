@@ -21,7 +21,7 @@ BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed  # noqa: E402
-from search_config import SOURCE_TYPES  # noqa: E402
+from search_config import SOURCE_TYPES, STATE_DIR  # noqa: E402
 
 DEFAULT_K = 3
 
@@ -77,9 +77,8 @@ def main() -> int:
     args = ap.parse_args()
 
     # Touch state file so the search-first hook knows a search just ran.
-    state = BASE / ".claude" / "state"
-    state.mkdir(parents=True, exist_ok=True)
-    (state / "last-search").write_text(args.query + "\n", encoding="utf-8")
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    (STATE_DIR / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
     results = search(args.query, k=args.k, source_type=args.source_type)
     if args.json:
