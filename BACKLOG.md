@@ -101,7 +101,7 @@ Code inspection shows a clean split. Everything in `tools/` has zero Claude depe
 | `tools/search_config.py` | No | Config only; `.claude/` appears as an exclusion rule, not a dependency |
 | `schema/index.sql` | No | Pure SQL |
 | `caveman/caveman.md` | Format only | The instruction concept works in any LLM system prompt; only the filename/location is Claude-specific |
-| `hooks/` (all three) | Yes | Entirely built on Claude Code's `PreToolUse`/`PostToolUse` protocol, stdin JSON, exit-code 2, and `.claude/settings.local.json` |
+| `hooks/` (all five) | Yes | Entirely built on Claude Code's `PreToolUse`/`PostToolUse` protocol, stdin JSON, exit-code 2, and `.claude/settings.local.json` |
 | `install.py` | Partially | Copies to `.claude/hooks/`; references `CLAUDE.md` and `settings.local.json` |
 
 The `tools/` core is already a portable library. Only the hook layer is Claude-specific.
@@ -233,13 +233,7 @@ The installer currently has several places where re-running it or upgrading can 
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **`schema/index.sql` comment describes wrong model and dimension** — line 17 reads `-- float32[1024], voyage-3-lite output` but the actual model is `BAAI/bge-small-en-v1.5` producing 384-dim vectors. Misleads anyone reading the schema. (`schema/index.sql:17`)
-
 - **`chunk_changelog` regex won't match this repo's own CHANGELOG** — the splitter expects `## YYYY-MM-DD` but Keep a Changelog format (and our `CHANGELOG.md`) uses `## [0.2.0] - 2026-05-03`. Every version section silently falls back to `chunk_markdown`, losing the date-based key structure. (`tools/embeddings.py:147`)
-
-- **`search.py` comment references `voyage_embed`** — line 45 reads `# Embeddings already normalized in storage; query normalized in voyage_embed.` — `voyage_embed` doesn't exist; the function is `embed`. Stale copy-paste from a previous implementation. (`tools/search.py:45`)
-
-- **`search-first.py` docstring still shows `python3` in hook config** — the docstring example on lines 19–23 still uses `"command": "python3 .claude/hooks/search-first.py"` which breaks on Windows. The runtime message was fixed but the docstring was not. (`hooks/search-first.py:22`)
 
 - **`is_indexed()` exclusion logic differs between `search-first.py` and `index-refresh.py`** — `search-first.py` uses `("/" + d) in ("/" + rel) or rel.startswith(d)` which matches excluded names anywhere in the path; `index-refresh.py` uses only `rel.startswith(d)`. The two hooks will disagree on whether mid-path excluded directories are blocked. (`hooks/search-first.py:49`, `hooks/index-refresh.py:37`)
 
@@ -247,25 +241,11 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 - **`db.py` `verify()` interpolates table name directly into SQL** — `f"SELECT COUNT(*) FROM {r[0]}"` constructs SQL from `sqlite_master` output without sanitization. Low real-world risk but bad practice; should use a whitelist or quoted identifier. (`tools/db.py:64`)
 
-- **`index-refresh.py` imports `VENV_PY` with a needless alias** — `VENV_PY as _VENV_PY` is immediately re-assigned to `VENV_PY = _VENV_PY` on the next line. The alias serves no purpose and adds confusion. (`hooks/index-refresh.py:27–29`)
-
-- **`search.py` raises uncaught `sqlite3.OperationalError` when `index.db` is missing or uninitialised** — only `RuntimeError` from `embed()` is caught; if the DB hasn't been initialised or the `documents` table is missing, the query path raises an exception instead of returning empty results. Fix: wrap the `c.execute(...)` block in `try/except sqlite3.OperationalError`, return `[]` with a stderr advisory. (`tools/search.py:35-41`)
-
 - **`start_new_session=True` is a no-op on Windows in `index-refresh.py`** — `subprocess.Popen(..., start_new_session=True)` is documented as POSIX-only; on Windows the kwarg is ignored and the child remains attached to the parent, defeating the detach intent. Fix: branch on `sys.platform`; on Windows pass `creationflags=subprocess.DETACHED_PROCESS` (or `CREATE_NEW_PROCESS_GROUP`) instead. (`hooks/index-refresh.py:72`)
-
-- **`datetime.utcnow()` is deprecated in Python 3.12+** — emits `DeprecationWarning` on every refresh and is slated for removal. Fix: `datetime.now(timezone.utc).isoformat()`. (`tools/embeddings.py:283`)
-
-- **README documents removed `--skip-build` flag** — the quickstart instructs `python3 install.py --skip-build`; that flag was removed in commit 7507796 and now raises `error: unrecognized arguments: --skip-build`. The default behaviour is already to skip build (`--build` is the opt-in). Fix: drop `--skip-build` from README quickstart and any examples. (`README.md:61`, `README.md:64`)
 
 - **Venv path containing `"` produces invalid Python in printed `VENV_PY` line** — `f'       VENV_PY = _venv_python("{venv_dir}")'` interpolates the path raw; a path with an embedded `"` yields a `SyntaxError` when the user pastes it. Fix: emit `repr(str(venv_dir))` or `json.dumps(str(venv_dir))` so escaping is correct. (`install.py:189-190`)
 
 - **`--source-type` argparse `choices` may drift from values actually stored in `documents.source_type`** — argparse rejects valid values present in older databases (or accepts values no longer produced) because the choices list and the column are two unsynchronised sources of truth. Fix: derive choices from `SELECT DISTINCT source_type FROM documents` at runtime, or add a `CHECK` constraint to `index.sql` that pins the vocabulary. (`tools/search.py:70`)
-
-- **`caveman-reminder.py` verbosity patterns `[,!]` miss period endings** — `r"\bCertainly[,!]"`, `r"\bAbsolutely[,!]"`, and `r"\bOf course[,!]"` won't match the most common shapes ("Certainly.", "Of course."). Fix: `[,!.]` or drop the punctuation requirement (`\b` boundary alone). (`hooks/caveman-reminder.py:29-34`)
-
-- **TOCTOU race on `.claude/state/last-search`** — `search_was_recent()` calls `STATE_FILE.exists()` then `STATE_FILE.stat().st_mtime`; if another process deletes the file between the two operations the second call raises `FileNotFoundError` and the gate exits with the wrong code. Fix: wrap `stat()` in `try/except OSError` and return `False` on miss. (`hooks/search-first.py:79-82`)
-
-- **`.gitignore` doesn't ignore venv directories** — none of `.venv/`, `venv/`, `env/`, or `app/.venv/` are listed despite being the exact paths `install.py` searches for; a contributor running `python -m venv .venv` here can accidentally commit hundreds of MB. Fix: add the four dir names to `.gitignore`. (`.gitignore`)
 
 - **Vectors stored in native byte order — `index.db` is not portable across endianness** — `np.float32 .tobytes()` writes host-native bytes; `np.frombuffer(..., dtype=np.float32)` reads with the host's endianness. A db built on little-endian and read on big-endian (POWER, s390x, some embedded ARM) returns silently wrong cosine scores. Fix: pin dtype to `<f4` (little-endian) on both write and read paths. (`tools/embeddings.py:296`, `tools/search.py:46`)
 
@@ -388,18 +368,6 @@ Candidate token-reduction approaches not yet implemented. Each targets a differe
 **Expected savings:** Up to 90% cost reduction on the cached portion of input tokens for sessions longer than one turn. Cache hits are also ~2× faster to process.
 
 **New files:** `cache/cache-primer.py`, `cache/README.md` with CLAUDE.md structuring guidance.
-
----
-
-### Strategy 5 — Conversation Compaction Trigger
-
-**Problem:** As a Claude Code session grows, the conversation history accumulates and input tokens compound with every turn. Users typically don't compact until Claude starts degrading or they hit a wall — by which point thousands of tokens have already been wasted.
-
-**Approach:** A PostToolUse hook that estimates the current conversation size by counting characters in `.claude/state/` session logs and comparing against a configurable threshold. When the threshold is crossed, it exits with code 2 and a message instructing Claude to run `/compact` before the next tool call. This turns compaction from a reactive emergency into a proactive, tunable maintenance step.
-
-**Expected savings:** Highly variable — depends on session length and how much of the history is compactable — but typically 50–70% reduction in input tokens for sessions longer than ~30 turns.
-
-**New files:** `hooks/compact-trigger.py`, one new config variable `MAX_SESSION_CHARS`.
 
 ---
 

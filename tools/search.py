@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -32,19 +33,23 @@ def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> li
         print(f"ERROR: {e}", file=sys.stderr)
         return []
 
-    with connect_index() as c:
-        sql = "SELECT id, source_type, source_path, source_key, text, embedding FROM documents"
-        params: tuple = ()
-        if source_type:
-            sql += " WHERE source_type = ?"
-            params = (source_type,)
-        rows = c.execute(sql, params).fetchall()
+    try:
+        with connect_index() as c:
+            sql = "SELECT id, source_type, source_path, source_key, text, embedding FROM documents"
+            params: tuple = ()
+            if source_type:
+                sql += " WHERE source_type = ?"
+                params = (source_type,)
+            rows = c.execute(sql, params).fetchall()
+    except sqlite3.OperationalError as e:
+        print(f"ERROR: index unavailable ({e}); run `tools/embeddings.py refresh`", file=sys.stderr)
+        return []
 
     if not rows:
         return []
 
     vecs = np.frombuffer(b"".join(r[5] for r in rows), dtype=np.float32).reshape(-1, DIM)
-    # Embeddings already normalized in storage; query normalized in voyage_embed.
+    # Stored vectors and query vector are both L2-normalized in `embed()`, so dot product = cosine similarity.
     scores = vecs @ qvec
     top = np.argsort(-scores)[:k]
     return [

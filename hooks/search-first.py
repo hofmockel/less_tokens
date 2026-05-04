@@ -19,10 +19,13 @@ Configured in .claude/settings.local.json:
         "PreToolUse": [
           {"matcher": "Read",
            "hooks": [{"type": "command",
-                      "command": "python3 .claude/hooks/search-first.py"}]}
+                      "command": "<VENV_PY> .claude/hooks/search-first.py"}]}
         ]
       }
     }
+
+Use the venv python printed by install.py — `python3` does not exist on
+default Windows installs and bypasses the project venv on Unix.
 """
 from __future__ import annotations
 
@@ -77,9 +80,11 @@ def is_indexed(path: Path) -> bool:
 
 
 def search_was_recent() -> bool:
-    if not STATE_FILE.exists():
+    try:
+        mtime = STATE_FILE.stat().st_mtime
+    except OSError:
         return False
-    return (time.time() - STATE_FILE.stat().st_mtime) < WINDOW_SECONDS
+    return (time.time() - mtime) < WINDOW_SECONDS
 
 
 def main() -> int:

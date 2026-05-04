@@ -1,6 +1,6 @@
 # less_tokens
 
-**Cut Claude's token usage with three drop-in strategies: semantic search over your codebase, enforced terse output, and tool result truncation.**
+**Cut Claude's token usage with four drop-in strategies: semantic search over your codebase, enforced terse output, tool result truncation, and proactive session compaction.**
 
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -23,15 +23,16 @@
 
 ## What it does
 
-Claude's token waste comes from three sources: reading entire files when only a few lines are relevant, verbose responses full of filler, and tool results that dump thousands of characters into context. `less_tokens` attacks all three.
+Claude's token waste comes from four sources: reading entire files when only a few lines are relevant, verbose responses full of filler, tool results that dump thousands of characters into context, and conversation history that compounds turn after turn. `less_tokens` attacks all four.
 
 | Strategy | How | Savings |
 |---|---|---|
 | **Vector search** | Pre-embeds your source files; Claude searches before reading | 5–10× fewer input tokens |
 | **Caveman mode** | CLAUDE.md instruction that enforces terse, primitive output | 30–60% fewer output tokens |
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40–80% fewer tool-output tokens |
+| **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions |
 
-All three strategies are opt-in and independent — use any combination.
+All four strategies are opt-in and independent — use any combination.
 
 ### How vector search works
 
@@ -59,13 +60,13 @@ Run the installer from your **project root** — the directory where you want th
 
 ```bash
 # macOS / Linux
-python3 path/to/less_tokens_claude/install.py --skip-build
+python3 path/to/less_tokens_claude/install.py
 
 # Windows
-python path/to/less_tokens_claude/install.py --skip-build
+python path/to/less_tokens_claude/install.py
 ```
 
-> `--skip-build` prevents the index from building before you've configured it. You'll build it manually after setup (step 3 below).
+> By default the installer skips the index build so you can configure `search_config.py` first. Pass `--build` to build immediately (step 3 below covers manual build).
 
 The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into your project, installs `fastembed` and `numpy`, and initializes `index.db`.
 
@@ -79,6 +80,7 @@ The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into 
 | `--build` | Build the index immediately after install |
 | `--caveman` | Also copy `caveman/` for terse output mode |
 | `--truncate` | Print next-steps wiring for the tool output truncation hook |
+| `--compact` | Print next-steps wiring for the conversation compaction trigger hook |
 
 ---
 
@@ -108,6 +110,7 @@ All variables:
 | `MAX_TOOL_OUTPUT_CHARS` | Truncation ceiling for Bash/Read/WebFetch results (set 0 to disable) |
 | `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
+| `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 
 ---
 
@@ -229,6 +232,17 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 
 Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
 
+**Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
+
+```json
+{
+  "matcher": ".*",
+  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/compact-trigger.py"}]
+}
+```
+
+Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). The hook has built-in hysteresis — once tripped it only re-fires after the transcript grows by another 25%, so it won't spam reminders.
+
 ### 3. Optional: session-start preflight
 
 ```bash
@@ -254,7 +268,8 @@ less_tokens_claude/
 │   ├── search-first.py        # PreToolUse: gate Read on indexed files
 │   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
 │   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
-│   └── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
+│   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
+│   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
 └── caveman/
     └── caveman.md             # CLAUDE.md snippet for caveman output style
 ```

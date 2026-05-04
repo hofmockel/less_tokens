@@ -11,6 +11,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Bash output uses head+tail truncation (preserves first 50 + last 20 lines so command start and trailing errors both survive); Read/WebFetch use a 60/40 character split
 - Three new config variables in `tools/search_config.py`: `MAX_TOOL_OUTPUT_CHARS`, `TOOL_OUTPUT_HEAD_LINES`, `TOOL_OUTPUT_TAIL_LINES` (set `MAX_TOOL_OUTPUT_CHARS = 0` to disable without unwiring the hook)
 - `--truncate` flag to `install.py` to print the truncation hook's `settings.local.json` wiring in the next-steps output
+- **Conversation compaction trigger (Strategy 5)** — new `hooks/compact-trigger.py` PostToolUse hook reads the session transcript path from the hook payload, gates on `MAX_SESSION_CHARS` (default 500 KB ≈ 125k tokens), and nudges Claude to run `/compact` when the threshold is crossed; saves 50–70% of input tokens on long sessions
+- Hysteresis state at `.claude/state/compact-trigger-last` ensures the reminder only re-fires after the transcript grows another 25%, so it won't spam every subsequent tool call once tripped
+- New config variable `MAX_SESSION_CHARS` in `tools/search_config.py` (set to 0 to disable)
+- `--compact` flag to `install.py` to print the compaction trigger's `settings.local.json` wiring in the next-steps output
+- `.gitignore` now ignores `.venv/`, `venv/`, `env/`, `app/.venv/` so contributors can't accidentally commit a virtual environment
+
+### Changed
+- `tools/db.py` and `tools/search.py` now pass `encoding="utf-8"` explicitly on text IO so non-ASCII content survives Windows hosts (default cp1252)
+- `hooks/caveman-reminder.py` verbosity patterns also catch `Certainly.`, `Absolutely.`, and `Of course.` (period endings, the most common shape) — previously only matched `,` and `!`
+- `tools/embeddings.py` uses `datetime.now(timezone.utc)` instead of the deprecated `datetime.utcnow()` (Python 3.12+ DeprecationWarning)
+- `hooks/index-refresh.py` drops the redundant `VENV_PY as _VENV_PY` import alias
+
+### Fixed
+- `tools/search.py` now catches `sqlite3.OperationalError` and returns an empty result with a stderr advisory when `index.db` is missing or uninitialised (previously crashed)
+- `hooks/search-first.py` `search_was_recent()` no longer races between `exists()` and `stat()`; `FileNotFoundError` is handled instead of crashing the gate
+- `README.md` quickstart removed the `--skip-build` flag that was deleted from `install.py` in 0.2.0 (the default behaviour is already to skip the build; `--build` is the opt-in)
+- `hooks/search-first.py` docstring example replaced `python3` with the venv-python placeholder so Windows users aren't pointed at a non-existent command
+- `schema/index.sql` `embedding` column comment corrected from `float32[1024], voyage-3-lite output` to reflect the actual model and 384-dim output
+- `tools/search.py` removed a stale comment referencing a non-existent `voyage_embed` function
 
 ## [0.2.0] - 2026-05-03
 

@@ -22,7 +22,7 @@ import ast
 import hashlib
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -280,7 +280,7 @@ def refresh(full: bool = False) -> int:
                 print(f"  embed batch {i // BATCH} failed: {e}", file=sys.stderr)
                 conn.commit()
                 return 1
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             for (st, sp, sk, text, h), v in zip(batch, vecs):
                 conn.execute(
                     """INSERT INTO documents (source_type, source_path, source_key, text,

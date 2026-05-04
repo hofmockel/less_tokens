@@ -24,9 +24,8 @@ sys.path.insert(0, str(REPO / "tools"))
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
     INDEXED_SOURCE_DIRS as INDEXED_DIRS,
-    VENV_PY as _VENV_PY,
+    VENV_PY,
 )
-VENV_PY = _VENV_PY
 
 
 def is_indexed(path: Path) -> bool:

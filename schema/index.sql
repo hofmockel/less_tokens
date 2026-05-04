@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS documents (
   source_key TEXT NOT NULL,          -- section heading, function name, journal date, ledger row id
   text TEXT NOT NULL,
   content_hash TEXT NOT NULL,        -- sha256(text); skip unchanged on refresh
-  embedding BLOB NOT NULL,           -- float32[1024], voyage-3-lite output, raw bytes
+  embedding BLOB NOT NULL,           -- float32[DIM] little-endian, raw bytes (default model: BAAI/bge-small-en-v1.5, DIM=384)
   embedding_model TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE (source_path, source_key)
