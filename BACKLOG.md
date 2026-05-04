@@ -1,6 +1,27 @@
 # Backlog
 
-Prioritized list of planned work. Items move to CHANGELOG.md when shipped.
+## Purpose
+
+This file is the single source of truth for planned work — new features, bug fixes, and improvements that have been identified but not yet started. It exists so that anyone (contributor, maintainer, or user) can see what's coming, understand priorities, and avoid duplicating effort.
+
+## How to use it
+
+**Reporting a bug or requesting a feature?**
+Open a [GitHub Issue](../../issues) using the appropriate template. If the maintainer accepts it, it will be added here.
+
+**Picking up work?**
+Choose an item from High Priority, assign yourself in the corresponding Issue, and open a PR when ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+
+**When work ships:**
+Remove the item from this file and add an entry to [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`.
+
+**Priority definitions:**
+
+| Level | Meaning |
+|---|---|
+| **High** | Clear value, known implementation path — good first targets |
+| **Medium** | Important but less urgent; may need more design thought |
+| **Low / Ideas** | Worth tracking, no commitment to timeline |
 
 ---
 
