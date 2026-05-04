@@ -64,6 +64,24 @@ Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/AIPortfolio/.
 After the agent returns, the operator: (1) assigns each a tier, (2) checks each against the existing table for overlap, (3) scores the three signals, (4) applies the stop rule.
 ---
 
+## Installer: Non-Destructive / Additive Behaviour
+
+The installer currently has several places where re-running it or upgrading can clobber user work. All changes should be **additive by default** — existing customisation is never lost without an explicit opt-in. The six specific cases are documented below as individual work items.
+
+- **`copy_tree --force` silently overwrites customised hook and tool files** — a user who has edited `search-first.py` or `search_config.py` has no warning before `--force` discards their changes. Fix: before overwriting any file that differs from the source, print a diff summary and require an explicit `--overwrite-modified` flag distinct from `--force` (which should only apply to unmodified files). (`install.py:55–76`)
+
+- **`search_config.py` is replaced wholesale instead of merged** — on an upgrade, any new config variables added to the source `search_config.py` (e.g. `WINDOW_SECONDS`, `MAX_TOOL_OUTPUT_CHARS`) will never reach projects that already have the file, and `--force` would wipe user-set values. Fix: parse the existing file's variable names, inject only variables that are absent, leave existing values untouched. This is an upsert at the variable level, not the file level. (`install.py:145`, `tools/search_config.py`)
+
+- **`init_db` has no schema migration path** — `db.py init` runs the full `index.sql` with `CREATE TABLE IF NOT EXISTS`, so it is safe on re-run, but any new columns or indexes added in a future schema version will silently not be applied to existing databases. Fix: introduce a `schema_version` table (already defined in `index.sql` but never written to), record the current version on init, and apply `ALTER TABLE` migration scripts on upgrade. (`tools/db.py:45–51`, `schema/index.sql:4–7`)
+
+- **`.claude/settings.local.json` hook wiring is entirely manual** — the installer prints a block of JSON for the user to paste but does not check whether the hooks are already wired. A second install produces duplicate hook entries if the user pastes again. Fix: read the existing `settings.local.json` if present, merge each hook entry by `matcher + command` identity (upsert), and write the result back — or print "already wired" when the entry is found. (`install.py:192–194`)
+
+- **`caveman/caveman.md` append instruction will duplicate the section on re-run** — the next-steps output tells the user to run `cat caveman/caveman.md >> CLAUDE.md`, but there is no guard against running that twice. Fix: the installer (or a companion `caveman-install.py` helper) should check whether the caveman section heading already appears in `CLAUDE.md` before appending; skip with "already present" if found. (`install.py:196–197`)
+
+- **`--force` applies to all files uniformly with no granularity** — a user upgrading hook files while keeping their customised `search_config.py` has no way to do so; `--force` is all-or-nothing. Fix: replace `--force` with targeted flags: `--force-hooks` (overwrite `.claude/hooks/`), `--force-tools` (overwrite `tools/`), `--force-config` (overwrite `search_config.py`). Keep `--force` as a shorthand for all three but document the granular options prominently. (`install.py:119–120`, `install.py:144–150`)
+
+---
+
 ## Bugs
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
