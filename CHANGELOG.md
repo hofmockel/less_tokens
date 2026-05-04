@@ -15,9 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Hysteresis state at `.claude/state/compact-trigger-last` ensures the reminder only re-fires after the transcript grows another 25%, so it won't spam every subsequent tool call once tripped
 - New config variable `MAX_SESSION_CHARS` in `tools/search_config.py` (set to 0 to disable)
 - `--compact` flag to `install.py` to print the compaction trigger's `settings.local.json` wiring in the next-steps output
+- **Cline adapter (`adapters/cline/`)** — first non-Claude-Code agent integration. Ships a FastMCP stdio server (`mcp-search/server.py`) that exposes the project's vector search as an MCP `search` tool Cline can call natively, plus `.clinerules/` instruction files (`01-search-before-read.md`, `02-caveman.md`) that port Strategies 1 and 2 to Cline's project-rules format
+- `adapters/cline/install-cline.py` — adapter installer: copies `.clinerules/`, patches `STATE_DIR` to `.less_tokens/state/`, installs the `mcp` SDK into the project venv, prints the OS-specific `cline_mcp_settings.json` snippet for user-level MCP registration
+- New `STATE_DIR` config variable in `tools/search_config.py` (default `.claude/state/`) so non-Claude-Code adapters can override it without leaving a stray `.claude/` directory in unrelated projects
 - `.gitignore` now ignores `.venv/`, `venv/`, `env/`, `app/.venv/` so contributors can't accidentally commit a virtual environment
 
 ### Changed
+- `tools/search.py` and `hooks/search-first.py` now read the search-first state file path from `STATE_DIR` in `search_config.py` instead of hardcoding `.claude/state/`
 - `tools/db.py` and `tools/search.py` now pass `encoding="utf-8"` explicitly on text IO so non-ASCII content survives Windows hosts (default cp1252)
 - `hooks/caveman-reminder.py` verbosity patterns also catch `Certainly.`, `Absolutely.`, and `Of course.` (period endings, the most common shape) — previously only matched `,` and `!`
 - `tools/embeddings.py` uses `datetime.now(timezone.utc)` instead of the deprecated `datetime.utcnow()` (Python 3.12+ DeprecationWarning)

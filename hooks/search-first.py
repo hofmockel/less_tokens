@@ -36,7 +36,6 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
-STATE_FILE = REPO / ".claude" / "state" / "last-search"
 WINDOW_SECONDS = 300
 
 
@@ -51,12 +50,14 @@ def _load_config() -> bool:
             EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
             INDEXED_ROOT_GLOBS,
             INDEXED_SOURCE_DIRS as INDEXED_DIRS,
+            STATE_DIR,
             VENV_PY,
         )
         _config["excluded"] = EXCLUDED_DIRS
         _config["root_globs"] = INDEXED_ROOT_GLOBS
         _config["dirs"] = INDEXED_DIRS
         _config["venv_py"] = VENV_PY
+        _config["state_file"] = STATE_DIR / "last-search"
         return True
     except Exception as e:
         print(f"search-first: could not load search_config ({e}); gate disabled", file=sys.stderr)
@@ -80,8 +81,11 @@ def is_indexed(path: Path) -> bool:
 
 
 def search_was_recent() -> bool:
+    state_file = _config.get("state_file")
+    if not state_file:
+        return False
     try:
-        mtime = STATE_FILE.stat().st_mtime
+        mtime = state_file.stat().st_mtime
     except OSError:
         return False
     return (time.time() - mtime) < WINDOW_SECONDS

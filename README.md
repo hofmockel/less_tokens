@@ -111,6 +111,7 @@ All variables:
 | `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
+| `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`; Cline adapter overrides to `.less_tokens/state/`) |
 
 ---
 
@@ -252,6 +253,18 @@ Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 
 
 ---
 
+## Other agents
+
+The toolkit ships with adapters for non-Claude-Code agents. Each adapter ports the strategies that make sense for its host's extension points (rules files, MCP tools, hooks):
+
+| Agent | Adapter | Strategies covered |
+|---|---|---|
+| Cline | [`adapters/cline/`](adapters/cline/README.md) | 1 (search via MCP), 2 (caveman), 3/5 (hooks — payload probe required) |
+
+More adapters (Cursor, Codex, Copilot, Continue.dev, raw API) tracked in [BACKLOG.md](BACKLOG.md).
+
+---
+
 ## Repository layout
 
 ```
@@ -270,8 +283,10 @@ less_tokens_claude/
 │   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
 │   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
 │   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
-└── caveman/
-    └── caveman.md             # CLAUDE.md snippet for caveman output style
+├── caveman/
+│   └── caveman.md             # CLAUDE.md snippet for caveman output style
+└── adapters/
+    └── cline/                 # Cline adapter: rules + MCP search server
 ```
 
 ---
