@@ -1,0 +1,16 @@
+# User-facing documentation — not needed for code work
+README.md
+documentation.md
+CHANGELOG.md
+
+# Bug hunt protocol and log
+bughunt/
+
+# CI configuration
+.github/
+
+# Benchmark artifact
+tests/perf/latest.json
+
+# Template file installed into target projects, not used in this repo
+caveman/caveman.md

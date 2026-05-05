@@ -93,30 +93,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ---
 
-## Documentation
-
-### High Priority
-
-- **No troubleshooting section in README** — the three most common failure modes (fastembed download fails on first run, wrong venv path in `search_config.py`, empty index returning no results) have no documented recovery steps anywhere
-
-### Medium Priority
-
-- **README shows separate JSON blocks for each hook** — the wiring section presents each hook in its own `settings.local.json` snippet; users must manually merge them and JSON merging is a common source of errors; show one complete unified block
-- **`index-refresh.log` is never mentioned** — background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere in the README or tool help text; users have no way to diagnose silent refresh failures without reading source code
-- **`embeddings.py` module docstring uses `python3` in usage examples** — lines 13–16 show `python3 tools/embeddings.py refresh` which doesn't work on Windows and ignores the venv requirement; should use `<venv-python> tools/embeddings.py refresh`
-- **CONTRIBUTING.md says "test manually" with no specifics** — the verification step doesn't describe what a passing manual test looks like; should list the concrete commands to run (`install.py`, `search_config.py` edit, `refresh`, `search.py`, hook fire)
-- **`search_config.py` inline comment for `EXCLUDED_DIR_PREFIXES` doesn't explain the difference from `EXCLUDED_DIR_NAMES`** — both variables exclude directories but via different mechanisms (prefix match on full path vs. bare name match on any path component); the distinction trips up new users when their exclusions don't work as expected
-- **README doesn't document `WINDOW_SECONDS` or how to change it** — the 5-minute search-gate window is mentioned in passing but there's no explanation that it's hardcoded or where to change it
-- **No explanation of what Claude does when `search.py` returns no results** — the README mentions the fallback conditions for using `Read` directly but doesn't explain whether the gate is automatically lifted or whether Claude must explicitly detect the empty result
-- **CHANGELOG uses Keep a Changelog version format but `chunk_changelog` expects date-only headers** — there is no note in the CHANGELOG or in `embeddings.py` that the chunker's date-pattern regex won't match the `## [version] - date` format; developers adding changelog entries won't know the index is silently not splitting them correctly
-
-### Low Priority
-
-- **Animated GIF demo** — screencast showing a before/after: full Read vs. search returning targeted chunks
-- **Token savings benchmarks** — documented measurements on a real codebase showing actual input/output token reduction
-
----
-
 ## Proposed Strategies
 
 ### Strategy 6 — Tiered Effort
