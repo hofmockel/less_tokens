@@ -1,6 +1,6 @@
 # Backlog
 
-Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [bughunt.md](bughunt.md) / [bughuntlog.md](bughuntlog.md) for the bug-hunt protocol.
+Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [bughunt/bughunt.md](bughunt/bughunt.md) / [bughunt/bughuntlog.md](bughunt/bughuntlog.md) for the bug-hunt protocol.
 
 ---
 
