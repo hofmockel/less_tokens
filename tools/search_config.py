@@ -49,8 +49,4 @@ TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors l
 # --- Strategy 5: Conversation Compaction Trigger ---
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 
-# --- Multi-agent state location ---
-# Where the search-first state file lives. Default `.claude/state/` for Claude Code;
-# Cline / other adapters override to `.less_tokens/state/` so non-Claude projects
-# don't get a stray `.claude/` directory.
 STATE_DIR: Path = BASE / ".claude" / "state"

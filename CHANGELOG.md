@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Non-destructive installer** — `install.py` now handles re-runs and upgrades safely:
+  - `search_config.py` is never overwritten wholesale; only variables absent in the existing file are injected, preserving all user-set values
+  - `copy_tree` detects locally-modified files and shows a `+N -M lines` diff summary instead of silently overwriting; `--overwrite-modified` is required to update them
+  - `.claude/settings.local.json` hook wiring is now automatic and idempotent — the installer merges entries by `(event_type, matcher, command)` identity so re-running never duplicates hook entries
+  - `--caveman` next-steps hint checks whether the caveman section heading already exists in `CLAUDE.md` and prints "already present" instead of repeating the append instruction
+  - Granular force flags: `--force-hooks`, `--force-tools`, `--force-config` (each scoped to one directory); `--force` remains a shorthand for all three
+- `tools/db.py init` now records schema version in the `schema_version` table on first run
+- `tools/db.py migrate` subcommand applies pending schema migrations and updates the recorded version
+
+### Added
 - **Tool output truncation (Strategy 3)** — new `hooks/truncate-output.py` PostToolUse hook caps oversized Bash, Read, and WebFetch results to a configurable character ceiling (default 4000 ≈ 1000 tokens), saving 40–80% of tool-output tokens on verbose commands like `git log`, test runners, and large file reads
 - Bash output uses head+tail truncation (preserves first 50 + last 20 lines so command start and trailing errors both survive); Read/WebFetch use a 60/40 character split
 - Three new config variables in `tools/search_config.py`: `MAX_TOOL_OUTPUT_CHARS`, `TOOL_OUTPUT_HEAD_LINES`, `TOOL_OUTPUT_TAIL_LINES` (set `MAX_TOOL_OUTPUT_CHARS = 0` to disable without unwiring the hook)

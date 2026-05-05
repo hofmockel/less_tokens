@@ -49,11 +49,7 @@ The codebase has a clean two-layer split:
 
 ### State directory
 
-`STATE_DIR` in `search_config.py` defaults to `.claude/state/` for Claude Code but is overridable (Cline adapter uses `.less_tokens/state/`). This is the only coupling between `tools/` and any specific agent.
-
-### Adapter layer (`adapters/`)
-
-Each adapter ports strategies to a non-Claude agent's extension points. `adapters/cline/` is the only completed adapter: it ships `.clinerules/` instruction files and an MCP server (`adapters/cline/mcp-search/server.py`) that wraps `tools/search.py:search()` as a FastMCP tool.
+`STATE_DIR` in `search_config.py` is `.claude/state/`.
 
 ### Chunking strategies
 

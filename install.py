@@ -10,24 +10,35 @@ Run from your project root:
 
 What it does:
   1. Copies tools/, schema/, hooks/, and caveman/ into your project
-  2. Detects or accepts --venv PATH; installs fastembed + numpy into it
-  3. Initializes index.db from schema/index.sql
-  4. Optionally builds the first index (skipped by default — configure first)
+  2. Merges new variables into search_config.py without clobbering existing values
+  3. Detects or accepts --venv PATH; installs fastembed + numpy into it
+  4. Initializes or migrates index.db from schema/index.sql
+  5. Wires core hooks into .claude/settings.local.json (idempotent)
+  6. Optionally builds the first index (skipped by default — configure first)
 
-Options:
-  --force        overwrite existing files in target
+Force / overwrite flags:
+  --force              shorthand for --force-hooks --force-tools --force-config
+  --force-hooks        overwrite .claude/hooks/ files that match the source
+  --force-tools        overwrite tools/ files that match the source (not search_config.py)
+  --force-config       overwrite search_config.py wholesale if it matches the source
+  --overwrite-modified also overwrite files that differ from the source (requires a --force* flag)
+
+Other options:
   --venv PATH    path to virtualenv (auto-detected if omitted)
   --skip-deps    skip pip install step
-  --build        run initial index build after install (skipped by default — configure first)
+  --build        run initial index build after install
   --caveman      copy caveman/ directory and wire caveman-reminder hook
-  --truncate     print next-steps wiring for the tool output truncation hook (Strategy 3)
-  --compact      print next-steps wiring for the conversation compaction trigger hook (Strategy 5)
+  --truncate     wire tool output truncation hook (Strategy 3)
+  --compact      wire conversation compaction trigger hook (Strategy 4)
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
 from __future__ import annotations
 
 import argparse
+import ast
+import difflib
+import json
 import shutil
 import subprocess
 import sys
@@ -36,6 +47,10 @@ from pathlib import Path
 SOURCE = Path(__file__).resolve().parent
 TARGET_ROOT = Path.cwd().resolve()
 
+
+# ---------------------------------------------------------------------------
+# Venv helpers
+# ---------------------------------------------------------------------------
 
 def venv_python(venv_dir: Path) -> Path:
     """Resolve <venv>/Scripts/python.exe (Windows) or <venv>/bin/python (Unix)."""
@@ -53,40 +68,254 @@ def detect_venv() -> Path | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# File copy helpers
+# ---------------------------------------------------------------------------
+
 _SKIP_PARTS = {"__pycache__"}
 
 
-def copy_tree(src: Path, dst: Path, force: bool, label: str) -> int:
-    """Copy a directory tree. Returns count of files copied. Skips existing files unless force."""
+def _diff_summary(src_text: str, dst_text: str) -> str:
+    """Return a compact diff stat line: +N -M lines."""
+    src_lines = src_text.splitlines(keepends=True)
+    dst_lines = dst_text.splitlines(keepends=True)
+    diff = list(difflib.unified_diff(dst_lines, src_lines, lineterm=""))
+    added = sum(1 for ln in diff if ln.startswith("+") and not ln.startswith("+++"))
+    removed = sum(1 for ln in diff if ln.startswith("-") and not ln.startswith("---"))
+    return f"+{added} -{removed} lines vs source"
+
+
+def copy_tree(
+    src: Path,
+    dst: Path,
+    force: bool,
+    overwrite_modified: bool,
+    label: str,
+    exclude: frozenset[str] = frozenset(),
+) -> int:
+    """Copy a directory tree. Returns count of files copied.
+
+    Without --force: skip all existing files (safe default).
+    With --force: overwrite files that are identical to the source; warn and
+                  skip files that differ (they have local edits).
+    With --force + --overwrite-modified: overwrite everything, printing a
+                  diff summary for any locally-modified file.
+    """
     if not src.exists():
         print(f"  {label}: source missing — {src}", file=sys.stderr)
         return 0
-    copied = skipped = 0
+    copied = skipped = modified_skipped = 0
     dst.mkdir(parents=True, exist_ok=True)
     for srcfile in src.rglob("*"):
         if srcfile.is_dir():
             continue
         rel = srcfile.relative_to(src)
-        # Skip hidden files, __pycache__, and compiled bytecode from source.
         if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
             continue
         if srcfile.suffix in (".pyc", ".pyo"):
             continue
-        target = dst / rel
-        if target.exists() and not force:
-            print(f"  ! skip (exists): {target.relative_to(TARGET_ROOT)}")
-            skipped += 1
+        if srcfile.name in exclude:
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(srcfile, target)
-        print(f"  + {target.relative_to(TARGET_ROOT)}")
-        copied += 1
-    print(f"  {label}: {copied} copied, {skipped} skipped")
+        target = dst / rel
+        if target.exists():
+            if not force:
+                print(f"  ! skip (exists): {target.relative_to(TARGET_ROOT)}")
+                skipped += 1
+                continue
+            src_text = srcfile.read_text(encoding="utf-8", errors="replace")
+            dst_text = target.read_text(encoding="utf-8", errors="replace")
+            if src_text == dst_text:
+                skipped += 1  # identical — nothing to do
+                continue
+            # File differs from source (locally modified)
+            rel_str = target.relative_to(TARGET_ROOT)
+            summary = _diff_summary(src_text, dst_text)
+            if overwrite_modified:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(srcfile, target)
+                print(f"  ↺ {rel_str}  ({summary}, overwritten)")
+                copied += 1
+            else:
+                print(f"  ! {rel_str}  ({summary}) — differs from source; "
+                      f"add --overwrite-modified to update")
+                modified_skipped += 1
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(srcfile, target)
+            print(f"  + {target.relative_to(TARGET_ROOT)}")
+            copied += 1
+    print(f"  {label}: {copied} copied, {skipped + modified_skipped} skipped"
+          + (f" ({modified_skipped} modified)" if modified_skipped else ""))
     return copied
 
 
+# ---------------------------------------------------------------------------
+# search_config.py — variable-level upsert
+# ---------------------------------------------------------------------------
+
+def _top_level_assignments(text: str) -> dict[str, tuple[int, int]]:
+    """Parse top-level assignments; return {name: (start_line, end_line)} (1-indexed)."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return {}
+    result: dict[str, tuple[int, int]] = {}
+    for node in tree.body:
+        name: str | None = None
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    name = t.id
+                    break
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                name = node.target.id
+        if name:
+            result[name] = (node.lineno, getattr(node, "end_lineno", node.lineno))
+    return result
+
+
+def _extract_block(lines: list[str], lineno: int) -> str:
+    """Extract an assignment block, including any immediately-preceding comment lines."""
+    idx = lineno - 1  # convert to 0-indexed
+    comment_start = idx
+    while comment_start > 0 and lines[comment_start - 1].strip().startswith("#"):
+        comment_start -= 1
+    return "\n".join(lines[comment_start:idx + 1])
+
+
+def merge_search_config(src_file: Path, dst_file: Path) -> list[str]:
+    """Inject variables present in src but absent in dst. Returns added names."""
+    src_text = src_file.read_text(encoding="utf-8")
+    dst_text = dst_file.read_text(encoding="utf-8")
+
+    src_vars = _top_level_assignments(src_text)
+    dst_vars = _top_level_assignments(dst_text)
+
+    if not src_vars:
+        print(f"  ! search_config.py: could not parse source; skipping merge",
+              file=sys.stderr)
+        return []
+
+    src_lines = src_text.splitlines()
+    missing = {
+        name: _extract_block(src_lines, lineno)
+        for name, (lineno, _) in src_vars.items()
+        if name not in dst_vars
+    }
+    if not missing:
+        return []
+
+    with dst_file.open("a", encoding="utf-8") as f:
+        f.write("\n\n# --- Added by less_tokens installer ---\n")
+        for block in missing.values():
+            f.write(block + "\n")
+    return list(missing.keys())
+
+
+def handle_search_config(
+    src_config: Path,
+    dst_config: Path,
+    force_config: bool,
+    overwrite_modified: bool,
+) -> None:
+    """Copy or merge search_config.py into the target project."""
+    rel = dst_config.relative_to(TARGET_ROOT)
+    if not dst_config.exists():
+        dst_config.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src_config, dst_config)
+        print(f"  + {rel}")
+        return
+
+    # Full overwrite only when force_config + overwrite_modified both set
+    if force_config and overwrite_modified:
+        src_text = src_config.read_text(encoding="utf-8")
+        dst_text = dst_config.read_text(encoding="utf-8")
+        if src_text == dst_text:
+            print(f"  ✓ {rel} (already matches source)")
+        else:
+            summary = _diff_summary(src_text, dst_text)
+            shutil.copy2(src_config, dst_config)
+            print(f"  ↺ {rel}  ({summary}, replaced by --force-config --overwrite-modified)")
+        return
+
+    # Default path: variable-level upsert
+    added = merge_search_config(src_config, dst_config)
+    if added:
+        print(f"  ~ {rel}: injected new variables: {', '.join(added)}")
+    else:
+        print(f"  ✓ {rel}: all variables present")
+
+
+# ---------------------------------------------------------------------------
+# Settings.local.json — idempotent hook wiring
+# ---------------------------------------------------------------------------
+
+def _build_hook_entries(venv_py: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
+    """Return (event_type, matcher, command) tuples for all hooks to wire."""
+    py = str(venv_py)
+    entries: list[tuple[str, str, str]] = [
+        ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
+        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
+    ]
+    if getattr(args, "truncate", False):
+        entries.append(("PostToolUse", "Bash|Read|WebFetch",
+                         f"{py} .claude/hooks/truncate-output.py"))
+    if getattr(args, "compact", False):
+        entries.append(("PostToolUse", ".*",
+                         f"{py} .claude/hooks/compact-trigger.py"))
+    if getattr(args, "caveman", False):
+        entries.append(("PostToolUse", ".*",
+                         f"{py} .claude/hooks/caveman-reminder.py"))
+    return entries
+
+
+def wire_settings(
+    settings_path: Path,
+    entries: list[tuple[str, str, str]],
+) -> tuple[int, int]:
+    """Merge hook entries into settings.local.json. Returns (added, already_present)."""
+    if settings_path.exists():
+        try:
+            settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            settings = {}
+    else:
+        settings = {}
+
+    hooks: dict = settings.setdefault("hooks", {})
+    added = already_present = 0
+
+    for event_type, matcher, command in entries:
+        event_list: list = hooks.setdefault(event_type, [])
+        found = any(
+            h.get("command") == command
+            for entry in event_list
+            if entry.get("matcher") == matcher
+            for h in entry.get("hooks", [])
+        )
+        if found:
+            print(f"  ✓ {event_type} {matcher!r} already wired")
+            already_present += 1
+        else:
+            event_list.append({
+                "matcher": matcher,
+                "hooks": [{"type": "command", "command": command}],
+            })
+            print(f"  + {event_type} {matcher!r}")
+            added += 1
+
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    return added, already_present
+
+
+# ---------------------------------------------------------------------------
+# Subprocess steps
+# ---------------------------------------------------------------------------
+
 def install_deps(venv_py: Path) -> int:
-    print(f"\n[2/4] Installing fastembed + numpy into {venv_py}...")
+    print(f"\n[3/5] Installing fastembed + numpy into {venv_py}...")
     try:
         subprocess.check_call(
             [str(venv_py), "-m", "pip", "install", "--quiet", "fastembed", "numpy"]
@@ -99,7 +328,7 @@ def install_deps(venv_py: Path) -> int:
 
 
 def init_db(venv_py: Path) -> int:
-    print("\n[3/4] Initializing index.db...")
+    print("\n[4/5] Initializing / migrating index.db...")
     try:
         subprocess.check_call(
             [str(venv_py), "tools/db.py", "init"], cwd=TARGET_ROOT
@@ -111,7 +340,7 @@ def init_db(venv_py: Path) -> int:
 
 
 def build_index(venv_py: Path) -> int:
-    print("\n[4/4] Building initial embeddings (first run downloads ~130MB model)...")
+    print("\nBuilding initial embeddings (first run downloads ~130 MB model)...")
     try:
         subprocess.check_call(
             [str(venv_py), "tools/embeddings.py", "refresh"], cwd=TARGET_ROOT
@@ -122,43 +351,89 @@ def build_index(venv_py: Path) -> int:
         return 1
 
 
+# ---------------------------------------------------------------------------
+# Caveman duplicate check
+# ---------------------------------------------------------------------------
+
+def _caveman_in_claude_md() -> bool:
+    claude_md = TARGET_ROOT / "CLAUDE.md"
+    if not claude_md.exists():
+        return False
+    return "Caveman Mode" in claude_md.read_text(encoding="utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # Force flags
     ap.add_argument("--force", action="store_true",
-                    help="overwrite existing files in target")
+                    help="shorthand for --force-hooks --force-tools --force-config")
+    ap.add_argument("--force-hooks", action="store_true",
+                    help="overwrite .claude/hooks/ files that match the source")
+    ap.add_argument("--force-tools", action="store_true",
+                    help="overwrite tools/ and schema/ files that match the source")
+    ap.add_argument("--force-config", action="store_true",
+                    help="overwrite search_config.py if it matches the source")
+    ap.add_argument("--overwrite-modified", action="store_true",
+                    help="also overwrite locally-modified files (requires a --force* flag)")
+    # Venv / install
     ap.add_argument("--venv", type=Path,
                     help="path to virtualenv (auto-detected if omitted)")
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
     ap.add_argument("--build", action="store_true",
                     help="run initial index build (skipped by default — configure first)")
+    # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="copy caveman/ directory (terse output mode for Claude)")
+                    help="copy caveman/ and wire caveman-reminder hook")
     ap.add_argument("--truncate", action="store_true",
-                    help="include tool output truncation hook in next-steps output (Strategy 3)")
+                    help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",
-                    help="include conversation compaction trigger hook in next-steps output (Strategy 5)")
+                    help="wire conversation compaction trigger hook (Strategy 4)")
     args = ap.parse_args()
 
-    do_build = args.build
+    # Resolve force flags
+    force_hooks  = args.force or args.force_hooks
+    force_tools  = args.force or args.force_tools
+    force_config = args.force or args.force_config
+    overwrite_modified = args.overwrite_modified
 
     print(f"Installing less_tokens into {TARGET_ROOT}")
     print(f"Source: {SOURCE}\n")
 
     if SOURCE == TARGET_ROOT or TARGET_ROOT.is_relative_to(SOURCE):
-        print("ERROR: refusing to install into the export directory itself.",
+        print("ERROR: refusing to install into the source directory itself.",
               file=sys.stderr)
         return 1
 
-    print("[1/4] Copying files...")
-    copy_tree(SOURCE / "tools", TARGET_ROOT / "tools", args.force, "tools/")
-    copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", args.force, "schema/")
-    copy_tree(SOURCE / "hooks", TARGET_ROOT / ".claude" / "hooks",
-              args.force, ".claude/hooks/")
+    # ------------------------------------------------------------------
+    # Step 1: Copy files
+    # ------------------------------------------------------------------
+    print("[1/5] Copying files...")
+    copy_tree(SOURCE / "tools",  TARGET_ROOT / "tools",  force_tools,  overwrite_modified,
+              "tools/", exclude=frozenset({"search_config.py"}))
+    handle_search_config(
+        SOURCE / "tools" / "search_config.py",
+        TARGET_ROOT / "tools" / "search_config.py",
+        force_config, overwrite_modified,
+    )
+    copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", force_tools,  overwrite_modified, "schema/")
+    copy_tree(SOURCE / "hooks",  TARGET_ROOT / ".claude" / "hooks",
+              force_hooks, overwrite_modified, ".claude/hooks/")
     if args.caveman:
-        copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman", args.force, "caveman/")
+        copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman",
+                  force_tools, overwrite_modified, "caveman/")
 
+    # ------------------------------------------------------------------
+    # Step 2: Detect venv
+    # ------------------------------------------------------------------
+    print("\n[2/5] Locating virtualenv...")
     venv_dir = args.venv or detect_venv()
     if venv_dir is None:
         print("\nNo venv detected at .venv, venv, env, or app/.venv.")
@@ -167,60 +442,69 @@ def main() -> int:
         print("    python -m venv .venv     # Windows")
         print("Then re-run the installer.")
         return 1
-
     venv_py = venv_python(venv_dir)
     if not venv_py.exists():
         print(f"ERROR: venv python not found at {venv_py}", file=sys.stderr)
         return 1
-    print(f"\nUsing venv: {venv_dir}")
+    print(f"  Using venv: {venv_dir}")
 
+    # ------------------------------------------------------------------
+    # Step 3: Install deps
+    # ------------------------------------------------------------------
     if not args.skip_deps:
         if install_deps(venv_py) != 0:
             return 1
+    else:
+        print("\n[3/5] Skipping dep install (--skip-deps).")
 
+    # ------------------------------------------------------------------
+    # Step 4: Init / migrate DB
+    # ------------------------------------------------------------------
     if init_db(venv_py) != 0:
         return 1
 
-    if do_build:
+    # ------------------------------------------------------------------
+    # Step 5: Wire hooks into .claude/settings.local.json
+    # ------------------------------------------------------------------
+    print("\n[5/5] Wiring .claude/settings.local.json...")
+    settings_path = TARGET_ROOT / ".claude" / "settings.local.json"
+    entries = _build_hook_entries(venv_py, args)
+    added, present = wire_settings(settings_path, entries)
+    print(f"  {added} hook(s) wired, {present} already present")
+
+    # ------------------------------------------------------------------
+    # Optional: build index
+    # ------------------------------------------------------------------
+    if args.build:
         if build_index(venv_py) != 0:
             return 1
-    else:
-        print("\n[4/4] Skipping initial index build (configure first, then build manually).")
 
+    # ------------------------------------------------------------------
+    # Next steps
+    # ------------------------------------------------------------------
     print("\nDone.")
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("NEXT STEPS")
-    print("="*60)
+    print("=" * 60)
     print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
     print(f"   Change the VENV_PY line to:")
     print(f'       VENV_PY = _venv_python("{venv_dir}")')
     print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
-    print(f"\n2. Build the index:")
-    print(f"       {venv_py} tools/embeddings.py refresh")
-    print(f"\n3. Test search:")
-    print(f"       {venv_py} tools/search.py \"your query here\"")
-    print(f"\n4. Wire hooks into .claude/settings.local.json (see README.md).")
-    print(f"   Use this python path in your hook commands:")
-    print(f"       {venv_py}")
+    if not args.build:
+        print(f"\n2. Build the index:")
+        print(f"       {venv_py} tools/embeddings.py refresh")
+        print(f"\n3. Test search:")
+        print(f"       {venv_py} tools/search.py \"your query here\"")
+    else:
+        print(f"\n2. Test search:")
+        print(f"       {venv_py} tools/search.py \"your query here\"")
     if args.caveman:
-        print(f"\n5. Append caveman mode to your CLAUDE.md:")
-        print(f"       cat caveman/caveman.md >> CLAUDE.md")
-    if args.truncate:
-        step = 6 if args.caveman else 5
-        print(f"\n{step}. Wire tool output truncation hook into .claude/settings.local.json:")
-        print(f'   Add to PostToolUse (before caveman-reminder if present):')
-        print(f'     {{"matcher": "Bash|Read|WebFetch",')
-        print(f'      "hooks": [{{"type": "command",')
-        print(f'                "command": "{venv_py} .claude/hooks/truncate-output.py"}}]}}')
-        print(f"   Tune ceiling in tools/search_config.py: MAX_TOOL_OUTPUT_CHARS = 4000")
-    if args.compact:
-        step = 5 + int(args.caveman) + int(args.truncate)
-        print(f"\n{step}. Wire conversation compaction trigger into .claude/settings.local.json:")
-        print(f'   Add to PostToolUse:')
-        print(f'     {{"matcher": ".*",')
-        print(f'      "hooks": [{{"type": "command",')
-        print(f'                "command": "{venv_py} .claude/hooks/compact-trigger.py"}}]}}')
-        print(f"   Tune threshold in tools/search_config.py: MAX_SESSION_CHARS = 500_000")
+        step = 4 if not args.build else 3
+        if _caveman_in_claude_md():
+            print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
+        else:
+            print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
+            print(f"       cat caveman/caveman.md >> CLAUDE.md")
     print()
     return 0
 

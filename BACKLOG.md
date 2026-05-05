@@ -60,8 +60,6 @@ Work items:
 
 - **Keyword fallback (Tier 0)** — when `fastembed` is not installed or the model download fails, fall back to a stdlib BM25/TF-IDF search over raw chunk text. Quality is lower but the system remains usable in air-gapped environments, minimal Docker images, or first-run before the model cache is warm. Exit code and output format identical to normal search so hooks require no changes.
 
-- **Pluggable API embedding backend (Tier 3)** — add a `EMBEDDING_BACKEND` config variable accepting `"fastembed"` (default), `"openai"`, `"voyage"`, or `"cohere"`. Each backend is a small adapter in `tools/backends/` that implements `embed(texts) -> np.ndarray`. API key read from environment variable; no keys stored in config files.
-
 - **`embeddings.py switch-model`** — a subcommand that changes `EMBEDDING_MODEL` in `search_config.py` and immediately runs `refresh --full`, preventing the silent dimension mismatch that occurs when the model is changed manually. Prints a clear warning about re-index time before proceeding.
 
 ---
@@ -70,11 +68,9 @@ Work items:
 
 The optimal number of chunks to return (`k`) and the chunk character ceiling depend on how large the agent's context window is. A model with a 8K window needs different defaults than one with 200K.
 
-- **`AGENT_MODEL` config variable** — add an optional `AGENT_MODEL` string to `search_config.py` (e.g. `"claude-sonnet-4-6"`, `"gpt-4o-mini"`). When set, `search.py` uses a lookup table to select default `k` and warn if chunks risk filling the window. When unset, current defaults apply unchanged.
+- **`AGENT_MODEL` config variable** — add an optional `AGENT_MODEL` string to `search_config.py` (e.g. `"claude-sonnet-4-6"`). When set, `search.py` uses a lookup table to select default `k` and warn if chunks risk filling the window. When unset, current defaults apply unchanged.
 
-- **Context-window lookup table** — ship a small `tools/model_profiles.py` mapping known model IDs to context window size and recommended `k` / `MAX_CHUNK_CHARS` values. Covers Claude (Haiku / Sonnet / Opus), GPT-4o family, and Gemini. Easily extended by users for new models.
-
-- **Per-model caveman pattern tuning** — different LLMs have different verbosity signatures. `caveman-reminder.py` currently matches Claude-style filler phrases. The pattern list should be configurable in `search_config.py` so users running Copilot or GPT-based agents can add model-specific patterns without editing hook source.
+- **Context-window lookup table** — ship a small `tools/model_profiles.py` mapping Claude model IDs (Haiku / Sonnet / Opus) to context window size and recommended `k` / `MAX_CHUNK_CHARS` values.
 
 ---
 
@@ -88,150 +84,15 @@ The system should never hard-block an agent when a component is unavailable. Def
 | Model download fails (offline) | Exception, index empty | Use last successfully cached model; warn if none cached |
 | `index.db` missing or empty | `search-first` gate fires, no results | Gate lifts automatically; agent proceeds with `Read` and a one-time advisory |
 | DB locked by concurrent refresh | `sqlite3.OperationalError` | Retry once with 500ms backoff; return stale results on second failure with a warning |
-| API embedding backend unreachable | Unhandled exception | Fall back to next available tier, log the failure to `.less_tokens/state/embed-errors.log` |
+| API embedding backend unreachable | Unhandled exception | Fall back to next available tier, log the failure to `.claude/state/embed-errors.log` |
 
 - **Implement the degradation ladder** — each condition above needs an explicit handler in `tools/embeddings.py` and `tools/search.py` that catches the failure, emits a structured warning to stderr, and continues at the next tier rather than propagating an exception.
 
 ---
-## Multi-Agent Expansion
-
-### What is already agent-agnostic
-
-Code inspection shows a clean split. Everything in `tools/` has zero Claude dependencies:
-
-| Component | Claude-specific? | Notes |
-|---|---|---|
-| `tools/embeddings.py` | No | Pure Python chunking + fastembed + SQLite |
-| `tools/search.py` | One line | Writes state to `.claude/state/last-search` — trivially abstracted |
-| `tools/db.py` | No | Pure SQLite helper |
-| `tools/search_config.py` | No | Config only; `.claude/` appears as an exclusion rule, not a dependency |
-| `schema/index.sql` | No | Pure SQL |
-| `caveman/caveman.md` | Format only | The instruction concept works in any LLM system prompt; only the filename/location is Claude-specific |
-| `hooks/` (all five) | Yes | Entirely built on Claude Code's `PreToolUse`/`PostToolUse` protocol, stdin JSON, exit-code 2, and `.claude/settings.local.json` |
-| `install.py` | Partially | Copies to `.claude/hooks/`; references `CLAUDE.md` and `settings.local.json` |
-
-The `tools/` core is already a portable library. Only the hook layer is Claude-specific.
-
----
-
-### Prerequisite: decouple state file from `.claude/`
-
-Before any adapter can be built, `search.py` must stop writing to `.claude/state/last-search`. The state directory should move to a neutral location (e.g. `.less_tokens/state/`) configured in `search_config.py`, with `.claude/state/` as the default for backwards compatibility. This is the only code change needed to make `tools/` fully agent-agnostic. (`tools/search.py:73–75`, `hooks/search-first.py:43`)
-
----
-
-### Adapter: Cursor
-
-Cursor reads instruction rules from `.cursor/rules/*.mdc` and supports MCP servers. Two integration points:
-
-- **Rules file** — `adapters/cursor/search-before-read.mdc`: equivalent of the CLAUDE.md "Search Before Read" section in Cursor's rules format. Instructs the agent to call `search.py` before opening indexed files.
-- **MCP server** — wrap `search.py` as a one-tool MCP server (`adapters/cursor/mcp-search/`). Cursor can invoke it natively, removing the need for any hook machinery. The tool definition accepts a query string and returns the top-k chunks as JSON.
-- **Caveman adapter** — `adapters/cursor/caveman.mdc`: terse output instruction in Cursor rules format.
-
-**New files:** `adapters/cursor/search-before-read.mdc`, `adapters/cursor/caveman.mdc`, `adapters/cursor/mcp-search/server.py`
-
----
-
-### Adapter: GitHub Copilot
-
-Copilot reads a repository-level instruction file at `.github/copilot-instructions.md`. No hook system exists, so the integration is instruction-only:
-
-- **Instructions file** — `adapters/copilot/copilot-instructions.md`: search-before-read and caveman instructions in Copilot's expected format. Users append or symlink into `.github/copilot-instructions.md`.
-- **Limitation**: no equivalent of `PreToolUse` exists in Copilot, so the search-first gate cannot be enforced programmatically — it is advisory only.
-
-**New files:** `adapters/copilot/copilot-instructions.md`
-
----
-
-### Adapter: Roo
-
-Roo reads project rules from `.roo/rules/*.md` and can call MCP tools. The same MCP search server built for Cline (`adapters/cline/mcp-search/server.py`) should drop in directly; only the rules-file location and naming differ.
-
-- **Rules files** — `adapters/roo/rules/01-search-before-read.md`, `02-caveman.md` — port the Cline equivalents to Roo's directory layout.
-- **MCP server** — reuse `adapters/cline/mcp-search/server.py` unchanged.
-
-**New files:** `adapters/roo/rules/01-search-before-read.md`, `adapters/roo/rules/02-caveman.md`, `adapters/roo/install-roo.py`
-
----
-
-### Adapter: Continue.dev
-
-Continue has a context provider system (`~/.continue/config.json`) that can call arbitrary scripts and inject their output into the prompt. This maps cleanly onto `search.py`:
-
-- **Context provider** — `adapters/continue/search-provider.py`: a Continue custom context provider that calls `search.py` with the user's query and returns chunks. Users register it in `config.json`.
-- **System message** — `adapters/continue/system-message.md`: caveman and search-before-read instructions for Continue's `systemMessage` field.
-
-**New files:** `adapters/continue/search-provider.py`, `adapters/continue/system-message.md`, `adapters/continue/README.md`
-
----
-
-### Adapter: Generic Python / LLM API
-
-For teams calling the Anthropic, OpenAI, or Gemini API directly (LangChain, LlamaIndex, AutoGen, CrewAI, or raw SDK):
-
-- **Importable library** — expose `from less_tokens import search` so any agent framework can call it as a tool without subprocess overhead. Requires packaging `tools/` as a proper module with `__init__.py`.
-- **Tool definition templates** — `adapters/api/tool_definitions.py`: ready-made tool schemas in Anthropic, OpenAI, and Gemini function-calling formats so the search function can be registered as a callable tool in one line.
-- **Caveman system prompt** — `adapters/api/system_prompts.py`: `CAVEMAN_PROMPT` string constant importable into any system prompt construction.
-
-**New files:** `tools/__init__.py`, `adapters/api/tool_definitions.py`, `adapters/api/system_prompts.py`
-
----
 ## Bug-Hunt Protocol
 
-How to decide when to run another hunt vs stop and fix. Eyeball-driven (no metric scripts); the rubric below keeps the eyeball calibrated.
-
-### Severity rubric (assign per bug at intake)
-
-| Tier | Definition | Example |
-|---|---|---|
-| **data-loss** | Wrong number lands in IRS-grade ledger, FIFO, wash-sale, or P&L. Real money at stake. | Lockouts dict collapse hides longer restriction; same-day rebuy missed by report adherence check. |
-| **silent** | Behavior is wrong but no immediate money impact; numbers reported are misleading. | Correlation aligns by index not date; trailing_return falls back to earliest close on IPOs. |
-| **ux** | Tool gives bad signal, false reassurance, or noise that trains the operator to ignore the gate. | parity-check baselines drift daily; universe.py refresh prints UPD on every row. |
-| **cosmetic** | Wording / formatting / log-line issue. No functional impact. | (none documented yet — surface only if encountered.) |
-
-### Three signals to assess after each hunt
-
-1. **Severity slide** — what's the median tier of THIS round vs the previous? Going `data-loss → silent → ux → cosmetic` means the high-value surface is exhausted.
-2. **Overlap rate** — when running a hunt, do NOT pre-exclude the existing bug list (let the agent rediscover). Then count: of the bugs surfaced, what fraction matches a bug already in the table by file:line or paraphrase? Rising overlap = saturated surface.
-3. **File coverage** — cumulative distinct files where bugs have been found, vs the high-yield target list (`wash.py`, `add-fills.py`, `rh-sync.py`, `dataio.py`, `db.py`, `alerts.py`, `state.py`, `snapshot-state.py`, `refresh-prices.py`, `refresh-earnings.py`, `recalc-coverage.py`, `sell-check.py`, `pnl.py`, `report.py`, `pre-buy-check.py`, `momentum.py`, `stress.py`, `size.py`, `weekly-budget.py`, `universe.py`, `universe-coverage.py`, `discover.py`, `lockout-cost.py`, `journal*.py`, `parity-check.py`, `validate-ledger.py`, `backup.py`, `restore-check.py`, `embeddings.py`, `search.py`, `commit-hygiene.py`, `doc-drift.py`, `gen-tools-readme.py`, `secret-scan.py`, `app/scan.py`, `app/layers.py`, `schema/portfolio.sql`, `schema/migrations/*.sql`). When new hunts stop landing on new files, surface is covered.
-
-### Stop rule (all three required)
-
-- Median severity of last round ≤ `ux` (no `data-loss` or `silent` finds), AND
-- Overlap rate with prior rounds ≥ 60% (mostly rediscovering known bugs), AND
-- Cumulative file coverage ≥ 80% of the high-yield list above.
-
-If 2 of 3 hold, run one more round. If ≤1 of 3, keep hunting.
-
-### How to run a hunt (one-shot agent prompt template)
-
-```
-Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/AIPortfolio/.
-- Read backlog.md ## Bugs section first; do NOT pre-exclude (overlap is a signal we want to measure).
-- Bug definition: logic / silent failure / state / financial-logic / chain-ordering / docstring drift / schema / auth-UX / encoding.
-- NOT bugs: features, refactors, "add tests", performance unless incorrect, anything in non-Bugs backlog sections, backup-section variants (deferred per memory), token instrumentation.
-- Method: search-first for indexed files; read whole files for high-yield targets; verify each candidate by tracing or sqlite3 query; rank by severity tier.
-- Output: 10 bugs in `**Bug N: title** (file:line)` + What/Why/Repro/Fix format, ≤6 lines each. If <10 solid, surface fewer + say so.
-```
-
-After the agent returns, the operator: (1) assigns each a tier, (2) checks each against the existing table for overlap, (3) scores the three signals, (4) applies the stop rule.
----
-
-## Installer: Non-Destructive / Additive Behaviour
-
-The installer currently has several places where re-running it or upgrading can clobber user work. All changes should be **additive by default** — existing customisation is never lost without an explicit opt-in. The six specific cases are documented below as individual work items.
-
-- **`copy_tree --force` silently overwrites customised hook and tool files** — a user who has edited `search-first.py` or `search_config.py` has no warning before `--force` discards their changes. Fix: before overwriting any file that differs from the source, print a diff summary and require an explicit `--overwrite-modified` flag distinct from `--force` (which should only apply to unmodified files). (`install.py:55–76`)
-
-- **`search_config.py` is replaced wholesale instead of merged** — on an upgrade, any new config variables added to the source `search_config.py` (e.g. `WINDOW_SECONDS`, `MAX_TOOL_OUTPUT_CHARS`) will never reach projects that already have the file, and `--force` would wipe user-set values. Fix: parse the existing file's variable names, inject only variables that are absent, leave existing values untouched. This is an upsert at the variable level, not the file level. (`install.py:145`, `tools/search_config.py`)
-
-- **`init_db` has no schema migration path** — `db.py init` runs the full `index.sql` with `CREATE TABLE IF NOT EXISTS`, so it is safe on re-run, but any new columns or indexes added in a future schema version will silently not be applied to existing databases. Fix: introduce a `schema_version` table (already defined in `index.sql` but never written to), record the current version on init, and apply `ALTER TABLE` migration scripts on upgrade. (`tools/db.py:45–51`, `schema/index.sql:4–7`)
-
-- **`.claude/settings.local.json` hook wiring is entirely manual** — the installer prints a block of JSON for the user to paste but does not check whether the hooks are already wired. A second install produces duplicate hook entries if the user pastes again. Fix: read the existing `settings.local.json` if present, merge each hook entry by `matcher + command` identity (upsert), and write the result back — or print "already wired" when the entry is found. (`install.py:192–194`)
-
-- **`caveman/caveman.md` append instruction will duplicate the section on re-run** — the next-steps output tells the user to run `cat caveman/caveman.md >> CLAUDE.md`, but there is no guard against running that twice. Fix: the installer (or a companion `caveman-install.py` helper) should check whether the caveman section heading already appears in `CLAUDE.md` before appending; skip with "already present" if found. (`install.py:196–197`)
-
-- **`--force` applies to all files uniformly with no granularity** — a user upgrading hook files while keeping their customised `search_config.py` has no way to do so; `--force` is all-or-nothing. Fix: replace `--force` with targeted flags: `--force-hooks` (overwrite `.claude/hooks/`), `--force-tools` (overwrite `tools/`), `--force-config` (overwrite `search_config.py`). Keep `--force` as a shorthand for all three but document the granular options prominently. (`install.py:119–120`, `install.py:144–150`)
+See [bughunt.md](bughunt.md) for the full protocol — severity rubric, stop rule, and agent prompt template.
+Hunt statistics are recorded round-by-round in [bughuntlog.md](bughuntlog.md).
 
 ---
 
@@ -317,49 +178,32 @@ Gaps and inaccuracies found in existing docs.
 
 Candidate token-reduction approaches not yet implemented. Each targets a different part of the token budget. Evaluate and promote to High Priority once design is agreed.
 
-### Strategy 6 — Tiered Model + Effort
+### Strategy 6 — Tiered Effort
 
-**Concept:** Token cost has two independent levers — the *model* chosen and the *effort* the agent applies (output length, reasoning depth, tool call count). These levers are orthogonal and compound: routing a mechanical task to a fast/cheap model *and* constraining effort multiplies the saving. The tier abstraction maps task complexity to the right combination of both, regardless of which provider or model family is in use.
+**Concept:** Token cost has two independent levers — the *Claude model* chosen and the *effort* applied (output length, reasoning depth, tool call count). Routing a mechanical task to Haiku at minimal effort vs. Opus at full effort can differ 10–20× in cost. The tier abstraction maps task complexity to the right combination of both.
 
-**Three abstract tiers:**
+**Three tiers:**
 
-| Tier | Effort | Trigger examples |
-|---|---|---|
-| **L1 Mechanical** | Minimal — one confirmation, no tables, no summaries | File operations, index refresh, status checks, renames |
-| **L2 Rules** | Medium — result + brief reasoning, tables only if ≥3 rows | Search queries, config edits, doc updates, targeted bug fixes |
-| **L3 Planning** | Full — analysis, options, tradeoffs | Architecture decisions, new strategies, refactors, reviews |
+| Tier | Model | Effort | Trigger examples |
+|---|---|---|---|
+| **L1 Mechanical** | `claude-haiku-4-5` | Minimal — one confirmation, no tables, no summaries | File operations, index refresh, status checks, renames |
+| **L2 Rules** | `claude-sonnet-4-6` | Medium — result + brief reasoning, tables only if ≥3 rows | Search queries, config edits, doc updates, targeted bug fixes |
+| **L3 Planning** | `claude-opus-4-7` | Full — analysis, options, tradeoffs | Architecture decisions, new strategies, refactors, reviews |
 
-**Provider profiles** — each profile maps abstract tiers to concrete model IDs. Users set `PROVIDER_PROFILE` in `search_config.py`; the system resolves L1/L2/L3 to real model names at runtime:
+**Proactive suggestion:** Before each task the agent emits one line stating the recommended tier — but only when it changes from the prior turn: `"L1 — recommend Haiku, minimal effort."` Silence when the tier holds.
 
-| Tier | Anthropic | OpenAI | Google | Mistral | Local (Ollama) |
-|---|---|---|---|---|---|
-| L1 | `claude-haiku-4-5` | `gpt-4o-mini` | `gemini-2.0-flash` | `mistral-small` | `llama3.2:3b` |
-| L2 | `claude-sonnet-4-6` | `gpt-4o` | `gemini-2.0-pro` | `mistral-medium` | `llama3.1:8b` |
-| L3 | `claude-opus-4-7` | `o3` | `gemini-2.0-ultra` | `mistral-large` | `llama3.1:70b` |
-
-**Proactive suggestion:** Before each task the agent emits one line stating the recommended tier — but only when it changes from the prior turn: `"L1 — recommend fast model, minimal effort."` Provider-neutral wording so the hint works regardless of which profile is active. Silence when the tier holds.
-
-**Model-switching mechanism varies by provider/tool:**
-
-| Environment | How to switch |
-|---|---|
-| Claude Code | `/model <alias>` slash command |
-| Cursor | Model picker in UI; `model` field in `.cursor/rules` |
-| OpenAI API | `model` parameter per request |
-| Ollama | `model` parameter or env var |
-| LangChain / LlamaIndex | Swap the `llm=` constructor argument |
+**Model switching:** `/model <alias>` slash command in Claude Code.
 
 **Implementation:**
 
-- `tools/provider_profiles.py` — the canonical profile registry. Ships with Anthropic, OpenAI, Google, Mistral, and Ollama profiles. Users add custom profiles or override individual tier entries without editing the file (via `search_config.py` overrides).
-- `caveman/tier-matrix.md` — task-type → tier mapping, provider-neutral. Appended to the agent's system prompt / `CLAUDE.md` like `caveman.md`.
-- `search_config.py` additions — `PROVIDER_PROFILE: str = "anthropic"`, `AGENT_TIER_HINTS: bool = True`, plus an optional `TIER_OVERRIDES` dict for per-project customisation.
-- Extends the `AGENT_MODEL` variable already proposed in the Model Strategy section — tier selection resolves both model and effort ceiling from a single L1/L2/L3 declaration.
+- `caveman/tier-matrix.md` — task-type → tier mapping, appended to `CLAUDE.md` like `caveman.md`.
+- `search_config.py` additions — `AGENT_TIER_HINTS: bool = True` to toggle the proactive hint line.
+- Extends the `AGENT_MODEL` variable already proposed in the Model Strategy section.
 
-**Expected savings:** L1 tasks on a fast model at minimal effort cost 10–20× less per turn than the equivalent on a flagship model at full effort. On a mixed session the blended reduction is 50–70%.
+**Expected savings:** 50–70% blended reduction on mixed sessions.
 
-**New files:** `tools/provider_profiles.py`, `caveman/tier-matrix.md`
-**Modified files:** `search_config.py`, `caveman/caveman.md` (cross-reference), `adapters/api/system_prompts.py` (tier hint prompt)
+**New files:** `caveman/tier-matrix.md`
+**Modified files:** `search_config.py`, `caveman/caveman.md` (cross-reference)
 
 ---
 
@@ -370,7 +214,7 @@ Candidate token-reduction approaches not yet implemented. Each targets a differe
 **Why deferred:** Claude Code already uses Anthropic's prompt caching automatically for the system prompt and `CLAUDE.md` — adding a manual `cache-primer.py` would mostly duplicate built-in behavior. Revisit only if either of these becomes true:
 
 - Measurement on a real session shows the auto-cache is missing meaningful content (large doc files Claude reads every turn that don't fit the auto-cached prefix).
-- An adapter for an LLM consumer that *doesn't* auto-cache (e.g. raw Anthropic SDK users via `adapters/api/`) needs explicit cache structuring guidance — at which point this becomes adapter-scoped, not a global Strategy.
+- Measurement on a real session shows the auto-cache is missing meaningful content (large doc files Claude reads every turn that don't fit the auto-cached prefix).
 
 **Original approach (kept for reference):** Structure the system prompt and `CLAUDE.md` to take advantage of [Anthropic's prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — place stable, large blocks at the top of the context in the cacheable position. Provide a `cache-primer.py` script users run at session start to warm the cache with their most-read files. Up to 90% reduction on the cached portion when the auto-cache *isn't* doing the job already.
 
