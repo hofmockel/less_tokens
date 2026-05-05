@@ -204,8 +204,6 @@ class TestVectorSearchReduction:
 
 class TestTruncationReduction:
     def test_bash_truncation_meets_threshold(self):
-        from hooks.truncate_output import truncate_bash  # noqa: F401
-        # Import directly since the hook uses dashes
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "truncate_output", REPO / "hooks" / "truncate-output.py"
