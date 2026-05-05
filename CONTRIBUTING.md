@@ -2,16 +2,47 @@
 
 Thanks for taking the time to contribute.
 
-## Ways to contribute
+## Workflow
 
-- **Bug reports** — open an Issue using the Bug Report template
-- **Feature requests** — open an Issue using the Feature Request template
-- **Code** — fork, branch, and open a Pull Request
+All contributions — bug reports, feature requests, and fixes — go through Pull Requests. Discussion happens in PR comments on GitHub.
 
-## Before you start
+There are three valid PR types:
 
-- Check [open issues](../../issues) to avoid duplicating work.
-- For significant changes, open an Issue first to discuss the approach.
+| PR type | What it contains |
+|---|---|
+| **Backlog-only** | Adds an entry to BACKLOG.md (reports a bug or proposes a feature); no code change required |
+| **Fix-only** | Implements a fix or feature; code changes only |
+| **Combined** | Adds a backlog entry and implements it in the same PR; code changes only |
+
+The maintainer handles CHANGELOG entries and BACKLOG deletions before merging.
+
+## Reporting a bug or proposing a feature
+
+1. Fork the repo.
+2. Edit [BACKLOG.md](BACKLOG.md): add your entry to `## Bugs` (for bugs) or the appropriate feature section. For bugs, include a file:line reference and a clear What/Why/Fix description.
+3. Open a PR against `main`. Explain your reasoning in the PR description — that's where the discussion happens.
+
+## Fixing something
+
+1. Fork the repo and create a branch from `main`:
+   ```bash
+   git checkout -b fix/short-description
+   ```
+2. Make your change.
+3. Test manually: install into a scratch project, verify search returns results, confirm hooks fire.
+4. Open a PR against `main`.
+
+The maintainer will handle the CHANGELOG entry and BACKLOG deletion before merging.
+
+## Commit message style
+
+Use the imperative mood, subject line under 72 characters:
+
+```
+Add chunking support for TOML files
+Fix VENV_PY resolution on Windows ARM
+Remove deprecated --no-cache flag
+```
 
 ## Development setup
 
@@ -23,26 +54,6 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install fastembed numpy
 ```
 
-## Submitting a Pull Request
+## Security
 
-1. Fork the repo and create a branch from `main`:
-   ```bash
-   git checkout -b fix/short-description
-   ```
-2. Make focused, atomic commits with clear imperative messages.
-3. Test your changes manually (see [README.md](README.md) for verification steps).
-4. Open a PR against `main` with a description of what changed and why.
-
-## Commit message style
-
-Use the imperative mood and keep the subject line under 72 characters:
-
-```
-Add chunking support for TOML files
-Fix VENV_PY resolution on Windows ARM
-Remove deprecated --no-cache flag
-```
-
-## Reporting security issues
-
-Do **not** open a public Issue for security vulnerabilities. See [SECURITY.md](SECURITY.md).
+Do **not** add security vulnerabilities to BACKLOG.md or any public file. See [SECURITY.md](SECURITY.md).

@@ -9,7 +9,7 @@
 
 ## Reporting a vulnerability
 
-**Do not open a public GitHub Issue for security vulnerabilities.**
+**Do not add security vulnerabilities to BACKLOG.md or any public file.**
 
 Report privately via [GitHub Security Advisories](../../security/advisories/new). Include:
 

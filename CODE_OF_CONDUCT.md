@@ -20,7 +20,7 @@ We pledge to make participation in this project a harassment-free experience for
 
 ## Enforcement
 
-Instances of unacceptable behavior may be reported by opening a [GitHub Issue](../../issues) marked as confidential, or by contacting the maintainer directly via GitHub. All complaints will be reviewed and investigated promptly and fairly.
+Instances of unacceptable behavior may be reported by contacting the maintainer directly via GitHub. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 

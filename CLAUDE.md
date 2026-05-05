@@ -62,7 +62,7 @@ The codebase has a clean two-layer split:
 
 ## Backlog and changelog lifecycle
 
-When a backlog item ships, **both steps are required before the PR merges**:
+The maintainer is responsible for both steps before merging any fix PR:
 1. Add an entry under `[Unreleased]` in `CHANGELOG.md` (user-perspective, Keep a Changelog format)
 2. Delete the item from `BACKLOG.md` entirely — no strike-through, no "DONE" marker
 

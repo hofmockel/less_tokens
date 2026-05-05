@@ -279,12 +279,13 @@ less_tokens_claude/
 
 ## Contributing
 
-1. Fork the repo and create a feature branch.
-2. Make your changes — keep them focused; one concern per PR.
-3. Test manually: run `install.py` against a scratch project, verify search returns results, confirm hooks fire correctly.
-4. Open a pull request with a clear description of what changed and why.
+All contributions go through Pull Requests. Discussion happens in PR comments.
 
-Bug reports and feature requests are welcome via [GitHub Issues](../../issues).
+- **Report a bug or request a feature** — fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR.
+- **Fix something** — fork, implement the fix, open a PR.
+- Both can be combined in one PR.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ---
 

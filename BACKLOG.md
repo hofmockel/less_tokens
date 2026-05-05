@@ -6,18 +6,18 @@ This file is the single source of truth for planned work — new features, bug f
 
 ## How to use it
 
+All contributions go through Pull Requests — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+
 **Reporting a bug or requesting a feature?**
-Open a [GitHub Issue](../../issues) using the appropriate template. If the maintainer accepts it, it will be added here.
+Fork the repo, add an entry to this file in the appropriate section (`## Bugs` for bugs, the relevant feature section otherwise), and open a PR. Include a file:line reference for bugs. Discussion happens in PR comments.
 
 **Picking up work?**
-Choose an item from High Priority, assign yourself in the corresponding Issue, and open a PR when ready. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+Fork the repo, implement the fix, and open a PR. Adding the backlog entry and fixing it can be one PR.
 
-**When work ships — required lifecycle:**
+**When work ships — the maintainer:**
 
-Every completed item must follow this two-step transition before the PR merges. Items are not "done" until both steps are done. Skipping either step leaves the backlog stale and the changelog incomplete.
-
-1. **Document it in [CHANGELOG.md](CHANGELOG.md).** Add an entry under `[Unreleased]` in the appropriate Keep-a-Changelog section (`### Added` / `### Changed` / `### Fixed` / `### Removed` / `### Deprecated` / `### Security`). Write the entry from the user's perspective — what changed for them, not what files were touched.
-2. **Delete it from this file.** Remove the entry entirely. Do not strike it through, do not leave a "DONE" marker — the absence is the signal. The git history preserves the prior text if anyone needs to recover it.
+1. Adds a CHANGELOG entry under `[Unreleased]` in the appropriate Keep-a-Changelog section (`### Added` / `### Changed` / `### Fixed` / `### Removed` / `### Deprecated` / `### Security`), written from the user's perspective.
+2. Deletes the item from this file before merging. No strikethrough, no "DONE" marker — the absence is the signal.
 
 The README is the source of truth for what the project *is today*; the backlog is the source of truth for what it *isn't yet*. Anything appearing in both is a bookkeeping bug — fix it by removing the backlog entry.
 
@@ -30,63 +30,51 @@ The README is the source of truth for what the project *is today*; the backlog i
 | **Low / Ideas** | Worth tracking, no commitment to timeline |
 ---
 
-## Model Strategy: Optimise for Specific Models, Work Everywhere
+## Embedding Model Strategy
 
-The project currently hardcodes one embedding model (`BAAI/bge-small-en-v1.5`, 384-dim) and has no awareness of which LLM is acting as the agent. The goal is a tiered approach: use the best available model when conditions allow, degrade gracefully when they don't.
+The project hardcodes one embedding model (`BAAI/bge-small-en-v1.5`, 384-dim) via fastembed. The goal is to make the model configurable and degrade gracefully when fastembed is unavailable.
 
 ### Current constraints
 
 - `MODEL` and `DIM` are hardcoded constants in `tools/embeddings.py:39-40`.
 - `search.py:44` reshapes all stored vectors using the hardcoded `DIM=384`. A model producing a different dimension silently corrupts results.
-- The `embedding_model` column already exists per-row in `index.db` — the schema was designed for multi-model support but the code hasn't caught up.
+- The `embedding_model` column already exists per-row in `index.db` but is never used to drive search.
 - Changing the model invalidates every vector in the index and requires a `--full` refresh.
 
----
+### Embedding models (fastembed, local)
 
-### Embedding model tier ladder
-
-Define four tiers in priority order. The system selects the highest tier available at index-build time and stores the chosen model name in `embedding_model` per row.
-
-| Tier | Model | Dim | Size | Requires |
-|---|---|---|---|---|
-| **0 — Keyword fallback** | BM25 / TF-IDF (stdlib) | — | 0 MB | Nothing — pure Python |
-| **1 — Local small** *(current default)* | `BAAI/bge-small-en-v1.5` | 384 | ~130 MB | `fastembed` |
-| **2 — Local large** | `BAAI/bge-large-en-v1.5` | 1024 | ~1.2 GB | `fastembed` |
-| **3 — API** | Voyage `voyage-3-lite`, OpenAI `text-embedding-3-small`, Cohere `embed-v3` | 1024–1536 | 0 MB local | API key + network |
+| Option | Model | Dim | Size |
+|---|---|---|---|
+| **Small** *(current default)* | `BAAI/bge-small-en-v1.5` | 384 | ~130 MB |
+| **Large** | `BAAI/bge-large-en-v1.5` | 1024 | ~1.2 GB |
+| **Keyword fallback** | BM25 / TF-IDF (stdlib) | — | 0 MB |
 
 Work items:
 
-- **Move `MODEL` and `DIM` to `search_config.py`** — replace the hardcoded constants in `embeddings.py:39-40` with config variables so users can select a tier without editing tool source. `search.py` must read `DIM` from config (or from the stored `embedding_model` row) rather than a hardcoded literal. (`tools/embeddings.py:39-40`, `tools/search.py:44`)
+- **Move `MODEL` and `DIM` to `search_config.py`** — replace the hardcoded constants in `embeddings.py:39-40` with config variables so users can switch models without editing tool source. `search.py` must read `DIM` from config (or from the stored `embedding_model` row) rather than a hardcoded literal. (`tools/embeddings.py:39-40`, `tools/search.py:44`)
 
-- **Keyword fallback (Tier 0)** — when `fastembed` is not installed or the model download fails, fall back to a stdlib BM25/TF-IDF search over raw chunk text. Quality is lower but the system remains usable in air-gapped environments, minimal Docker images, or first-run before the model cache is warm. Exit code and output format identical to normal search so hooks require no changes.
+- **Keyword fallback** — when `fastembed` is not installed or the model download fails, fall back to a stdlib BM25/TF-IDF search over raw chunk text. Quality is lower but the system remains usable before the model cache is warm. Exit code and output format identical to normal search so hooks require no changes.
 
 - **`embeddings.py switch-model`** — a subcommand that changes `EMBEDDING_MODEL` in `search_config.py` and immediately runs `refresh --full`, preventing the silent dimension mismatch that occurs when the model is changed manually. Prints a clear warning about re-index time before proceeding.
 
----
+### Claude model awareness
 
-### Agent LLM context-window awareness
-
-The optimal number of chunks to return (`k`) and the chunk character ceiling depend on how large the agent's context window is. A model with a 8K window needs different defaults than one with 200K.
+The optimal number of chunks to return (`k`) and the chunk character ceiling depend on which Claude model is in use. Haiku, Sonnet, and Opus have meaningfully different context windows.
 
 - **`AGENT_MODEL` config variable** — add an optional `AGENT_MODEL` string to `search_config.py` (e.g. `"claude-sonnet-4-6"`). When set, `search.py` uses a lookup table to select default `k` and warn if chunks risk filling the window. When unset, current defaults apply unchanged.
 
-- **Context-window lookup table** — ship a small `tools/model_profiles.py` mapping Claude model IDs (Haiku / Sonnet / Opus) to context window size and recommended `k` / `MAX_CHUNK_CHARS` values.
-
----
+- **Context-window lookup table** — ship `tools/model_profiles.py` mapping Claude model IDs (Haiku / Sonnet / Opus) to context window size and recommended `k` / `MAX_CHUNK_CHARS` values.
 
 ### Graceful degradation
 
-The system should never hard-block an agent when a component is unavailable. Defined degradation ladder:
-
 | Condition | Current behaviour | Target behaviour |
 |---|---|---|
-| `fastembed` not installed | `RuntimeError`, refresh aborts | Fall back to Tier 0 keyword search with a one-time warning |
+| `fastembed` not installed | `RuntimeError`, refresh aborts | Fall back to keyword search with a one-time warning |
 | Model download fails (offline) | Exception, index empty | Use last successfully cached model; warn if none cached |
-| `index.db` missing or empty | `search-first` gate fires, no results | Gate lifts automatically; agent proceeds with `Read` and a one-time advisory |
+| `index.db` missing or empty | `search-first` gate fires, no results | Gate lifts automatically; Claude proceeds with `Read` and a one-time advisory |
 | DB locked by concurrent refresh | `sqlite3.OperationalError` | Retry once with 500ms backoff; return stale results on second failure with a warning |
-| API embedding backend unreachable | Unhandled exception | Fall back to next available tier, log the failure to `.claude/state/embed-errors.log` |
 
-- **Implement the degradation ladder** — each condition above needs an explicit handler in `tools/embeddings.py` and `tools/search.py` that catches the failure, emits a structured warning to stderr, and continues at the next tier rather than propagating an exception.
+- **Implement the degradation ladder** — each condition above needs an explicit handler in `tools/embeddings.py` and `tools/search.py` that catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
 
 ---
 ## Bug-Hunt Protocol
