@@ -303,7 +303,9 @@ def _save_result(key: str, data: dict) -> None:
     _results[key] = data
 
 
-def pytest_sessionfinish(session, exitstatus):
+@pytest.fixture(scope="session", autouse=True)
+def _write_perf_results():
+    yield
     if _results:
         out = PERF_DIR / "latest.json"
         out.write_text(json.dumps(_results, indent=2))
