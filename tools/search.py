@@ -22,6 +22,7 @@ sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed  # noqa: E402
 from search_config import SOURCE_TYPES, STATE_DIR  # noqa: E402
+from savings_log import append as _log_savings  # noqa: E402
 
 DEFAULT_K = 3
 
@@ -81,6 +82,23 @@ def main() -> int:
     (STATE_DIR / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
     results = search(args.query, k=args.k, source_type=args.source_type)
+    if results:
+        chunk_chars = sum(len(r["text"]) for r in results)
+        unique_paths = {r["source_path"] for r in results}
+        full_file_chars = 0
+        for fp in unique_paths:
+            try:
+                full_file_chars += (BASE / fp).stat().st_size
+            except OSError:
+                pass
+        _log_savings({
+            "strategy": "search",
+            "query": args.query,
+            "chunk_chars": chunk_chars,
+            "full_file_chars": full_file_chars,
+            "saved_chars": max(0, full_file_chars - chunk_chars),
+        })
+
     if args.json:
         print(json.dumps(results, indent=2))
         return 0

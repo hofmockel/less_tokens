@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Token savings tracking** — new `tools/savings_log.py` + `tools/stats.py`; disabled by default (`TRACK_SAVINGS = False` in `search_config.py`); enable with `python tools/stats.py --enable` (or the interactive prompt); hooks log chars saved per strategy to `.claude/state/savings.jsonl`; `--report` writes a markdown summary to `.claude/state/savings-report.md`; `--all` shows all-time totals; `--disable` turns tracking off; `embeddings.py savings` dispatches to the same interface
+- `TRACK_SAVINGS` config variable in `tools/search_config.py`
+- **Stats GitHub Actions workflow** (`.github/workflows/stats.yml`) — runs stats unit tests on Python 3.9 / 3.11 / 3.12 × all three OS, plus a separate job that enables tracking, logs synthetic events, generates a savings report, uploads it as a workflow artifact, and resets tracking to off
+- Unit tests for `savings_log` and `stats` in `tests/unit/test_stats.py` (append guard, timestamp injection, record filtering, summarize aggregation, table rendering, report generation, config patching)
+
 ### Fixed
 - `is_indexed()` in `hooks/index-refresh.py` now uses the same mid-path exclusion check as `search-first.py` (`("/" + d) in ("/" + rel)`), so both hooks agree on files inside excluded directories that appear at non-root path positions
 - `chunk_sql` no longer splits SQL statements on semicolons that appear inside `--` line comments; comments are stripped before splitting so statement boundaries are found correctly

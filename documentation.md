@@ -70,6 +70,7 @@ All variables:
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
+| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `python tools/stats.py --enable`) |
 
 ---
 
@@ -113,6 +114,52 @@ Run this once after configuring, and again whenever you want a full refresh:
 .venv/bin/python tools/embeddings.py health   # exits 1 if any source has no chunks
 .venv/bin/python tools/db.py verify           # prints row counts per source type
 ```
+
+### Token savings tracking
+
+Track how many chars and tokens each strategy saves across a session.
+
+Tracking is **off by default**. Enable it with:
+
+```bash
+python tools/stats.py --enable    # non-interactive
+# or
+python tools/stats.py             # interactive prompt
+```
+
+Once enabled, each hook call appends one JSON record to `.claude/state/savings.jsonl`.
+
+**Commands:**
+
+```bash
+python tools/stats.py              # show session table (last 8h)
+python tools/stats.py --all        # show all-time totals
+python tools/stats.py --report     # write .claude/state/savings-report.md and print table
+python tools/stats.py --disable    # turn tracking off
+```
+
+Also accessible as:
+
+```bash
+.venv/bin/python tools/embeddings.py savings
+```
+
+**Example output:**
+
+```
+## Session (last 8h · 8 events)
+
+| Strategy               | Events |  Chars saved |  ~Tokens saved |
+|------------------------|--------|--------------|----------------|
+| Truncation             |      3 |       18,100 |          4,525 |
+| Search-first block     |      2 |       22,600 |          5,650 |
+| Search (vs full file)  |      2 |       20,300 |          5,075 |
+| Compaction nudges      |      1 |            — |              — |
+|------------------------|--------|--------------|----------------|
+| **Total**              |        | **61,000**   |     **15,250** |
+```
+
+Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text returned against the full size of matched files on disk.
 
 ### Caveman mode
 
@@ -220,7 +267,9 @@ less_tokens_claude/
 │   ├── search_config.py       # ← only file to edit when porting
 │   ├── embeddings.py          # build/refresh the vector index
 │   ├── search.py              # semantic search CLI
-│   └── db.py                  # SQLite helpers
+│   ├── db.py                  # SQLite helpers
+│   ├── savings_log.py         # per-event savings logger (used by hooks)
+│   └── stats.py               # savings tracker CLI (enable / report / disable)
 ├── schema/
 │   └── index.sql              # documents table schema
 ├── hooks/

@@ -379,11 +379,15 @@ def main() -> int:
     r.add_argument("--full", action="store_true", help="delete-all and rebuild")
     sub.add_parser("stats")
     sub.add_parser("health")
+    sub.add_parser("savings")
     args = ap.parse_args()
     if args.cmd == "refresh":
         return refresh(full=args.full)
     if args.cmd == "health":
         return health()
+    if args.cmd == "savings":
+        from stats import main as _savings_main  # noqa: PLC0415
+        return _savings_main()
     return stats()
 
 

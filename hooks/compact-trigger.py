@@ -18,8 +18,10 @@ sys.path.insert(0, str(REPO / "tools"))
 
 try:
     from search_config import MAX_SESSION_CHARS
+    from savings_log import append as _log_savings
 except Exception:
     MAX_SESSION_CHARS = 500_000
+    def _log_savings(_r: dict) -> None: pass  # noqa: E301
 
 STATE_FILE = REPO / ".claude" / "state" / "compact-trigger-last"
 
@@ -66,6 +68,7 @@ def main() -> int:
         return 0
 
     write_last_size(size)
+    _log_savings({"strategy": "compaction", "transcript_chars": size, "saved_chars": 0})
     print(f"Session transcript is now {size:,} chars (threshold {MAX_SESSION_CHARS:,}). "
           f"Run /compact before the next tool call to reclaim context budget.",
           file=sys.stderr)

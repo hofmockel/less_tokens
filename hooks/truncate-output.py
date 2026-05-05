@@ -22,10 +22,12 @@ try:
         TOOL_OUTPUT_HEAD_LINES,
         TOOL_OUTPUT_TAIL_LINES,
     )
+    from savings_log import append as _log_savings
 except Exception:
     MAX_TOOL_OUTPUT_CHARS = 4000
     TOOL_OUTPUT_HEAD_LINES = 50
     TOOL_OUTPUT_TAIL_LINES = 20
+    def _log_savings(_r: dict) -> None: pass  # noqa: E301
 
 _TARGETED_TOOLS = {"Bash", "Read", "WebFetch"}
 
@@ -81,6 +83,8 @@ def main() -> int:
         truncated = truncate_chars(tool_result, MAX_TOOL_OUTPUT_CHARS)
 
     omitted_chars = len(tool_result) - len(truncated)
+    _log_savings({"strategy": "truncation", "tool": tool_name,
+                  "original_chars": len(tool_result), "saved_chars": omitted_chars})
     print(truncated)
     print(f"[truncated — {omitted_chars:,} chars omitted ({len(tool_result):,} total)]",
           file=sys.stderr)

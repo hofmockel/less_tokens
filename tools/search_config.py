@@ -50,3 +50,6 @@ TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors l
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 
 STATE_DIR: Path = BASE / ".claude" / "state"
+
+# --- Token savings tracking (Strategy metrics) ---
+TRACK_SAVINGS = False   # set True via: python tools/stats.py

@@ -36,6 +36,8 @@ def _load_config() -> bool:
         _config["dirs"] = INDEXED_DIRS
         _config["venv_py"] = VENV_PY
         _config["state_file"] = STATE_DIR / "last-search"
+        from savings_log import append as _log  # noqa: PLC0415
+        _config["log"] = _log
         return True
     except Exception as e:
         print(f"search-first: could not load search_config ({e}); gate disabled", file=sys.stderr)
@@ -92,6 +94,13 @@ def main() -> int:
 
     venv_py = _config.get("venv_py", "python3")
     rel = p.resolve().relative_to(REPO).as_posix()
+    try:
+        file_chars = p.stat().st_size
+    except OSError:
+        file_chars = 0
+    _config.get("log", lambda _: None)(
+        {"strategy": "search-blocked", "file": rel, "saved_chars": file_chars}
+    )
     msg = (
         f"Search-first rule (CLAUDE.md): {rel} is indexed.\n"
         f"Run vector search before Read:\n"
