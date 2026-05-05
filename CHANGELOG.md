@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `is_indexed()` in `hooks/index-refresh.py` now uses the same mid-path exclusion check as `search-first.py` (`("/" + d) in ("/" + rel)`), so both hooks agree on files inside excluded directories that appear at non-root path positions
+- `chunk_sql` no longer splits SQL statements on semicolons that appear inside `--` line comments; comments are stripped before splitting so statement boundaries are found correctly
+- Removed `"app/"` from the default `INDEXED_SOURCE_DIRS` in `tools/search_config.py` — the installer never creates that directory, so fresh installs no longer report a health gap for every file under `app/`
+- `chunk_changelog` now recognises Keep-a-Changelog headers (`## [version] - date`, `## [Unreleased]`) in addition to date-only headers (`## YYYY-MM-DD`); previously any CHANGELOG using the standard format fell back to `chunk_markdown` and lost per-version chunk structure
+
 ### Added
 - **Non-destructive installer** — `install.py` now handles re-runs and upgrades safely:
   - `search_config.py` is never overwritten wholesale; only variables absent in the existing file are injected, preserving all user-set values

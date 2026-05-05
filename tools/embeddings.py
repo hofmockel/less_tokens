@@ -133,7 +133,8 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
 
 def chunk_sql(path: Path) -> list[tuple[str, str]]:
     src = path.read_text(encoding="utf-8", errors="replace")
-    blocks = re.split(r";\s*\n", src)
+    src_no_comments = re.sub(r"--[^\n]*", "", src)
+    blocks = re.split(r";\s*\n", src_no_comments)
     out: list[tuple[str, str]] = []
     for b in blocks:
         b = b.strip()
@@ -149,9 +150,15 @@ def chunk_sql(path: Path) -> list[tuple[str, str]]:
 
 
 def chunk_changelog(path: Path) -> list[tuple[str, str]]:
-    """Split CHANGELOG.md on `## YYYY-MM-DD` headings."""
+    """Split CHANGELOG.md on version/date headings.
+
+    Matches both date-only headers (## YYYY-MM-DD) and Keep-a-Changelog
+    headers (## [version] - date, ## [Unreleased]).
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
-    parts = re.split(r"^(##\s+\d{4}-\d{2}-\d{2}.*)$", text, flags=re.MULTILINE)
+    parts = re.split(
+        r"^(##\s+(?:\[.+?\]|\d{4}-\d{2}-\d{2}).*)$", text, flags=re.MULTILINE
+    )
     out: list[tuple[str, str]] = []
     for i in range(1, len(parts), 2):
         head = parts[i].strip()

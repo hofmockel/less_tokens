@@ -35,14 +35,6 @@ The README is the source of truth for what the project *is today*; the backlog i
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **`chunk_changelog` regex won't match this repo's own CHANGELOG** — the splitter expects `## YYYY-MM-DD` but Keep a Changelog format (and our `CHANGELOG.md`) uses `## [0.2.0] - 2026-05-03`. Every version section silently falls back to `chunk_markdown`, losing the date-based key structure. (`tools/embeddings.py:147`)
-
-- **`is_indexed()` exclusion logic differs between `search-first.py` and `index-refresh.py`** — `search-first.py` uses `("/" + d) in ("/" + rel) or rel.startswith(d)` which matches excluded names anywhere in the path; `index-refresh.py` uses only `rel.startswith(d)`. The two hooks will disagree on whether mid-path excluded directories are blocked. (`hooks/search-first.py:49`, `hooks/index-refresh.py:37`)
-
-- **`search_config.py` default `INDEXED_SOURCE_DIRS` includes `"app/"` which is never created by the installer** — fresh install targets will have `health` report a gap for every file under `app/` until the user edits the config. The default should only include directories the installer actually creates (`tools/`, `schema/`). (`tools/search_config.py:38`)
-
-- **`db.py` `verify()` interpolates table name directly into SQL** — `f"SELECT COUNT(*) FROM {r[0]}"` constructs SQL from `sqlite_master` output without sanitization. Low real-world risk but bad practice; should use a whitelist or quoted identifier. (`tools/db.py:64`)
-
 - **`start_new_session=True` is a no-op on Windows in `index-refresh.py`** — `subprocess.Popen(..., start_new_session=True)` is documented as POSIX-only; on Windows the kwarg is ignored and the child remains attached to the parent, defeating the detach intent. Fix: branch on `sys.platform`; on Windows pass `creationflags=subprocess.DETACHED_PROCESS` (or `CREATE_NEW_PROCESS_GROUP`) instead. (`hooks/index-refresh.py:72`)
 
 - **Venv path containing `"` produces invalid Python in the printed `VENV_PY` line** — `f'       VENV_PY = _venv_python("{venv_dir}")'` interpolates the path raw; a path with an embedded `"` yields a `SyntaxError` when the user pastes it. Fix: emit `repr(str(venv_dir))` or `json.dumps(str(venv_dir))` so escaping is correct. (`install.py:189-190`)
@@ -54,8 +46,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **`enumerate_sources()` aborts the entire refresh on a single permission-denied directory** — `path.rglob("*")` propagates `PermissionError` from a single unreadable subtree, killing the run and leaving the index stale. Fix: wrap each per-source enumeration in `try/except OSError`, log a warning, and continue. (`tools/embeddings.py:173`)
 
 - **Heading-dedup `_2` suffix can collide with a literal `## Foo_2` in the same file** — the dedup logic renames repeats to `Foo_2`, but if the source already contains `## Foo_2` literally, both end up with identical `(source_path, source_key)` and the UPSERT silently overwrites. Fix: pre-scan all heading keys for the file and only suffix when the candidate is free, or use an ordinal scheme (`Foo#2`) using a character that cannot appear in a markdown heading. (`tools/embeddings.py:94-99`)
-
-- **`chunk_sql` splits on `;` inside SQL line comments** — `re.split(r";\s*\n", src)` treats a `-- explanation; with semicolon\n` as a statement boundary; the next real statement loses its `CREATE TABLE` / `CREATE INDEX` prefix and is keyed as `stmt:<hash>` instead of `table:foo`, hurting search quality. Fix: strip line-comments before splitting, or use a real SQL tokeniser. (`tools/embeddings.py:136`)
 
 ---
 

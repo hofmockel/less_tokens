@@ -33,7 +33,7 @@ def is_indexed(path: Path) -> bool:
         rel = path.resolve().relative_to(REPO).as_posix()
     except ValueError:
         return False
-    if any(rel.startswith(d) for d in EXCLUDED_DIRS):
+    if any(("/" + d) in ("/" + rel) or rel.startswith(d) for d in EXCLUDED_DIRS):
         return False
     if "/" not in rel:
         return rel.endswith(".md")
