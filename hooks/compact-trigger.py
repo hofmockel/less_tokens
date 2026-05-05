@@ -1,28 +1,10 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: nudge Claude to /compact when the session transcript grows large.
+"""PostToolUse hook: nudge Claude to /compact when session transcript grows large.
 
-Claude Code writes a per-session JSONL transcript and passes its path to hooks
-as `transcript_path`. When that file exceeds MAX_SESSION_CHARS, this hook exits
-2 with a one-line reminder so Claude runs /compact before the next tool call.
-
-Hysteresis: writes the size at fire time to .claude/state/compact-trigger-last
-and only re-fires after the transcript grows by another MAX_SESSION_CHARS // 4.
-This prevents the reminder firing on every subsequent tool call once tripped.
-
-Wire in .claude/settings.local.json:
-
-    {
-      "hooks": {
-        "PostToolUse": [
-          {"matcher": ".*",
-           "hooks": [{"type": "command",
-                      "command": "<VENV_PY> .claude/hooks/compact-trigger.py"}]}
-        ]
-      }
-    }
-
-Tune in tools/search_config.py: MAX_SESSION_CHARS = 500_000  # ~125k tokens
-Set MAX_SESSION_CHARS = 0 to disable without unwiring the hook.
+Exits 2 with a reminder when transcript_path exceeds MAX_SESSION_CHARS.
+Hysteresis: only re-fires after another MAX_SESSION_CHARS // 4 of growth.
+Tune threshold in search_config.py. Set to 0 to disable.
+install.py wires this into .claude/settings.local.json automatically.
 """
 from __future__ import annotations
 

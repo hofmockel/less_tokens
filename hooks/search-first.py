@@ -1,31 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse hook: enforce search-before-Read on indexed files.
 
-Receives the tool call JSON on stdin. Exits 2 with a stderr message to feed
-back to the model when an indexed file is being Read without a recent search.
-The agent can satisfy the gate by running:
-
-    <VENV_PY> tools/search.py "QUERY"
-
-where VENV_PY is configured in tools/search_config.py.
-
-That touches .claude/state/last-search; subsequent Reads within WINDOW_SECONDS
-are allowed.
-
-Configured in .claude/settings.local.json:
-
-    {
-      "hooks": {
-        "PreToolUse": [
-          {"matcher": "Read",
-           "hooks": [{"type": "command",
-                      "command": "<VENV_PY> .claude/hooks/search-first.py"}]}
-        ]
-      }
-    }
-
-Use the venv python printed by install.py — `python3` does not exist on
-default Windows installs and bypasses the project venv on Unix.
+Exits 2 with a reminder when an indexed file is Read without a recent search.
+Gate clears for WINDOW_SECONDS after any search; configure in search_config.py.
+install.py wires this into .claude/settings.local.json automatically.
 """
 from __future__ import annotations
 

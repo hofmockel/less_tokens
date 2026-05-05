@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `chunk_changelog` now recognises Keep-a-Changelog headers (`## [version] - date`, `## [Unreleased]`) in addition to date-only headers (`## YYYY-MM-DD`); previously any CHANGELOG using the standard format fell back to `chunk_markdown` and lost per-version chunk structure
 
 ### Added
+- **Test suite and CI** — `tests/unit/` covers chunkers, db, hook protocol, `is_indexed` parity, config merge, and settings wiring; `tests/integration/test_install.py` runs end-to-end installer scenarios; `tests/perf/test_bench_tokens.py` benchmarks token-reduction per strategy; GitHub Actions matrix runs unit and integration tests on Python 3.9 / 3.11 / 3.12 × Ubuntu / macOS / Windows, perf benchmarks on Ubuntu with fastembed model caching and artifact upload
 - **Non-destructive installer** — `install.py` now handles re-runs and upgrades safely:
   - `search_config.py` is never overwritten wholesale; only variables absent in the existing file are injected, preserving all user-set values
   - `copy_tree` detects locally-modified files and shows a `+N -M lines` diff summary instead of silently overwriting; `--overwrite-modified` is required to update them

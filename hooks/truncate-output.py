@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: truncate oversized tool results to stay within token budget.
+"""PostToolUse hook: truncate oversized Bash, Read, and WebFetch results.
 
-Fires on Bash, Read, and WebFetch results. If the result exceeds
-MAX_TOOL_OUTPUT_CHARS, emits a truncated version and exits 2 so Claude sees
-the shorter output instead of the full one.
-
-- Bash: head+tail (lines-based) — preserves start and bottom errors
-- Read / WebFetch: 60/40 character split — preserves file header and tail
-
-Wire in .claude/settings.local.json — place before caveman-reminder entry:
-
-    {
-      "hooks": {
-        "PostToolUse": [
-          {"matcher": "Bash|Read|WebFetch",
-           "hooks": [{"type": "command",
-                      "command": "<VENV_PY> .claude/hooks/truncate-output.py"}]}
-        ]
-      }
-    }
-
-Tune ceiling in tools/search_config.py: MAX_TOOL_OUTPUT_CHARS = 4000
-Set to 0 to disable without removing the hook.
+Exits 2 with truncated output when result exceeds MAX_TOOL_OUTPUT_CHARS.
+Bash: head+tail (preserves start and bottom errors).
+Read/WebFetch: 60/40 character split.
+Tune ceiling in search_config.py. Set to 0 to disable.
+install.py wires this into .claude/settings.local.json automatically.
 """
 from __future__ import annotations
 
