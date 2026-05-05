@@ -130,10 +130,36 @@ Hunt statistics are recorded round-by-round in [bughuntlog.md](bughuntlog.md).
 
 ## Developer Experience
 
+### High Priority
+
+- **Regression test suite (`tests/unit/`)** — `pytest` unit tests covering every component that has broken silently in the past or has known edge-case bugs:
+  - Chunkers: `chunk_python` (AST fallback on syntax error, UPPER_CASE constants, nested classes), `chunk_markdown` (H1/H2/H3 nesting, heading dedup collision), `chunk_sql` (semicolons inside line comments), `chunk_changelog` (Keep-a-Changelog header format vs. date-only format)
+  - `is_indexed()` parity — assert that `search-first.py` and `index-refresh.py` return identical results for the same path/config pairs; this directly catches the mid-path exclusion divergence bug
+  - Incremental refresh hash logic — modify a source file, run refresh, assert only the changed chunk is replaced
+  - Config merging (`merge_search_config`) — missing variable added, existing variable preserved, comment block preserved
+  - Settings wiring (`wire_settings`) — idempotent on second call, correct JSON structure, no duplicates
+  - Hook protocol — feed synthetic stdin payloads to each hook script; assert exit code and stdout JSON for block (exit 2) and pass (exit 0) cases
+
+- **Installation test harness (`tests/integration/test_install.py`)** — end-to-end install into a `tmp_path` scratch directory; one test per install path:
+  - Fresh install: assert all expected files present, `settings.local.json` correctly wired, `search_config.py` has correct `VENV_PY`
+  - Re-install without `--force`: assert existing files are untouched (checksum preserved)
+  - Re-install with `--force` but without `--overwrite-modified`: assert modified files are skipped with a diff-summary warning
+  - Re-install with `--force --overwrite-modified`: assert modified files are replaced and diff is printed
+  - Config merge: install with a `search_config.py` missing a new variable; assert variable is appended without touching existing lines
+  - `--check` flag: assert exit 0 when valid, exit 1 with specific message for each failure mode (missing venv, missing `index.db`, hook not wired)
+
+- **Token performance benchmark (`tests/perf/bench_tokens.py`)** — measures the actual token-cost reduction each strategy delivers; run manually or in CI on a representative fixture codebase:
+  - Fixture: a small synthetic project with ~20 source files (~500 lines each) committed under `tests/fixtures/sample_project/`
+  - **Pre-install baseline** — count characters (and estimated tokens via `len(text) / 4`) consumed by reading every file returned by a set of 10 benchmark queries using `Read`
+  - **Post-install (search)** — for the same 10 queries, count characters in the top-k search results returned by `search.py`
+  - **Truncation savings** — for 5 synthetic oversized Bash/Read outputs, measure character count before and after `truncate-output.py` processes them
+  - **Compaction trigger** — verify `compact-trigger.py` fires (exit 2 with message) when transcript size exceeds `MAX_SESSION_CHARS` and does not fire below threshold
+  - Report format: one row per strategy — `strategy | before_chars | after_chars | reduction_%`; assert reduction meets minimum thresholds (vector search ≥ 70%, truncation ≥ 40%) to catch regressions in search quality or hook behaviour
+  - Emit results to `tests/perf/latest.json` so CI can track trend over time
+
 ### Medium Priority
 
-- **`pytest` test suite** — unit tests for `chunk_python`, `chunk_markdown`, `is_indexed`, and the incremental refresh hash logic
-- **CI: test on Python 3.9 / 3.11 / 3.12** — GitHub Actions matrix to catch version regressions early
+- **CI: test on Python 3.9 / 3.11 / 3.12** — GitHub Actions matrix running `tests/unit/` and `tests/integration/` on all three versions and all three OS (ubuntu / macos / windows); `tests/perf/` runs on ubuntu only to keep CI times down
 - **`pre-commit` config** — add `ruff` and `pyright` hooks so contributors get linting feedback before pushing
 
 ---
