@@ -13,7 +13,7 @@ What it does:
   2. Merges new variables into search_config.py without clobbering existing values
   3. Detects or accepts --venv PATH; installs fastembed + numpy into it
   4. Initializes or migrates index.db from schema/index.sql
-  5. Wires core hooks into .claude/settings.local.json (idempotent)
+  5. Wires core hooks into .claude/settings.json (idempotent, project-shared)
   6. Optionally builds the first index (skipped by default — configure first)
 
 Force / overwrite flags:
@@ -256,8 +256,19 @@ def handle_search_config(
 # ---------------------------------------------------------------------------
 
 def _build_hook_entries(venv_py: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
-    """Return (event_type, matcher, command) tuples for all hooks to wire."""
-    py = str(venv_py)
+    """Return (event_type, matcher, command) tuples for all hooks to wire.
+
+    The venv python path is rendered relative to TARGET_ROOT when possible
+    so that re-runs produce string-identical commands regardless of whether
+    the user passed --venv with a relative or absolute path (or relied on
+    auto-detect, which always returns absolute). Without this, the
+    idempotency check in wire_settings() would see two commands as
+    different and add duplicate entries.
+    """
+    try:
+        py = str(venv_py.relative_to(TARGET_ROOT))
+    except ValueError:
+        py = str(venv_py)
     entries: list[tuple[str, str, str]] = [
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
@@ -278,7 +289,7 @@ def wire_settings(
     settings_path: Path,
     entries: list[tuple[str, str, str]],
 ) -> tuple[int, int]:
-    """Merge hook entries into settings.local.json. Returns (added, already_present)."""
+    """Merge hook entries into the target settings file. Returns (added, already_present)."""
     if settings_path.exists():
         try:
             settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -512,10 +523,15 @@ def main() -> int:
         changes += 1
 
     # ------------------------------------------------------------------
-    # Step 5: Wire hooks into .claude/settings.local.json
+    # Step 5: Wire hooks into .claude/settings.json (project-shared)
+    #
+    # We use settings.json rather than settings.local.json because Claude
+    # Code rewrites the latter when auto-adding Bash permissions, which
+    # can clobber the hooks block. settings.json is the project-shared
+    # file and stays stable across permission changes.
     # ------------------------------------------------------------------
-    print("\n[5/5] Wiring .claude/settings.local.json...")
-    settings_path = TARGET_ROOT / ".claude" / "settings.local.json"
+    print("\n[5/5] Wiring .claude/settings.json...")
+    settings_path = TARGET_ROOT / ".claude" / "settings.json"
     entries = _build_hook_entries(venv_py, args)
     added, present = wire_settings(settings_path, entries)
     print(f"  {added} hook(s) wired, {present} already present")
