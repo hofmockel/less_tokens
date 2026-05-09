@@ -13,7 +13,7 @@ What it does:
   2. Merges new variables into search_config.py without clobbering existing values
   3. Detects or accepts --venv PATH; installs fastembed + numpy into it
   4. Initializes or migrates index.db from schema/index.sql
-  5. Wires core hooks into .claude/settings.local.json (idempotent)
+  5. Wires core hooks into .claude/settings.json (idempotent, project-shared)
   6. Optionally builds the first index (skipped by default — configure first)
 
 Force / overwrite flags:
@@ -60,8 +60,12 @@ def venv_python(venv_dir: Path) -> Path:
 
 
 def detect_venv() -> Path | None:
-    """Look for a venv in common locations relative to TARGET_ROOT."""
-    for candidate in [".venv", "venv", "env", "app/.venv"]:
+    """Look for a venv in common locations relative to TARGET_ROOT.
+
+    `.venv-tokens` is checked first so projects that keep less_tokens deps
+    isolated from the project's main venv get auto-detected on re-runs.
+    """
+    for candidate in [".venv-tokens", ".venv", "venv", "env", "app/.venv"]:
         d = TARGET_ROOT / candidate
         if venv_python(d).exists():
             return d
@@ -252,8 +256,19 @@ def handle_search_config(
 # ---------------------------------------------------------------------------
 
 def _build_hook_entries(venv_py: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
-    """Return (event_type, matcher, command) tuples for all hooks to wire."""
-    py = str(venv_py)
+    """Return (event_type, matcher, command) tuples for all hooks to wire.
+
+    The venv python path is rendered relative to TARGET_ROOT when possible
+    so that re-runs produce string-identical commands regardless of whether
+    the user passed --venv with a relative or absolute path (or relied on
+    auto-detect, which always returns absolute). Without this, the
+    idempotency check in wire_settings() would see two commands as
+    different and add duplicate entries.
+    """
+    try:
+        py = str(venv_py.relative_to(TARGET_ROOT))
+    except ValueError:
+        py = str(venv_py)
     entries: list[tuple[str, str, str]] = [
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
@@ -274,7 +289,7 @@ def wire_settings(
     settings_path: Path,
     entries: list[tuple[str, str, str]],
 ) -> tuple[int, int]:
-    """Merge hook entries into settings.local.json. Returns (added, already_present)."""
+    """Merge hook entries into the target settings file. Returns (added, already_present)."""
     if settings_path.exists():
         try:
             settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -314,29 +329,63 @@ def wire_settings(
 # Subprocess steps
 # ---------------------------------------------------------------------------
 
-def install_deps(venv_py: Path) -> int:
+def _deps_already_present(venv_py: Path) -> bool:
+    """True iff fastembed + numpy both import successfully in the venv."""
+    try:
+        subprocess.check_call(
+            [str(venv_py), "-c", "import fastembed, numpy"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        return True
+    except (subprocess.CalledProcessError, OSError):
+        return False
+
+
+def install_deps(venv_py: Path) -> tuple[int, bool]:
+    """Install fastembed + numpy. Returns (exit_code, did_install)."""
+    if _deps_already_present(venv_py):
+        print(f"\n[3/5] fastembed + numpy already importable in {venv_py} — skipping pip install.")
+        return 0, False
     print(f"\n[3/5] Installing fastembed + numpy into {venv_py}...")
     try:
         subprocess.check_call(
             [str(venv_py), "-m", "pip", "install", "--quiet", "fastembed", "numpy"]
         )
         print("  OK")
-        return 0
+        return 0, True
     except subprocess.CalledProcessError as e:
         print(f"  pip install failed (exit {e.returncode})", file=sys.stderr)
-        return 1
+        return 1, False
 
 
-def init_db(venv_py: Path) -> int:
+def _index_db_at_current_schema() -> bool:
+    """True iff index.db exists and schema_version reports the current version."""
+    db = TARGET_ROOT / "index.db"
+    if not db.exists():
+        return False
+    try:
+        import sqlite3
+        with sqlite3.connect(str(db)) as c:
+            row = c.execute("SELECT MAX(version) FROM schema_version").fetchone()
+            return bool(row and row[0])
+    except sqlite3.Error:
+        return False
+
+
+def init_db(venv_py: Path) -> tuple[int, bool]:
+    """Initialize / migrate index.db. Returns (exit_code, did_init)."""
+    if _index_db_at_current_schema():
+        print("\n[4/5] index.db already initialized — skipping init.")
+        return 0, False
     print("\n[4/5] Initializing / migrating index.db...")
     try:
         subprocess.check_call(
             [str(venv_py), "tools/db.py", "init"], cwd=TARGET_ROOT
         )
-        return 0
+        return 0, True
     except subprocess.CalledProcessError as e:
         print(f"  db init failed (exit {e.returncode})", file=sys.stderr)
-        return 1
+        return 1, False
 
 
 def build_index(venv_py: Path) -> int:
@@ -412,22 +461,26 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
+    # Track whether anything actually changed so the final summary can
+    # report a clean no-op on idempotent re-runs.
+    changes = 0
+
     # ------------------------------------------------------------------
     # Step 1: Copy files
     # ------------------------------------------------------------------
     print("[1/5] Copying files...")
-    copy_tree(SOURCE / "tools",  TARGET_ROOT / "tools",  force_tools,  overwrite_modified,
+    changes += copy_tree(SOURCE / "tools",  TARGET_ROOT / "tools",  force_tools,  overwrite_modified,
               "tools/", exclude=frozenset({"search_config.py"}))
     handle_search_config(
         SOURCE / "tools" / "search_config.py",
         TARGET_ROOT / "tools" / "search_config.py",
         force_config, overwrite_modified,
     )
-    copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", force_tools,  overwrite_modified, "schema/")
-    copy_tree(SOURCE / "hooks",  TARGET_ROOT / ".claude" / "hooks",
+    changes += copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", force_tools,  overwrite_modified, "schema/")
+    changes += copy_tree(SOURCE / "hooks",  TARGET_ROOT / ".claude" / "hooks",
               force_hooks, overwrite_modified, ".claude/hooks/")
     if args.caveman:
-        copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman",
+        changes += copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman",
                   force_tools, overwrite_modified, "caveman/")
 
     # ------------------------------------------------------------------
@@ -452,25 +505,37 @@ def main() -> int:
     # Step 3: Install deps
     # ------------------------------------------------------------------
     if not args.skip_deps:
-        if install_deps(venv_py) != 0:
+        rc, did_install = install_deps(venv_py)
+        if rc != 0:
             return 1
+        if did_install:
+            changes += 1
     else:
         print("\n[3/5] Skipping dep install (--skip-deps).")
 
     # ------------------------------------------------------------------
     # Step 4: Init / migrate DB
     # ------------------------------------------------------------------
-    if init_db(venv_py) != 0:
+    rc, did_init = init_db(venv_py)
+    if rc != 0:
         return 1
+    if did_init:
+        changes += 1
 
     # ------------------------------------------------------------------
-    # Step 5: Wire hooks into .claude/settings.local.json
+    # Step 5: Wire hooks into .claude/settings.json (project-shared)
+    #
+    # We use settings.json rather than settings.local.json because Claude
+    # Code rewrites the latter when auto-adding Bash permissions, which
+    # can clobber the hooks block. settings.json is the project-shared
+    # file and stays stable across permission changes.
     # ------------------------------------------------------------------
-    print("\n[5/5] Wiring .claude/settings.local.json...")
-    settings_path = TARGET_ROOT / ".claude" / "settings.local.json"
+    print("\n[5/5] Wiring .claude/settings.json...")
+    settings_path = TARGET_ROOT / ".claude" / "settings.json"
     entries = _build_hook_entries(venv_py, args)
     added, present = wire_settings(settings_path, entries)
     print(f"  {added} hook(s) wired, {present} already present")
+    changes += added
 
     # ------------------------------------------------------------------
     # Optional: build index
@@ -480,8 +545,12 @@ def main() -> int:
             return 1
 
     # ------------------------------------------------------------------
-    # Next steps
+    # Final summary — distinguish a fresh install from a clean re-run
     # ------------------------------------------------------------------
+    if changes == 0:
+        print("\nDone — installation already current, no changes.")
+        return 0
+
     print("\nDone.")
     print("\n" + "=" * 60)
     print("NEXT STEPS")

@@ -336,20 +336,58 @@ def expected_source_paths() -> set[str]:
     return out
 
 
+def _produces_no_chunks(rel_path: str) -> bool:
+    """True iff the file at rel_path has no indexable content.
+
+    Empty marker files (e.g. blank `__init__.py`) and files whose chunker
+    returns nothing should not be flagged as gaps — they are correctly
+    skipped by the indexer, not failures.
+    """
+    abs_path = BASE / rel_path
+    try:
+        text = abs_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    if not text.strip():
+        return True
+    suffix = abs_path.suffix.lower()
+    try:
+        if suffix == ".py":
+            chunks = chunk_python(abs_path)
+        elif suffix == ".sql":
+            chunks = chunk_sql(abs_path)
+        elif suffix == ".md":
+            chunks = (chunk_changelog(abs_path)
+                      if abs_path.name == "CHANGELOG.md"
+                      else chunk_markdown(abs_path))
+        else:
+            return False
+    except Exception:
+        return False
+    return not chunks
+
+
 def health() -> int:
-    """Verify every expected source has ≥1 chunk in index.db."""
+    """Verify every expected source has ≥1 chunk in index.db.
+
+    Files with no indexable content (empty `__init__.py`, files whose
+    chunker yields zero chunks) are not counted as gaps.
+    """
     expected = expected_source_paths()
     with connect_index() as c:
         counts = dict(c.execute(
             "SELECT source_path, COUNT(*) FROM documents GROUP BY source_path"
         ).fetchall())
 
-    missing = [src for src in sorted(expected) if counts.get(src, 0) == 0]
+    candidate = [src for src in sorted(expected) if counts.get(src, 0) == 0]
+    missing = [src for src in candidate if not _produces_no_chunks(src)]
+    skipped_empty = len(candidate) - len(missing)
 
     if not missing:
         total = sum(counts.values())
+        suffix = f" ({skipped_empty} empty file(s) ignored)" if skipped_empty else ""
         print(f"OK — {len(expected)} expected sources covered "
-              f"({total} chunks total).")
+              f"({total} chunks total){suffix}.")
         return 0
 
     print(f"⚠ {len(missing)} index gap(s):")
