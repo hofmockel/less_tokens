@@ -244,6 +244,83 @@ def merge_search_config(src_file: Path, dst_file: Path) -> list[str]:
     return list(missing.keys())
 
 
+def _venv_py_assign(tree: ast.Module) -> ast.Assign | None:
+    """Find the top-level `VENV_PY = _venv_python(...)` assignment, if any."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name) and target.id == "VENV_PY":
+                return node
+    return None
+
+
+def _venv_py_arg(assign: ast.Assign) -> str | None:
+    """Return the string arg of `_venv_python("X")`, or None if shape doesn't match."""
+    v = assign.value
+    if not (isinstance(v, ast.Call)
+            and isinstance(v.func, ast.Name)
+            and v.func.id == "_venv_python"
+            and len(v.args) == 1
+            and isinstance(v.args[0], ast.Constant)
+            and isinstance(v.args[0].value, str)):
+        return None
+    return v.args[0].value
+
+
+def patch_venv_py(
+    config_path: Path,
+    src_config: Path,
+    target_root: Path,
+    venv_dir: Path,
+) -> str | None:
+    """Rewrite VENV_PY in search_config.py to point at the detected venv.
+
+    Only patches when the existing value matches the source default — user
+    customizations are preserved. Returns the new venv-path string when a
+    change is written; None on no-op or when the user has customized.
+
+    Limitation: once patched the value no longer matches the source default,
+    so a later run with a different auto-detected venv won't re-patch. Users
+    who switch venvs should edit search_config.py by hand, or delete the
+    VENV_PY line entirely (the variable-level merge will re-inject the
+    default, and the next install will patch it).
+    """
+    try:
+        dst_text = config_path.read_text(encoding="utf-8")
+        dst_tree = ast.parse(dst_text)
+        src_tree = ast.parse(src_config.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
+
+    dst_assign = _venv_py_assign(dst_tree)
+    src_assign = _venv_py_assign(src_tree)
+    if dst_assign is None or src_assign is None:
+        return None
+
+    dst_arg = _venv_py_arg(dst_assign)
+    src_arg = _venv_py_arg(src_assign)
+    if dst_arg is None or src_arg is None or dst_arg != src_arg:
+        return None  # user customized — leave alone
+
+    try:
+        venv_str = venv_dir.relative_to(target_root).as_posix()
+    except ValueError:
+        venv_str = str(venv_dir).replace("\\", "/")
+
+    if venv_str == dst_arg:
+        return None  # already correct
+
+    lines = dst_text.splitlines(keepends=True)
+    start = dst_assign.lineno - 1            # 0-indexed
+    end = dst_assign.end_lineno              # 1-indexed, inclusive
+    new_line = f'VENV_PY = _venv_python("{venv_str}")\n'
+    new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
+    if new_text == dst_text:
+        return None
+    config_path.write_text(new_text, encoding="utf-8")
+    return venv_str
+
+
 def handle_search_config(
     src_config: Path,
     dst_config: Path,
@@ -561,6 +638,19 @@ def main() -> int:
         return 1
     print(f"  Using venv: {venv_dir}")
 
+    # Auto-patch VENV_PY in search_config.py to match the detected venv.
+    # Conservative: only fires when the existing value is the source default,
+    # so a user customization is never clobbered.
+    venv_py_patched = patch_venv_py(
+        target_root / "tools" / "search_config.py",
+        SOURCE / "tools" / "search_config.py",
+        target_root,
+        venv_dir,
+    )
+    if venv_py_patched is not None:
+        print(f'  ~ tools/search_config.py: VENV_PY → _venv_python("{venv_py_patched}")')
+        changes += 1
+
     # ------------------------------------------------------------------
     # Step 3: Install deps
     # ------------------------------------------------------------------
@@ -615,10 +705,14 @@ def main() -> int:
     print("\n" + "=" * 60)
     print("NEXT STEPS")
     print("=" * 60)
-    print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
-    print(f"   Change the VENV_PY line to:")
-    print(f'       VENV_PY = _venv_python("{venv_dir}")')
-    print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
+    if venv_py_patched is not None:
+        print("\n1. Edit tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
+        print("   your source directories. VENV_PY is already set to the detected venv.")
+    else:
+        print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
+        print(f"   Change the VENV_PY line to:")
+        print(f'       VENV_PY = _venv_python("{venv_dir}")')
+        print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if not args.build:
         print(f"\n2. Build the index:")
         print(f"       {venv_py} tools/embeddings.py refresh")
