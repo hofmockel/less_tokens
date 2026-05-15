@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
-"""Install less_tokens into the current project.
+"""Install less_tokens into the host project that contains this clone.
 
-Run from your project root:
+less_tokens is designed to be cloned *into* a host project — e.g.
+~/myproject/less_tokens/ — and then deploy its files into the host project
+root (~/myproject/). The installer targets the parent directory of this
+source clone, so it works regardless of the current working directory:
+
     # macOS / Linux
-    python3 path/to/less_tokens_claude/install.py [options]
+    python3 path/to/less_tokens/install.py [options]
 
     # Windows
-    python path/to/less_tokens_claude/install.py [options]
+    python path/to/less_tokens/install.py [options]
+
+Re-running after `git pull` upgrades an existing install in place — files
+that exist are skipped by default and hook wiring is idempotent.
 
 What it does:
-  1. Copies tools/, schema/, hooks/, and caveman/ into your project
+  1. Copies tools/, schema/, hooks/, and caveman/ into the host project
   2. Merges new variables into search_config.py without clobbering existing values
   3. Detects or accepts --venv PATH; installs fastembed + numpy into it
   4. Initializes or migrates index.db from schema/index.sql
   5. Wires core hooks into .claude/settings.json (idempotent, project-shared)
   6. Optionally builds the first index (skipped by default — configure first)
+
+Target selection:
+  --target PATH  install into PATH instead of the parent of this clone
+  --yes          bypass the suspicious-target sanity check (root / $HOME)
 
 Force / overwrite flags:
   --force              shorthand for --force-hooks --force-tools --force-config
@@ -45,7 +56,6 @@ import sys
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent
-TARGET_ROOT = Path.cwd().resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -59,16 +69,32 @@ def venv_python(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
-def detect_venv() -> Path | None:
-    """Look for a venv in common locations relative to TARGET_ROOT.
+def detect_venv(target_root: Path) -> Path | None:
+    """Look for a venv in common locations relative to target_root.
 
     `.venv-tokens` is checked first so projects that keep less_tokens deps
     isolated from the project's main venv get auto-detected on re-runs.
     """
     for candidate in [".venv-tokens", ".venv", "venv", "env", "app/.venv"]:
-        d = TARGET_ROOT / candidate
+        d = target_root / candidate
         if venv_python(d).exists():
             return d
+    return None
+
+
+def _looks_suspicious(target: Path) -> str | None:
+    """Return a human description if the auto-derived target looks wrong.
+
+    Triggered when less_tokens is cloned somewhere weird — e.g. directly in
+    $HOME or at the filesystem root — so the parent-of-source default would
+    splatter the install across an unintended directory. Returns None for
+    normal project-shaped parents.
+    """
+    home = Path.home().resolve()
+    if target == Path("/").resolve():
+        return "filesystem root"
+    if target == home:
+        return "your home directory"
     return None
 
 
@@ -92,6 +118,7 @@ def _diff_summary(src_text: str, dst_text: str) -> str:
 def copy_tree(
     src: Path,
     dst: Path,
+    target_root: Path,
     force: bool,
     overwrite_modified: bool,
     label: str,
@@ -123,7 +150,7 @@ def copy_tree(
         target = dst / rel
         if target.exists():
             if not force:
-                print(f"  ! skip (exists): {target.relative_to(TARGET_ROOT)}")
+                print(f"  ! skip (exists): {target.relative_to(target_root)}")
                 skipped += 1
                 continue
             src_text = srcfile.read_text(encoding="utf-8", errors="replace")
@@ -132,7 +159,7 @@ def copy_tree(
                 skipped += 1  # identical — nothing to do
                 continue
             # File differs from source (locally modified)
-            rel_str = target.relative_to(TARGET_ROOT)
+            rel_str = target.relative_to(target_root)
             summary = _diff_summary(src_text, dst_text)
             if overwrite_modified:
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -146,7 +173,7 @@ def copy_tree(
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(srcfile, target)
-            print(f"  + {target.relative_to(TARGET_ROOT)}")
+            print(f"  + {target.relative_to(target_root)}")
             copied += 1
     print(f"  {label}: {copied} copied, {skipped + modified_skipped} skipped"
           + (f" ({modified_skipped} modified)" if modified_skipped else ""))
@@ -220,11 +247,12 @@ def merge_search_config(src_file: Path, dst_file: Path) -> list[str]:
 def handle_search_config(
     src_config: Path,
     dst_config: Path,
+    target_root: Path,
     force_config: bool,
     overwrite_modified: bool,
 ) -> None:
     """Copy or merge search_config.py into the target project."""
-    rel = dst_config.relative_to(TARGET_ROOT)
+    rel = dst_config.relative_to(target_root)
     if not dst_config.exists():
         dst_config.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_config, dst_config)
@@ -255,10 +283,10 @@ def handle_search_config(
 # Settings.local.json — idempotent hook wiring
 # ---------------------------------------------------------------------------
 
-def _build_hook_entries(venv_py: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
+def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
     """Return (event_type, matcher, command) tuples for all hooks to wire.
 
-    The venv python path is rendered relative to TARGET_ROOT when possible
+    The venv python path is rendered relative to target_root when possible
     so that re-runs produce string-identical commands regardless of whether
     the user passed --venv with a relative or absolute path (or relied on
     auto-detect, which always returns absolute). Without this, the
@@ -266,7 +294,7 @@ def _build_hook_entries(venv_py: Path, args: argparse.Namespace) -> list[tuple[s
     different and add duplicate entries.
     """
     try:
-        py = str(venv_py.relative_to(TARGET_ROOT))
+        py = str(venv_py.relative_to(target_root))
     except ValueError:
         py = str(venv_py)
     entries: list[tuple[str, str, str]] = [
@@ -358,9 +386,9 @@ def install_deps(venv_py: Path) -> tuple[int, bool]:
         return 1, False
 
 
-def _index_db_at_current_schema() -> bool:
+def _index_db_at_current_schema(target_root: Path) -> bool:
     """True iff index.db exists and schema_version reports the current version."""
-    db = TARGET_ROOT / "index.db"
+    db = target_root / "index.db"
     if not db.exists():
         return False
     try:
@@ -372,15 +400,15 @@ def _index_db_at_current_schema() -> bool:
         return False
 
 
-def init_db(venv_py: Path) -> tuple[int, bool]:
+def init_db(venv_py: Path, target_root: Path) -> tuple[int, bool]:
     """Initialize / migrate index.db. Returns (exit_code, did_init)."""
-    if _index_db_at_current_schema():
+    if _index_db_at_current_schema(target_root):
         print("\n[4/5] index.db already initialized — skipping init.")
         return 0, False
     print("\n[4/5] Initializing / migrating index.db...")
     try:
         subprocess.check_call(
-            [str(venv_py), "tools/db.py", "init"], cwd=TARGET_ROOT
+            [str(venv_py), "tools/db.py", "init"], cwd=target_root
         )
         return 0, True
     except subprocess.CalledProcessError as e:
@@ -388,11 +416,11 @@ def init_db(venv_py: Path) -> tuple[int, bool]:
         return 1, False
 
 
-def build_index(venv_py: Path) -> int:
+def build_index(venv_py: Path, target_root: Path) -> int:
     print("\nBuilding initial embeddings (first run downloads ~130 MB model)...")
     try:
         subprocess.check_call(
-            [str(venv_py), "tools/embeddings.py", "refresh"], cwd=TARGET_ROOT
+            [str(venv_py), "tools/embeddings.py", "refresh"], cwd=target_root
         )
         return 0
     except subprocess.CalledProcessError as e:
@@ -404,8 +432,8 @@ def build_index(venv_py: Path) -> int:
 # Caveman duplicate check
 # ---------------------------------------------------------------------------
 
-def _caveman_in_claude_md() -> bool:
-    claude_md = TARGET_ROOT / "CLAUDE.md"
+def _caveman_in_claude_md(target_root: Path) -> bool:
+    claude_md = target_root / "CLAUDE.md"
     if not claude_md.exists():
         return False
     return "Caveman Mode" in claude_md.read_text(encoding="utf-8", errors="replace")
@@ -420,6 +448,11 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    # Target selection
+    ap.add_argument("--target", type=Path,
+                    help="install into PATH instead of the parent of this less_tokens clone")
+    ap.add_argument("--yes", action="store_true",
+                    help="bypass the suspicious-target sanity check (parent == / or $HOME)")
     # Force flags
     ap.add_argument("--force", action="store_true",
                     help="shorthand for --force-hooks --force-tools --force-config")
@@ -453,10 +486,36 @@ def main() -> int:
     force_config = args.force or args.force_config
     overwrite_modified = args.overwrite_modified
 
-    print(f"Installing less_tokens into {TARGET_ROOT}")
+    # ------------------------------------------------------------------
+    # Resolve target_root
+    #
+    # Default = parent of this clone (SOURCE.parent), so re-running after
+    # `git pull` always targets the same host project regardless of cwd.
+    # --target PATH overrides for scratch projects and CI. The
+    # suspicious-target check guards the default path (not --target) so a
+    # mis-cloned less_tokens (e.g. directly in $HOME) doesn't splatter
+    # files across the user's home.
+    # ------------------------------------------------------------------
+    if args.target is not None:
+        target_root = args.target.resolve()
+    else:
+        target_root = SOURCE.parent.resolve()
+        suspicious = _looks_suspicious(target_root)
+        if suspicious and not args.yes:
+            print(f"ERROR: refusing to auto-install into {target_root} ({suspicious}).",
+                  file=sys.stderr)
+            print("less_tokens expects to be cloned inside a host project, so its parent",
+                  file=sys.stderr)
+            print("directory is the install target. Either move this clone inside a",
+                  file=sys.stderr)
+            print("project directory, or pass --target PATH --yes to override.",
+                  file=sys.stderr)
+            return 1
+
+    print(f"Installing less_tokens into {target_root}")
     print(f"Source: {SOURCE}\n")
 
-    if SOURCE == TARGET_ROOT or TARGET_ROOT.is_relative_to(SOURCE):
+    if SOURCE == target_root or target_root.is_relative_to(SOURCE):
         print("ERROR: refusing to install into the source directory itself.",
               file=sys.stderr)
         return 1
@@ -469,25 +528,26 @@ def main() -> int:
     # Step 1: Copy files
     # ------------------------------------------------------------------
     print("[1/5] Copying files...")
-    changes += copy_tree(SOURCE / "tools",  TARGET_ROOT / "tools",  force_tools,  overwrite_modified,
+    changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
               "tools/", exclude=frozenset({"search_config.py"}))
     handle_search_config(
         SOURCE / "tools" / "search_config.py",
-        TARGET_ROOT / "tools" / "search_config.py",
+        target_root / "tools" / "search_config.py",
+        target_root,
         force_config, overwrite_modified,
     )
-    changes += copy_tree(SOURCE / "schema", TARGET_ROOT / "schema", force_tools,  overwrite_modified, "schema/")
-    changes += copy_tree(SOURCE / "hooks",  TARGET_ROOT / ".claude" / "hooks",
-              force_hooks, overwrite_modified, ".claude/hooks/")
+    changes += copy_tree(SOURCE / "schema", target_root / "schema", target_root, force_tools,  overwrite_modified, "schema/")
+    changes += copy_tree(SOURCE / "hooks",  target_root / ".claude" / "hooks",
+              target_root, force_hooks, overwrite_modified, ".claude/hooks/")
     if args.caveman:
-        changes += copy_tree(SOURCE / "caveman", TARGET_ROOT / "caveman",
-                  force_tools, overwrite_modified, "caveman/")
+        changes += copy_tree(SOURCE / "caveman", target_root / "caveman",
+                  target_root, force_tools, overwrite_modified, "caveman/")
 
     # ------------------------------------------------------------------
     # Step 2: Detect venv
     # ------------------------------------------------------------------
     print("\n[2/5] Locating virtualenv...")
-    venv_dir = args.venv or detect_venv()
+    venv_dir = args.venv or detect_venv(target_root)
     if venv_dir is None:
         print("\nNo venv detected at .venv, venv, env, or app/.venv.")
         print("Pass --venv PATH or create a venv first:")
@@ -516,7 +576,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     # Step 4: Init / migrate DB
     # ------------------------------------------------------------------
-    rc, did_init = init_db(venv_py)
+    rc, did_init = init_db(venv_py, target_root)
     if rc != 0:
         return 1
     if did_init:
@@ -531,8 +591,8 @@ def main() -> int:
     # file and stays stable across permission changes.
     # ------------------------------------------------------------------
     print("\n[5/5] Wiring .claude/settings.json...")
-    settings_path = TARGET_ROOT / ".claude" / "settings.json"
-    entries = _build_hook_entries(venv_py, args)
+    settings_path = target_root / ".claude" / "settings.json"
+    entries = _build_hook_entries(venv_py, target_root, args)
     added, present = wire_settings(settings_path, entries)
     print(f"  {added} hook(s) wired, {present} already present")
     changes += added
@@ -541,7 +601,7 @@ def main() -> int:
     # Optional: build index
     # ------------------------------------------------------------------
     if args.build:
-        if build_index(venv_py) != 0:
+        if build_index(venv_py, target_root) != 0:
             return 1
 
     # ------------------------------------------------------------------
@@ -569,7 +629,7 @@ def main() -> int:
         print(f"       {venv_py} tools/search.py \"your query here\"")
     if args.caveman:
         step = 4 if not args.build else 3
-        if _caveman_in_claude_md():
+        if _caveman_in_claude_md(target_root):
             print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Installer targets the parent of the clone instead of `cwd`** — `install.py` now derives its target from `Path(__file__).resolve().parent.parent`, so cloning less_tokens into a host project (`cd ~/myproject && git clone ... less_tokens`) and running `python3 less_tokens/install.py` from anywhere always installs into `~/myproject`. This matches the documented "clone in, install up" workflow and makes `git pull && python3 install.py` from inside the clone a working upgrade path
+- New `--target PATH` flag overrides the auto-derived target (useful for scratch projects, CI, testing); `--yes` bypasses the new suspicious-target sanity check that aborts if the auto-derived parent resolves to `/` or `$HOME` (catches a less_tokens clone that wasn't placed inside a project)
+
 ### Added
 - **Token savings tracking** — new `tools/savings_log.py` + `tools/stats.py`; disabled by default (`TRACK_SAVINGS = False` in `search_config.py`); enable with `python tools/stats.py --enable` (or the interactive prompt); hooks log chars saved per strategy to `.claude/state/savings.jsonl`; `--report` writes a markdown summary to `.claude/state/savings-report.md`; `--all` shows all-time totals; `--disable` turns tracking off; `embeddings.py savings` dispatches to the same interface
 - `TRACK_SAVINGS` config variable in `tools/search_config.py`
