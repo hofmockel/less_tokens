@@ -4,15 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project purpose
 
-This is a **toolkit** — it is installed *into other projects*, not run here directly. `install.py` copies `tools/`, `schema/`, `hooks/`, and `caveman/` into a target project and wires up Claude Code hooks. The four token-reduction strategies it deploys are: vector search (search before Read), caveman mode (terse output), tool output truncation, and session compaction.
+This is a **toolkit** — it is installed *into other projects*, not run here directly. less_tokens is cloned *into* a host project (e.g. `~/myproject/less_tokens/`) and `install.py` targets the parent directory (`~/myproject/`), copying `tools/`, `schema/`, `hooks/`, and `caveman/` there and wiring up Claude Code hooks. Re-running `install.py` after `git pull` upgrades the install in place. The four token-reduction strategies it deploys are: vector search (search before Read), caveman mode (terse output), tool output truncation, and session compaction.
 
 ## Commands
 
 There is no formal test suite yet. Manual verification after changes:
 
 ```bash
-# Install into a scratch project and verify end-to-end
-python3 install.py --build    # from inside the scratch project root
+# Install into a scratch project and verify end-to-end. The installer
+# targets the parent of this clone — cwd doesn't matter.
+python3 install.py --build
+
+# Override the target (e.g. when the scratch project lives elsewhere):
+python3 install.py --target /path/to/scratch --yes --build
 
 # Build the local index (requires fastembed installed)
 .venv/bin/python tools/embeddings.py refresh

@@ -1,0 +1,136 @@
+name: Install E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  install-e2e:
+    name: "Install E2E / ${{ matrix.os }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LT_SRC: ${{ github.workspace }}/less_tokens_src
+      HOST:   ${{ runner.temp }}/host
+      HOST2:  ${{ runner.temp }}/host2
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: less_tokens_src
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up scratch host project (clone less_tokens into HOST/less_tokens)
+        run: |
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          src = Path(os.environ["LT_SRC"])
+          host = Path(os.environ["HOST"])
+          if host.exists():
+              shutil.rmtree(host)
+          host.mkdir(parents=True)
+          shutil.copytree(
+              src, host / "less_tokens",
+              ignore=shutil.ignore_patterns(".git", "__pycache__", ".venv*", "index.db"),
+          )
+          PY
+          python -m venv "$HOST/.venv"
+
+      - name: "Scenario A — install from \\$HOME (cwd-independent)"
+        run: |
+          set -e
+          cd "$HOME"
+          python "$HOST/less_tokens/install.py" --skip-deps
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          host = Path(os.environ["HOST"])
+          for d in ("tools", "schema", ".claude/hooks"):
+              assert (host / d).is_dir(), f"missing dir: {d}"
+          assert (host / ".claude/settings.json").is_file(), "missing settings.json"
+          assert (host / "index.db").is_file(), "missing index.db"
+
+          cfg = (host / "tools/search_config.py").read_text(encoding="utf-8")
+          assert '_venv_python(".venv")' in cfg, f"VENV_PY auto-patch missing\n{cfg}"
+
+          settings = json.loads((host / ".claude/settings.json").read_text(encoding="utf-8"))
+          hooks = settings.get("hooks", {})
+          assert hooks.get("PreToolUse"), "PreToolUse hook not wired"
+          assert hooks.get("PostToolUse"), "PostToolUse hook not wired"
+          print("Scenario A OK")
+          PY
+
+      - name: "Scenario B — idempotent re-run from inside the clone"
+        run: |
+          set -e
+          cd "$HOST/less_tokens"
+          OUT=$(python install.py --skip-deps)
+          printf '%s\n' "$OUT"
+          printf '%s\n' "$OUT" | grep -q "no changes" \
+            || { echo "FAIL: expected clean no-op"; exit 1; }
+
+      - name: "Scenario C — --target override into a separate scratch dir"
+        run: |
+          set -e
+          python - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          host2 = Path(os.environ["HOST2"])
+          if host2.exists():
+              shutil.rmtree(host2)
+          host2.mkdir(parents=True)
+          PY
+          python -m venv "$HOST2/.venv"
+          python "$HOST/less_tokens/install.py" --target "$HOST2" --skip-deps
+          test -d "$HOST2/tools" || { echo "FAIL: $HOST2/tools missing"; exit 1; }
+          grep -q '_venv_python(".venv")' "$HOST2/tools/search_config.py" \
+            || { echo "FAIL: VENV_PY not patched in --target install"; exit 1; }
+
+      - name: "Scenario D — sanity check aborts when parent is \\$HOME"
+        run: |
+          python - <<'PY'
+          import os, shutil, subprocess, sys
+          from pathlib import Path
+          src = Path(os.environ["LT_SRC"])
+          home_clone = Path.home() / "lt_sanity"
+          if home_clone.exists():
+              shutil.rmtree(home_clone)
+          shutil.copytree(
+              src, home_clone,
+              ignore=shutil.ignore_patterns(".git", "__pycache__", ".venv*", "index.db"),
+          )
+          try:
+              r = subprocess.run(
+                  [sys.executable, str(home_clone / "install.py"), "--skip-deps"],
+                  capture_output=True, text=True,
+              )
+          finally:
+              shutil.rmtree(home_clone, ignore_errors=True)
+          if r.returncode == 0:
+              print("FAIL: expected sanity-check abort (rc 1)")
+              print("stdout:", r.stdout)
+              print("stderr:", r.stderr)
+              sys.exit(1)
+          assert "your home directory" in r.stderr, f"unexpected error:\n{r.stderr}"
+          print("Scenario D OK")
+          PY
+
+      - name: "Scenario E — source-self guard rejects --target inside source"
+        run: |
+          set -e
+          if python "$HOST/less_tokens/install.py" --target "$HOST/less_tokens" --skip-deps; then
+            echo "FAIL: expected source-self abort"; exit 1
+          fi
+          echo "Scenario E OK"

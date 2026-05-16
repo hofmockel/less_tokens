@@ -33,8 +33,19 @@ Files are chunked by structure (functions, headings, SQL statements), embedded l
 
 ## Quick start
 
+Clone this repo *into* the project you want to install it on, then run the installer — it targets the parent directory of the clone, so cwd doesn't matter:
+
 ```bash
-python3 path/to/less_tokens_claude/install.py
+cd ~/myproject
+git clone https://github.com/<you>/less_tokens.git
+python3 less_tokens/install.py            # installs into ~/myproject
+```
+
+Upgrade an existing install the same way:
+
+```bash
+cd ~/myproject/less_tokens && git pull
+python3 install.py                         # idempotent re-run
 ```
 
 See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions.

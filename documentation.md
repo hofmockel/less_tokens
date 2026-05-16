@@ -14,24 +14,32 @@ Full reference for installing, configuring, and using `less_tokens`.
 
 ## Installation
 
-Run the installer from your **project root** — the directory where you want the tools deployed.
+Clone less_tokens *into* the project you want to install it on. The installer targets the parent directory of the clone, so it works from any cwd:
 
 ```bash
 # macOS / Linux
-python3 path/to/less_tokens_claude/install.py
+cd ~/myproject
+git clone https://github.com/<you>/less_tokens.git
+python3 less_tokens/install.py
 
 # Windows
-python path/to/less_tokens_claude/install.py
+cd C:\myproject
+git clone https://github.com/<you>/less_tokens.git
+python less_tokens\install.py
 ```
+
+Re-running after `git pull` performs an in-place upgrade — existing files are skipped, hook wiring is deduplicated, and `search_config.py` only gains any new variables. Nothing local is overwritten unless you pass an explicit `--force*` flag.
 
 > By default the installer skips the index build so you can configure `search_config.py` first. Pass `--build` to build immediately (step 3 below covers manual build).
 
-The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into your project, installs `fastembed` and `numpy`, and initializes `index.db`.
+The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into the host project, installs `fastembed` and `numpy`, and initializes `index.db`.
 
 **Optional flags:**
 
 | Flag | Effect |
 |---|---|
+| `--target PATH` | Install into PATH instead of the parent of the clone (testing / scratch projects) |
+| `--yes` | Bypass the suspicious-target sanity check (fires when parent is `/` or `$HOME`) |
 | `--force` | Overwrite existing files |
 | `--venv PATH` | Point to a venv not in a standard location |
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
