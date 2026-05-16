@@ -42,6 +42,17 @@ Other options:
   --truncate     wire tool output truncation hook (Strategy 3)
   --compact      wire conversation compaction trigger hook (Strategy 4)
 
+Safety / lifecycle:
+  --dry-run      print exactly what would change; write nothing
+  --allow-merge  proceed even if tools/ or schema/ already hold non-less_tokens files
+  --gitignore    add a managed .gitignore block for generated artifacts
+  --uninstall    remove a previous deployment (settings.json hooks + copied files)
+  --purge-index  with --uninstall, also delete index.db and its WAL sidecars
+
+Ordering note: the venv is resolved and validated, and a namespace-collision
+check runs, *before* any files are copied — a failed precondition aborts with
+nothing written (no silent half-install).
+
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
 from __future__ import annotations
@@ -123,6 +134,7 @@ def copy_tree(
     overwrite_modified: bool,
     label: str,
     exclude: frozenset[str] = frozenset(),
+    dry_run: bool = False,
 ) -> int:
     """Copy a directory tree. Returns count of files copied.
 
@@ -131,12 +143,14 @@ def copy_tree(
                   skip files that differ (they have local edits).
     With --force + --overwrite-modified: overwrite everything, printing a
                   diff summary for any locally-modified file.
+    With dry_run: print every action prefixed but write nothing.
     """
     if not src.exists():
         print(f"  {label}: source missing — {src}", file=sys.stderr)
         return 0
     copied = skipped = modified_skipped = 0
-    dst.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        dst.mkdir(parents=True, exist_ok=True)
     for srcfile in src.rglob("*"):
         if srcfile.is_dir():
             continue
@@ -162,18 +176,22 @@ def copy_tree(
             rel_str = target.relative_to(target_root)
             summary = _diff_summary(src_text, dst_text)
             if overwrite_modified:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(srcfile, target)
-                print(f"  ↺ {rel_str}  ({summary}, overwritten)")
+                if not dry_run:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(srcfile, target)
+                verb = "would overwrite" if dry_run else "overwritten"
+                print(f"  ↺ {rel_str}  ({summary}, {verb})")
                 copied += 1
             else:
                 print(f"  ! {rel_str}  ({summary}) — differs from source; "
                       f"add --overwrite-modified to update")
                 modified_skipped += 1
         else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(srcfile, target)
-            print(f"  + {target.relative_to(target_root)}")
+            if not dry_run:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(srcfile, target)
+            prefix = "+ (would create)" if dry_run else "+"
+            print(f"  {prefix} {target.relative_to(target_root)}")
             copied += 1
     print(f"  {label}: {copied} copied, {skipped + modified_skipped} skipped"
           + (f" ({modified_skipped} modified)" if modified_skipped else ""))
@@ -215,7 +233,7 @@ def _extract_block(lines: list[str], lineno: int) -> str:
     return "\n".join(lines[comment_start:idx + 1])
 
 
-def merge_search_config(src_file: Path, dst_file: Path) -> list[str]:
+def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -> list[str]:
     """Inject variables present in src but absent in dst. Returns added names."""
     src_text = src_file.read_text(encoding="utf-8")
     dst_text = dst_file.read_text(encoding="utf-8")
@@ -237,10 +255,11 @@ def merge_search_config(src_file: Path, dst_file: Path) -> list[str]:
     if not missing:
         return []
 
-    with dst_file.open("a", encoding="utf-8") as f:
-        f.write("\n\n# --- Added by less_tokens installer ---\n")
-        for block in missing.values():
-            f.write(block + "\n")
+    if not dry_run:
+        with dst_file.open("a", encoding="utf-8") as f:
+            f.write("\n\n# --- Added by less_tokens installer ---\n")
+            for block in missing.values():
+                f.write(block + "\n")
     return list(missing.keys())
 
 
@@ -267,11 +286,20 @@ def _venv_py_arg(assign: ast.Assign) -> str | None:
     return v.args[0].value
 
 
+def _venv_config_str(venv_dir: Path, target_root: Path) -> str:
+    """Render venv_dir for VENV_PY: relative to target_root when possible."""
+    try:
+        return venv_dir.relative_to(target_root).as_posix()
+    except ValueError:
+        return str(venv_dir).replace("\\", "/")
+
+
 def patch_venv_py(
     config_path: Path,
     src_config: Path,
     target_root: Path,
     venv_dir: Path,
+    dry_run: bool = False,
 ) -> str | None:
     """Rewrite VENV_PY in search_config.py to point at the detected venv.
 
@@ -302,10 +330,7 @@ def patch_venv_py(
     if dst_arg is None or src_arg is None or dst_arg != src_arg:
         return None  # user customized — leave alone
 
-    try:
-        venv_str = venv_dir.relative_to(target_root).as_posix()
-    except ValueError:
-        venv_str = str(venv_dir).replace("\\", "/")
+    venv_str = _venv_config_str(venv_dir, target_root)
 
     if venv_str == dst_arg:
         return None  # already correct
@@ -317,7 +342,8 @@ def patch_venv_py(
     new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
     if new_text == dst_text:
         return None
-    config_path.write_text(new_text, encoding="utf-8")
+    if not dry_run:
+        config_path.write_text(new_text, encoding="utf-8")
     return venv_str
 
 
@@ -327,13 +353,15 @@ def handle_search_config(
     target_root: Path,
     force_config: bool,
     overwrite_modified: bool,
+    dry_run: bool = False,
 ) -> None:
     """Copy or merge search_config.py into the target project."""
     rel = dst_config.relative_to(target_root)
     if not dst_config.exists():
-        dst_config.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_config, dst_config)
-        print(f"  + {rel}")
+        if not dry_run:
+            dst_config.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_config, dst_config)
+        print(f"  {'+ (would create)' if dry_run else '+'} {rel}")
         return
 
     # Full overwrite only when force_config + overwrite_modified both set
@@ -344,14 +372,17 @@ def handle_search_config(
             print(f"  ✓ {rel} (already matches source)")
         else:
             summary = _diff_summary(src_text, dst_text)
-            shutil.copy2(src_config, dst_config)
-            print(f"  ↺ {rel}  ({summary}, replaced by --force-config --overwrite-modified)")
+            if not dry_run:
+                shutil.copy2(src_config, dst_config)
+            verb = "would replace" if dry_run else "replaced"
+            print(f"  ↺ {rel}  ({summary}, {verb} by --force-config --overwrite-modified)")
         return
 
     # Default path: variable-level upsert
-    added = merge_search_config(src_config, dst_config)
+    added = merge_search_config(src_config, dst_config, dry_run=dry_run)
     if added:
-        print(f"  ~ {rel}: injected new variables: {', '.join(added)}")
+        verb = "would inject" if dry_run else "injected"
+        print(f"  ~ {rel}: {verb} new variables: {', '.join(added)}")
     else:
         print(f"  ✓ {rel}: all variables present")
 
@@ -393,6 +424,7 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
 def wire_settings(
     settings_path: Path,
     entries: list[tuple[str, str, str]],
+    dry_run: bool = False,
 ) -> tuple[int, int]:
     """Merge hook entries into the target settings file. Returns (added, already_present)."""
     if settings_path.exists():
@@ -422,11 +454,12 @@ def wire_settings(
                 "matcher": matcher,
                 "hooks": [{"type": "command", "command": command}],
             })
-            print(f"  + {event_type} {matcher!r}")
+            print(f"  {'+ (would wire)' if dry_run else '+'} {event_type} {matcher!r}")
             added += 1
 
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    if not dry_run:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return added, already_present
 
 
@@ -446,11 +479,14 @@ def _deps_already_present(venv_py: Path) -> bool:
         return False
 
 
-def install_deps(venv_py: Path) -> tuple[int, bool]:
+def install_deps(venv_py: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Install fastembed + numpy. Returns (exit_code, did_install)."""
     if _deps_already_present(venv_py):
         print(f"\n[3/5] fastembed + numpy already importable in {venv_py} — skipping pip install.")
         return 0, False
+    if dry_run:
+        print(f"\n[3/5] [DRY RUN] would pip install fastembed + numpy into {venv_py}.")
+        return 0, True
     print(f"\n[3/5] Installing fastembed + numpy into {venv_py}...")
     try:
         subprocess.check_call(
@@ -477,11 +513,14 @@ def _index_db_at_current_schema(target_root: Path) -> bool:
         return False
 
 
-def init_db(venv_py: Path, target_root: Path) -> tuple[int, bool]:
+def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Initialize / migrate index.db. Returns (exit_code, did_init)."""
     if _index_db_at_current_schema(target_root):
         print("\n[4/5] index.db already initialized — skipping init.")
         return 0, False
+    if dry_run:
+        print("\n[4/5] [DRY RUN] would initialize / migrate index.db.")
+        return 0, True
     print("\n[4/5] Initializing / migrating index.db...")
     try:
         subprocess.check_call(
@@ -493,7 +532,11 @@ def init_db(venv_py: Path, target_root: Path) -> tuple[int, bool]:
         return 1, False
 
 
-def build_index(venv_py: Path, target_root: Path) -> int:
+def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
+    if dry_run:
+        print("\n[DRY RUN] would build initial embeddings index "
+              "(first real run downloads ~130 MB model).")
+        return 0
     print("\nBuilding initial embeddings (first run downloads ~130 MB model)...")
     try:
         subprocess.check_call(
@@ -514,6 +557,237 @@ def _caveman_in_claude_md(target_root: Path) -> bool:
     if not claude_md.exists():
         return False
     return "Caveman Mode" in claude_md.read_text(encoding="utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# Tree enumeration (shared by collision check and uninstall)
+# ---------------------------------------------------------------------------
+
+def _iter_tree_files(src: Path, exclude: frozenset[str] = frozenset()):
+    """Yield source files copy_tree would deploy, applying the same skip rules."""
+    if not src.is_dir():
+        return
+    for f in src.rglob("*"):
+        if not f.is_file():
+            continue
+        rel = f.relative_to(src)
+        if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
+            continue
+        if f.suffix in (".pyc", ".pyo"):
+            continue
+        if f.name in exclude:
+            continue
+        yield rel
+
+
+# Trees the installer deploys, as (source_subdir, dest_relpath, exclude).
+# Mirrors the copy calls in main(); search_config.py is excluded from the
+# tools tree because it is handled (and, on uninstall, preserved) separately.
+def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
+    specs = [
+        ("tools",  "tools",         frozenset({"search_config.py"})),
+        ("schema", "schema",        frozenset()),
+        ("hooks",  ".claude/hooks", frozenset()),
+    ]
+    if caveman:
+        specs.append(("caveman", "caveman", frozenset()))
+    return specs
+
+
+def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
+    """Host-owned files sitting in a tree we would merge into.
+
+    Only tools/, schema/, caveman/ are gated: a host package at tools/ can
+    shadow our modules on sys.path, and a host schema/ can clash. .claude/hooks/
+    is intentionally NOT gated — it is a shared directory where we add our hook
+    files alongside the host's own hooks, and copy_tree already skips existing
+    files there.
+    """
+    gated = ["tools", "schema"] + (["caveman"] if caveman else [])
+    foreign: list[str] = []
+    for sub in gated:
+        dstdir = target_root / sub
+        if not dstdir.is_dir():
+            continue
+        ours = {
+            str(rel) for rel in _iter_tree_files(source / sub)
+        } | ({"search_config.py"} if sub == "tools" else set())
+        for f in dstdir.rglob("*"):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(dstdir)
+            if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
+                continue
+            if str(rel) not in ours:
+                foreign.append(f"{sub}/{rel.as_posix()}")
+    return sorted(foreign)
+
+
+def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Path]:
+    """Destination files less_tokens deploys (excludes user-owned search_config.py)."""
+    out: list[Path] = []
+    for sub, dst_rel, excl in _install_specs(caveman):
+        base = target_root / dst_rel
+        for rel in _iter_tree_files(source / sub, excl):
+            out.append(base / rel)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# .gitignore management (keep generated artifacts out of the host repo)
+# ---------------------------------------------------------------------------
+
+_GI_START = "# >>> less_tokens (generated artifacts) >>>"
+_GI_END = "# <<< less_tokens <<<"
+_GI_PATHS = ["/index.db", "/index.db-wal", "/index.db-shm", "/.claude/state/"]
+
+
+def _gitignore_block() -> str:
+    return "\n".join([_GI_START, *_GI_PATHS, _GI_END]) + "\n"
+
+
+def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
+    """Add a managed .gitignore block for generated artifacts. Returns change count.
+
+    No-op (with a tip) unless `want` and target_root is a git repo. Idempotent:
+    a present managed block is left untouched.
+    """
+    if not (target_root / ".git").exists():
+        return 0
+    gi = target_root / ".gitignore"
+    text = gi.read_text(encoding="utf-8") if gi.exists() else ""
+    if _GI_START in text:
+        print("  ✓ .gitignore: less_tokens block already present")
+        return 0
+    if not want:
+        print("\n  Note: index.db and .claude/state/ are generated and will show as "
+              "untracked in this git repo.")
+        print("        Re-run with --gitignore to add a managed .gitignore block, "
+              "or commit them deliberately.")
+        return 0
+    sep = "" if (not text or text.endswith("\n")) else "\n"
+    new = text + sep + ("\n" if text else "") + _gitignore_block()
+    verb = "would update" if dry_run else "~"
+    print(f"\n  {verb} .gitignore (managed less_tokens block)")
+    if not dry_run:
+        gi.write_text(new, encoding="utf-8")
+    return 1
+
+
+def _remove_gitignore_block(gi: Path, dry_run: bool) -> bool:
+    if not gi.exists():
+        return False
+    text = gi.read_text(encoding="utf-8")
+    if _GI_START not in text or _GI_END not in text:
+        return False
+    lines = text.splitlines(keepends=True)
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_START)
+    end = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_END)
+    # Drop the block and one immediately-preceding blank separator line.
+    lead = start
+    if lead > 0 and lines[lead - 1].strip() == "":
+        lead -= 1
+    new = "".join(lines[:lead] + lines[end + 1:])
+    print(f"  {'would remove' if dry_run else '-'} .gitignore: managed less_tokens block")
+    if not dry_run:
+        if new.strip():
+            gi.write_text(new, encoding="utf-8")
+        else:
+            gi.unlink()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Uninstall
+# ---------------------------------------------------------------------------
+
+def _our_hook_names(source: Path) -> set[str]:
+    return {rel.name for rel in _iter_tree_files(source / "hooks")}
+
+
+def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
+    """Strip less_tokens hook entries from settings.json. Returns count removed."""
+    if not settings_path.exists():
+        return 0
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return 0
+    names = _our_hook_names(source)
+
+    def _is_ours(cmd: str) -> bool:
+        return any(f".claude/hooks/{n}" in cmd for n in names)
+
+    removed = 0
+    for event_type in list(hooks.keys()):
+        kept_entries = []
+        for entry in hooks[event_type]:
+            inner = entry.get("hooks", [])
+            keep = [h for h in inner if not _is_ours(h.get("command", ""))]
+            removed += len(inner) - len(keep)
+            if keep:
+                entry["hooks"] = keep
+                kept_entries.append(entry)
+        if kept_entries:
+            hooks[event_type] = kept_entries
+        else:
+            del hooks[event_type]
+    if not hooks:
+        settings.pop("hooks", None)
+
+    if removed:
+        print(f"  {'would unwire' if dry_run else '-'} settings.json: "
+              f"{removed} less_tokens hook entr{'y' if removed == 1 else 'ies'}")
+        if not dry_run:
+            settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    return removed
+
+
+def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
+    dry = args.dry_run
+    tag = "[DRY RUN] " if dry else ""
+    print(f"{tag}Uninstalling less_tokens from {target_root}")
+    print(f"Source: {SOURCE}\n")
+
+    removed = 0
+    for f in _deployed_targets(SOURCE, target_root, caveman=True):
+        if f.exists():
+            print(f"  {'would remove' if dry else '-'} {f.relative_to(target_root)}")
+            if not dry:
+                f.unlink()
+            removed += 1
+
+    # Prune now-empty directories we created.
+    for sub in ("tools", "schema", ".claude/hooks", "caveman"):
+        d = target_root / sub
+        if d.is_dir() and not any(d.iterdir()):
+            print(f"  {'would remove' if dry else '-'} {sub}/ (empty)")
+            if not dry:
+                d.rmdir()
+
+    unwire_settings(target_root / ".claude" / "settings.json", SOURCE, dry)
+    _remove_gitignore_block(target_root / ".gitignore", dry)
+
+    if args.purge_index:
+        for n in ("index.db", "index.db-wal", "index.db-shm"):
+            p = target_root / n
+            if p.exists():
+                print(f"  {'would remove' if dry else '-'} {n}")
+                if not dry:
+                    p.unlink()
+                removed += 1
+    elif (target_root / "index.db").exists():
+        print("  · index.db preserved (pass --purge-index to also remove it)")
+
+    if (target_root / "tools" / "search_config.py").exists():
+        print("  · tools/search_config.py preserved (may contain your customizations)")
+
+    print(f"\n{tag}Done — {removed} file(s) "
+          f"{'would be removed' if dry else 'removed'}.")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -555,6 +829,17 @@ def main() -> int:
                     help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",
                     help="wire conversation compaction trigger hook (Strategy 4)")
+    # Safety / lifecycle
+    ap.add_argument("--dry-run", action="store_true",
+                    help="show exactly what would change without writing anything")
+    ap.add_argument("--allow-merge", action="store_true",
+                    help="proceed even if tools/ or schema/ already contain non-less_tokens files")
+    ap.add_argument("--gitignore", action="store_true",
+                    help="add a managed .gitignore block for generated artifacts (index.db, .claude/state/)")
+    ap.add_argument("--uninstall", action="store_true",
+                    help="remove a previous less_tokens deployment from the target")
+    ap.add_argument("--purge-index", action="store_true",
+                    help="with --uninstall, also delete index.db and its WAL sidecars")
     args = ap.parse_args()
 
     # Resolve force flags
@@ -562,6 +847,8 @@ def main() -> int:
     force_tools  = args.force or args.force_tools
     force_config = args.force or args.force_config
     overwrite_modified = args.overwrite_modified
+    dry = args.dry_run
+    tag = "[DRY RUN] " if dry else ""
 
     # ------------------------------------------------------------------
     # Resolve target_root
@@ -589,73 +876,107 @@ def main() -> int:
                   file=sys.stderr)
             return 1
 
-    print(f"Installing less_tokens into {target_root}")
-    print(f"Source: {SOURCE}\n")
-
     if SOURCE == target_root or target_root.is_relative_to(SOURCE):
-        print("ERROR: refusing to install into the source directory itself.",
+        print("ERROR: refusing to operate on the source directory itself.",
               file=sys.stderr)
         return 1
+
+    # Uninstall is a distinct mode — it reverses a deployment and shares only
+    # target resolution / the suspicious-target + source-self guards above.
+    if args.uninstall:
+        return do_uninstall(target_root, args)
+
+    print(f"{tag}Installing less_tokens into {target_root}")
+    print(f"Source: {SOURCE}\n")
 
     # Track whether anything actually changed so the final summary can
     # report a clean no-op on idempotent re-runs.
     changes = 0
 
     # ------------------------------------------------------------------
-    # Step 1: Copy files
+    # Step 1: Resolve & validate the venv BEFORE any filesystem writes.
+    #
+    # This must precede the file copy: if no venv is found we abort here,
+    # and aborting after copying would leave a silent half-install (files
+    # on disk, settings.json never wired, toolkit inert).
     # ------------------------------------------------------------------
-    print("[1/5] Copying files...")
+    print(f"{tag}[1/5] Locating virtualenv...")
+    venv_dir = args.venv or detect_venv(target_root)
+    if venv_dir is None:
+        print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
+        print("Pass --venv PATH or create a venv first:")
+        print("    python3 -m venv .venv    # macOS/Linux")
+        print("    python -m venv .venv     # Windows")
+        print("Then re-run the installer. (Nothing was written.)")
+        return 1
+    venv_py = venv_python(venv_dir)
+    if not venv_py.exists():
+        print(f"ERROR: venv python not found at {venv_py} (nothing written).",
+              file=sys.stderr)
+        return 1
+    print(f"  Using venv: {venv_dir}")
+
+    # Namespace-collision guard: refuse to merge into a host's own tools/ or
+    # schema/ (sys.path shadowing / schema clashes) unless --allow-merge.
+    # Still before any writes.
+    foreign = _foreign_files(SOURCE, target_root, args.caveman)
+    if foreign and not args.allow_merge:
+        print("\nERROR: the target already contains files that are not part of "
+              "less_tokens:", file=sys.stderr)
+        for f in foreign:
+            print(f"    {f}", file=sys.stderr)
+        print("\nMerging less_tokens into these directories could shadow them on "
+              "sys.path", file=sys.stderr)
+        print("or clash with the host schema. Re-run with --allow-merge to proceed "
+              "anyway,", file=sys.stderr)
+        print("or install into a project without a top-level tools//schema/ of its "
+              "own. (Nothing was written.)", file=sys.stderr)
+        return 1
+
+    # ------------------------------------------------------------------
+    # Step 2: Copy files
+    # ------------------------------------------------------------------
+    print(f"\n{tag}[2/5] Copying files...")
     changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
-              "tools/", exclude=frozenset({"search_config.py"}))
+              "tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     handle_search_config(
         SOURCE / "tools" / "search_config.py",
         target_root / "tools" / "search_config.py",
         target_root,
-        force_config, overwrite_modified,
+        force_config, overwrite_modified, dry_run=dry,
     )
-    changes += copy_tree(SOURCE / "schema", target_root / "schema", target_root, force_tools,  overwrite_modified, "schema/")
+    changes += copy_tree(SOURCE / "schema", target_root / "schema", target_root, force_tools,  overwrite_modified, "schema/", dry_run=dry)
     changes += copy_tree(SOURCE / "hooks",  target_root / ".claude" / "hooks",
-              target_root, force_hooks, overwrite_modified, ".claude/hooks/")
+              target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
     if args.caveman:
         changes += copy_tree(SOURCE / "caveman", target_root / "caveman",
-                  target_root, force_tools, overwrite_modified, "caveman/")
-
-    # ------------------------------------------------------------------
-    # Step 2: Detect venv
-    # ------------------------------------------------------------------
-    print("\n[2/5] Locating virtualenv...")
-    venv_dir = args.venv or detect_venv(target_root)
-    if venv_dir is None:
-        print("\nNo venv detected at .venv, venv, env, or app/.venv.")
-        print("Pass --venv PATH or create a venv first:")
-        print("    python3 -m venv .venv    # macOS/Linux")
-        print("    python -m venv .venv     # Windows")
-        print("Then re-run the installer.")
-        return 1
-    venv_py = venv_python(venv_dir)
-    if not venv_py.exists():
-        print(f"ERROR: venv python not found at {venv_py}", file=sys.stderr)
-        return 1
-    print(f"  Using venv: {venv_dir}")
+                  target_root, force_tools, overwrite_modified, "caveman/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,
     # so a user customization is never clobbered.
+    dst_cfg = target_root / "tools" / "search_config.py"
     venv_py_patched = patch_venv_py(
-        target_root / "tools" / "search_config.py",
-        SOURCE / "tools" / "search_config.py",
-        target_root,
-        venv_dir,
+        dst_cfg, SOURCE / "tools" / "search_config.py", target_root, venv_dir,
+        dry_run=dry,
     )
     if venv_py_patched is not None:
-        print(f'  ~ tools/search_config.py: VENV_PY → _venv_python("{venv_py_patched}")')
+        print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+              f'VENV_PY → _venv_python("{venv_py_patched}")')
+        changes += 1
+    elif dry and not dst_cfg.exists():
+        # Fresh dry-run install: config not copied, so patch_venv_py is a
+        # no-op — still preview the value it would write.
+        cfg = _venv_config_str(venv_dir, target_root)
+        print(f'  would patch tools/search_config.py: '
+              f'VENV_PY → _venv_python("{cfg}")')
         changes += 1
 
     # ------------------------------------------------------------------
     # Step 3: Install deps
     # ------------------------------------------------------------------
     if not args.skip_deps:
-        rc, did_install = install_deps(venv_py)
+        rc, did_install = install_deps(venv_py, dry_run=dry)
         if rc != 0:
             return 1
         if did_install:
@@ -666,7 +987,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     # Step 4: Init / migrate DB
     # ------------------------------------------------------------------
-    rc, did_init = init_db(venv_py, target_root)
+    rc, did_init = init_db(venv_py, target_root, dry_run=dry)
     if rc != 0:
         return 1
     if did_init:
@@ -680,23 +1001,31 @@ def main() -> int:
     # can clobber the hooks block. settings.json is the project-shared
     # file and stays stable across permission changes.
     # ------------------------------------------------------------------
-    print("\n[5/5] Wiring .claude/settings.json...")
+    print(f"\n{tag}[5/5] Wiring .claude/settings.json...")
     settings_path = target_root / ".claude" / "settings.json"
     entries = _build_hook_entries(venv_py, target_root, args)
-    added, present = wire_settings(settings_path, entries)
-    print(f"  {added} hook(s) wired, {present} already present")
+    added, present = wire_settings(settings_path, entries, dry_run=dry)
+    print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
+          f"{present} already present")
     changes += added
+
+    # Keep generated artifacts out of the host git repo (opt-in via
+    # --gitignore; otherwise just a one-time tip).
+    changes += handle_gitignore(target_root, args.gitignore, dry)
 
     # ------------------------------------------------------------------
     # Optional: build index
     # ------------------------------------------------------------------
     if args.build:
-        if build_index(venv_py, target_root) != 0:
+        if build_index(venv_py, target_root, dry_run=dry) != 0:
             return 1
 
     # ------------------------------------------------------------------
-    # Final summary — distinguish a fresh install from a clean re-run
+    # Final summary — distinguish dry-run / fresh install / clean re-run
     # ------------------------------------------------------------------
+    if dry:
+        print(f"\n[DRY RUN] {changes} change(s) would be made. Nothing was written.")
+        return 0
     if changes == 0:
         print("\nDone — installation already current, no changes.")
         return 0

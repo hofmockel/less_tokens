@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - **Install E2E workflow** (`.github/workflows/install-e2e.yml`) — subprocess-level test of `install.py` across Ubuntu / macOS / Windows. Covers fresh install (cwd-independent target resolution), idempotent re-run from inside the clone, `--target` override, suspicious-target sanity-check abort, and source-self guard. Complements the function-level coverage in `tests/integration/test_install.py`, which the existing Tests workflow runs
 - **`patch_venv_py` tests** in `tests/integration/test_install.py` — six cases covering the default-value patch, idempotent re-run, user-customization preservation, missing-`VENV_PY` no-op, absolute-path fallback when the venv lives outside `target_root`, and preservation of surrounding lines/comments
+- **`install.py --dry-run`** — preview the full blast radius before mutating the host project: resolved target, every file that would be copied (new/skip/overwrite), venv detection result, `search_config.py` variables that would be injected, and the `.claude/settings.json` hooks that would be wired — all without writing anything
+- **`install.py --uninstall`** (with `--purge-index`) — reverse a deployment: strip the less_tokens hook entries from `.claude/settings.json`, remove the copied `tools/`, `schema/`, and `.claude/hooks/` files, and with `--purge-index` also drop `index.db` and its WAL sidecars — while leaving host-authored files and `tools/search_config.py` untouched
+- **`install.py --gitignore`** — add a managed `.gitignore` block for generated artifacts (`index.db`, `.claude/state/`) so they don't pollute the host repo; a one-time tip points to the flag when the block is absent
+- **Namespace-collision guard (`--allow-merge`)** — the installer now detects pre-existing non-less_tokens files in the host's `tools/` or `schema/` and aborts before any write; `--allow-merge` opts into merging anyway
 
 ### Changed
 - **Installer auto-patches `VENV_PY`** — after detecting the venv, `install.py` rewrites `VENV_PY = _venv_python("...")` in `tools/search_config.py` to the detected venv (relative to the host project when possible). Conservative match: only fires when the existing value is still the source default, so user customizations are preserved. NEXT STEPS output now skips the manual VENV_PY instruction when the auto-patch lands, leaving only `INDEXED_SOURCE_DIRS` as project-specific configuration the user must edit
@@ -17,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - `tests/integration/test_install.py` updated for the new `target_root` parameter on `copy_tree` / `handle_search_config`; tests no longer monkeypatch a now-removed module-level `TARGET_ROOT`
+- **Installer no longer leaves a silent half-install on abort** — the venv is resolved/validated and the namespace-collision check now runs *before* any files are copied, so a missing venv or other failed precondition aborts with nothing written, instead of copying hooks that were never registered with Claude Code and leaving the toolkit silently inert
 
 ### Added
 - **Token savings tracking** — new `tools/savings_log.py` + `tools/stats.py`; disabled by default (`TRACK_SAVINGS = False` in `search_config.py`); enable with `python tools/stats.py --enable` (or the interactive prompt); hooks log chars saved per strategy to `.claude/state/savings.jsonl`; `--report` writes a markdown summary to `.claude/state/savings-report.md`; `--all` shows all-time totals; `--disable` turns tracking off; `embeddings.py savings` dispatches to the same interface
