@@ -8,12 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **`start_new_session=True` is a no-op on Windows in `index-refresh.py`** — `subprocess.Popen(..., start_new_session=True)` is documented as POSIX-only; on Windows the kwarg is ignored and the child remains attached to the parent, defeating the detach intent. Fix: branch on `sys.platform`; on Windows pass `creationflags=subprocess.DETACHED_PROCESS` (or `CREATE_NEW_PROCESS_GROUP`) instead. (`hooks/index-refresh.py:72`)
-
-- **Venv path containing `"` produces invalid Python in the printed `VENV_PY` line** — `f'       VENV_PY = _venv_python("{venv_dir}")'` interpolates the path raw; a path with an embedded `"` yields a `SyntaxError` when the user pastes it. Fix: emit `repr(str(venv_dir))` or `json.dumps(str(venv_dir))` so escaping is correct. (`install.py:189-190`)
-
-- **`--source-type` argparse `choices` may drift from values actually stored in `documents.source_type`** — argparse rejects valid values present in older databases (or accepts values no longer produced) because the choices list and the column are two unsynchronised sources of truth. Fix: derive choices from `SELECT DISTINCT source_type FROM documents` at runtime, or add a `CHECK` constraint to `index.sql` that pins the vocabulary. (`tools/search.py:70`)
-
 - **Vectors stored in native byte order — `index.db` is not portable across endianness** — `np.float32.tobytes()` writes host-native bytes; `np.frombuffer(..., dtype=np.float32)` reads with the host's endianness. A db built on little-endian and read on big-endian (POWER, s390x, some embedded ARM) returns silently wrong cosine scores. Fix: pin dtype to `<f4` (little-endian) on both write and read paths. (`tools/embeddings.py:296`, `tools/search.py:46`)
 
 - **`enumerate_sources()` aborts the entire refresh on a single permission-denied directory** — `path.rglob("*")` propagates `PermissionError` from a single unreadable subtree, killing the run and leaving the index stale. Fix: wrap each per-source enumeration in `try/except OSError`, log a warning, and continue. (`tools/embeddings.py:173`)

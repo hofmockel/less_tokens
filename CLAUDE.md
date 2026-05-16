@@ -77,4 +77,3 @@ The README reflects what the project *is today*; anything in both README and BAC
 - `is_indexed()` logic differs between `hooks/search-first.py:74` and `hooks/index-refresh.py:37` — mid-path excluded dirs behave differently in each
 - `search_config.py` default `INDEXED_SOURCE_DIRS` includes `"app/"` which the installer never creates — causes `health` to report gaps on fresh installs
 - Vectors use native byte order (`tobytes()` / `frombuffer`); cross-endian `index.db` transfer silently corrupts scores
-- `start_new_session=True` in `index-refresh.py:72` is a no-op on Windows; use `creationflags=subprocess.DETACHED_PROCESS` there
