@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Install E2E workflow** (`.github/workflows/install-e2e.yml`) — subprocess-level test of `install.py` across Ubuntu / macOS / Windows. Covers fresh install (cwd-independent target resolution), idempotent re-run from inside the clone, `--target` override, suspicious-target sanity-check abort, and source-self guard. Complements the function-level coverage in `tests/integration/test_install.py`, which the existing Tests workflow runs
+- **`patch_venv_py` tests** in `tests/integration/test_install.py` — six cases covering the default-value patch, idempotent re-run, user-customization preservation, missing-`VENV_PY` no-op, absolute-path fallback when the venv lives outside `target_root`, and preservation of surrounding lines/comments
+
+### Changed
+- **Installer auto-patches `VENV_PY`** — after detecting the venv, `install.py` rewrites `VENV_PY = _venv_python("...")` in `tools/search_config.py` to the detected venv (relative to the host project when possible). Conservative match: only fires when the existing value is still the source default, so user customizations are preserved. NEXT STEPS output now skips the manual VENV_PY instruction when the auto-patch lands, leaving only `INDEXED_SOURCE_DIRS` as project-specific configuration the user must edit
+- **Installer targets the parent of the clone instead of `cwd`** — `install.py` now derives its target from `Path(__file__).resolve().parent.parent`, so cloning less_tokens into a host project (`cd ~/myproject && git clone ... less_tokens`) and running `python3 less_tokens/install.py` from anywhere always installs into `~/myproject`. This matches the documented "clone in, install up" workflow and makes `git pull && python3 install.py` from inside the clone a working upgrade path
+- New `--target PATH` flag overrides the auto-derived target (useful for scratch projects, CI, testing); `--yes` bypasses the new suspicious-target sanity check that aborts if the auto-derived parent resolves to `/` or `$HOME` (catches a less_tokens clone that wasn't placed inside a project)
+
+### Fixed
+- `tests/integration/test_install.py` updated for the new `target_root` parameter on `copy_tree` / `handle_search_config`; tests no longer monkeypatch a now-removed module-level `TARGET_ROOT`
+
+### Added
 - **Token savings tracking** — new `tools/savings_log.py` + `tools/stats.py`; disabled by default (`TRACK_SAVINGS = False` in `search_config.py`); enable with `python tools/stats.py --enable` (or the interactive prompt); hooks log chars saved per strategy to `.claude/state/savings.jsonl`; `--report` writes a markdown summary to `.claude/state/savings-report.md`; `--all` shows all-time totals; `--disable` turns tracking off; `embeddings.py savings` dispatches to the same interface
 - `TRACK_SAVINGS` config variable in `tools/search_config.py`
 - **Stats GitHub Actions workflow** (`.github/workflows/stats.yml`) — runs stats unit tests on Python 3.9 / 3.11 / 3.12 × all three OS, plus a separate job that enables tracking, logs synthetic events, generates a savings report, uploads it as a workflow artifact, and resets tracking to off
