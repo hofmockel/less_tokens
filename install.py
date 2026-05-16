@@ -294,6 +294,17 @@ def _venv_config_str(venv_dir: Path, target_root: Path) -> str:
         return str(venv_dir).replace("\\", "/")
 
 
+def _venv_python_call(path_str: str) -> str:
+    """`_venv_python(<literal>)` with the path as a safely-escaped string.
+
+    json.dumps yields a valid Python string literal even when the path
+    contains a quote or backslash, so the written config never has a
+    SyntaxError and the printed next-steps line is safe to paste verbatim.
+    For ordinary paths it is byte-identical to the old `"{path}"` form.
+    """
+    return f"_venv_python({json.dumps(path_str)})"
+
+
 def patch_venv_py(
     config_path: Path,
     src_config: Path,
@@ -338,7 +349,7 @@ def patch_venv_py(
     lines = dst_text.splitlines(keepends=True)
     start = dst_assign.lineno - 1            # 0-indexed
     end = dst_assign.end_lineno              # 1-indexed, inclusive
-    new_line = f'VENV_PY = _venv_python("{venv_str}")\n'
+    new_line = f"VENV_PY = {_venv_python_call(venv_str)}\n"
     new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
     if new_text == dst_text:
         return None
@@ -1040,7 +1051,7 @@ def main() -> int:
     else:
         print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
         print(f"   Change the VENV_PY line to:")
-        print(f'       VENV_PY = _venv_python("{venv_dir}")')
+        print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if not args.build:
         print(f"\n2. Build the index:")
