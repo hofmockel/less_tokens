@@ -21,10 +21,30 @@ BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed  # noqa: E402
-from search_config import SOURCE_TYPES, STATE_DIR  # noqa: E402
+from search_config import STATE_DIR  # noqa: E402
 from savings_log import append as _log_savings  # noqa: E402
 
 DEFAULT_K = 3
+
+
+def _source_type_choices() -> list[str] | None:
+    """Distinct source_type values actually in the index, or None if unknown.
+
+    Deriving --source-type choices from the index keeps argparse in sync with
+    reality: it accepts every value the current index contains (even ones a
+    newer/older indexer produced) and never advertises a value that returns
+    zero rows. None means the index is unavailable — leave --source-type
+    unconstrained rather than blocking on a stale static list.
+    """
+    try:
+        with connect_index() as c:
+            rows = c.execute(
+                "SELECT DISTINCT source_type FROM documents "
+                "WHERE source_type IS NOT NULL ORDER BY source_type"
+            ).fetchall()
+    except sqlite3.OperationalError:
+        return None
+    return [r[0] for r in rows] or None
 
 
 def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> list[dict]:
@@ -73,7 +93,7 @@ def main() -> int:
     # for broad-research queries where you want the wider funnel.
     ap.add_argument("-k", type=int, default=3,
                     help="Number of chunks to return (default 3)")
-    ap.add_argument("--source-type", choices=SOURCE_TYPES)
+    ap.add_argument("--source-type", choices=_source_type_choices())
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
