@@ -14,7 +14,6 @@ self-coalescing — last one wins.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +25,19 @@ from search_config import (  # noqa: E402
     INDEXED_SOURCE_DIRS as INDEXED_DIRS,
     VENV_PY,
 )
+
+
+def _detach_kwargs(platform: str) -> dict:
+    """Popen kwargs that fully detach the background refresh from this process.
+
+    start_new_session is POSIX-only; on Windows it is silently ignored and the
+    child stays attached to the parent, so Windows needs creationflags instead.
+    """
+    if platform == "win32":
+        detached = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+        new_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+        return {"creationflags": detached | new_group}
+    return {"start_new_session": True}
 
 
 def is_indexed(path: Path) -> bool:
@@ -68,7 +80,7 @@ def main() -> int:
             stdout=f,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
-            start_new_session=True,
+            **_detach_kwargs(sys.platform),
         )
     return 0
 

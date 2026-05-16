@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - New `--target PATH` flag overrides the auto-derived target (useful for scratch projects, CI, testing); `--yes` bypasses the new suspicious-target sanity check that aborts if the auto-derived parent resolves to `/` or `$HOME` (catches a less_tokens clone that wasn't placed inside a project)
 
 ### Fixed
+- **`index-refresh.py` now detaches the background refresh on Windows** — `subprocess.Popen(..., start_new_session=True)` is POSIX-only and was silently ignored on Windows, leaving the `embeddings.py refresh` child attached to the Claude Code process; the hook now branches on `sys.platform`, passing `creationflags=DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP` on Windows and keeping `start_new_session=True` on POSIX
 - `tests/integration/test_install.py` updated for the new `target_root` parameter on `copy_tree` / `handle_search_config`; tests no longer monkeypatch a now-removed module-level `TARGET_ROOT`
 - **Installer no longer leaves a silent half-install on abort** — the venv is resolved/validated and the namespace-collision check now runs *before* any files are copied, so a missing venv or other failed precondition aborts with nothing written, instead of copying hooks that were never registered with Claude Code and leaving the toolkit silently inert
 
