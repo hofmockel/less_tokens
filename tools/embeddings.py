@@ -13,6 +13,7 @@ normalized).
 Usage:
   python3 tools/embeddings.py refresh         # incremental rebuild
   python3 tools/embeddings.py refresh --full  # delete-all and rebuild
+  python3 tools/embeddings.py refresh --dry-run  # preview, write nothing
   python3 tools/embeddings.py stats           # row counts by source_type
   python3 tools/embeddings.py health          # verify every expected source has chunks
 """
@@ -22,6 +23,7 @@ import argparse
 import ast
 import hashlib
 import re
+import sqlite3
 import sys
 import warnings
 from datetime import datetime, timezone
@@ -302,7 +304,57 @@ def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
 
 # ----- refresh --------------------------------------------------------------
 
-def refresh(full: bool = False) -> int:
+def _dry_run_report(full: bool) -> int:
+    """Print add/update/unchanged/delete counts without touching index.db.
+
+    Writes nothing (no schema migration, no model load) so it previews a
+    refresh safely and works even when fastembed isn't installed.
+    """
+    sources, incomplete = enumerate_sources()
+    print(f"Enumerated {len(sources)} chunks from sources")
+
+    db_path = sys.modules[connect_index.__module__].INDEX_DB
+    existing: dict[tuple[str, str], str] = {}
+    if db_path.exists():
+        with connect_index() as conn:
+            try:
+                existing = {
+                    (r[0], r[1]): r[2]
+                    for r in conn.execute(
+                        "SELECT source_path, source_key, content_hash "
+                        "FROM documents"
+                    ).fetchall()
+                }
+            except sqlite3.OperationalError:
+                existing = {}
+
+    seen: set[tuple[str, str]] = set()
+    added = updated = 0
+    for _st, sp, sk, text in sources:
+        seen.add((sp, sk))
+        cur = existing.get((sp, sk))
+        if cur is None:
+            added += 1
+        elif cur != _sha256(text):
+            updated += 1
+    unchanged = len(seen) - added - updated
+    if full and not incomplete:
+        deleted = len(existing)
+    elif incomplete:
+        deleted = 0
+    else:
+        deleted = len(set(existing) - seen)
+
+    print("DRY RUN — no changes written")
+    print(f"  add: {added}  update: {updated}  "
+          f"unchanged: {unchanged}  delete: {deleted}")
+    return 0
+
+
+def refresh(full: bool = False, dry_run: bool = False) -> int:
+    if dry_run:
+        return _dry_run_report(full)
+
     # Bring the schema current first (fresh init or pending migration). The
     # v1->v2 migration drops stale native-endian rows so they get re-embedded
     # little-endian; this must run even when the model is unavailable, hence
@@ -535,12 +587,14 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("refresh")
     r.add_argument("--full", action="store_true", help="delete-all and rebuild")
+    r.add_argument("--dry-run", action="store_true",
+                   help="show add/update/delete counts without writing")
     sub.add_parser("stats")
     sub.add_parser("health")
     sub.add_parser("savings")
     args = ap.parse_args()
     if args.cmd == "refresh":
-        return refresh(full=args.full)
+        return refresh(full=args.full, dry_run=args.dry_run)
     if args.cmd == "health":
         return health()
     if args.cmd == "savings":
