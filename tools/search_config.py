@@ -77,6 +77,12 @@ INDEXED_DOC_GLOBS: tuple[str, ...] = ()
 EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
 EMBEDDING_DIM: int = 384
 
+# When True, chunk_python prepends the module docstring to each top-level
+# def/class chunk so a single search hit carries the file's purpose without a
+# follow-up Read. Opt-in: it grows every code chunk and changes content
+# hashes, so the next refresh re-embeds all Python sources. Default off.
+CHUNK_INCLUDE_MODULE_CONTEXT: bool = False
+
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 

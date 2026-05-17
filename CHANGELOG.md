@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Optional module-docstring context in code chunks** — new `CHUNK_INCLUDE_MODULE_CONTEXT` flag in `search_config.py` (default `False`); when enabled, `chunk_python` prefixes each top-level def/class chunk with the file's module docstring (as a comment) so a single search hit conveys the file's purpose without a follow-up Read. Opt-in because it changes content hashes and re-embeds all Python sources on the next refresh
 - **`embeddings.py stats --verbose`** — extends `stats` with a dashboard: indexed-file count, index age (derived from the newest chunk's `updated_at`), and coverage vs expected sources (`covered/expected` + percent, with up to 10 missing paths listed). Plain `stats` output is unchanged
 - **`search.py` query history log** — every run appends one best-effort JSONL record (UTC timestamp, query, top result score, result count) to `.claude/state/search-history.log`, so maintainers can audit what Claude searched for and spot queries that consistently return weak results. Logging failures are swallowed — the audit log never breaks the search it records
 - **`embeddings.py refresh --dry-run`** — preview a refresh without writing: prints `add` / `update` / `unchanged` / `delete` chunk counts (and treats every existing row as a delete under `--full`). Loads no embedding model and leaves `index.db` untouched, so it works even when fastembed isn't installed
