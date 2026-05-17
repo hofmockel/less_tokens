@@ -209,8 +209,15 @@ def enumerate_sources() -> list[tuple[str, str, str, str]]:
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
+        if not d.exists():
+            continue
+        try:
             py_paths.extend(d.rglob("*.py"))
+        except OSError as e:
+            # One unreadable subtree must not abort the whole refresh and
+            # leave the index stale — skip it and keep the other sources.
+            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                  file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -224,7 +231,13 @@ def enumerate_sources() -> list[tuple[str, str, str, str]]:
         d = BASE / dir_str.rstrip("/")
         if not d.exists():
             continue
-        for sq in sorted(d.glob("*.sql")):
+        try:
+            sql_files = sorted(d.glob("*.sql"))
+        except OSError as e:
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+                  file=sys.stderr)
+            continue
+        for sq in sql_files:
             rel = sq.relative_to(BASE).as_posix()
             for k, t in chunk_sql(sq):
                 out.append(("code", rel, k, t))
