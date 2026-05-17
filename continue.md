@@ -53,13 +53,7 @@ UPSERT silently overwrites when a real `## Foo_2` exists alongside a deduped one
 Fix: pre-scan heading keys and only suffix when free, or ordinal scheme with a
 char illegal in markdown headings. (`tools/embeddings.py:94-99`)
 
-### 3. `search-first.py` gates `.md` under `INDEXED_SOURCE_DIRS` never indexed
-`is_indexed()` accepts `.md` under those dirs but `enumerate_sources()` only
-collects `*.py`/`*.sql` there → unclearable gate. Fix: either index `.md` from
-`INDEXED_SOURCE_DIRS`, or drop `.md` from that branch of `is_indexed()`.
-(`hooks/search-first.py:58-59`, `tools/embeddings.py:194-211`)
-
-### 4. `search-first.py` docstring says `settings.local.json`
+### 3. `search-first.py` docstring says `settings.local.json`
 Installer writes `settings.json` (`install.py:1004`). Stale docstring at
 `hooks/search-first.py:6`. Trivial doc fix (still write a test if practical).
 

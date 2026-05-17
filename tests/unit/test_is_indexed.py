@@ -70,6 +70,13 @@ class TestParity:
         assert sf_indexed(search_first, "other/foo.py") == ir_indexed(index_refresh, "other/foo.py")
         assert sf_indexed(search_first, "other/foo.py") is False
 
+    def test_md_under_source_dir_not_gated(self, search_first, index_refresh):
+        """A .md under an INDEXED_SOURCE_DIRS entry is never collected by
+        enumerate_sources() (only *.py / *.sql there), so is_indexed() must
+        return False — otherwise the search-first gate is unclearable."""
+        assert sf_indexed(search_first, "tools/notes.md") == ir_indexed(index_refresh, "tools/notes.md")
+        assert sf_indexed(search_first, "tools/notes.md") is False
+
     def test_non_indexed_extension(self, search_first, index_refresh):
         assert sf_indexed(search_first, "tools/data.json") == ir_indexed(index_refresh, "tools/data.json")
         assert sf_indexed(search_first, "tools/data.json") is False
