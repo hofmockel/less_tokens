@@ -8,11 +8,33 @@ This is a **toolkit** — it is installed *into other projects*, not run here di
 
 ## Commands
 
-There is no formal test suite yet. Manual verification after changes:
+### Tests
 
 ```bash
-# Install into a scratch project and verify end-to-end. The installer
-# targets the parent of this clone — cwd doesn't matter.
+# Unit + integration (no fastembed needed — matches CI)
+pip install numpy pytest
+pytest tests/unit/ -v
+pytest tests/integration/ -v
+
+# Single test
+pytest tests/unit/test_chunkers.py -v
+pytest tests/unit/test_chunkers.py::<test_name> -v
+
+# Perf benchmarks (require fastembed; marker-gated, ubuntu-only in CI)
+pip install fastembed numpy pytest
+pytest tests/perf/ -v -m perf
+```
+
+pytest is configured in `pyproject.toml` (`testpaths=["tests"]`, `pythonpath=["."]`). CI
+(`.github/workflows/tests.yml`) runs unit + integration on Python 3.9/3.11/3.12 × 3 OS.
+
+### End-to-end verification
+
+For hook behavior and the full install path, verify against a scratch project:
+
+```bash
+# Install into a scratch project. The installer targets the parent
+# of this clone — cwd doesn't matter.
 python3 install.py --build
 
 # Override the target (e.g. when the scratch project lives elsewhere):
@@ -50,6 +72,8 @@ The codebase has a clean two-layer split:
 - `hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines strategy; others use 60/40 char split)
 - `hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; has 25% hysteresis via `.claude/state/compact-trigger-last`
 - `hooks/caveman-reminder.py` — PostToolUse on `.*`; nudges back to terse output if filler phrases detected
+
+Hooks are unit-tested by importing them as modules via `tests/conftest.py:load_hook()` (it puts `tools/` on `sys.path`, then execs the hook file). Keep hook logic importable — no side effects at module load.
 
 ### State directory
 
