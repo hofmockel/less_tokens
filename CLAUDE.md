@@ -99,4 +99,3 @@ The README reflects what the project *is today*; anything in both README and BAC
 ## Known bugs worth avoiding
 
 - `is_indexed()` logic differs between `hooks/search-first.py:74` and `hooks/index-refresh.py:37` — mid-path excluded dirs behave differently in each
-- `search_config.py` default `INDEXED_SOURCE_DIRS` includes `"app/"` which the installer never creates — causes `health` to report gaps on fresh installs

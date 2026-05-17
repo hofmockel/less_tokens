@@ -8,17 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Vectors stored in native byte order — `index.db` is not portable across endianness** — `np.float32.tobytes()` writes host-native bytes; `np.frombuffer(..., dtype=np.float32)` reads with the host's endianness. A db built on little-endian and read on big-endian (POWER, s390x, some embedded ARM) returns silently wrong cosine scores. Fix: pin dtype to `<f4` (little-endian) on both write and read paths. (`tools/embeddings.py:296`, `tools/search.py:46`)
-
-- **`enumerate_sources()` aborts the entire refresh on a single permission-denied directory** — `path.rglob("*")` propagates `PermissionError` from a single unreadable subtree, killing the run and leaving the index stale. Fix: wrap each per-source enumeration in `try/except OSError`, log a warning, and continue. (`tools/embeddings.py:173`)
-- **Heading-dedup `_2` suffix can collide with a literal `## Foo_2` in the same file** — the dedup logic renames repeats to `Foo_2`, but if the source already contains `## Foo_2` literally, both end up with identical `(source_path, source_key)` and the UPSERT silently overwrites. Fix: pre-scan all heading keys for the file and only suffix when the candidate is free, or use an ordinal scheme (`Foo#2`) using a character that cannot appear in a markdown heading. (`tools/embeddings.py:94-99`)
-
-- **`search-first.py` gates `.md` files under `INDEXED_SOURCE_DIRS` that `embeddings.py` never indexes** — `is_indexed()` returns `rel.endswith((".py", ".sql", ".md"))` for any path under an `INDEXED_SOURCE_DIRS` entry (`hooks/search-first.py:58-59`), but `enumerate_sources()` only collects `*.py` and `*.sql` from those dirs — never `*.md` (`tools/embeddings.py:194-211`). Adding a directory to `INDEXED_SOURCE_DIRS` therefore makes the search-first hook block Reads of `.md` files in it even though they are absent from `index.db`, and a search scoped to them returns nothing — the user can only clear the gate with an unrelated search. Fix: either index `.md` from `INDEXED_SOURCE_DIRS` in `enumerate_sources()`, or drop `.md` from the `INDEXED_SOURCE_DIRS` branch of `is_indexed()` so the gate matches what is actually indexed. (`hooks/search-first.py:58-59`, `tools/embeddings.py:194-211`)
-
-- **`search-first.py` docstring says hooks are wired into `settings.local.json`, but the installer writes `settings.json`** — `hooks/search-first.py:6` states "install.py wires this into .claude/settings.local.json automatically", while `install.py:1004` deliberately wires hooks into the project-shared `.claude/settings.json` (so Claude rewrites can't clobber them). The stale docstring misleads anyone debugging why the gate isn't firing. Fix: correct the docstring to `settings.json`. (`hooks/search-first.py:6`)
-
-- **`CLAUDE.md` known-bugs section claims an `app/` default that does not match shipped code** — the "Known bugs worth avoiding" list in `CLAUDE.md` states the default `INDEXED_SOURCE_DIRS` includes `"app/"`, causing `embeddings.py health` to report gaps on fresh installs. The shipped default in `tools/search_config.py` is `("tools/", "schema/")` and a fresh dogfood install reported `health` clean (7 sources, 75 chunks). Either the bug was fixed without updating the doc or the doc never matched the code. Fix: reconcile the known-bugs entry with the actual `search_config.py` default. (`CLAUDE.md` known-bugs section, `tools/search_config.py` `INDEXED_SOURCE_DIRS`)
-
 ---
 
 ## Vector Search & Indexing
@@ -29,8 +18,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **Stale index warning** — detect when indexed files have changed since last refresh and surface a warning in `search.py` output before results
 - **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `search_config.py` so users can tune for their Claude model's context window
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
-- **Move `MODEL` and `DIM` to `search_config.py`** — replace the hardcoded constants in `embeddings.py:39-40` with config variables so users can switch embedding models without editing tool source. `search.py` must read `DIM` from config (or from the stored `embedding_model` row) rather than a hardcoded literal. (`tools/embeddings.py:39-40`, `tools/search.py:44`)
-- **`search.py --min-score`** — add a score threshold flag (e.g. `--min-score 0.5`) to filter out low-confidence results; prevents Claude from acting on semantically unrelated chunks that happen to rank in the top-k
 
 ### Medium Priority
 
@@ -42,7 +29,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **Implement graceful degradation** — explicit handlers in `tools/embeddings.py` and `tools/search.py` for each failure condition; each catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
 - **`AGENT_MODEL` config variable** — add an optional `AGENT_MODEL` string to `search_config.py` (e.g. `"claude-sonnet-4-6"`). When set, `search.py` uses a lookup table to select default `k` and warn if chunks risk filling the window. When unset, current defaults apply unchanged.
 - **Context-window lookup table** — ship `tools/model_profiles.py` mapping Claude model IDs (Haiku / Sonnet / Opus) to context window size and recommended `k` / `MAX_CHUNK_CHARS` values.
-- **Suppress benign import warnings in search/embeddings output** — on macOS system Python (LibreSSL), every `search.py` invocation prints a `urllib3 NotOpenSSLWarning` to stderr before results. It is harmless but pollutes hook output and any captured search results, and noise on every query erodes signal. Filter the known-benign warning at import in `tools/search.py` / `tools/embeddings.py` (or document the recommended interpreter).
 
 ### Low Priority
 
