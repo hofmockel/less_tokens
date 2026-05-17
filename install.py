@@ -61,6 +61,7 @@ import argparse
 import ast
 import difflib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -83,9 +84,16 @@ def venv_python(venv_dir: Path) -> Path:
 def detect_venv(target_root: Path) -> Path | None:
     """Look for a venv in common locations relative to target_root.
 
-    `.venv-tokens` is checked first so projects that keep less_tokens deps
-    isolated from the project's main venv get auto-detected on re-runs.
+    An active venv ($VIRTUAL_ENV) is checked first: `activate` sets it and
+    it reliably points at the live venv on all platforms, so it beats the
+    relative-path guesses below. `.venv-tokens` is checked next so projects
+    that keep less_tokens deps isolated get auto-detected on re-runs.
     """
+    env = os.environ.get("VIRTUAL_ENV")
+    if env:
+        d = Path(env)
+        if venv_python(d).exists():
+            return d
     for candidate in [".venv-tokens", ".venv", "venv", "env", "app/.venv"]:
         d = target_root / candidate
         if venv_python(d).exists():
