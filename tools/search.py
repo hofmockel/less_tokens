@@ -47,7 +47,12 @@ def _source_type_choices() -> list[str] | None:
     return [r[0] for r in rows] or None
 
 
-def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> list[dict]:
+def search(
+    query: str,
+    k: int = DEFAULT_K,
+    source_type: str | None = None,
+    min_score: float | None = None,
+) -> list[dict]:
     try:
         qvec = embed([query], input_type="query")[0]
     except RuntimeError as e:
@@ -82,6 +87,7 @@ def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> li
             "text": rows[i][4],
         }
         for i in top
+        if min_score is None or scores[i] >= min_score
     ]
 
 
@@ -94,6 +100,8 @@ def main() -> int:
     ap.add_argument("-k", type=int, default=3,
                     help="Number of chunks to return (default 3)")
     ap.add_argument("--source-type", choices=_source_type_choices())
+    ap.add_argument("--min-score", type=float, default=None,
+                    help="Drop results with cosine score below this floor")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -101,7 +109,8 @@ def main() -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     (STATE_DIR / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
-    results = search(args.query, k=args.k, source_type=args.source_type)
+    results = search(args.query, k=args.k, source_type=args.source_type,
+                     min_score=args.min_score)
     if results:
         chunk_chars = sum(len(r["text"]) for r in results)
         unique_paths = {r["source_path"] for r in results}
