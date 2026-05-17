@@ -50,7 +50,7 @@ def is_indexed(path: Path) -> bool:
     if "/" not in rel:
         return rel.endswith(".md")
     if any(rel.startswith(d) for d in INDEXED_DIRS):
-        return rel.endswith((".py", ".sql", ".md"))
+        return rel.endswith((".py", ".sql"))
     return False
 
 
