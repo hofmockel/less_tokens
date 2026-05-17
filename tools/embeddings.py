@@ -33,6 +33,7 @@ sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_NAMES,
+    INDEXED_DOC_GLOBS,
     INDEXED_ROOT_GLOBS,
     INDEXED_SOURCE_DIRS,
 )
@@ -211,18 +212,21 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
     out: list[tuple[str, str, str, str]] = []
     incomplete = False
 
-    # Root-level globs (default: *.md)
-    for glob in INDEXED_ROOT_GLOBS:
+    # Markdown globs: repo root (INDEXED_ROOT_GLOBS) + extra dirs
+    # (INDEXED_DOC_GLOBS). Keyed by path relative to BASE so a root
+    # CLAUDE.md and a subdir CLAUDE.md don't collide on source_path.
+    for glob in (*INDEXED_ROOT_GLOBS, *INDEXED_DOC_GLOBS):
         for f in sorted(BASE.glob(glob)):
             if _excluded(f):
                 continue
+            rel = f.relative_to(BASE).as_posix()
             if f.suffix == ".md":
                 st = "changelog" if f.name == "CHANGELOG.md" else "doc"
                 chunks = chunk_changelog(f) if st == "changelog" else chunk_markdown(f)
                 for k, t in chunks:
-                    out.append((st, f.name, k, t))
+                    out.append((st, rel, k, t))
             else:
-                print(f"  WARN: unsupported root glob extension {f.suffix!r} — {f.name} skipped",
+                print(f"  WARN: unsupported glob extension {f.suffix!r} — {rel} skipped",
                       file=sys.stderr)
 
     # Python from indexed subdirs + root .py
@@ -402,11 +406,11 @@ def refresh(full: bool = False) -> int:
 def expected_source_paths() -> set[str]:
     """File-only enumeration. Mirrors enumerate_sources() globs without chunking."""
     out: set[str] = set()
-    for glob in INDEXED_ROOT_GLOBS:
+    for glob in (*INDEXED_ROOT_GLOBS, *INDEXED_DOC_GLOBS):
         for f in sorted(BASE.glob(glob)):
             if _excluded(f):
                 continue
-            out.add(f.name)
+            out.add(f.relative_to(BASE).as_posix())
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
