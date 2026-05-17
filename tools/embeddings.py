@@ -47,6 +47,13 @@ BATCH = 32
 # cross-endian).
 VEC_DTYPE = np.dtype("<f4")
 
+# On-disk vector layout marker, stored in `PRAGMA user_version`. Bump
+# whenever the embedding byte layout changes (see VEC_DTYPE). An index.db
+# written before this marker existed reports user_version 0 — its blobs may
+# be host-native (pre little-endian pin) and would decode as garbage now, so
+# refresh() rebuilds such an index once and then stamps the marker.
+VEC_FORMAT = 1
+
 
 def pack_vector(v: np.ndarray) -> bytes:
     return np.asarray(v, dtype=VEC_DTYPE).tobytes()
@@ -283,6 +290,9 @@ def refresh(full: bool = False) -> int:
     print(f"Enumerated {len(sources)} chunks from sources")
 
     with connect_index() as conn:
+        uv = conn.execute("PRAGMA user_version").fetchone()[0]
+        stale_format = uv < VEC_FORMAT
+
         if full and not incomplete:
             conn.execute("DELETE FROM documents")
             conn.commit()
@@ -290,6 +300,21 @@ def refresh(full: bool = False) -> int:
             print("  WARN: enumeration incomplete (unreadable source dir) — "
                   "downgrading --full to incremental so existing rows are "
                   "not wiped", file=sys.stderr)
+
+        if stale_format and incomplete:
+            print(f"  WARN: index.db predates the current vector layout "
+                  f"(user_version {uv} < {VEC_FORMAT}) but enumeration was "
+                  f"incomplete — deferring the forced re-embed until a "
+                  f"clean refresh", file=sys.stderr)
+        elif stale_format:
+            n = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+            if n:
+                print(f"  WARN: index.db predates the current vector layout "
+                      f"(user_version {uv} < {VEC_FORMAT}) — re-embedding all "
+                      f"{n} rows so search scores aren't silently corrupt",
+                      file=sys.stderr)
+                conn.execute("DELETE FROM documents")
+            conn.commit()
 
         existing = {
             (r[0], r[1]): r[2]
@@ -354,6 +379,9 @@ def refresh(full: bool = False) -> int:
             embedded += len(batch)
             conn.commit()
             print(f"  embedded {embedded}/{len(to_embed)}")
+
+        if not incomplete:
+            conn.execute(f"PRAGMA user_version = {VEC_FORMAT}")  # noqa: S608
 
         print(f"Done. embedded={embedded} deleted={deleted}")
     return 0
