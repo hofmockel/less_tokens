@@ -23,10 +23,21 @@ import ast
 import hashlib
 import re
 import sys
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
+# fastembed pulls in urllib3, which on macOS system Python (LibreSSL) emits a
+# benign NotOpenSSLWarning at import. It pollutes stderr on every search.py run
+# and any captured hook output. Filter the known message process-wide here;
+# search.py imports this module at load, so both entrypoints are covered.
+warnings.filterwarnings(
+    "ignore",
+    message=r"urllib3 v2 only supports OpenSSL",
+    category=Warning,
+)
+
+import numpy as np  # noqa: E402
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
