@@ -44,6 +44,7 @@ import numpy as np  # noqa: E402
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
+import search_config  # noqa: E402
 from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
     EMBEDDING_DIM,
@@ -158,11 +159,22 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
     mod_doc = ast.get_docstring(tree)
     if mod_doc:
         out.append(("__module__", mod_doc))
+    add_ctx = bool(
+        mod_doc and search_config.CHUNK_INCLUDE_MODULE_CONTEXT
+    )
+
+    def _ctx(code: str) -> str:
+        # Prefix the module docstring as a comment so the chunk still reads
+        # as the original source, just with the file's purpose attached.
+        header = "\n".join(f"# {ln}" for ln in mod_doc.splitlines())
+        return f"{header}\n\n{code}"
+
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             start = node.lineno - 1
             end = getattr(node, "end_lineno", start + 1)
-            out.append((node.name, "\n".join(lines[start:end])))
+            code = "\n".join(lines[start:end])
+            out.append((node.name, _ctx(code) if add_ctx else code))
         elif isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id.isupper():
