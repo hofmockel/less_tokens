@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Stale-index warning in `search.py`** — before results, `search.py` compares the newest indexed source-file mtime against `index.db` and prints a one-line `WARN: index may be stale … run tools/embeddings.py refresh` to stderr when a source is newer (the auto-refresh hook can lag or fail). Stderr only — stdout/JSON output is unchanged
 - **`search.py --min-score`** — drop top-k results whose cosine score is below a floor (e.g. `--min-score 0.5`), so Claude doesn't act on semantically unrelated chunks that merely rank in the top-k. `search()` also takes a `min_score` kwarg; unset (default) keeps current behavior
 - **Install E2E workflow** (`.github/workflows/install-e2e.yml`) — subprocess-level test of `install.py` across Ubuntu / macOS / Windows. Covers fresh install (cwd-independent target resolution), idempotent re-run from inside the clone, `--target` override, suspicious-target sanity-check abort, and source-self guard. Complements the function-level coverage in `tests/integration/test_install.py`, which the existing Tests workflow runs
 - **`patch_venv_py` tests** in `tests/integration/test_install.py` — six cases covering the default-value patch, idempotent re-run, user-customization preservation, missing-`VENV_PY` no-op, absolute-path fallback when the venv lives outside `target_root`, and preservation of surrounding lines/comments

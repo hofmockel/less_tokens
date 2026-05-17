@@ -21,10 +21,60 @@ BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed, unpack_vectors  # noqa: E402
-from search_config import STATE_DIR  # noqa: E402
+from search_config import (  # noqa: E402
+    INDEXED_DOC_GLOBS,
+    INDEXED_ROOT_GLOBS,
+    INDEXED_SOURCE_DIRS,
+    STATE_DIR,
+)
 from savings_log import append as _log_savings  # noqa: E402
 
 DEFAULT_K = 3
+
+# db module owns INDEX_DB; resolve it lazily so test monkeypatches are seen.
+_DB_MOD = sys.modules[connect_index.__module__]
+
+
+def _newest_source_mtime() -> float:
+    """Newest mtime across the files enumerate_sources() would index.
+
+    Heuristic only — mirrors embeddings.enumerate_sources file selection
+    (root/doc-glob markdown + *.py rglob / *.sql under INDEXED_SOURCE_DIRS)
+    without reading or chunking content, so it stays cheap on every query.
+    """
+    newest = 0.0
+    for pattern in (*INDEXED_ROOT_GLOBS, *INDEXED_DOC_GLOBS):
+        for f in BASE.glob(pattern):
+            try:
+                newest = max(newest, f.stat().st_mtime)
+            except OSError:
+                pass
+    for dir_str in INDEXED_SOURCE_DIRS:
+        d = BASE / dir_str.rstrip("/")
+        if not d.exists():
+            continue
+        for finder in (lambda: d.rglob("*.py"), lambda: d.glob("*.sql")):
+            try:
+                for f in finder():
+                    try:
+                        newest = max(newest, f.stat().st_mtime)
+                    except OSError:
+                        pass
+            except OSError:
+                pass
+    return newest
+
+
+def _index_is_stale() -> bool:
+    """True if an indexed source file is newer than index.db.
+
+    A missing index is handled downstream (empty results + hint), not here.
+    """
+    try:
+        idx_mtime = _DB_MOD.INDEX_DB.stat().st_mtime
+    except OSError:
+        return False
+    return _newest_source_mtime() > idx_mtime
 
 
 def _source_type_choices() -> list[str] | None:
@@ -104,6 +154,13 @@ def main() -> int:
                     help="Drop results with cosine score below this floor")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+
+    if _index_is_stale():
+        print(
+            "WARN: index may be stale — an indexed source file is newer than "
+            "index.db; run `tools/embeddings.py refresh`",
+            file=sys.stderr,
+        )
 
     # Touch state file so the search-first hook knows a search just ran.
     STATE_DIR.mkdir(parents=True, exist_ok=True)

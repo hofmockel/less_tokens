@@ -15,7 +15,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 ### High Priority
 
 - **Multi-repo indexing** — support indexing across multiple project roots so a single search spans related repos (monorepo support)
-- **Stale index warning** — detect when indexed files have changed since last refresh and surface a warning in `search.py` output before results
 - **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `search_config.py` so users can tune for their Claude model's context window
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
 
