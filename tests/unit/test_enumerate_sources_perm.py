@@ -50,7 +50,7 @@ def two_source_dirs(tmp_path, monkeypatch):
 
 def test_unreadable_dir_does_not_abort_refresh(two_source_dirs, capsys):
     # Pre-fix this raises PermissionError out of enumerate_sources().
-    sources = embeddings.enumerate_sources()
+    sources, _ = embeddings.enumerate_sources()
 
     paths = {row[1] for row in sources}
     assert "good/ok.py" in paths, "readable source must still be indexed"
