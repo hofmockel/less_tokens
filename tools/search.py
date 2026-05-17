@@ -20,7 +20,7 @@ import numpy as np
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
-from embeddings import DIM, embed  # noqa: E402
+from embeddings import DIM, embed, unpack_vectors  # noqa: E402
 from search_config import STATE_DIR  # noqa: E402
 from savings_log import append as _log_savings  # noqa: E402
 
@@ -69,7 +69,7 @@ def search(query: str, k: int = DEFAULT_K, source_type: str | None = None) -> li
     if not rows:
         return []
 
-    vecs = np.frombuffer(b"".join(r[5] for r in rows), dtype=np.float32).reshape(-1, DIM)
+    vecs = unpack_vectors(b"".join(r[5] for r in rows), DIM)
     # Stored vectors and query vector are both L2-normalized in `embed()`, so dot product = cosine similarity.
     scores = vecs @ qvec
     top = np.argsort(-scores)[:k]
