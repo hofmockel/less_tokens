@@ -44,6 +44,12 @@ INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 # collide. Default empty — host installs only index root markdown.
 INDEXED_DOC_GLOBS: tuple[str, ...] = ()
 
+# Embedding model + its vector dimension. Change both together when switching
+# models, then re-run `embeddings.py refresh --full` (a dimension mismatch
+# against an existing index.db yields silently wrong scores).
+EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
+EMBEDDING_DIM: int = 384
+
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 

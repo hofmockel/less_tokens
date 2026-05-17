@@ -18,7 +18,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **Stale index warning** — detect when indexed files have changed since last refresh and surface a warning in `search.py` output before results
 - **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `search_config.py` so users can tune for their Claude model's context window
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
-- **Move `MODEL` and `DIM` to `search_config.py`** — replace the hardcoded constants in `embeddings.py:39-40` with config variables so users can switch embedding models without editing tool source. `search.py` must read `DIM` from config (or from the stored `embedding_model` row) rather than a hardcoded literal. (`tools/embeddings.py:39-40`, `tools/search.py:44`)
 
 ### Medium Priority
 
