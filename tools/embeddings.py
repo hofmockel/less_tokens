@@ -23,23 +23,36 @@ import ast
 import hashlib
 import re
 import sys
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
+# fastembed pulls in urllib3, which on macOS system Python (LibreSSL) emits a
+# benign NotOpenSSLWarning at import. It pollutes stderr on every search.py run
+# and any captured hook output. Filter the known message process-wide here;
+# search.py imports this module at load, so both entrypoints are covered.
+warnings.filterwarnings(
+    "ignore",
+    message=r"urllib3 v2 only supports OpenSSL",
+    category=Warning,
+)
+
+import numpy as np  # noqa: E402
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
+    EMBEDDING_DIM,
+    EMBEDDING_MODEL,
     EXCLUDED_DIR_NAMES,
     INDEXED_DOC_GLOBS,
     INDEXED_ROOT_GLOBS,
     INDEXED_SOURCE_DIRS,
 )
 
-MODEL = "BAAI/bge-small-en-v1.5"
-DIM = 384
+MODEL = EMBEDDING_MODEL
+DIM = EMBEDDING_DIM
 BATCH = 32
 
 # Embeddings are stored as raw float32 bytes. Pin little-endian at the single

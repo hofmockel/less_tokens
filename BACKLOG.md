@@ -18,8 +18,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **Stale index warning** — detect when indexed files have changed since last refresh and surface a warning in `search.py` output before results
 - **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `search_config.py` so users can tune for their Claude model's context window
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
-- **Move `MODEL` and `DIM` to `search_config.py`** — replace the hardcoded constants in `embeddings.py:39-40` with config variables so users can switch embedding models without editing tool source. `search.py` must read `DIM` from config (or from the stored `embedding_model` row) rather than a hardcoded literal. (`tools/embeddings.py:39-40`, `tools/search.py:44`)
-- **`search.py --min-score`** — add a score threshold flag (e.g. `--min-score 0.5`) to filter out low-confidence results; prevents Claude from acting on semantically unrelated chunks that happen to rank in the top-k
 
 ### Medium Priority
 
@@ -31,7 +29,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 - **Implement graceful degradation** — explicit handlers in `tools/embeddings.py` and `tools/search.py` for each failure condition; each catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
 - **`AGENT_MODEL` config variable** — add an optional `AGENT_MODEL` string to `search_config.py` (e.g. `"claude-sonnet-4-6"`). When set, `search.py` uses a lookup table to select default `k` and warn if chunks risk filling the window. When unset, current defaults apply unchanged.
 - **Context-window lookup table** — ship `tools/model_profiles.py` mapping Claude model IDs (Haiku / Sonnet / Opus) to context window size and recommended `k` / `MAX_CHUNK_CHARS` values.
-- **Suppress benign import warnings in search/embeddings output** — on macOS system Python (LibreSSL), every `search.py` invocation prints a `urllib3 NotOpenSSLWarning` to stderr before results. It is harmless but pollutes hook output and any captured search results, and noise on every query erodes signal. Filter the known-benign warning at import in `tools/search.py` / `tools/embeddings.py` (or document the recommended interpreter).
 
 ### Low Priority
 
