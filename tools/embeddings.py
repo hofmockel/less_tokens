@@ -15,6 +15,7 @@ Usage:
   python3 tools/embeddings.py refresh --full  # delete-all and rebuild
   python3 tools/embeddings.py refresh --dry-run  # preview, write nothing
   python3 tools/embeddings.py stats           # row counts by source_type
+  python3 tools/embeddings.py stats --verbose # + index age, files, coverage
   python3 tools/embeddings.py health          # verify every expected source has chunks
 """
 from __future__ import annotations
@@ -569,16 +570,62 @@ def health() -> int:
     return 1
 
 
-def stats() -> int:
+def _format_age(seconds: float) -> str:
+    if seconds < 90:
+        return f"{int(seconds)}s"
+    if seconds < 5400:
+        return f"{int(seconds // 60)}m"
+    if seconds < 172800:
+        return f"{int(seconds // 3600)}h"
+    return f"{int(seconds // 86400)}d"
+
+
+def stats(verbose: bool = False) -> int:
     with connect_index() as c:
         rows = c.execute(
             "SELECT source_type, COUNT(*) FROM documents "
             "GROUP BY source_type ORDER BY source_type"
         ).fetchall()
         total = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+        newest = c.execute(
+            "SELECT MAX(updated_at) FROM documents"
+        ).fetchone()[0]
+        files = c.execute(
+            "SELECT COUNT(DISTINCT source_path) FROM documents"
+        ).fetchone()[0]
     print(f"index.db documents: {total}")
     for st, n in rows:
         print(f"  {st:<12} {n}")
+    if not verbose:
+        return 0
+
+    print(f"indexed files: {files}")
+    if newest:
+        try:
+            age = (datetime.now(timezone.utc)
+                   - datetime.fromisoformat(newest)).total_seconds()
+            print(f"index age: {_format_age(max(0.0, age))} "
+                  f"(newest chunk {newest})")
+        except ValueError:
+            print(f"index age: unknown (newest chunk {newest})")
+    else:
+        print("index age: empty index")
+
+    expected = expected_source_paths()
+    with connect_index() as c:
+        indexed = {
+            r[0] for r in c.execute(
+                "SELECT DISTINCT source_path FROM documents"
+            ).fetchall()
+        }
+    covered = len(expected & indexed)
+    pct = (100.0 * covered / len(expected)) if expected else 0.0
+    print(f"coverage: {covered}/{len(expected)} expected sources "
+          f"({pct:.0f}%)")
+    missing = sorted(expected - indexed)
+    if missing:
+        print(f"  missing: {', '.join(missing[:10])}"
+              + (" …" if len(missing) > 10 else ""))
     return 0
 
 
@@ -589,7 +636,9 @@ def main() -> int:
     r.add_argument("--full", action="store_true", help="delete-all and rebuild")
     r.add_argument("--dry-run", action="store_true",
                    help="show add/update/delete counts without writing")
-    sub.add_parser("stats")
+    s = sub.add_parser("stats")
+    s.add_argument("--verbose", action="store_true",
+                   help="also show index age, file count, and coverage")
     sub.add_parser("health")
     sub.add_parser("savings")
     args = ap.parse_args()
@@ -600,7 +649,7 @@ def main() -> int:
     if args.cmd == "savings":
         from stats import main as _savings_main  # noqa: PLC0415
         return _savings_main()
-    return stats()
+    return stats(verbose=getattr(args, "verbose", False))
 
 
 if __name__ == "__main__":
