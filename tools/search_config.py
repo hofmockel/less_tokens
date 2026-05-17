@@ -1,19 +1,46 @@
 """Portable search/embeddings configuration — the only file to edit when
 transplanting the vector-search system to a new codebase.
 """
+from __future__ import annotations
+
+import os
 import sys
 from pathlib import Path
 
 BASE = Path(__file__).parent.parent
 
 
+def _platform_python(base: Path) -> Path:
+    if sys.platform == "win32":
+        return base / "Scripts" / "python.exe"
+    return base / "bin" / "python"
+
+
+def _active_venv_python() -> Path | None:
+    """The active venv's interpreter, from $VIRTUAL_ENV, if it exists.
+
+    `activate` sets VIRTUAL_ENV and it reliably points at the live venv on
+    every platform, so it's the most trustworthy signal — preferred over the
+    configured relative path.
+    """
+    env = os.environ.get("VIRTUAL_ENV")
+    if not env:
+        return None
+    py = _platform_python(Path(env))
+    return py if py.exists() else None
+
+
 def _venv_python(venv_rel: str) -> Path:
     """Resolve venv python across platforms.
+
+    A live $VIRTUAL_ENV wins so an activated venv is used without editing
+    this file; otherwise fall back to BASE/venv_rel.
     Windows: Scripts/python.exe  |  macOS/Linux: bin/python
     """
-    if sys.platform == "win32":
-        return BASE / venv_rel / "Scripts" / "python.exe"
-    return BASE / venv_rel / "bin" / "python"
+    active = _active_venv_python()
+    if active is not None:
+        return active
+    return _platform_python(BASE / venv_rel)
 
 
 # Venv python used for embeddings — change "app/.venv" to your venv location.
