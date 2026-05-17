@@ -43,17 +43,7 @@ Memory rule: always open a PR, never push to `main` directly (main is protected)
 
 ## Next steps — remaining `## Bugs`, in order
 
-### 1. NEXT — `enumerate_sources()` aborts refresh on one permission-denied dir
-`path.rglob("*")` propagates `PermissionError`, killing the whole run.
-Fix: wrap each per-source enumeration in `try/except OSError`, warn, continue.
-(`tools/embeddings.py:173`)
-
-### 2. Heading-dedup `_2` suffix collides with literal `## Foo_2`
-UPSERT silently overwrites when a real `## Foo_2` exists alongside a deduped one.
-Fix: pre-scan heading keys and only suffix when free, or ordinal scheme with a
-char illegal in markdown headings. (`tools/embeddings.py:94-99`)
-
-### 3. `search-first.py` docstring says `settings.local.json`
+### 1. NEXT — `search-first.py` docstring says `settings.local.json`
 Installer writes `settings.json` (`install.py:1004`). Stale docstring at
 `hooks/search-first.py:6`. Trivial doc fix (still write a test if practical).
 
