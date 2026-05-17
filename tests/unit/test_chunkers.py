@@ -1,10 +1,6 @@
 """Unit tests for all chunker functions in tools/embeddings.py."""
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from tools.embeddings import chunk_changelog, chunk_markdown, chunk_python, chunk_sql
 
 
@@ -85,6 +81,40 @@ class TestChunkMarkdown:
         assert "Advanced Options_2" in keys
         # "Installation" appears twice
         assert "Installation_2" in keys
+
+    def test_dedup_suffix_collision_with_literal_heading(self, tmp_path):
+        """A repeated `## Foo` is deduped to `Foo_2`, but a *literal* `## Foo_2`
+        in the same file produced the identical key. Both chunks then shared
+        (source_path, source_key) and the UPSERT silently dropped one. Every
+        emitted key must be unique and no section body may be lost.
+        """
+        f = tmp_path / "doc.md"
+        f.write_text(
+            "# Doc\n\n"
+            "## Foo\n\nalpha body\n\n"
+            "## Foo\n\nbeta body\n\n"
+            "## Foo_2\n\ngamma body\n"
+        )
+        chunks = chunk_markdown(f)
+        keys = [k for k, _ in chunks]
+        assert len(keys) == len(set(keys)), f"duplicate keys: {keys}"
+        joined = "\n".join(b for _, b in chunks)
+        for body in ("alpha body", "beta body", "gamma body"):
+            assert body in joined, f"{body!r} lost to a key collision"
+
+    def test_dedup_collision_literal_before_repeat(self, tmp_path):
+        """Order-independent: a literal `## Baz_2` appearing *before* the
+        repeated `## Baz` must also stay collision-free.
+        """
+        f = tmp_path / "doc.md"
+        f.write_text(
+            "# Doc\n\n"
+            "## Baz_2\n\nlit body\n\n"
+            "## Baz\n\none body\n\n"
+            "## Baz\n\ntwo body\n"
+        )
+        keys = [k for k, _ in chunk_markdown(f)]
+        assert len(keys) == len(set(keys)), f"duplicate keys: {keys}"
 
     def test_chunk_body_contains_text(self, sample_md):
         chunks = dict(chunk_markdown(sample_md))

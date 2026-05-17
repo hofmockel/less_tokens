@@ -85,18 +85,24 @@ def chunk_markdown(path: Path) -> list[tuple[str, str]]:
             current.append(ln)
     if current:
         chunks.append((current_key, current))
+    bodies = [(k, "\n".join(ls).strip()) for k, ls in chunks]
+    bodies = [(k, b) for k, b in bodies if b]
+    # Pre-scan every literal heading key in this file so a generated
+    # `f"{k}_{n}"` dedup suffix can never collide with a real `## k_n`
+    # heading (or an already-emitted key): a collision would make two chunks
+    # share (source_path, source_key) and the UPSERT would silently drop one.
+    literal_keys = {k for k, _ in bodies}
     out: list[tuple[str, str]] = []
-    key_counts: dict[str, int] = {}
-    for k, ls in chunks:
-        body = "\n".join(ls).strip()
-        if not body:
-            continue
-        if k in key_counts:
-            key_counts[k] += 1
-            out.append((f"{k}_{key_counts[k]}", body))
-        else:
-            key_counts[k] = 1
-            out.append((k, body))
+    emitted: set[str] = set()
+    for k, body in bodies:
+        key = k
+        if key in emitted:
+            n = 2
+            while f"{k}_{n}" in literal_keys or f"{k}_{n}" in emitted:
+                n += 1
+            key = f"{k}_{n}"
+        emitted.add(key)
+        out.append((key, body))
     return out
 
 
