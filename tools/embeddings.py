@@ -7,7 +7,8 @@ Sources (everything indexable):
 
 Embedding: local fastembed BAAI/bge-small-en-v1.5 (384 dim). Self-contained;
 model downloads to ~/.cache/huggingface on first run (~130MB).
-Storage: index.db documents.embedding (BLOB, float32 raw bytes, normalized).
+Storage: index.db documents.embedding (BLOB, little-endian float32 raw bytes,
+normalized).
 
 Usage:
   python3 tools/embeddings.py refresh         # incremental rebuild
@@ -39,6 +40,21 @@ from search_config import (  # noqa: E402
 MODEL = "BAAI/bge-small-en-v1.5"
 DIM = 384
 BATCH = 32
+
+# Embeddings are stored as raw float32 bytes. Pin little-endian at the single
+# (de)serialization point so an index.db built on one host stays correct when
+# read on a host of different endianness (native bytes silently corrupt scores
+# cross-endian).
+VEC_DTYPE = np.dtype("<f4")
+
+
+def pack_vector(v: np.ndarray) -> bytes:
+    return np.asarray(v, dtype=VEC_DTYPE).tobytes()
+
+
+def unpack_vectors(blob: bytes, dim: int) -> np.ndarray:
+    return np.frombuffer(blob, dtype=VEC_DTYPE).reshape(-1, dim)
+
 
 _model = None
 
@@ -300,7 +316,7 @@ def refresh(full: bool = False) -> int:
                          embedding=excluded.embedding,
                          embedding_model=excluded.embedding_model,
                          updated_at=excluded.updated_at""",
-                    (st, sp, sk, text, h, v.tobytes(), MODEL, now),
+                    (st, sp, sk, text, h, pack_vector(v), MODEL, now),
                 )
             embedded += len(batch)
             conn.commit()
