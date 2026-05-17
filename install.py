@@ -250,7 +250,7 @@ def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -
     dst_vars = _top_level_assignments(dst_text)
 
     if not src_vars:
-        print(f"  ! search_config.py: could not parse source; skipping merge",
+        print("  ! search_config.py: could not parse source; skipping merge",
               file=sys.stderr)
         return []
 
@@ -1058,16 +1058,16 @@ def main() -> int:
         print("   your source directories. VENV_PY is already set to the detected venv.")
     else:
         print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
-        print(f"   Change the VENV_PY line to:")
+        print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
-        print(f"   Also update INDEXED_SOURCE_DIRS to list your source directories.")
+        print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if not args.build:
-        print(f"\n2. Build the index:")
+        print("\n2. Build the index:")
         print(f"       {venv_py} tools/embeddings.py refresh")
-        print(f"\n3. Test search:")
+        print("\n3. Test search:")
         print(f"       {venv_py} tools/search.py \"your query here\"")
     else:
-        print(f"\n2. Test search:")
+        print("\n2. Test search:")
         print(f"       {venv_py} tools/search.py \"your query here\"")
     if args.caveman:
         step = 4 if not args.build else 3
@@ -1075,7 +1075,7 @@ def main() -> int:
             print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
-            print(f"       cat caveman/caveman.md >> CLAUDE.md")
+            print("       cat caveman/caveman.md >> CLAUDE.md")
     print()
     return 0
 
