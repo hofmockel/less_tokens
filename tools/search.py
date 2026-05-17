@@ -127,18 +127,29 @@ def search(
     vecs = unpack_vectors(b"".join(r[5] for r in rows), DIM)
     # Stored vectors and query vector are both L2-normalized in `embed()`, so dot product = cosine similarity.
     scores = vecs @ qvec
-    top = np.argsort(-scores)[:k]
-    return [
-        {
+    # Collapse multiple chunks from the same file to the single best-scoring
+    # one and spend the freed budget on the next distinct file, so k results
+    # cover k files instead of near-duplicate chunks. Scores are sorted
+    # descending, so the first chunk seen per path is its best.
+    results: list[dict] = []
+    seen_paths: set[str] = set()
+    for i in np.argsort(-scores):
+        if min_score is not None and scores[i] < min_score:
+            break
+        path = rows[i][2]
+        if path in seen_paths:
+            continue
+        seen_paths.add(path)
+        results.append({
             "score": float(scores[i]),
             "source_type": rows[i][1],
-            "source_path": rows[i][2],
+            "source_path": path,
             "source_key": rows[i][3],
             "text": rows[i][4],
-        }
-        for i in top
-        if min_score is None or scores[i] >= min_score
-    ]
+        })
+        if len(results) >= k:
+            break
+    return results
 
 
 def main() -> int:
