@@ -43,37 +43,23 @@ Memory rule: always open a PR, never push to `main` directly (main is protected)
 
 ## Next steps — remaining `## Bugs`, in order
 
-### 1. NEXT — Vectors stored in native byte order (cross-endian corruption)
-`np.float32.tobytes()` writes host-native bytes; `np.frombuffer(..., dtype=np.float32)`
-reads host-endian. LE-built db read on BE returns silently-wrong cosine scores.
-- **Fix:** pin dtype to little-endian `<f4` on **both** write and read paths.
-  - Write: `tools/embeddings.py:296` (the `.tobytes()` upsert).
-  - Read: `tools/search.py:46` (`np.frombuffer(..., dtype=np.float32)` → `np.dtype("<f4")`).
-- **Also delete** the matching line in CLAUDE.md → "Known bugs worth avoiding"
-  ("Vectors use native byte order …").
-- **Test idea:** build a tiny vector, serialize with `<f4`, and assert the bytes
-  are explicitly little-endian and round-trip identically regardless of
-  `sys.byteorder`; or assert `search` reads vectors via an explicit LE dtype
-  (e.g. patch/inspect that `frombuffer` uses `<f4`). Cross-endian can't be run
-  natively — pin the *contract* (explicit `<f4`), not the host behavior.
-
-### 2. `enumerate_sources()` aborts refresh on one permission-denied dir
+### 1. NEXT — `enumerate_sources()` aborts refresh on one permission-denied dir
 `path.rglob("*")` propagates `PermissionError`, killing the whole run.
 Fix: wrap each per-source enumeration in `try/except OSError`, warn, continue.
 (`tools/embeddings.py:173`)
 
-### 3. Heading-dedup `_2` suffix collides with literal `## Foo_2`
+### 2. Heading-dedup `_2` suffix collides with literal `## Foo_2`
 UPSERT silently overwrites when a real `## Foo_2` exists alongside a deduped one.
 Fix: pre-scan heading keys and only suffix when free, or ordinal scheme with a
 char illegal in markdown headings. (`tools/embeddings.py:94-99`)
 
-### 4. `search-first.py` gates `.md` under `INDEXED_SOURCE_DIRS` never indexed
+### 3. `search-first.py` gates `.md` under `INDEXED_SOURCE_DIRS` never indexed
 `is_indexed()` accepts `.md` under those dirs but `enumerate_sources()` only
 collects `*.py`/`*.sql` there → unclearable gate. Fix: either index `.md` from
 `INDEXED_SOURCE_DIRS`, or drop `.md` from that branch of `is_indexed()`.
 (`hooks/search-first.py:58-59`, `tools/embeddings.py:194-211`)
 
-### 5. `search-first.py` docstring says `settings.local.json`
+### 4. `search-first.py` docstring says `settings.local.json`
 Installer writes `settings.json` (`install.py:1004`). Stale docstring at
 `hooks/search-first.py:6`. Trivial doc fix (still write a test if practical).
 
