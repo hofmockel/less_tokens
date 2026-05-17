@@ -38,6 +38,12 @@ INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "schema/")
 # Root-level glob patterns that are also indexed (hooks use this too).
 INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 
+# Extra markdown globs outside the repo root (relative to BASE), e.g.
+# "docs/*.md". Indexed alongside INDEXED_ROOT_GLOBS but keyed by full
+# relative path so a root and a subdir file of the same name don't
+# collide. Default empty — host installs only index root markdown.
+INDEXED_DOC_GLOBS: tuple[str, ...] = ()
+
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
