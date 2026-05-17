@@ -75,7 +75,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 ### Medium Priority
 
 - **Search quality metrics** — log query, top result score, and result count to `.claude/state/search.log` so users can audit what Claude is finding
-- **`search.py` query history log** — append each query and its top result score to `.claude/state/search-history.log` so maintainers can audit what Claude searched for and identify queries that consistently return poor results
 - **Dashboard command** — `embeddings.py stats --verbose` showing index age, chunk count by source type, and estimated coverage
 
 ---

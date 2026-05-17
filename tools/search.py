@@ -13,6 +13,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +46,28 @@ def _source_type_choices() -> list[str] | None:
     except sqlite3.OperationalError:
         return None
     return [r[0] for r in rows] or None
+
+
+HISTORY_LOG = STATE_DIR / "search-history.log"
+
+
+def _log_history(query: str, results: list[dict]) -> None:
+    """Append one JSONL record so maintainers can audit what was searched.
+
+    Best-effort: an audit log must never break the search it records.
+    """
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "query": query,
+            "top_score": round(results[0]["score"], 6) if results else None,
+            "results": len(results),
+        }
+        with HISTORY_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+    except OSError:
+        pass
 
 
 def search(
@@ -111,6 +134,7 @@ def main() -> int:
 
     results = search(args.query, k=args.k, source_type=args.source_type,
                      min_score=args.min_score)
+    _log_history(args.query, results)
     if results:
         chunk_chars = sum(len(r["text"]) for r in results)
         unique_paths = {r["source_path"] for r in results}
