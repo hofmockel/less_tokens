@@ -30,7 +30,7 @@ import numpy as np
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
-from db import connect_index  # noqa: E402
+from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_NAMES,
     INDEXED_ROOT_GLOBS,
@@ -280,6 +280,12 @@ def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
 # ----- refresh --------------------------------------------------------------
 
 def refresh(full: bool = False) -> int:
+    # Bring the schema current first (fresh init or pending migration). The
+    # v1->v2 migration drops stale native-endian rows so they get re-embedded
+    # little-endian; this must run even when the model is unavailable, hence
+    # before the _get_model() check.
+    ensure_current_schema()
+
     try:
         _get_model()
     except RuntimeError as e:
