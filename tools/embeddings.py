@@ -7,7 +7,8 @@ Sources (everything indexable):
 
 Embedding: local fastembed BAAI/bge-small-en-v1.5 (384 dim). Self-contained;
 model downloads to ~/.cache/huggingface on first run (~130MB).
-Storage: index.db documents.embedding (BLOB, float32 raw bytes, normalized).
+Storage: index.db documents.embedding (BLOB, little-endian float32 raw bytes,
+normalized).
 
 Usage:
   python3 tools/embeddings.py refresh         # incremental rebuild
@@ -29,7 +30,7 @@ import numpy as np
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
-from db import connect_index  # noqa: E402
+from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_NAMES,
     INDEXED_ROOT_GLOBS,
@@ -39,6 +40,28 @@ from search_config import (  # noqa: E402
 MODEL = "BAAI/bge-small-en-v1.5"
 DIM = 384
 BATCH = 32
+
+# Embeddings are stored as raw float32 bytes. Pin little-endian at the single
+# (de)serialization point so an index.db built on one host stays correct when
+# read on a host of different endianness (native bytes silently corrupt scores
+# cross-endian).
+VEC_DTYPE = np.dtype("<f4")
+
+# On-disk vector layout marker, stored in `PRAGMA user_version`. Bump
+# whenever the embedding byte layout changes (see VEC_DTYPE). An index.db
+# written before this marker existed reports user_version 0 — its blobs may
+# be host-native (pre little-endian pin) and would decode as garbage now, so
+# refresh() rebuilds such an index once and then stamps the marker.
+VEC_FORMAT = 1
+
+
+def pack_vector(v: np.ndarray) -> bytes:
+    return np.asarray(v, dtype=VEC_DTYPE).tobytes()
+
+
+def unpack_vectors(blob: bytes, dim: int) -> np.ndarray:
+    return np.frombuffer(blob, dtype=VEC_DTYPE).reshape(-1, dim)
+
 
 _model = None
 
@@ -177,9 +200,16 @@ def chunk_changelog(path: Path) -> list[tuple[str, str]]:
 
 # ----- source enumeration ---------------------------------------------------
 
-def enumerate_sources() -> list[tuple[str, str, str, str]]:
-    """Return [(source_type, source_path, source_key, text), ...]."""
+def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
+    """Return ([(source_type, source_path, source_key, text), ...], incomplete).
+
+    `incomplete` is True if any indexed source dir could not be fully
+    traversed (e.g. a permission-denied subtree). Callers that prune the
+    index from this list must not delete rows when it is True — the missing
+    sources are unreadable, not gone.
+    """
     out: list[tuple[str, str, str, str]] = []
+    incomplete = False
 
     # Root-level globs (default: *.md)
     for glob in INDEXED_ROOT_GLOBS:
@@ -199,8 +229,18 @@ def enumerate_sources() -> list[tuple[str, str, str, str]]:
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
+        if not d.exists():
+            continue
+        try:
             py_paths.extend(d.rglob("*.py"))
+        except OSError as e:
+            # One unreadable subtree must not abort the whole refresh and
+            # leave the index stale — skip it and keep the other sources.
+            # Flag the run incomplete so refresh() does not prune the rows
+            # belonging to the part we could not read.
+            incomplete = True
+            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                  file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -214,12 +254,19 @@ def enumerate_sources() -> list[tuple[str, str, str, str]]:
         d = BASE / dir_str.rstrip("/")
         if not d.exists():
             continue
-        for sq in sorted(d.glob("*.sql")):
+        try:
+            sql_files = sorted(d.glob("*.sql"))
+        except OSError as e:
+            incomplete = True
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+                  file=sys.stderr)
+            continue
+        for sq in sql_files:
             rel = sq.relative_to(BASE).as_posix()
             for k, t in chunk_sql(sq):
                 out.append(("code", rel, k, t))
 
-    return out
+    return out, incomplete
 
 
 # ----- local embed ---------------------------------------------------------
@@ -239,18 +286,46 @@ def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
 # ----- refresh --------------------------------------------------------------
 
 def refresh(full: bool = False) -> int:
+    # Bring the schema current first (fresh init or pending migration). The
+    # v1->v2 migration drops stale native-endian rows so they get re-embedded
+    # little-endian; this must run even when the model is unavailable, hence
+    # before the _get_model() check.
+    ensure_current_schema()
+
     try:
         _get_model()
     except RuntimeError as e:
         print(f"WARN: {e} — skipping refresh", file=sys.stderr)
         return 0
 
-    sources = enumerate_sources()
+    sources, incomplete = enumerate_sources()
     print(f"Enumerated {len(sources)} chunks from sources")
 
     with connect_index() as conn:
-        if full:
+        uv = conn.execute("PRAGMA user_version").fetchone()[0]
+        stale_format = uv < VEC_FORMAT
+
+        if full and not incomplete:
             conn.execute("DELETE FROM documents")
+            conn.commit()
+        elif full and incomplete:
+            print("  WARN: enumeration incomplete (unreadable source dir) — "
+                  "downgrading --full to incremental so existing rows are "
+                  "not wiped", file=sys.stderr)
+
+        if stale_format and incomplete:
+            print(f"  WARN: index.db predates the current vector layout "
+                  f"(user_version {uv} < {VEC_FORMAT}) but enumeration was "
+                  f"incomplete — deferring the forced re-embed until a "
+                  f"clean refresh", file=sys.stderr)
+        elif stale_format:
+            n = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+            if n:
+                print(f"  WARN: index.db predates the current vector layout "
+                      f"(user_version {uv} < {VEC_FORMAT}) — re-embedding all "
+                      f"{n} rows so search scores aren't silently corrupt",
+                      file=sys.stderr)
+                conn.execute("DELETE FROM documents")
             conn.commit()
 
         existing = {
@@ -270,12 +345,17 @@ def refresh(full: bool = False) -> int:
             to_embed.append((st, sp, sk, text, h))
 
         deleted = 0
-        for sp, sk in set(existing) - seen:
-            conn.execute(
-                "DELETE FROM documents WHERE source_path=? AND source_key=?",
-                (sp, sk),
-            )
-            deleted += 1
+        if incomplete:
+            print("  WARN: enumeration incomplete — skipping prune; "
+                  "stale-but-usable rows kept until a clean refresh "
+                  "reconciles them", file=sys.stderr)
+        else:
+            for sp, sk in set(existing) - seen:
+                conn.execute(
+                    "DELETE FROM documents WHERE source_path=? AND source_key=?",
+                    (sp, sk),
+                )
+                deleted += 1
         conn.commit()
 
         unchanged = len(seen) - len(to_embed)
@@ -306,11 +386,14 @@ def refresh(full: bool = False) -> int:
                          embedding=excluded.embedding,
                          embedding_model=excluded.embedding_model,
                          updated_at=excluded.updated_at""",
-                    (st, sp, sk, text, h, v.tobytes(), MODEL, now),
+                    (st, sp, sk, text, h, pack_vector(v), MODEL, now),
                 )
             embedded += len(batch)
             conn.commit()
             print(f"  embedded {embedded}/{len(to_embed)}")
+
+        if not incomplete:
+            conn.execute(f"PRAGMA user_version = {VEC_FORMAT}")  # noqa: S608
 
         print(f"Done. embedded={embedded} deleted={deleted}")
     return 0
@@ -327,8 +410,15 @@ def expected_source_paths() -> set[str]:
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
+        if not d.exists():
+            continue
+        try:
             py_paths.extend(d.rglob("*.py"))
+        except OSError as e:
+            # One unreadable subtree must not crash health/verify and
+            # report a false coverage gap — skip it and keep the rest.
+            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                  file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -336,9 +426,16 @@ def expected_source_paths() -> set[str]:
         out.add(py.relative_to(BASE).as_posix())
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
-            for sq in sorted(d.glob("*.sql")):
-                out.add(sq.relative_to(BASE).as_posix())
+        if not d.exists():
+            continue
+        try:
+            sql_files = sorted(d.glob("*.sql"))
+        except OSError as e:
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+                  file=sys.stderr)
+            continue
+        for sq in sql_files:
+            out.add(sq.relative_to(BASE).as_posix())
     return out
 
 
