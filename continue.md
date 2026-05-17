@@ -43,9 +43,11 @@ Memory rule: always open a PR, never push to `main` directly (main is protected)
 
 ## Next steps — remaining `## Bugs`, in order
 
-### 1. NEXT — `search-first.py` docstring says `settings.local.json`
-Installer writes `settings.json` (`install.py:1004`). Stale docstring at
-`hooks/search-first.py:6`. Trivial doc fix (still write a test if practical).
+### 1. NEXT — `CLAUDE.md` known-bugs `app/` line is stale
+`CLAUDE.md` "Known bugs worth avoiding" claims default `INDEXED_SOURCE_DIRS`
+includes `"app/"`; shipped `tools/search_config.py` is `("tools/", "schema/")`
+and CHANGELOG already records the `app/` removal. Reconcile: remove the stale
+known-bug line + delete the BACKLOG Bug entry. Doc-only (test if practical).
 
 ## Resume commands
 

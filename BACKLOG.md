@@ -8,8 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **`search-first.py` docstring says hooks are wired into `settings.local.json`, but the installer writes `settings.json`** — `hooks/search-first.py:6` states "install.py wires this into .claude/settings.local.json automatically", while `install.py:1004` deliberately wires hooks into the project-shared `.claude/settings.json` (so Claude rewrites can't clobber them). The stale docstring misleads anyone debugging why the gate isn't firing. Fix: correct the docstring to `settings.json`. (`hooks/search-first.py:6`)
-
 - **`CLAUDE.md` known-bugs section claims an `app/` default that does not match shipped code** — the "Known bugs worth avoiding" list in `CLAUDE.md` states the default `INDEXED_SOURCE_DIRS` includes `"app/"`, causing `embeddings.py health` to report gaps on fresh installs. The shipped default in `tools/search_config.py` is `("tools/", "schema/")` and a fresh dogfood install reported `health` clean (7 sources, 75 chunks). Either the bug was fixed without updating the doc or the doc never matched the code. Fix: reconcile the known-bugs entry with the actual `search_config.py` default. (`CLAUDE.md` known-bugs section, `tools/search_config.py` `INDEXED_SOURCE_DIRS`)
 
 ---
