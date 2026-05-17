@@ -23,22 +23,36 @@ import ast
 import hashlib
 import re
 import sys
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
+# fastembed pulls in urllib3, which on macOS system Python (LibreSSL) emits a
+# benign NotOpenSSLWarning at import. It pollutes stderr on every search.py run
+# and any captured hook output. Filter the known message process-wide here;
+# search.py imports this module at load, so both entrypoints are covered.
+warnings.filterwarnings(
+    "ignore",
+    message=r"urllib3 v2 only supports OpenSSL",
+    category=Warning,
+)
+
+import numpy as np  # noqa: E402
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
-from db import connect_index  # noqa: E402
+from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402
+    EMBEDDING_DIM,
+    EMBEDDING_MODEL,
     EXCLUDED_DIR_NAMES,
+    INDEXED_DOC_GLOBS,
     INDEXED_ROOT_GLOBS,
     INDEXED_SOURCE_DIRS,
 )
 
-MODEL = "BAAI/bge-small-en-v1.5"
-DIM = 384
+MODEL = EMBEDDING_MODEL
+DIM = EMBEDDING_DIM
 BATCH = 32
 
 # Embeddings are stored as raw float32 bytes. Pin little-endian at the single
@@ -108,18 +122,24 @@ def chunk_markdown(path: Path) -> list[tuple[str, str]]:
             current.append(ln)
     if current:
         chunks.append((current_key, current))
+    bodies = [(k, "\n".join(ls).strip()) for k, ls in chunks]
+    bodies = [(k, b) for k, b in bodies if b]
+    # Pre-scan every literal heading key in this file so a generated
+    # `f"{k}_{n}"` dedup suffix can never collide with a real `## k_n`
+    # heading (or an already-emitted key): a collision would make two chunks
+    # share (source_path, source_key) and the UPSERT would silently drop one.
+    literal_keys = {k for k, _ in bodies}
     out: list[tuple[str, str]] = []
-    key_counts: dict[str, int] = {}
-    for k, ls in chunks:
-        body = "\n".join(ls).strip()
-        if not body:
-            continue
-        if k in key_counts:
-            key_counts[k] += 1
-            out.append((f"{k}_{key_counts[k]}", body))
-        else:
-            key_counts[k] = 1
-            out.append((k, body))
+    emitted: set[str] = set()
+    for k, body in bodies:
+        key = k
+        if key in emitted:
+            n = 2
+            while f"{k}_{n}" in literal_keys or f"{k}_{n}" in emitted:
+                n += 1
+            key = f"{k}_{n}"
+        emitted.add(key)
+        out.append((key, body))
     return out
 
 
@@ -205,18 +225,21 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
     out: list[tuple[str, str, str, str]] = []
     incomplete = False
 
-    # Root-level globs (default: *.md)
-    for glob in INDEXED_ROOT_GLOBS:
+    # Markdown globs: repo root (INDEXED_ROOT_GLOBS) + extra dirs
+    # (INDEXED_DOC_GLOBS). Keyed by path relative to BASE so a root
+    # CLAUDE.md and a subdir CLAUDE.md don't collide on source_path.
+    for glob in (*INDEXED_ROOT_GLOBS, *INDEXED_DOC_GLOBS):
         for f in sorted(BASE.glob(glob)):
             if _excluded(f):
                 continue
+            rel = f.relative_to(BASE).as_posix()
             if f.suffix == ".md":
                 st = "changelog" if f.name == "CHANGELOG.md" else "doc"
                 chunks = chunk_changelog(f) if st == "changelog" else chunk_markdown(f)
                 for k, t in chunks:
-                    out.append((st, f.name, k, t))
+                    out.append((st, rel, k, t))
             else:
-                print(f"  WARN: unsupported root glob extension {f.suffix!r} — {f.name} skipped",
+                print(f"  WARN: unsupported glob extension {f.suffix!r} — {rel} skipped",
                       file=sys.stderr)
 
     # Python from indexed subdirs + root .py
@@ -280,6 +303,12 @@ def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
 # ----- refresh --------------------------------------------------------------
 
 def refresh(full: bool = False) -> int:
+    # Bring the schema current first (fresh init or pending migration). The
+    # v1->v2 migration drops stale native-endian rows so they get re-embedded
+    # little-endian; this must run even when the model is unavailable, hence
+    # before the _get_model() check.
+    ensure_current_schema()
+
     try:
         _get_model()
     except RuntimeError as e:
@@ -390,11 +419,11 @@ def refresh(full: bool = False) -> int:
 def expected_source_paths() -> set[str]:
     """File-only enumeration. Mirrors enumerate_sources() globs without chunking."""
     out: set[str] = set()
-    for glob in INDEXED_ROOT_GLOBS:
+    for glob in (*INDEXED_ROOT_GLOBS, *INDEXED_DOC_GLOBS):
         for f in sorted(BASE.glob(glob)):
             if _excluded(f):
                 continue
-            out.add(f.name)
+            out.add(f.relative_to(BASE).as_posix())
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")

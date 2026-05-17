@@ -3,7 +3,7 @@
 
 Exits 2 with a reminder when an indexed file is Read without a recent search.
 Gate clears for WINDOW_SECONDS after any search; configure in search_config.py.
-install.py wires this into .claude/settings.local.json automatically.
+install.py wires this into .claude/settings.json automatically.
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def is_indexed(path: Path) -> bool:
     if "/" not in rel:
         return rel.endswith(".md")
     if any(rel.startswith(d) for d in dirs):
-        return rel.endswith((".py", ".sql", ".md"))
+        return rel.endswith((".py", ".sql"))
     return False
 
 

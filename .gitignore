@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 *.pyo
 .claude/state/
+.claude/settings.local.json
+.claude/worktrees/
 .venv/
 venv/
 env/

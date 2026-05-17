@@ -17,7 +17,7 @@ BASE = Path(__file__).parent.parent
 INDEX_DB = BASE / "index.db"
 SCHEMA_FILE = BASE / "schema" / "index.sql"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class _ClosingConn:
@@ -79,17 +79,35 @@ def migrate() -> int:
         if v >= SCHEMA_VERSION:
             print(f"Schema up to date (v{v})")
             return 0
-        # Future migrations: add ALTER TABLE / CREATE INDEX blocks here,
-        # gated on `if v < N`, then bump version at the end.
-        # Example:
-        #   if v < 2:
-        #       c.execute("ALTER TABLE documents ADD COLUMN new_col TEXT")
+        if v < 2:
+            # v1 stored embeddings in host-native byte order; v2 pins
+            # little-endian on disk (search.py always decodes <f4). Drop the
+            # rows so the next `embeddings.py refresh` repopulates them in the
+            # new format — a v1 index built on a big-endian host would
+            # otherwise score silently wrong for every unchanged row.
+            try:
+                c.execute("DELETE FROM documents")
+            except sqlite3.OperationalError:
+                pass  # no documents table yet — nothing to invalidate
+        # Future migrations: add more `if v < N:` blocks here, then bump
+        # SCHEMA_VERSION and let the version row below record it.
         c.execute(
             "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, datetime.now(timezone.utc).isoformat()),
         )
         print(f"Schema migrated from v{v} to v{SCHEMA_VERSION}")
     return 0
+
+
+def ensure_current_schema() -> int:
+    """Create the schema on a fresh db, or apply pending migrations on an
+    existing one. Safe to call on every refresh: a no-op once current. This
+    is the hook that makes the v1->v2 endianness invalidation fire on the
+    normal upgrade path without a manual `db.py migrate`.
+    """
+    if not INDEX_DB.exists():
+        return init()
+    return migrate()
 
 
 def verify() -> int:

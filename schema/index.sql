@@ -1,4 +1,4 @@
--- index.db schema (v1)
+-- index.db schema (v2)
 -- Search index over docs, code, journal, changelog, notes. Regenerable from filesystem.
 
 CREATE TABLE IF NOT EXISTS schema_version (
