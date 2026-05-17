@@ -350,8 +350,15 @@ def expected_source_paths() -> set[str]:
     py_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
+        if not d.exists():
+            continue
+        try:
             py_paths.extend(d.rglob("*.py"))
+        except OSError as e:
+            # One unreadable subtree must not crash health/verify and
+            # report a false coverage gap — skip it and keep the rest.
+            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                  file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -359,9 +366,16 @@ def expected_source_paths() -> set[str]:
         out.add(py.relative_to(BASE).as_posix())
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
-        if d.exists():
-            for sq in sorted(d.glob("*.sql")):
-                out.add(sq.relative_to(BASE).as_posix())
+        if not d.exists():
+            continue
+        try:
+            sql_files = sorted(d.glob("*.sql"))
+        except OSError as e:
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+                  file=sys.stderr)
+            continue
+        for sq in sql_files:
+            out.add(sq.relative_to(BASE).as_posix())
     return out
 
 
