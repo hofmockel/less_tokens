@@ -94,6 +94,13 @@ TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors l
 # --- Strategy 5: Conversation Compaction Trigger ---
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 
+# Optional: identify the Claude model this install targets. When set to a
+# known ID (see tools/model_profiles.py), tools/search.py uses the model's
+# recommended default `k` and warns if returned chunks risk filling the
+# context window. When None, the static DEFAULT_K (3) applies. Example:
+#   AGENT_MODEL = "claude-sonnet-4-6"
+AGENT_MODEL: str | None = None
+
 STATE_DIR: Path = BASE / ".claude" / "state"
 
 # Search-first hook gate: how long after a search Reads on indexed files are

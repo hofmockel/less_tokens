@@ -22,6 +22,8 @@ BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "tools"))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed, unpack_vectors  # noqa: E402
+import search_config  # noqa: E402
+from model_profiles import profile as _model_profile  # noqa: E402
 from search_config import (  # noqa: E402
     INDEXED_DOC_GLOBS,
     INDEXED_ROOT_GLOBS,
@@ -181,8 +183,9 @@ def main() -> int:
     # Default k=3 keeps lookups under ~300 tokens for the common case;
     # the long tail (rank 4+) is rarely informative. Pass -k 5/8 explicitly
     # for broad-research queries where you want the wider funnel.
-    ap.add_argument("-k", type=int, default=3,
-                    help="Number of chunks to return (default 3)")
+    ap.add_argument("-k", type=int, default=None,
+                    help="Number of chunks to return "
+                         "(default: AGENT_MODEL profile, else 3)")
     ap.add_argument("--source-type", choices=_source_type_choices())
     ap.add_argument("--min-score", type=float, default=None,
                     help="Drop results with cosine score below this floor")
@@ -200,8 +203,28 @@ def main() -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     (STATE_DIR / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
-    results = search(args.query, k=args.k, source_type=args.source_type,
+    # Resolve k: explicit -k wins; else AGENT_MODEL profile; else DEFAULT_K.
+    prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))
+    if args.k is not None:
+        k = args.k
+    elif prof and "recommended_k" in prof:
+        k = prof["recommended_k"]
+    else:
+        k = DEFAULT_K
+    results = search(args.query, k=k, source_type=args.source_type,
                      min_score=args.min_score)
+    # Warn if returned chunks would consume a large fraction of the
+    # configured model's window (rough heuristic: 4 chars ≈ 1 token).
+    if prof and results:
+        approx_tokens = sum(len(r["text"]) for r in results) // 4
+        window = prof.get("context_window", 0)
+        if window and approx_tokens > window // 4:
+            print(
+                f"WARN: returned chunks ≈ {approx_tokens} tokens; "
+                f"{prof.get('context_window')}-token window may fill quickly. "
+                "Lower -k or raise --min-score.",
+                file=sys.stderr,
+            )
     _log_history(args.query, results)
     if results:
         chunk_chars = sum(len(r["text"]) for r in results)
