@@ -888,6 +888,11 @@ def main() -> int:
                     help="show exactly what would change without writing anything")
     ap.add_argument("--allow-merge", action="store_true",
                     help="proceed even if tools/ or schema/ already contain non-less_tokens files")
+    ap.add_argument("--local", action="store_true",
+                    help="wire hooks into .claude/settings.local.json (personal / "
+                         "untracked) instead of the project-shared .claude/settings.json. "
+                         "Note: Claude Code rewrites settings.local.json when auto-adding "
+                         "Bash permissions, which can clobber the hooks block")
     ap.add_argument("--no-gitignore", action="store_true",
                     help="skip the default managed .gitignore block for generated artifacts "
                          "(index.db, .claude/state/); useful if you commit them deliberately")
@@ -1064,8 +1069,16 @@ def main() -> int:
     # can clobber the hooks block. settings.json is the project-shared
     # file and stays stable across permission changes.
     # ------------------------------------------------------------------
-    print(f"\n{tag}[5/5] Wiring .claude/settings.json...")
-    settings_path = target_root / ".claude" / "settings.json"
+    settings_name = "settings.local.json" if args.local else "settings.json"
+    settings_path = target_root / ".claude" / settings_name
+    # Heads-up when we're about to edit a pre-existing, project-shared
+    # settings.json — it's typically committed and sometimes change-
+    # controlled. settings.local.json is personal/untracked; no notice.
+    if (not args.local and settings_path.exists()
+            and settings_path.read_text(encoding="utf-8").strip()):
+        print(f"  Note: modifying committed .claude/{settings_name} "
+              "(pass --local to write settings.local.json instead).")
+    print(f"\n{tag}[5/5] Wiring .claude/{settings_name}...")
     entries = _build_hook_entries(venv_py, target_root, args)
     added, present = wire_settings(settings_path, entries, dry_run=dry)
     print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
