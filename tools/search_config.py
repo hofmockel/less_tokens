@@ -96,5 +96,10 @@ MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 
 STATE_DIR: Path = BASE / ".claude" / "state"
 
+# Search-first hook gate: how long after a search Reads on indexed files are
+# allowed without re-searching. Increase for long edit sessions; decrease to
+# force fresher context. Read by hooks/search-first.py.
+WINDOW_SECONDS: int = 300
+
 # --- Token savings tracking (Strategy metrics) ---
 TRACK_SAVINGS = False   # set True via: python tools/stats.py

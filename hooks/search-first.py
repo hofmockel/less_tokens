@@ -14,8 +14,6 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
-WINDOW_SECONDS = 300
-
 
 _config: dict = {}
 
@@ -24,18 +22,13 @@ def _load_config() -> bool:
     """Load search_config into _config. Returns False (and warns) on failure."""
     try:
         sys.path.insert(0, str(REPO / "tools"))
-        from search_config import (  # noqa: E402
-            EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
-            INDEXED_ROOT_GLOBS,
-            INDEXED_SOURCE_DIRS as INDEXED_DIRS,
-            STATE_DIR,
-            VENV_PY,
-        )
-        _config["excluded"] = EXCLUDED_DIRS
-        _config["root_globs"] = INDEXED_ROOT_GLOBS
-        _config["dirs"] = INDEXED_DIRS
-        _config["venv_py"] = VENV_PY
-        _config["state_file"] = STATE_DIR / "last-search"
+        import search_config  # noqa: E402
+        _config["excluded"] = search_config.EXCLUDED_DIR_PREFIXES
+        _config["root_globs"] = search_config.INDEXED_ROOT_GLOBS
+        _config["dirs"] = search_config.INDEXED_SOURCE_DIRS
+        _config["venv_py"] = search_config.VENV_PY
+        _config["state_file"] = search_config.STATE_DIR / "last-search"
+        _config["window_seconds"] = search_config.WINDOW_SECONDS
         from savings_log import append as _log  # noqa: PLC0415
         _config["log"] = _log
         return True
@@ -68,7 +61,7 @@ def search_was_recent() -> bool:
         mtime = state_file.stat().st_mtime
     except OSError:
         return False
-    return (time.time() - mtime) < WINDOW_SECONDS
+    return (time.time() - mtime) < _config.get("window_seconds", 300)
 
 
 def main() -> int:
@@ -106,7 +99,7 @@ def main() -> int:
         f"Run vector search before Read:\n"
         f"  {venv_py} tools/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
-        f"{WINDOW_SECONDS}s. If you need to edit this file, search first to "
+        f"{_config.get('window_seconds', 300)}s. If you need to edit this file, search first to "
         f"satisfy the gate, then Read + Edit normally."
     )
     print(msg, file=sys.stderr)
