@@ -1005,17 +1005,37 @@ def main() -> int:
     ap.add_argument("--no-gitignore", action="store_true",
                     help="skip the default managed .gitignore block for generated artifacts "
                          "(index.db, .claude/state/); useful if you commit them deliberately")
+    ap.add_argument("--update", action="store_true",
+                    help="safe upgrade: re-copy hook and tool files (implies "
+                         "--force-hooks --force-tools --overwrite-modified) "
+                         "but never touch tools/search_config.py or index.db. "
+                         "Incompatible with --force-config and --build.")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
                     help="with --uninstall, also delete index.db and its WAL sidecars")
     args = ap.parse_args()
 
+    # --update is a safe-upgrade shortcut: re-copy hooks + tools, never
+    # touch search_config.py or index.db. Forbid combinations that would
+    # violate that contract.
+    if args.update:
+        if args.force_config or args.force:
+            print("ERROR: --update cannot be combined with --force-config / --force "
+                  "(--update never overwrites tools/search_config.py).",
+                  file=sys.stderr)
+            return 1
+        if args.build:
+            print("ERROR: --update cannot be combined with --build "
+                  "(--update never touches index.db).",
+                  file=sys.stderr)
+            return 1
+
     # Resolve force flags
-    force_hooks  = args.force or args.force_hooks
-    force_tools  = args.force or args.force_tools
+    force_hooks  = args.force or args.force_hooks or args.update
+    force_tools  = args.force or args.force_tools or args.update
     force_config = args.force or args.force_config
-    overwrite_modified = args.overwrite_modified
+    overwrite_modified = args.overwrite_modified or args.update
     dry = args.dry_run
     tag = "[DRY RUN] " if dry else ""
 
@@ -1116,12 +1136,15 @@ def main() -> int:
     print(f"\n{tag}[2/5] Copying files...")
     changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
               "tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
-    handle_search_config(
-        SOURCE / "tools" / "search_config.py",
-        target_root / "tools" / "search_config.py",
-        target_root,
-        force_config, overwrite_modified, dry_run=dry,
-    )
+    if args.update and (target_root / "tools" / "search_config.py").exists():
+        print("  ✓ tools/search_config.py (preserved — --update never touches it)")
+    else:
+        handle_search_config(
+            SOURCE / "tools" / "search_config.py",
+            target_root / "tools" / "search_config.py",
+            target_root,
+            force_config, overwrite_modified, dry_run=dry,
+        )
     changes += copy_tree(SOURCE / "schema", target_root / "schema", target_root, force_tools,  overwrite_modified, "schema/", dry_run=dry)
     changes += copy_tree(SOURCE / "hooks",  target_root / ".claude" / "hooks",
               target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
@@ -1131,28 +1154,32 @@ def main() -> int:
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,
-    # so a user customization is never clobbered.
+    # so a user customization is never clobbered. Skipped entirely under
+    # --update (which never touches search_config.py).
     dst_cfg = target_root / "tools" / "search_config.py"
-    venv_py_patched = patch_venv_py(
-        dst_cfg, SOURCE / "tools" / "search_config.py", target_root, venv_dir,
-        dry_run=dry,
-    )
-    if venv_py_patched is not None:
-        print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-              f'VENV_PY → _venv_python("{venv_py_patched}")')
-        changes += 1
-    dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
-    if dirs_patched is not None:
-        print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-              f'INDEXED_SOURCE_DIRS → {dirs_patched}')
-        changes += 1
-    if venv_py_patched is None and dry and not dst_cfg.exists():
-        # Fresh dry-run install: config not copied, so patch_venv_py is a
-        # no-op — still preview the value it would write.
-        cfg = _venv_config_str(venv_dir, target_root)
-        print(f'  would patch tools/search_config.py: '
-              f'VENV_PY → _venv_python("{cfg}")')
-        changes += 1
+    if not args.update:
+        venv_py_patched = patch_venv_py(
+            dst_cfg, SOURCE / "tools" / "search_config.py", target_root, venv_dir,
+            dry_run=dry,
+        )
+        if venv_py_patched is not None:
+            print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+                  f'VENV_PY → _venv_python("{venv_py_patched}")')
+            changes += 1
+        dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
+        if dirs_patched is not None:
+            print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+                  f'INDEXED_SOURCE_DIRS → {dirs_patched}')
+            changes += 1
+        if venv_py_patched is None and dry and not dst_cfg.exists():
+            # Fresh dry-run install: config not copied, so patch_venv_py is a
+            # no-op — still preview the value it would write.
+            cfg = _venv_config_str(venv_dir, target_root)
+            print(f'  would patch tools/search_config.py: '
+                  f'VENV_PY → _venv_python("{cfg}")')
+            changes += 1
+    else:
+        venv_py_patched = None
 
     # ------------------------------------------------------------------
     # Step 3: Install deps
@@ -1167,13 +1194,17 @@ def main() -> int:
         print("\n[3/5] Skipping dep install (--skip-deps).")
 
     # ------------------------------------------------------------------
-    # Step 4: Init / migrate DB
+    # Step 4: Init / migrate DB (skipped under --update — index.db is
+    # left untouched even if the schema has drifted).
     # ------------------------------------------------------------------
-    rc, did_init = init_db(venv_py, target_root, dry_run=dry)
-    if rc != 0:
-        return 1
-    if did_init:
-        changes += 1
+    if args.update:
+        print("\n[4/5] Skipping index.db init/migrate (--update never touches it).")
+    else:
+        rc, did_init = init_db(venv_py, target_root, dry_run=dry)
+        if rc != 0:
+            return 1
+        if did_init:
+            changes += 1
 
     # ------------------------------------------------------------------
     # Step 5: Wire hooks into .claude/settings.json (project-shared)
