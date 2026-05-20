@@ -385,6 +385,96 @@ def patch_venv_py(
     return venv_str
 
 
+_SOURCE_DIR_EXCLUDE = frozenset({
+    ".git", ".venv", ".venv-tokens", "venv", "env", "__pycache__",
+    "node_modules", "build", "dist", ".tox", ".mypy_cache", ".pytest_cache",
+    ".ruff_cache", "htmlcov", "site-packages",
+})
+
+_DEFAULT_INDEXED_SOURCE_DIRS = ("tools/", "schema/")
+
+
+def _discover_source_dirs(target_root: Path) -> list[str]:
+    """Top-level directories under target_root that contain any `.py` file.
+
+    Skips hidden dirs, venvs, caches, and the less_tokens-owned `tools/` /
+    `schema/` (those are the defaults). Returns paths with a trailing
+    slash to match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
+    """
+    found: list[str] = []
+    try:
+        for child in sorted(target_root.iterdir()):
+            if not child.is_dir():
+                continue
+            name = child.name
+            if name.startswith(".") or name in _SOURCE_DIR_EXCLUDE:
+                continue
+            try:
+                has_py = next(child.rglob("*.py"), None) is not None
+            except OSError:
+                continue
+            if has_py:
+                found.append(f"{name}/")
+    except OSError:
+        return []
+    return found
+
+
+def patch_indexed_source_dirs(
+    config_path: Path, target_root: Path, dry_run: bool = False,
+) -> tuple[str, ...] | None:
+    """Rewrite INDEXED_SOURCE_DIRS in search_config.py for the host repo.
+
+    Conservative — same posture as patch_venv_py: only patches when the
+    existing value still matches the source default (("tools/",
+    "schema/")). User customizations are preserved.
+
+    Returns the new tuple (sorted) on a successful write, or None if:
+    - the existing value is customized
+    - no host directories contain .py files
+    - the discovered set equals the current value (already correct)
+    """
+    try:
+        text = config_path.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+    except (OSError, SyntaxError):
+        return None
+
+    current: tuple[str, ...] | None = None
+    target_node = None
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
+                and node.target.id == "INDEXED_SOURCE_DIRS":
+            target_node = node
+            if isinstance(node.value, ast.Tuple):
+                try:
+                    current = tuple(
+                        el.value for el in node.value.elts
+                        if isinstance(el, ast.Constant) and isinstance(el.value, str)
+                    )
+                except AttributeError:
+                    current = None
+            break
+    if target_node is None or current is None:
+        return None
+    if current != _DEFAULT_INDEXED_SOURCE_DIRS:
+        return None  # user customized — leave alone
+
+    discovered = tuple(_discover_source_dirs(target_root))
+    if not discovered or discovered == current:
+        return None
+
+    lines = text.splitlines(keepends=True)
+    start = target_node.lineno - 1
+    end = target_node.end_lineno
+    rendered = ", ".join(f'"{d}"' for d in discovered)
+    new_line = f"INDEXED_SOURCE_DIRS: tuple[str, ...] = ({rendered},)\n"
+    new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
+    if not dry_run:
+        config_path.write_text(new_text, encoding="utf-8")
+    return discovered
+
+
 def handle_search_config(
     src_config: Path,
     dst_config: Path,
@@ -1050,7 +1140,12 @@ def main() -> int:
         print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
               f'VENV_PY → _venv_python("{venv_py_patched}")')
         changes += 1
-    elif dry and not dst_cfg.exists():
+    dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
+    if dirs_patched is not None:
+        print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+              f'INDEXED_SOURCE_DIRS → {dirs_patched}')
+        changes += 1
+    if venv_py_patched is None and dry and not dst_cfg.exists():
         # Fresh dry-run install: config not copied, so patch_venv_py is a
         # no-op — still preview the value it would write.
         cfg = _venv_config_str(venv_dir, target_root)
