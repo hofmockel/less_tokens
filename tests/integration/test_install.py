@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -270,3 +271,81 @@ class TestDiffSummary:
         summary = _diff_summary("a\nb\n", "a\nb\n")
         assert "+0" in summary
         assert "-0" in summary
+
+
+# ---------------------------------------------------------------------------
+# --update flag (safe re-copy: hooks + tools, never search_config.py / index.db)
+# ---------------------------------------------------------------------------
+
+class TestUpdateFlag:
+    def _fresh_install(self, tmp_path: Path) -> Path:
+        """Run a fresh install into tmp_path and return target_root."""
+        make_fake_venv(tmp_path)
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(tmp_path), "--yes", "--skip-deps"],
+            cwd=str(tmp_path),
+        )
+        assert rc == 0
+        return tmp_path
+
+    def test_update_replaces_modified_hook(self, tmp_path):
+        target = self._fresh_install(tmp_path)
+        hook = target / ".claude" / "hooks" / "search-first.py"
+        original = hook.read_text()
+        hook.write_text("# locally modified — should be overwritten by --update\n")
+
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            cwd=str(target),
+        )
+        assert rc == 0
+        assert hook.read_text() == original
+
+    def test_update_preserves_modified_search_config(self, tmp_path):
+        target = self._fresh_install(tmp_path)
+        cfg = target / "tools" / "search_config.py"
+        custom = cfg.read_text() + "\n# user customization marker\n"
+        cfg.write_text(custom)
+
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            cwd=str(target),
+        )
+        assert rc == 0
+        assert cfg.read_text() == custom
+
+    def test_update_preserves_index_db(self, tmp_path):
+        target = self._fresh_install(tmp_path)
+        db = target / "index.db"
+        db.write_bytes(b"FAKE_DB_SENTINEL_CONTENT")
+
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            cwd=str(target),
+        )
+        assert rc == 0
+        assert db.read_bytes() == b"FAKE_DB_SENTINEL_CONTENT"
+
+    def test_update_rejects_force_config(self, tmp_path):
+        target = self._fresh_install(tmp_path)
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(target), "--yes", "--skip-deps",
+             "--update", "--force-config"],
+            cwd=str(target),
+        )
+        assert rc != 0
+
+    def test_update_rejects_build(self, tmp_path):
+        target = self._fresh_install(tmp_path)
+        rc = subprocess.call(
+            [sys.executable, str(SOURCE / "install.py"),
+             "--target", str(target), "--yes", "--skip-deps",
+             "--update", "--build"],
+            cwd=str(target),
+        )
+        assert rc != 0
