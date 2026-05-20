@@ -604,6 +604,24 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
 # Caveman duplicate check
 # ---------------------------------------------------------------------------
 
+def _maybe_suggest_recursive_globs(target_root: Path) -> None:
+    """If the target has few/no root *.py but many subdir *.md, nudge the
+    user toward a recursive INDEXED_ROOT_GLOBS so docs aren't silently
+    skipped. Heuristic only — purely informational, never aborts."""
+    try:
+        py_count = sum(1 for _ in target_root.rglob("*.py")
+                       if ".venv" not in _.parts and "__pycache__" not in _.parts)
+        md_root = list(target_root.glob("*.md"))
+        md_sub = [p for p in target_root.rglob("*.md")
+                  if p.parent != target_root and ".venv" not in p.parts]
+    except OSError:
+        return
+    if py_count == 0 and len(md_sub) >= 5 and len(md_sub) > len(md_root):
+        print(f"\n  Tip: found {len(md_sub)} markdown files in subdirectories "
+              "but no .py at the repo root.")
+        print('       Consider INDEXED_ROOT_GLOBS = ("**/*.md",) to index them all.')
+
+
 def _caveman_in_claude_md(target_root: Path) -> bool:
     claude_md = target_root / "CLAUDE.md"
     if not claude_md.exists():
@@ -1112,7 +1130,11 @@ def main() -> int:
     print("=" * 60)
     if venv_py_patched is not None:
         print("\n1. Edit tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
-        print("   your source directories. VENV_PY is already set to the detected venv.")
+        print("   your source directories (the .py/.sql dirs). For markdown,")
+        print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
+        print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
+        print("   VENV_PY is already set to the detected venv.")
+        _maybe_suggest_recursive_globs(target_root)
     else:
         print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
         print("   Change the VENV_PY line to:")

@@ -63,6 +63,9 @@ EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
 INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "schema/")
 
 # Root-level glob patterns that are also indexed (hooks use this too).
+# Supports recursive patterns via pathlib's `**`, e.g. "docs/**/*.md" or
+# "**/*.md" — use one of those for doc-heavy repos whose markdown lives
+# in subdirectories (default "*.md" only matches files at the repo root).
 INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 
 # Extra markdown globs outside the repo root (relative to BASE), e.g.
