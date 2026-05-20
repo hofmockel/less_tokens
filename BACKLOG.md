@@ -48,7 +48,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 ### Medium Priority
 
 - **Build the index during install by default** — the `--build` flag exists (`install.py:823`, runs `build_index`) and is documented, but a default install leaves no `index.db`, so `tools/search.py` returns empty until the user runs the build manually (the first run also downloads the fastembed model). Make the build run by default with an opt-out, or interactively prompt `Build the index now? ~30s on first run (model download). [Y/n]` — so the install completes in one step instead of two.
-- **Offer to gitignore deployed files (host-repo git pollution)** — the copied trees land untracked in the host project's git repo and pollute `git status` (a host `.gitignore` typically ignores only the `less_tokens/` clone, not the deployed `tools/`, `schema/`, `.claude/hooks/`, `index.db`, `.claude/state/`). After copying, offer to append these paths to the host `.gitignore`, or document explicitly that they should be committed — make the choice deliberate rather than silent. A `--gitignore` flag and a one-time re-run tip already exist (`install.py:837`, `install.py:665`); the remaining gap is that the step stays opt-in — make it default-on with an opt-out (or interactive `[Y/n]` defaulting to yes) so `index.db`, `.claude/state/`, and the venv never silently pollute `git status`.
 ---
 
 ## Hooks & Caveman Mode
