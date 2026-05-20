@@ -102,6 +102,25 @@ def detect_venv(target_root: Path) -> Path | None:
     return None
 
 
+def create_venv(target_root: Path) -> Path:
+    """Create `.venv-tokens` in target_root via `python3 -m venv`.
+
+    Refuses to overwrite a pre-existing path (it may be a partial venv we
+    don't want to clobber). Returns the venv directory; caller should
+    follow up with `pip install` of dependencies.
+    """
+    venv_dir = target_root / ".venv-tokens"
+    if venv_dir.exists():
+        raise FileExistsError(
+            f"{venv_dir} already exists; pass --venv {venv_dir} to use it "
+            "or remove it before re-running with --create-venv"
+        )
+    py = "python" if sys.platform == "win32" else "python3"
+    print(f"  Creating venv: {venv_dir}")
+    subprocess.check_call([py, "-m", "venv", str(venv_dir)])
+    return venv_dir
+
+
 def _looks_suspicious(target: Path) -> str | None:
     """Return a human description if the auto-derived target looks wrong.
 
@@ -367,6 +386,96 @@ def patch_venv_py(
     return venv_str
 
 
+_SOURCE_DIR_EXCLUDE = frozenset({
+    ".git", ".venv", ".venv-tokens", "venv", "env", "__pycache__",
+    "node_modules", "build", "dist", ".tox", ".mypy_cache", ".pytest_cache",
+    ".ruff_cache", "htmlcov", "site-packages",
+})
+
+_DEFAULT_INDEXED_SOURCE_DIRS = ("tools/", "schema/")
+
+
+def _discover_source_dirs(target_root: Path) -> list[str]:
+    """Top-level directories under target_root that contain any `.py` file.
+
+    Skips hidden dirs, venvs, caches, and the less_tokens-owned `tools/` /
+    `schema/` (those are the defaults). Returns paths with a trailing
+    slash to match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
+    """
+    found: list[str] = []
+    try:
+        for child in sorted(target_root.iterdir()):
+            if not child.is_dir():
+                continue
+            name = child.name
+            if name.startswith(".") or name in _SOURCE_DIR_EXCLUDE:
+                continue
+            try:
+                has_py = next(child.rglob("*.py"), None) is not None
+            except OSError:
+                continue
+            if has_py:
+                found.append(f"{name}/")
+    except OSError:
+        return []
+    return found
+
+
+def patch_indexed_source_dirs(
+    config_path: Path, target_root: Path, dry_run: bool = False,
+) -> tuple[str, ...] | None:
+    """Rewrite INDEXED_SOURCE_DIRS in search_config.py for the host repo.
+
+    Conservative — same posture as patch_venv_py: only patches when the
+    existing value still matches the source default (("tools/",
+    "schema/")). User customizations are preserved.
+
+    Returns the new tuple (sorted) on a successful write, or None if:
+    - the existing value is customized
+    - no host directories contain .py files
+    - the discovered set equals the current value (already correct)
+    """
+    try:
+        text = config_path.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+    except (OSError, SyntaxError):
+        return None
+
+    current: tuple[str, ...] | None = None
+    target_node = None
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
+                and node.target.id == "INDEXED_SOURCE_DIRS":
+            target_node = node
+            if isinstance(node.value, ast.Tuple):
+                try:
+                    current = tuple(
+                        el.value for el in node.value.elts
+                        if isinstance(el, ast.Constant) and isinstance(el.value, str)
+                    )
+                except AttributeError:
+                    current = None
+            break
+    if target_node is None or current is None:
+        return None
+    if current != _DEFAULT_INDEXED_SOURCE_DIRS:
+        return None  # user customized — leave alone
+
+    discovered = tuple(_discover_source_dirs(target_root))
+    if not discovered or discovered == current:
+        return None
+
+    lines = text.splitlines(keepends=True)
+    start = target_node.lineno - 1
+    end = target_node.end_lineno
+    rendered = ", ".join(f'"{d}"' for d in discovered)
+    new_line = f"INDEXED_SOURCE_DIRS: tuple[str, ...] = ({rendered},)\n"
+    new_text = "".join(lines[:start]) + new_line + "".join(lines[end:])
+    if not dry_run:
+        config_path.write_text(new_text, encoding="utf-8")
+    return discovered
+
+
 def handle_search_config(
     src_config: Path,
     dst_config: Path,
@@ -585,6 +694,24 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
 # ---------------------------------------------------------------------------
 # Caveman duplicate check
 # ---------------------------------------------------------------------------
+
+def _maybe_suggest_recursive_globs(target_root: Path) -> None:
+    """If the target has few/no root *.py but many subdir *.md, nudge the
+    user toward a recursive INDEXED_ROOT_GLOBS so docs aren't silently
+    skipped. Heuristic only — purely informational, never aborts."""
+    try:
+        py_count = sum(1 for _ in target_root.rglob("*.py")
+                       if ".venv" not in _.parts and "__pycache__" not in _.parts)
+        md_root = list(target_root.glob("*.md"))
+        md_sub = [p for p in target_root.rglob("*.md")
+                  if p.parent != target_root and ".venv" not in p.parts]
+    except OSError:
+        return
+    if py_count == 0 and len(md_sub) >= 5 and len(md_sub) > len(md_root):
+        print(f"\n  Tip: found {len(md_sub)} markdown files in subdirectories "
+              "but no .py at the repo root.")
+        print('       Consider INDEXED_ROOT_GLOBS = ("**/*.md",) to index them all.')
+
 
 def _caveman_in_claude_md(target_root: Path) -> bool:
     claude_md = target_root / "CLAUDE.md"
@@ -853,9 +980,11 @@ def main() -> int:
                     help="path to virtualenv (auto-detected if omitted)")
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
-    ap.add_argument("--no-build", action="store_true",
-                    help="skip the default initial index build (defer the ~130 MB "
-                         "model download to the first manual `embeddings.py refresh`)")
+    ap.add_argument("--create-venv", action="store_true",
+                    help="if no venv is detected, create .venv-tokens and continue "
+                         "(single-pass install instead of the create-then-rerun dance)")
+    ap.add_argument("--build", action="store_true",
+                    help="run initial index build (skipped by default — configure first)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
                     help="copy caveman/ and wire caveman-reminder hook")
@@ -868,6 +997,11 @@ def main() -> int:
                     help="show exactly what would change without writing anything")
     ap.add_argument("--allow-merge", action="store_true",
                     help="proceed even if tools/ or schema/ already contain non-less_tokens files")
+    ap.add_argument("--local", action="store_true",
+                    help="wire hooks into .claude/settings.local.json (personal / "
+                         "untracked) instead of the project-shared .claude/settings.json. "
+                         "Note: Claude Code rewrites settings.local.json when auto-adding "
+                         "Bash permissions, which can clobber the hooks block")
     ap.add_argument("--no-gitignore", action="store_true",
                     help="skip the default managed .gitignore block for generated artifacts "
                          "(index.db, .claude/state/); useful if you commit them deliberately")
@@ -938,12 +1072,20 @@ def main() -> int:
     print(f"{tag}[1/5] Locating virtualenv...")
     venv_dir = args.venv or detect_venv(target_root)
     if venv_dir is None:
-        print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
-        print("Pass --venv PATH or create a venv first:")
-        print("    python3 -m venv .venv    # macOS/Linux")
-        print("    python -m venv .venv     # Windows")
-        print("Then re-run the installer. (Nothing was written.)")
-        return 1
+        if args.create_venv and not dry:
+            try:
+                venv_dir = create_venv(target_root)
+            except (FileExistsError, subprocess.CalledProcessError) as e:
+                print(f"\n--create-venv failed: {e}", file=sys.stderr)
+                return 1
+        else:
+            print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
+            print("Pass --venv PATH, --create-venv to make .venv-tokens here, "
+                  "or create one yourself:")
+            print("    python3 -m venv .venv    # macOS/Linux")
+            print("    python -m venv .venv     # Windows")
+            print("Then re-run the installer. (Nothing was written.)")
+            return 1
     venv_py = venv_python(venv_dir)
     if not venv_py.exists():
         print(f"ERROR: venv python not found at {venv_py} (nothing written).",
@@ -999,7 +1141,12 @@ def main() -> int:
         print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
               f'VENV_PY → _venv_python("{venv_py_patched}")')
         changes += 1
-    elif dry and not dst_cfg.exists():
+    dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
+    if dirs_patched is not None:
+        print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+              f'INDEXED_SOURCE_DIRS → {dirs_patched}')
+        changes += 1
+    if venv_py_patched is None and dry and not dst_cfg.exists():
         # Fresh dry-run install: config not copied, so patch_venv_py is a
         # no-op — still preview the value it would write.
         cfg = _venv_config_str(venv_dir, target_root)
@@ -1036,8 +1183,16 @@ def main() -> int:
     # can clobber the hooks block. settings.json is the project-shared
     # file and stays stable across permission changes.
     # ------------------------------------------------------------------
-    print(f"\n{tag}[5/5] Wiring .claude/settings.json...")
-    settings_path = target_root / ".claude" / "settings.json"
+    settings_name = "settings.local.json" if args.local else "settings.json"
+    settings_path = target_root / ".claude" / settings_name
+    # Heads-up when we're about to edit a pre-existing, project-shared
+    # settings.json — it's typically committed and sometimes change-
+    # controlled. settings.local.json is personal/untracked; no notice.
+    if (not args.local and settings_path.exists()
+            and settings_path.read_text(encoding="utf-8").strip()):
+        print(f"  Note: modifying committed .claude/{settings_name} "
+              "(pass --local to write settings.local.json instead).")
+    print(f"\n{tag}[5/5] Wiring .claude/{settings_name}...")
     entries = _build_hook_entries(venv_py, target_root, args)
     added, present = wire_settings(settings_path, entries, dry_run=dry)
     print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
@@ -1071,7 +1226,11 @@ def main() -> int:
     print("=" * 60)
     if venv_py_patched is not None:
         print("\n1. Edit tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
-        print("   your source directories. VENV_PY is already set to the detected venv.")
+        print("   your source directories (the .py/.sql dirs). For markdown,")
+        print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
+        print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
+        print("   VENV_PY is already set to the detected venv.")
+        _maybe_suggest_recursive_globs(target_root)
     else:
         print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
         print("   Change the VENV_PY line to:")

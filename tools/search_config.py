@@ -63,6 +63,9 @@ EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
 INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "schema/")
 
 # Root-level glob patterns that are also indexed (hooks use this too).
+# Supports recursive patterns via pathlib's `**`, e.g. "docs/**/*.md" or
+# "**/*.md" — use one of those for doc-heavy repos whose markdown lives
+# in subdirectories (default "*.md" only matches files at the repo root).
 INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 
 # Extra markdown globs outside the repo root (relative to BASE), e.g.
@@ -93,6 +96,13 @@ TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors l
 
 # --- Strategy 5: Conversation Compaction Trigger ---
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
+
+# Optional: identify the Claude model this install targets. When set to a
+# known ID (see tools/model_profiles.py), tools/search.py uses the model's
+# recommended default `k` and warns if returned chunks risk filling the
+# context window. When None, the static DEFAULT_K (3) applies. Example:
+#   AGENT_MODEL = "claude-sonnet-4-6"
+AGENT_MODEL: str | None = None
 
 STATE_DIR: Path = BASE / ".claude" / "state"
 
