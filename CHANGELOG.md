@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`install.py --create-venv`** — when no venv is detected, create `.venv-tokens` and continue in a single pass instead of aborting with a "create then re-run" instruction. Refuses to clobber a pre-existing `.venv-tokens` so a partial venv is never silently overwritten
 - **`embeddings.py switch-model`** — atomically rewrites `EMBEDDING_MODEL` + `EMBEDDING_DIM` in `search_config.py` and runs `refresh --full`, preventing the silent dimension mismatch that occurs when the model is changed by hand but the dim isn't (scores quietly become wrong against the existing index). Refuses a no-op (same model + same dim) so a misclick doesn't trigger a gratuitous full re-index. Usage: `python3 tools/embeddings.py switch-model BAAI/bge-base-en-v1.5 --dim 768`
 - **`.pre-commit-config.yaml`** — opt-in pre-commit wiring for `ruff` (lint + format). Contributors run `pip install pre-commit && pre-commit install` once and get the same lint feedback locally that CI enforces. Pyright is omitted for now (not part of the test toolchain)
 - **Optional module-docstring context in code chunks** — new `CHUNK_INCLUDE_MODULE_CONTEXT` flag in `search_config.py` (default `False`); when enabled, `chunk_python` prefixes each top-level def/class chunk with the file's module docstring (as a comment) so a single search hit conveys the file's purpose without a follow-up Read. Opt-in because it changes content hashes and re-embeds all Python sources on the next refresh
