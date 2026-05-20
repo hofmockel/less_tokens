@@ -21,7 +21,8 @@ What it does:
   3. Detects or accepts --venv PATH; installs fastembed + numpy into it
   4. Initializes or migrates index.db from schema/index.sql
   5. Wires core hooks into .claude/settings.json (idempotent, project-shared)
-  6. Optionally builds the first index (skipped by default — configure first)
+  6. Builds the first index by default (~30s + ~130 MB model download on
+     first run); pass --no-build to skip and build later
 
 Target selection:
   --target PATH  install into PATH instead of the parent of this clone
@@ -37,7 +38,7 @@ Force / overwrite flags:
 Other options:
   --venv PATH    path to virtualenv (auto-detected if omitted)
   --skip-deps    skip pip install step
-  --build        run initial index build after install
+  --no-build     skip the default initial index build (defer the ~130 MB model download)
   --caveman      copy caveman/ directory and wire caveman-reminder hook
   --truncate     wire tool output truncation hook (Strategy 3)
   --compact      wire conversation compaction trigger hook (Strategy 4)
@@ -1205,7 +1206,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     # Optional: build index
     # ------------------------------------------------------------------
-    if args.build:
+    if not args.no_build:
         if build_index(venv_py, target_root, dry_run=dry) != 0:
             return 1
 
@@ -1235,7 +1236,7 @@ def main() -> int:
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
-    if not args.build:
+    if args.no_build:
         print("\n2. Build the index:")
         print(f"       {venv_py} tools/embeddings.py refresh")
         print("\n3. Test search:")
@@ -1244,7 +1245,7 @@ def main() -> int:
         print("\n2. Test search:")
         print(f"       {venv_py} tools/search.py \"your query here\"")
     if args.caveman:
-        step = 4 if not args.build else 3
+        step = 4 if args.no_build else 3
         if _caveman_in_claude_md(target_root):
             print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
         else:

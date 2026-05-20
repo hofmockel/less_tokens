@@ -41,7 +41,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ### Medium Priority
 
-- **Build the index during install by default** — the `--build` flag exists (`install.py:823`, runs `build_index`) and is documented, but a default install leaves no `index.db`, so `tools/search.py` returns empty until the user runs the build manually (the first run also downloads the fastembed model). Make the build run by default with an opt-out, or interactively prompt `Build the index now? ~30s on first run (model download). [Y/n]` — so the install completes in one step instead of two.
 ---
 
 ## Hooks & Caveman Mode
