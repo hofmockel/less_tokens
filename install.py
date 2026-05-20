@@ -561,10 +561,24 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
         subprocess.check_call(
             [str(venv_py), "tools/embeddings.py", "refresh"], cwd=target_root
         )
-        return 0
     except subprocess.CalledProcessError as e:
         print(f"  refresh failed (exit {e.returncode})", file=sys.stderr)
         return 1
+    # Smoke check: confirm the just-built index is queryable. Catches an
+    # empty / broken index at install time instead of on first search.
+    # `stats` is preferred over `health` because health exits non-zero on
+    # any coverage gap (legitimate for a host repo whose source dirs
+    # haven't been customized yet).
+    print("\nVerifying index is queryable...")
+    try:
+        subprocess.check_call(
+            [str(venv_py), "tools/embeddings.py", "stats"], cwd=target_root
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"  smoke check failed (exit {e.returncode}); "
+              f"index may be empty or unreadable", file=sys.stderr)
+        return 1
+    return 0
 
 
 # ---------------------------------------------------------------------------
