@@ -101,6 +101,25 @@ def detect_venv(target_root: Path) -> Path | None:
     return None
 
 
+def create_venv(target_root: Path) -> Path:
+    """Create `.venv-tokens` in target_root via `python3 -m venv`.
+
+    Refuses to overwrite a pre-existing path (it may be a partial venv we
+    don't want to clobber). Returns the venv directory; caller should
+    follow up with `pip install` of dependencies.
+    """
+    venv_dir = target_root / ".venv-tokens"
+    if venv_dir.exists():
+        raise FileExistsError(
+            f"{venv_dir} already exists; pass --venv {venv_dir} to use it "
+            "or remove it before re-running with --create-venv"
+        )
+    py = "python" if sys.platform == "win32" else "python3"
+    print(f"  Creating venv: {venv_dir}")
+    subprocess.check_call([py, "-m", "venv", str(venv_dir)])
+    return venv_dir
+
+
 def _looks_suspicious(target: Path) -> str | None:
     """Return a human description if the auto-derived target looks wrong.
 
@@ -852,6 +871,9 @@ def main() -> int:
                     help="path to virtualenv (auto-detected if omitted)")
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
+    ap.add_argument("--create-venv", action="store_true",
+                    help="if no venv is detected, create .venv-tokens and continue "
+                         "(single-pass install instead of the create-then-rerun dance)")
     ap.add_argument("--build", action="store_true",
                     help="run initial index build (skipped by default — configure first)")
     # Optional strategies
@@ -936,12 +958,20 @@ def main() -> int:
     print(f"{tag}[1/5] Locating virtualenv...")
     venv_dir = args.venv or detect_venv(target_root)
     if venv_dir is None:
-        print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
-        print("Pass --venv PATH or create a venv first:")
-        print("    python3 -m venv .venv    # macOS/Linux")
-        print("    python -m venv .venv     # Windows")
-        print("Then re-run the installer. (Nothing was written.)")
-        return 1
+        if args.create_venv and not dry:
+            try:
+                venv_dir = create_venv(target_root)
+            except (FileExistsError, subprocess.CalledProcessError) as e:
+                print(f"\n--create-venv failed: {e}", file=sys.stderr)
+                return 1
+        else:
+            print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
+            print("Pass --venv PATH, --create-venv to make .venv-tokens here, "
+                  "or create one yourself:")
+            print("    python3 -m venv .venv    # macOS/Linux")
+            print("    python -m venv .venv     # Windows")
+            print("Then re-run the installer. (Nothing was written.)")
+            return 1
     venv_py = venv_python(venv_dir)
     if not venv_py.exists():
         print(f"ERROR: venv python not found at {venv_py} (nothing written).",
