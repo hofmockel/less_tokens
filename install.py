@@ -1076,6 +1076,11 @@ def main() -> int:
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
             print("       cat caveman/caveman.md >> CLAUDE.md")
+    print("\nNOTE: the search-first PreToolUse hook is now active. Any")
+    print("  already-running Claude session in this project will start")
+    print("  blocking Read on indexed files (tools/, schema/, root *.md)")
+    print("  until a search runs within the gate window. Tune the window")
+    print("  via WINDOW_SECONDS in tools/search_config.py (default 300s).")
     print()
     return 0
 
