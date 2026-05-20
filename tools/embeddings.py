@@ -17,6 +17,7 @@ Usage:
   python3 tools/embeddings.py stats           # row counts by source_type
   python3 tools/embeddings.py stats --verbose # + index age, files, coverage
   python3 tools/embeddings.py health          # verify every expected source has chunks
+  python3 tools/embeddings.py switch-model <model> --dim <N>  # atomic model+reindex swap
 """
 from __future__ import annotations
 
@@ -552,6 +553,51 @@ def _produces_no_chunks(rel_path: str) -> bool:
     return not chunks
 
 
+def _config_path() -> Path:
+    return BASE / "tools" / "search_config.py"
+
+
+def switch_model(model: str, dim: int) -> int:
+    """Atomically switch EMBEDDING_MODEL / EMBEDDING_DIM and re-index.
+
+    Prevents the silent dimension mismatch that occurs when a user edits
+    the model by hand but forgets to bump DIM and run `refresh --full`.
+    Refuses a no-op (same model + same dim) so a misclick doesn't trigger
+    a full re-index for nothing.
+    """
+    if model == MODEL and dim == DIM:
+        print(f"switch-model: EMBEDDING_MODEL is already {model!r} "
+              f"with DIM {dim}; nothing to do.", file=sys.stderr)
+        return 2
+
+    cfg = _config_path()
+    text = cfg.read_text()
+    new = re.sub(
+        r'^(EMBEDDING_MODEL\s*:\s*str\s*=\s*)"[^"]*"',
+        lambda m: f'{m.group(1)}"{model}"',
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    new = re.sub(
+        r"^(EMBEDDING_DIM\s*:\s*int\s*=\s*)\d+",
+        lambda m: f"{m.group(1)}{dim}",
+        new,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if new == text:
+        print("switch-model: could not locate EMBEDDING_MODEL / EMBEDDING_DIM "
+              "in search_config.py — edit manually then run "
+              "`embeddings.py refresh --full`.", file=sys.stderr)
+        return 1
+    cfg.write_text(new)
+    print(f"switch-model: set EMBEDDING_MODEL={model!r}, EMBEDDING_DIM={dim}.")
+    print("Running `refresh --full` — every chunk is re-embedded; this may "
+          "take a while and downloads the new model on first use.")
+    return refresh(full=True)
+
+
 def health() -> int:
     """Verify every expected source has ≥1 chunk in index.db.
 
@@ -653,6 +699,13 @@ def main() -> int:
                    help="also show index age, file count, and coverage")
     sub.add_parser("health")
     sub.add_parser("savings")
+    sm = sub.add_parser(
+        "switch-model",
+        help="rewrite EMBEDDING_MODEL/DIM in search_config.py and reindex",
+    )
+    sm.add_argument("model", help="new fastembed model id, e.g. BAAI/bge-base-en-v1.5")
+    sm.add_argument("--dim", type=int, required=True,
+                    help="embedding dimension of the new model (e.g. 768)")
     args = ap.parse_args()
     if args.cmd == "refresh":
         return refresh(full=args.full, dry_run=args.dry_run)
@@ -661,6 +714,8 @@ def main() -> int:
     if args.cmd == "savings":
         from stats import main as _savings_main  # noqa: PLC0415
         return _savings_main()
+    if args.cmd == "switch-model":
+        return switch_model(args.model, dim=args.dim)
     return stats(verbose=getattr(args, "verbose", False))
 
 
