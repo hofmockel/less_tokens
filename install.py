@@ -45,7 +45,7 @@ Other options:
 Safety / lifecycle:
   --dry-run      print exactly what would change; write nothing
   --allow-merge  proceed even if tools/ or schema/ already hold non-less_tokens files
-  --gitignore    add a managed .gitignore block for generated artifacts
+  --no-gitignore skip the default managed .gitignore block for generated artifacts
   --uninstall    remove a previous deployment (settings.json hooks + copied files)
   --purge-index  with --uninstall, also delete index.db and its WAL sidecars
 
@@ -693,10 +693,9 @@ def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
         print("  ✓ .gitignore: less_tokens block already present")
         return 0
     if not want:
-        print("\n  Note: index.db and .claude/state/ are generated and will show as "
-              "untracked in this git repo.")
-        print("        Re-run with --gitignore to add a managed .gitignore block, "
-              "or commit them deliberately.")
+        print("\n  Note: --no-gitignore set; index.db and .claude/state/ will "
+              "show as untracked in this git repo unless you add them to "
+              ".gitignore yourself or commit them deliberately.")
         return 0
     sep = "" if (not text or text.endswith("\n")) else "\n"
     new = text + sep + ("\n" if text else "") + _gitignore_block()
@@ -867,8 +866,9 @@ def main() -> int:
                     help="show exactly what would change without writing anything")
     ap.add_argument("--allow-merge", action="store_true",
                     help="proceed even if tools/ or schema/ already contain non-less_tokens files")
-    ap.add_argument("--gitignore", action="store_true",
-                    help="add a managed .gitignore block for generated artifacts (index.db, .claude/state/)")
+    ap.add_argument("--no-gitignore", action="store_true",
+                    help="skip the default managed .gitignore block for generated artifacts "
+                         "(index.db, .claude/state/); useful if you commit them deliberately")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
@@ -1044,7 +1044,7 @@ def main() -> int:
 
     # Keep generated artifacts out of the host git repo (opt-in via
     # --gitignore; otherwise just a one-time tip).
-    changes += handle_gitignore(target_root, args.gitignore, dry)
+    changes += handle_gitignore(target_root, not args.no_gitignore, dry)
 
     # ------------------------------------------------------------------
     # Optional: build index
