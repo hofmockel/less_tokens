@@ -983,8 +983,8 @@ def main() -> int:
     ap.add_argument("--create-venv", action="store_true",
                     help="if no venv is detected, create .venv-tokens and continue "
                          "(single-pass install instead of the create-then-rerun dance)")
-    ap.add_argument("--build", action="store_true",
-                    help="run initial index build (skipped by default — configure first)")
+    ap.add_argument("--no-build", action="store_true",
+                    help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
                     help="copy caveman/ and wire caveman-reminder hook")
@@ -1025,9 +1025,9 @@ def main() -> int:
                   "(--update never overwrites tools/search_config.py).",
                   file=sys.stderr)
             return 1
-        if args.build:
-            print("ERROR: --update cannot be combined with --build "
-                  "(--update never touches index.db).",
+        if not args.no_build:
+            print("ERROR: --update cannot be combined with a default index build; "
+                  "pass --no-build to skip the index step when using --update.",
                   file=sys.stderr)
             return 1
 
