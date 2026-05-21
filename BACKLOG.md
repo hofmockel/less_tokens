@@ -71,6 +71,59 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ## Proposed Strategies
 
+### Strategy 7 — Grep-before-Read
+
+**Problem.** Claude reads whole files to find one function or symbol. A 400-line file read for one target costs ~400 lines of tokens. Happens constantly.
+
+**Goal.** Force line-number lookup before full Read. Then use `Read` with `offset`+`limit` to fetch only the relevant slice.
+
+**Three pieces:**
+
+1. **CLAUDE.md instruction** (free, immediate) — add rule: "Never Read a file without first knowing the target line. Use `grep -n` to find it, then Read with offset+limit."
+
+2. **`hooks/grep-first.py` — PreToolUse on `Read`** (enforcement)
+   - Fire when `Read` called with no `offset`
+   - Check file line count
+   - If lines > threshold (default 150): block with message `"<file> has N lines. grep -n first, then Read with offset+limit."`
+   - If lines ≤ threshold: pass (small files fine to read whole)
+   - Exempt files already gated by search-first (indexed files) — redundant
+   - Exempt `CLAUDE.md`, `settings.json` — always small
+
+3. **Savings tracking** (optional) — log blocked Reads + estimated lines saved into existing `tools/stats.py` pipeline
+
+**Sketch of hook:**
+```python
+# hooks/grep-first.py  — PreToolUse: Read
+import json, sys
+from pathlib import Path
+
+payload = json.load(sys.stdin)
+if payload.get("tool_name") != "Read":
+    sys.exit(0)
+
+inp = payload.get("tool_input", {})
+if inp.get("offset"):          # already targeted — pass
+    sys.exit(0)
+
+path = inp.get("file_path", "")
+try:
+    lines = Path(path).read_text(errors="ignore").count("\n")
+except OSError:
+    sys.exit(0)
+
+THRESHOLD = 150
+if lines > THRESHOLD:
+    print(json.dumps({
+        "decision": "block",
+        "reason": f"{Path(path).name} has {lines} lines. grep -n first, then Read with offset+limit."
+    }))
+    sys.exit(0)
+
+sys.exit(0)
+```
+
+**Effort:** ~1h (hook + CLAUDE.md rule + wire into settings.json). Stats integration optional.
+
 ### Strategy 6 — Tiered Effort
 
 Route each task to the cheapest Claude model + effort level it needs. Three tiers: **L1 Mechanical** (Haiku, one confirmation, no summaries), **L2 Rules** (Sonnet, result + brief reasoning), **L3 Planning** (Opus, full analysis). Before each task the agent emits one line with the recommended tier only when it changes from the prior turn. Implementation: `caveman/tier-matrix.md` appended to `CLAUDE.md` + `AGENT_TIER_HINTS: bool` config flag. Expected savings: 50–70% blended reduction.
