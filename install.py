@@ -398,9 +398,11 @@ _DEFAULT_INDEXED_SOURCE_DIRS = ("tools/", "schema/")
 def _discover_source_dirs(target_root: Path) -> list[str]:
     """Top-level directories under target_root that contain any `.py` file.
 
-    Skips hidden dirs, venvs, caches, and the less_tokens-owned `tools/` /
-    `schema/` (those are the defaults). Returns paths with a trailing
-    slash to match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
+    Skips hidden dirs, venvs, caches, the less_tokens-owned `tools/` /
+    `schema/` (those are the defaults), and any directory that is itself
+    a git repo (has a .git entry) — those are sibling repos, not source
+    dirs of the host project. Returns paths with a trailing slash to
+    match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
     """
     found: list[str] = []
     try:
@@ -409,6 +411,9 @@ def _discover_source_dirs(target_root: Path) -> list[str]:
                 continue
             name = child.name
             if name.startswith(".") or name in _SOURCE_DIR_EXCLUDE:
+                continue
+            # Skip directories that are themselves separate git repos.
+            if (child / ".git").exists():
                 continue
             try:
                 has_py = next(child.rglob("*.py"), None) is not None
