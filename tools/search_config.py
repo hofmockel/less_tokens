@@ -1,4 +1,4 @@
-"""Portable search/embeddings configuration — the only file to edit when
+"""Portable search/embeddings configuration - the only file to edit when
 transplanting the vector-search system to a new codebase.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ def _active_venv_python() -> Path | None:
     """The active venv's interpreter, from $VIRTUAL_ENV, if it exists.
 
     `activate` sets VIRTUAL_ENV and it reliably points at the live venv on
-    every platform, so it's the most trustworthy signal — preferred over the
+    every platform, so it's the most trustworthy signal - preferred over the
     configured relative path.
     """
     env = os.environ.get("VIRTUAL_ENV")
@@ -43,7 +43,7 @@ def _venv_python(venv_rel: str) -> Path:
     return _platform_python(BASE / venv_rel)
 
 
-# Venv python used for embeddings — change "app/.venv" to your venv location.
+# Venv python used for embeddings - change "app/.venv" to your venv location.
 VENV_PY = _venv_python("app/.venv")
 
 # Bare directory names excluded from indexing (used by embeddings.py parts check).
@@ -64,14 +64,14 @@ INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "schema/")
 
 # Root-level glob patterns that are also indexed (hooks use this too).
 # Supports recursive patterns via pathlib's `**`, e.g. "docs/**/*.md" or
-# "**/*.md" — use one of those for doc-heavy repos whose markdown lives
+# "**/*.md" - use one of those for doc-heavy repos whose markdown lives
 # in subdirectories (default "*.md" only matches files at the repo root).
 INDEXED_ROOT_GLOBS: tuple[str, ...] = ("*.md",)
 
 # Extra markdown globs outside the repo root (relative to BASE), e.g.
 # "docs/*.md". Indexed alongside INDEXED_ROOT_GLOBS but keyed by full
 # relative path so a root and a subdir file of the same name don't
-# collide. Default empty — host installs only index root markdown.
+# collide. Default empty - host installs only index root markdown.
 INDEXED_DOC_GLOBS: tuple[str, ...] = ()
 
 # Embedding model + its vector dimension. Change both together when switching
@@ -86,7 +86,7 @@ EMBEDDING_DIM: int = 384
 # hashes, so the next refresh re-embeds all Python sources. Default off.
 CHUNK_INCLUDE_MODULE_CONTEXT: bool = False
 
-# source_type values returned by enumerate_sources() — drives --source-type CLI choices.
+# source_type values returned by enumerate_sources() - drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
 # --- Strategy 3: Tool Output Truncation ---

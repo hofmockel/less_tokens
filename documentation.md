@@ -28,7 +28,7 @@ git clone https://github.com/<you>/less_tokens.git
 python less_tokens\install.py
 ```
 
-Re-running after `git pull` performs an in-place upgrade — existing files are skipped, hook wiring is deduplicated, and `search_config.py` only gains any new variables. Nothing local is overwritten unless you pass an explicit `--force*` flag.
+Re-running after `git pull` performs an in-place upgrade - existing files are skipped, hook wiring is deduplicated, and `search_config.py` only gains any new variables. Nothing local is overwritten unless you pass an explicit `--force*` flag.
 
 > By default the installer skips the index build so you can configure `search_config.py` first. Pass `--build` to build immediately (step 3 below covers manual build).
 
@@ -155,19 +155,19 @@ Also accessible as:
 **Example output:**
 
 ```
-## Session (last 8h · 8 events)
+## Session (last 8h * 8 events)
 
 | Strategy               | Events |  Chars saved |  ~Tokens saved |
 |------------------------|--------|--------------|----------------|
 | Truncation             |      3 |       18,100 |          4,525 |
 | Search-first block     |      2 |       22,600 |          5,650 |
 | Search (vs full file)  |      2 |       20,300 |          5,075 |
-| Compaction nudges      |      1 |            — |              — |
+| Compaction nudges      |      1 |            - |              - |
 |------------------------|--------|--------------|----------------|
 | **Total**              |        | **61,000**   |     **15,250** |
 ```
 
-Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text returned against the full size of matched files on disk.
+Token estimates use 4 chars   1 token. Search savings compare chunk text returned against the full size of matched files on disk.
 
 ### Caveman mode
 
@@ -190,7 +190,7 @@ Before and after example:
 ### 1. Add to CLAUDE.md
 
 ```markdown
-## Search Before Read — MANDATORY
+## Search Before Read - MANDATORY
 
 Before reading any indexed file in full, run vector search first:
 
@@ -226,7 +226,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 }
 ```
 
-**Optional — caveman nudge hook** (fires if Claude uses verbose filler):
+**Optional - caveman nudge hook** (fires if Claude uses verbose filler):
 
 ```json
 {
@@ -235,7 +235,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 }
 ```
 
-**Optional — tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the caveman entry if both are present:
+**Optional - tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the caveman entry if both are present:
 
 ```json
 {
@@ -246,7 +246,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 
 Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
 
-**Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
+**Optional - conversation compaction trigger** (nudges `/compact` when session transcript grows large):
 
 ```json
 {
@@ -255,7 +255,7 @@ Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (defaul
 }
 ```
 
-Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). The hook has built-in hysteresis — once tripped it only re-fires after the transcript grows by another 25%.
+Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000`   125k tokens; set `0` to disable). The hook has built-in hysteresis - once tripped it only re-fires after the transcript grows by another 25%.
 
 ### 3. Optional: session-start preflight
 
@@ -270,24 +270,24 @@ Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 
 
 ```
 less_tokens_claude/
-├── install.py                 # cross-platform installer
-├── tools/
-│   ├── search_config.py       # ← only file to edit when porting
-│   ├── embeddings.py          # build/refresh the vector index
-│   ├── search.py              # semantic search CLI
-│   ├── db.py                  # SQLite helpers
-│   ├── savings_log.py         # per-event savings logger (used by hooks)
-│   └── stats.py               # savings tracker CLI (enable / report / disable)
-├── schema/
-│   └── index.sql              # documents table schema
-├── hooks/
-│   ├── search-first.py        # PreToolUse: gate Read on indexed files
-│   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
-│   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
-│   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
-│   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
-└── caveman/
-    └── caveman.md             # CLAUDE.md snippet for caveman output style
+    install.py                 # cross-platform installer
+    tools/
+        search_config.py       #   only file to edit when porting
+        embeddings.py          # build/refresh the vector index
+        search.py              # semantic search CLI
+        db.py                  # SQLite helpers
+        savings_log.py         # per-event savings logger (used by hooks)
+        stats.py               # savings tracker CLI (enable / report / disable)
+    schema/
+        index.sql              # documents table schema
+    hooks/
+        search-first.py        # PreToolUse: gate Read on indexed files
+        index-refresh.py       # PostToolUse: re-embed after Edit/Write
+        caveman-reminder.py    # PostToolUse: nudge back to terse output
+        truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
+        compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
+    caveman/
+        caveman.md             # CLAUDE.md snippet for caveman output style
 ```
 
 ---
@@ -296,8 +296,8 @@ less_tokens_claude/
 
 All contributions go through Pull Requests. Discussion happens in PR comments.
 
-- **Report a bug or request a feature** — fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR.
-- **Fix something** — fork, implement the fix, open a PR.
+- **Report a bug or request a feature** - fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR.
+- **Fix something** - fork, implement the fix, open a PR.
 - Both can be combined in one PR.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
@@ -312,7 +312,7 @@ MIT
 
 ## `.claudeignore`
 
-Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exclude files from its project file scope — files listed there won't be surfaced as context candidates or suggested for reading.
+Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exclude files from its project file scope - files listed there won't be surfaced as context candidates or suggested for reading.
 
 `less_tokens` ships a `.claudeignore` that excludes files Claude doesn't need when doing code work in this repo:
 
@@ -326,7 +326,7 @@ Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exc
 | `tests/perf/latest.json` | Generated benchmark artifact |
 | `caveman/caveman.md` | Template copied into target projects; not used in this repo |
 
-**When installing into your own project**, add a `.claudeignore` at the project root to exclude any large files Claude doesn't need for its day-to-day work — test fixtures, generated output, vendored assets, docs:
+**When installing into your own project**, add a `.claudeignore` at the project root to exclude any large files Claude doesn't need for its day-to-day work - test fixtures, generated output, vendored assets, docs:
 
 ```
 # .claudeignore example
@@ -346,20 +346,20 @@ Items tracked for future documentation improvement.
 
 ### High Priority
 
-- **No troubleshooting section** — the three most common failure modes (fastembed download fails on first run, wrong venv path in `search_config.py`, empty index returning no results) have no documented recovery steps anywhere
+- **No troubleshooting section** - the three most common failure modes (fastembed download fails on first run, wrong venv path in `search_config.py`, empty index returning no results) have no documented recovery steps anywhere
 
 ### Medium Priority
 
-- **Wiring section shows separate JSON blocks** — users must manually merge hook entries; JSON merging is a common error source; should show one complete unified `settings.local.json` block
-- **`index-refresh.log` is never mentioned** — background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere; users can't diagnose silent refresh failures without reading source
-- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `<venv-python> tools/embeddings.py refresh`
-- **CONTRIBUTING.md verification step has no specifics** — should list concrete commands to run and what passing looks like
-- **`EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` not explained** — both exclude dirs but via different mechanisms; distinction trips up new users
-- **`WINDOW_SECONDS` not documented** — the 5-minute search-gate window is mentioned in passing; no explanation it's hardcoded or where to change it
-- **Empty search result behavior not explained** — README mentions fallback conditions but not whether the gate lifts automatically or Claude must detect the empty result
-- **CHANGELOG format vs `chunk_changelog` mismatch not noted** — chunker's date-only regex won't match `## [version] - date` headers; developers won't know the index is silently not splitting correctly
+- **Wiring section shows separate JSON blocks** - users must manually merge hook entries; JSON merging is a common error source; should show one complete unified `settings.local.json` block
+- **`index-refresh.log` is never mentioned** - background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere; users can't diagnose silent refresh failures without reading source
+- **`embeddings.py` usage examples use `python3`** - won't work on Windows and ignores the venv; should use `<venv-python> tools/embeddings.py refresh`
+- **CONTRIBUTING.md verification step has no specifics** - should list concrete commands to run and what passing looks like
+- **`EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` not explained** - both exclude dirs but via different mechanisms; distinction trips up new users
+- **`WINDOW_SECONDS` not documented** - the 5-minute search-gate window is mentioned in passing; no explanation it's hardcoded or where to change it
+- **Empty search result behavior not explained** - README mentions fallback conditions but not whether the gate lifts automatically or Claude must detect the empty result
+- **CHANGELOG format vs `chunk_changelog` mismatch not noted** - chunker's date-only regex won't match `## [version] - date` headers; developers won't know the index is silently not splitting correctly
 
 ### Low Priority
 
-- **Animated GIF demo** — screencast showing before/after: full Read vs. search returning targeted chunks
-- **Token savings benchmarks** — documented measurements on a real codebase showing actual reduction
+- **Animated GIF demo** - screencast showing before/after: full Read vs. search returning targeted chunks
+- **Token savings benchmarks** - documented measurements on a real codebase showing actual reduction

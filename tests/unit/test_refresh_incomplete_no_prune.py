@@ -6,7 +6,7 @@ continue (f951d61 and its health-path sibling), `refresh()` started
 receiving a *partial* source list whenever a directory was transiently
 unreadable. Its prune step deletes every existing row whose
 `(source_path, source_key)` is not in `seen`, so the unreadable subtree's
-still-usable rows were silently deleted — and `refresh --full`, which wipes
+still-usable rows were silently deleted - and `refresh --full`, which wipes
 the whole table up front, was worse still. The fix has `enumerate_sources()`
 report whether enumeration was complete and makes `refresh()` skip both
 delete paths when it was not, keeping the stale-but-usable index until a
@@ -149,7 +149,7 @@ def test_complete_refresh_still_prunes_orphans(
     temp_index, tmp_path, monkeypatch
 ):
     """Guard: when enumeration IS complete, a row whose file is gone is
-    still pruned — the fix must not over-suppress normal deletion.
+    still pruned - the fix must not over-suppress normal deletion.
     """
     (tmp_path / "good").mkdir()
     (tmp_path / "good" / "ok.py").write_text("def f():\n    return 1\n")

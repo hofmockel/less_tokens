@@ -4,7 +4,7 @@ index refresh.
 `enumerate_sources()` collected Python files with `d.rglob("*.py")` for each
 `INDEXED_SOURCE_DIRS` entry. `rglob` propagates `PermissionError` (an
 `OSError`) the moment it descends into one unreadable subtree, so a single
-locked-down directory killed the entire run and left `index.db` stale — even
+locked-down directory killed the entire run and left `index.db` stale - even
 though every other source dir was readable. The fix wraps each per-source
 enumeration in `try/except OSError`, logs a warning, and continues so the
 readable sources are still indexed.
@@ -32,7 +32,7 @@ def two_source_dirs(tmp_path, monkeypatch):
 
     monkeypatch.setattr(embeddings, "BASE", tmp_path)
     # "bad" is listed first so a pre-fix run aborts before "good" is ever
-    # reached — the strongest form of the bug.
+    # reached - the strongest form of the bug.
     monkeypatch.setattr(embeddings, "INDEXED_SOURCE_DIRS", ("bad/", "good/"))
     monkeypatch.setattr(embeddings, "INDEXED_ROOT_GLOBS", ())
     monkeypatch.setattr(embeddings, "_excluded", lambda p: False)

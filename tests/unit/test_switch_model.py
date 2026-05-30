@@ -53,7 +53,7 @@ def test_switch_model_rejects_unchanged_model(tmp_path, monkeypatch):
     monkeypatch.setattr(embeddings, "refresh", lambda **kw: 0)
 
     rc = embeddings.switch_model("old/model", dim=384)
-    # No-op: same model, same dim — refuse so the user doesn't trigger a
+    # No-op: same model, same dim - refuse so the user doesn't trigger a
     # gratuitous full re-index.
     assert rc != 0
 

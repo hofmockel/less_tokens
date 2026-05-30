@@ -5,7 +5,7 @@ expected_source_paths() (the health / verify coverage check).
 each `INDEXED_SOURCE_DIRS` entry. `rglob` propagates `PermissionError` (an
 `OSError`) the moment it descends into one unreadable subtree, so a single
 locked-down directory crashed `embeddings.py health` / `db.py verify`
-instead of reporting coverage — even though every other source dir was
+instead of reporting coverage - even though every other source dir was
 readable. The fix wraps each per-source enumeration in `try/except OSError`,
 logs a warning, and continues so the readable sources are still reported.
 
@@ -34,7 +34,7 @@ def two_source_dirs(tmp_path, monkeypatch):
 
     monkeypatch.setattr(embeddings, "BASE", tmp_path)
     # "bad" is listed first so a pre-fix run aborts before "good" is ever
-    # reached — the strongest form of the bug.
+    # reached - the strongest form of the bug.
     monkeypatch.setattr(embeddings, "INDEXED_SOURCE_DIRS", ("bad/", "good/"))
     monkeypatch.setattr(embeddings, "INDEXED_ROOT_GLOBS", ())
     monkeypatch.setattr(embeddings, "_excluded", lambda p: False)

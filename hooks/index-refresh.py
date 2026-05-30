@@ -2,14 +2,14 @@
 """PostToolUse hook: re-embed indexed files after Edit/Write.
 
 Receives the tool call JSON on stdin. If the touched file is in the indexed
-set, fire `embeddings.py refresh` in the background — fastembed model load
+set, fire `embeddings.py refresh` in the background - fastembed model load
 is ~1-2s, which is too long to block every Edit. Fire-and-forget means a
 search done immediately after an edit may briefly return stale results, but
 the index converges within seconds.
 
 Multiple rapid edits enqueue multiple refresh processes; each does its own
 content-hash diff and only re-embeds what changed, so they're idempotent and
-self-coalescing — last one wins.
+self-coalescing - last one wins.
 """
 from __future__ import annotations
 

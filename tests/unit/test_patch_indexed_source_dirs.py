@@ -1,7 +1,7 @@
 """Installer auto-patches INDEXED_SOURCE_DIRS for the host repo.
 
 Without this, the deployed search_config.py defaults to ("tools/",
-"schema/") — the less_tokens layout — and the host project's actual
+"schema/") - the less_tokens layout - and the host project's actual
 source dirs are never indexed until the user edits the config by hand.
 
 Same conservative posture as patch_venv_py: only patches when the
@@ -70,7 +70,7 @@ def test_patch_preserves_user_customization(tmp_path):
 def test_patch_noop_when_no_python_dirs(tmp_path):
     cfg = tmp_path / "search_config.py"
     _write_default_config(cfg)
-    # No .py files anywhere — nothing to suggest.
+    # No .py files anywhere - nothing to suggest.
     patched = install.patch_indexed_source_dirs(cfg, tmp_path)
     assert patched is None
     assert "tools/" in cfg.read_text()  # default preserved

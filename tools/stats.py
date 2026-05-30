@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Token savings tracker — enable, report, and disable.
+"""Token savings tracker - enable, report, and disable.
 
 Usage:
   python tools/stats.py              # show session stats; prompt to enable if off
@@ -87,8 +87,8 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
         tok = sc // CHARS_PER_TOKEN if sc else 0
         total_chars += sc
         total_tokens += tok
-        sc_str = f"{sc:,}" if sc else "—"
-        tok_str = f"{tok:,}" if tok else "—"
+        sc_str = f"{sc:,}" if sc else "-"
+        tok_str = f"{tok:,}" if tok else "-"
         body_rows.append(
             f"| {lbl:<22} | {d['events']:>6} | {sc_str:>12} | {tok_str:>14} |"
         )
@@ -107,7 +107,7 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
 def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
     from datetime import datetime
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    session_label = f"Session (last {SESSION_HOURS}h · {len(session_records)} events)"
+    session_label = f"Session (last {SESSION_HOURS}h * {len(session_records)} events)"
     all_label = f"All-time ({len(all_records)} events)"
     lines = [
         "# Token Savings Report",
@@ -166,7 +166,7 @@ def main() -> int:
     label = (
         f"All-time ({len(all_records)} events)"
         if args.all_time
-        else f"Session (last {SESSION_HOURS}h · {len(session_records)} events)"
+        else f"Session (last {SESSION_HOURS}h * {len(session_records)} events)"
     )
     display = all_records if args.all_time else session_records
     print("\n".join(_build_table_lines(label, display)))

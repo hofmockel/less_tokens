@@ -1,4 +1,4 @@
-"""Hook protocol tests — verify stdin/stdout/exit-code contract for each hook.
+"""Hook protocol tests - verify stdin/stdout/exit-code contract for each hook.
 
 Hooks are run as subprocesses (matching real Claude Code behaviour).
 search-first.py and index-refresh.py load search_config at import time, so
@@ -19,7 +19,7 @@ HOOKS = REPO / "hooks"
 
 _ENV = {**os.environ, "PYTHONPATH": str(REPO / "tools")}
 
-# compact-trigger.py computes REPO as __file__.parent.parent.parent — three levels
+# compact-trigger.py computes REPO as __file__.parent.parent.parent - three levels
 # up from its own location.  When run from the source tree that resolves to the
 # *parent* of the repo, not the repo root.  The hook writes its state file there.
 _HOOK_REPO = (HOOKS / "compact-trigger.py").resolve().parent.parent.parent
@@ -163,7 +163,7 @@ class TestCompactTrigger:
             "transcript_path": str(transcript),
         })
         _clear_compact_state()
-        # Within hysteresis window — should not re-fire
+        # Within hysteresis window - should not re-fire
         assert code == 0
 
 

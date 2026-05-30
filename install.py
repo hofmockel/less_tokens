@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Install less_tokens into the host project that contains this clone.
 
-less_tokens is designed to be cloned *into* a host project — e.g.
-~/myproject/less_tokens/ — and then deploy its files into the host project
+less_tokens is designed to be cloned *into* a host project - e.g.
+~/myproject/less_tokens/ - and then deploy its files into the host project
 root (~/myproject/). The installer targets the parent directory of this
 source clone, so it works regardless of the current working directory:
 
@@ -12,7 +12,7 @@ source clone, so it works regardless of the current working directory:
     # Windows
     python path/to/less_tokens/install.py [options]
 
-Re-running after `git pull` upgrades an existing install in place — files
+Re-running after `git pull` upgrades an existing install in place - files
 that exist are skipped by default and hook wiring is idempotent.
 
 What it does:
@@ -51,7 +51,7 @@ Safety / lifecycle:
   --purge-index  with --uninstall, also delete index.db and its WAL sidecars
 
 Ordering note: the venv is resolved and validated, and a namespace-collision
-check runs, *before* any files are copied — a failed precondition aborts with
+check runs, *before* any files are copied - a failed precondition aborts with
 nothing written (no silent half-install).
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
@@ -124,8 +124,8 @@ def create_venv(target_root: Path) -> Path:
 def _looks_suspicious(target: Path) -> str | None:
     """Return a human description if the auto-derived target looks wrong.
 
-    Triggered when less_tokens is cloned somewhere weird — e.g. directly in
-    $HOME or at the filesystem root — so the parent-of-source default would
+    Triggered when less_tokens is cloned somewhere weird - e.g. directly in
+    $HOME or at the filesystem root - so the parent-of-source default would
     splatter the install across an unintended directory. Returns None for
     normal project-shaped parents.
     """
@@ -174,7 +174,7 @@ def copy_tree(
     With dry_run: print every action prefixed but write nothing.
     """
     if not src.exists():
-        print(f"  {label}: source missing — {src}", file=sys.stderr)
+        print(f"  {label}: source missing - {src}", file=sys.stderr)
         return 0
     copied = skipped = modified_skipped = 0
     if not dry_run:
@@ -198,7 +198,7 @@ def copy_tree(
             src_text = srcfile.read_text(encoding="utf-8", errors="replace")
             dst_text = target.read_text(encoding="utf-8", errors="replace")
             if src_text == dst_text:
-                skipped += 1  # identical — nothing to do
+                skipped += 1  # identical - nothing to do
                 continue
             # File differs from source (locally modified)
             rel_str = target.relative_to(target_root)
@@ -208,10 +208,10 @@ def copy_tree(
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(srcfile, target)
                 verb = "would overwrite" if dry_run else "overwritten"
-                print(f"  ↺ {rel_str}  ({summary}, {verb})")
+                print(f"  [UPDATE] {rel_str}  ({summary}, {verb})")
                 copied += 1
             else:
-                print(f"  ! {rel_str}  ({summary}) — differs from source; "
+                print(f"  ! {rel_str}  ({summary}) - differs from source; "
                       f"add --overwrite-modified to update")
                 modified_skipped += 1
         else:
@@ -227,7 +227,7 @@ def copy_tree(
 
 
 # ---------------------------------------------------------------------------
-# search_config.py — variable-level upsert
+# search_config.py - variable-level upsert
 # ---------------------------------------------------------------------------
 
 def _top_level_assignments(text: str) -> dict[str, tuple[int, int]]:
@@ -342,7 +342,7 @@ def patch_venv_py(
 ) -> str | None:
     """Rewrite VENV_PY in search_config.py to point at the detected venv.
 
-    Only patches when the existing value matches the source default — user
+    Only patches when the existing value matches the source default - user
     customizations are preserved. Returns the new venv-path string when a
     change is written; None on no-op or when the user has customized.
 
@@ -367,7 +367,7 @@ def patch_venv_py(
     dst_arg = _venv_py_arg(dst_assign)
     src_arg = _venv_py_arg(src_assign)
     if dst_arg is None or src_arg is None or dst_arg != src_arg:
-        return None  # user customized — leave alone
+        return None  # user customized - leave alone
 
     venv_str = _venv_config_str(venv_dir, target_root)
 
@@ -400,7 +400,7 @@ def _discover_source_dirs(target_root: Path) -> list[str]:
 
     Skips hidden dirs, venvs, caches, the less_tokens-owned `tools/` /
     `schema/` (those are the defaults), and any directory that is itself
-    a git repo (has a .git entry) — those are sibling repos, not source
+    a git repo (has a .git entry) - those are sibling repos, not source
     dirs of the host project. Returns paths with a trailing slash to
     match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
     """
@@ -431,7 +431,7 @@ def patch_indexed_source_dirs(
 ) -> tuple[str, ...] | None:
     """Rewrite INDEXED_SOURCE_DIRS in search_config.py for the host repo.
 
-    Conservative — same posture as patch_venv_py: only patches when the
+    Conservative - same posture as patch_venv_py: only patches when the
     existing value still matches the source default (("tools/",
     "schema/")). User customizations are preserved.
 
@@ -464,7 +464,7 @@ def patch_indexed_source_dirs(
     if target_node is None or current is None:
         return None
     if current != _DEFAULT_INDEXED_SOURCE_DIRS:
-        return None  # user customized — leave alone
+        return None  # user customized - leave alone
 
     discovered = tuple(_discover_source_dirs(target_root))
     if not discovered or discovered == current:
@@ -503,13 +503,13 @@ def handle_search_config(
         src_text = src_config.read_text(encoding="utf-8")
         dst_text = dst_config.read_text(encoding="utf-8")
         if src_text == dst_text:
-            print(f"  ✓ {rel} (already matches source)")
+            print(f"  [PASS] {rel} (already matches source)")
         else:
             summary = _diff_summary(src_text, dst_text)
             if not dry_run:
                 shutil.copy2(src_config, dst_config)
             verb = "would replace" if dry_run else "replaced"
-            print(f"  ↺ {rel}  ({summary}, {verb} by --force-config --overwrite-modified)")
+            print(f"  [UPDATE] {rel}  ({summary}, {verb} by --force-config --overwrite-modified)")
         return
 
     # Default path: variable-level upsert
@@ -518,11 +518,11 @@ def handle_search_config(
         verb = "would inject" if dry_run else "injected"
         print(f"  ~ {rel}: {verb} new variables: {', '.join(added)}")
     else:
-        print(f"  ✓ {rel}: all variables present")
+        print(f"  [PASS] {rel}: all variables present")
 
 
 # ---------------------------------------------------------------------------
-# Settings.local.json — idempotent hook wiring
+# Settings.local.json - idempotent hook wiring
 # ---------------------------------------------------------------------------
 
 def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
@@ -581,7 +581,7 @@ def wire_settings(
             for h in entry.get("hooks", [])
         )
         if found:
-            print(f"  ✓ {event_type} {matcher!r} already wired")
+            print(f"  [PASS] {event_type} {matcher!r} already wired")
             already_present += 1
         else:
             event_list.append({
@@ -616,7 +616,7 @@ def _deps_already_present(venv_py: Path) -> bool:
 def install_deps(venv_py: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Install fastembed + numpy. Returns (exit_code, did_install)."""
     if _deps_already_present(venv_py):
-        print(f"\n[3/5] fastembed + numpy already importable in {venv_py} — skipping pip install.")
+        print(f"\n[3/5] fastembed + numpy already importable in {venv_py} - skipping pip install.")
         return 0, False
     if dry_run:
         print(f"\n[3/5] [DRY RUN] would pip install fastembed + numpy into {venv_py}.")
@@ -650,7 +650,7 @@ def _index_db_at_current_schema(target_root: Path) -> bool:
 def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Initialize / migrate index.db. Returns (exit_code, did_init)."""
     if _index_db_at_current_schema(target_root):
-        print("\n[4/5] index.db already initialized — skipping init.")
+        print("\n[4/5] index.db already initialized - skipping init.")
         return 0, False
     if dry_run:
         print("\n[4/5] [DRY RUN] would initialize / migrate index.db.")
@@ -703,7 +703,7 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
 def _maybe_suggest_recursive_globs(target_root: Path) -> None:
     """If the target has few/no root *.py but many subdir *.md, nudge the
     user toward a recursive INDEXED_ROOT_GLOBS so docs aren't silently
-    skipped. Heuristic only — purely informational, never aborts."""
+    skipped. Heuristic only - purely informational, never aborts."""
     try:
         py_count = sum(1 for _ in target_root.rglob("*.py")
                        if ".venv" not in _.parts and "__pycache__" not in _.parts)
@@ -765,7 +765,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
 
     Only tools/, schema/, caveman/ are gated: a host package at tools/ can
     shadow our modules on sys.path, and a host schema/ can clash. .claude/hooks/
-    is intentionally NOT gated — it is a shared directory where we add our hook
+    is intentionally NOT gated - it is a shared directory where we add our hook
     files alongside the host's own hooks, and copy_tree already skips existing
     files there.
     """
@@ -823,7 +823,7 @@ def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
     gi = target_root / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
     if _GI_START in text:
-        print("  ✓ .gitignore: less_tokens block already present")
+        print("  [PASS] .gitignore: less_tokens block already present")
         return 0
     if not want:
         print("\n  Note: --no-gitignore set; index.db and .claude/state/ will "
@@ -945,12 +945,12 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
                     p.unlink()
                 removed += 1
     elif (target_root / "index.db").exists():
-        print("  · index.db preserved (pass --purge-index to also remove it)")
+        print("  * index.db preserved (pass --purge-index to also remove it)")
 
     if (target_root / "tools" / "search_config.py").exists():
-        print("  · tools/search_config.py preserved (may contain your customizations)")
+        print("  * tools/search_config.py preserved (may contain your customizations)")
 
-    print(f"\n{tag}Done — {removed} file(s) "
+    print(f"\n{tag}Done - {removed} file(s) "
           f"{'would be removed' if dry else 'removed'}.")
     return 0
 
@@ -1030,11 +1030,8 @@ def main() -> int:
                   "(--update never overwrites tools/search_config.py).",
                   file=sys.stderr)
             return 1
-        if not args.no_build:
-            print("ERROR: --update cannot be combined with a default index build; "
-                  "pass --no-build to skip the index step when using --update.",
-                  file=sys.stderr)
-            return 1
+        # --update implies --no-build to simplify CI and manual upgrades
+        args.no_build = True
 
     # Resolve force flags
     force_hooks  = args.force or args.force_hooks or args.update
@@ -1075,7 +1072,7 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    # Uninstall is a distinct mode — it reverses a deployment and shares only
+    # Uninstall is a distinct mode - it reverses a deployment and shares only
     # target resolution / the suspicious-target + source-self guards above.
     if args.uninstall:
         return do_uninstall(target_root, args)
@@ -1142,7 +1139,7 @@ def main() -> int:
     changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
               "tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     if args.update and (target_root / "tools" / "search_config.py").exists():
-        print("  ✓ tools/search_config.py (preserved — --update never touches it)")
+        print("  [PASS] tools/search_config.py (preserved - --update never touches it)")
     else:
         handle_search_config(
             SOURCE / "tools" / "search_config.py",
@@ -1169,19 +1166,19 @@ def main() -> int:
         )
         if venv_py_patched is not None:
             print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-                  f'VENV_PY → _venv_python("{venv_py_patched}")')
+                  f'VENV_PY -> _venv_python("{venv_py_patched}")')
             changes += 1
         dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
         if dirs_patched is not None:
             print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-                  f'INDEXED_SOURCE_DIRS → {dirs_patched}')
+                  f'INDEXED_SOURCE_DIRS -> {dirs_patched}')
             changes += 1
         if venv_py_patched is None and dry and not dst_cfg.exists():
             # Fresh dry-run install: config not copied, so patch_venv_py is a
-            # no-op — still preview the value it would write.
+            # no-op - still preview the value it would write.
             cfg = _venv_config_str(venv_dir, target_root)
             print(f'  would patch tools/search_config.py: '
-                  f'VENV_PY → _venv_python("{cfg}")')
+                  f'VENV_PY -> _venv_python("{cfg}")')
             changes += 1
     else:
         venv_py_patched = None
@@ -1199,7 +1196,7 @@ def main() -> int:
         print("\n[3/5] Skipping dep install (--skip-deps).")
 
     # ------------------------------------------------------------------
-    # Step 4: Init / migrate DB (skipped under --update — index.db is
+    # Step 4: Init / migrate DB (skipped under --update - index.db is
     # left untouched even if the schema has drifted).
     # ------------------------------------------------------------------
     if args.update:
@@ -1222,7 +1219,7 @@ def main() -> int:
     settings_name = "settings.local.json" if args.local else "settings.json"
     settings_path = target_root / ".claude" / settings_name
     # Heads-up when we're about to edit a pre-existing, project-shared
-    # settings.json — it's typically committed and sometimes change-
+    # settings.json - it's typically committed and sometimes change-
     # controlled. settings.local.json is personal/untracked; no notice.
     if (not args.local and settings_path.exists()
             and settings_path.read_text(encoding="utf-8").strip()):
@@ -1247,13 +1244,13 @@ def main() -> int:
             return 1
 
     # ------------------------------------------------------------------
-    # Final summary — distinguish dry-run / fresh install / clean re-run
+    # Final summary - distinguish dry-run / fresh install / clean re-run
     # ------------------------------------------------------------------
     if dry:
         print(f"\n[DRY RUN] {changes} change(s) would be made. Nothing was written.")
         return 0
     if changes == 0:
-        print("\nDone — installation already current, no changes.")
+        print("\nDone - installation already current, no changes.")
         return 0
 
     print("\nDone.")
@@ -1261,14 +1258,14 @@ def main() -> int:
     print("NEXT STEPS")
     print("=" * 60)
     if venv_py_patched is not None:
-        print("\n1. Edit tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
+        print("\n1. Edit tools/search_config.py - update INDEXED_SOURCE_DIRS to list")
         print("   your source directories (the .py/.sql dirs). For markdown,")
         print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
         print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
         print("   VENV_PY is already set to the detected venv.")
         _maybe_suggest_recursive_globs(target_root)
     else:
-        print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
+        print("\n1. Edit tools/search_config.py - set your venv and source dirs.")
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
@@ -1283,7 +1280,7 @@ def main() -> int:
     if args.caveman:
         step = 4 if args.no_build else 3
         if _caveman_in_claude_md(target_root):
-            print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
+            print(f"\n{step}. Caveman section already present in CLAUDE.md - skipping.")
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
             print("       cat caveman/caveman.md >> CLAUDE.md")

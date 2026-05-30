@@ -4,7 +4,7 @@ Thanks for taking the time to contribute.
 
 ## Workflow
 
-All contributions — bug reports, feature requests, and fixes — go through Pull Requests. Discussion happens in PR comments on GitHub.
+All contributions - bug reports, feature requests, and fixes - go through Pull Requests. Discussion happens in PR comments on GitHub.
 
 There are three valid PR types:
 
@@ -20,7 +20,7 @@ The maintainer handles CHANGELOG entries and BACKLOG deletions before merging.
 
 1. Fork the repo.
 2. Edit [BACKLOG.md](BACKLOG.md): add your entry to `## Bugs` (for bugs) or the appropriate feature section. For bugs, include a file:line reference and a clear What/Why/Fix description.
-3. Open a PR against `main`. Explain your reasoning in the PR description — that's where the discussion happens.
+3. Open a PR against `main`. Explain your reasoning in the PR description - that's where the discussion happens.
 
 ## Fixing something
 

@@ -121,7 +121,7 @@ class TestChunkMarkdown:
         assert "Python 3.9" in chunks["Prerequisites"]
 
     def test_heading_only_section_is_included(self, tmp_path):
-        """A section with no content below its heading still appears — the heading
+        """A section with no content below its heading still appears - the heading
         line itself becomes the body. Only a fully-blank preamble is skipped."""
         f = tmp_path / "test.md"
         f.write_text("# Title\n\n## Empty\n\n## HasContent\n\nSome text here.\n")
@@ -225,6 +225,6 @@ class TestChunkChangelog:
         f = tmp_path / "CHANGELOG.md"
         f.write_text("# Changelog\n\n## Added\n\nSome items.\n")
         chunks = chunk_changelog(f)
-        # No date headers → fallback to chunk_markdown
+        # No date headers -> fallback to chunk_markdown
         keys = [k for k, _ in chunks]
         assert "Added" in keys

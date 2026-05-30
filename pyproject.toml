@@ -2,5 +2,5 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
-    "perf: token performance benchmarks — require fastembed; run on ubuntu CI only",
+    "perf: token performance benchmarks - require fastembed; run on ubuntu CI only",
 ]

@@ -68,7 +68,7 @@ VEC_DTYPE = np.dtype("<f4")
 
 # On-disk vector layout marker, stored in `PRAGMA user_version`. Bump
 # whenever the embedding byte layout changes (see VEC_DTYPE). An index.db
-# written before this marker existed reports user_version 0 — its blobs may
+# written before this marker existed reports user_version 0 - its blobs may
 # be host-native (pre little-endian pin) and would decode as garbage now, so
 # refresh() rebuilds such an index once and then stamps the marker.
 VEC_FORMAT = 1
@@ -235,7 +235,7 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
 
     `incomplete` is True if any indexed source dir could not be fully
     traversed (e.g. a permission-denied subtree). Callers that prune the
-    index from this list must not delete rows when it is True — the missing
+    index from this list must not delete rows when it is True - the missing
     sources are unreadable, not gone.
     """
     out: list[tuple[str, str, str, str]] = []
@@ -255,7 +255,7 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
                 for k, t in chunks:
                     out.append((st, rel, k, t))
             else:
-                print(f"  WARN: unsupported glob extension {f.suffix!r} — {rel} skipped",
+                print(f"  WARN: unsupported glob extension {f.suffix!r} - {rel} skipped",
                       file=sys.stderr)
 
     # Python from indexed subdirs + root .py
@@ -268,11 +268,11 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             py_paths.extend(d.rglob("*.py"))
         except OSError as e:
             # One unreadable subtree must not abort the whole refresh and
-            # leave the index stale — skip it and keep the other sources.
+            # leave the index stale - skip it and keep the other sources.
             # Flag the run incomplete so refresh() does not prune the rows
             # belonging to the part we could not read.
             incomplete = True
-            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+            print(f"  WARN: skipping unreadable paths under {dir_str} - {e}",
                   file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
@@ -291,7 +291,7 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             sql_files = sorted(d.glob("*.sql"))
         except OSError as e:
             incomplete = True
-            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} - {e}",
                   file=sys.stderr)
             continue
         for sq in sql_files:
@@ -359,7 +359,7 @@ def _dry_run_report(full: bool) -> int:
     else:
         deleted = len(set(existing) - seen)
 
-    print("DRY RUN — no changes written")
+    print("DRY RUN - no changes written")
     print(f"  add: {added}  update: {updated}  "
           f"unchanged: {unchanged}  delete: {deleted}")
     return 0
@@ -378,7 +378,7 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
     try:
         _get_model()
     except RuntimeError as e:
-        print(f"WARN: {e} — skipping refresh", file=sys.stderr)
+        print(f"WARN: {e} - skipping refresh", file=sys.stderr)
         return 0
 
     sources, incomplete = enumerate_sources()
@@ -392,20 +392,20 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
             conn.execute("DELETE FROM documents")
             conn.commit()
         elif full and incomplete:
-            print("  WARN: enumeration incomplete (unreadable source dir) — "
+            print("  WARN: enumeration incomplete (unreadable source dir) - "
                   "downgrading --full to incremental so existing rows are "
                   "not wiped", file=sys.stderr)
 
         if stale_format and incomplete:
             print(f"  WARN: index.db predates the current vector layout "
                   f"(user_version {uv} < {VEC_FORMAT}) but enumeration was "
-                  f"incomplete — deferring the forced re-embed until a "
+                  f"incomplete - deferring the forced re-embed until a "
                   f"clean refresh", file=sys.stderr)
         elif stale_format:
             n = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
             if n:
                 print(f"  WARN: index.db predates the current vector layout "
-                      f"(user_version {uv} < {VEC_FORMAT}) — re-embedding all "
+                      f"(user_version {uv} < {VEC_FORMAT}) - re-embedding all "
                       f"{n} rows so search scores aren't silently corrupt",
                       file=sys.stderr)
                 conn.execute("DELETE FROM documents")
@@ -429,7 +429,7 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
 
         deleted = 0
         if incomplete:
-            print("  WARN: enumeration incomplete — skipping prune; "
+            print("  WARN: enumeration incomplete - skipping prune; "
                   "stale-but-usable rows kept until a clean refresh "
                   "reconciles them", file=sys.stderr)
         else:
@@ -499,8 +499,8 @@ def expected_source_paths() -> set[str]:
             py_paths.extend(d.rglob("*.py"))
         except OSError as e:
             # One unreadable subtree must not crash health/verify and
-            # report a false coverage gap — skip it and keep the rest.
-            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+            # report a false coverage gap - skip it and keep the rest.
+            print(f"  WARN: skipping unreadable paths under {dir_str} - {e}",
                   file=sys.stderr)
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
@@ -514,7 +514,7 @@ def expected_source_paths() -> set[str]:
         try:
             sql_files = sorted(d.glob("*.sql"))
         except OSError as e:
-            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
+            print(f"  WARN: skipping unreadable SQL dir {dir_str} - {e}",
                   file=sys.stderr)
             continue
         for sq in sql_files:
@@ -526,7 +526,7 @@ def _produces_no_chunks(rel_path: str) -> bool:
     """True iff the file at rel_path has no indexable content.
 
     Empty marker files (e.g. blank `__init__.py`) and files whose chunker
-    returns nothing should not be flagged as gaps — they are correctly
+    returns nothing should not be flagged as gaps - they are correctly
     skipped by the indexer, not failures.
     """
     abs_path = BASE / rel_path
@@ -588,18 +588,18 @@ def switch_model(model: str, dim: int) -> int:
     )
     if new == text:
         print("switch-model: could not locate EMBEDDING_MODEL / EMBEDDING_DIM "
-              "in search_config.py — edit manually then run "
+              "in search_config.py - edit manually then run "
               "`embeddings.py refresh --full`.", file=sys.stderr)
         return 1
     cfg.write_text(new)
     print(f"switch-model: set EMBEDDING_MODEL={model!r}, EMBEDDING_DIM={dim}.")
-    print("Running `refresh --full` — every chunk is re-embedded; this may "
+    print("Running `refresh --full` - every chunk is re-embedded; this may "
           "take a while and downloads the new model on first use.")
     return refresh(full=True)
 
 
 def health() -> int:
-    """Verify every expected source has ≥1 chunk in index.db.
+    """Verify every expected source has >=1 chunk in index.db.
 
     Files with no indexable content (empty `__init__.py`, files whose
     chunker yields zero chunks) are not counted as gaps.
@@ -617,11 +617,11 @@ def health() -> int:
     if not missing:
         total = sum(counts.values())
         suffix = f" ({skipped_empty} empty file(s) ignored)" if skipped_empty else ""
-        print(f"OK — {len(expected)} expected sources covered "
+        print(f"OK - {len(expected)} expected sources covered "
               f"({total} chunks total){suffix}.")
         return 0
 
-    print(f"⚠ {len(missing)} index gap(s):")
+    print(f"[WARN] {len(missing)} index gap(s):")
     for m in missing:
         print(f"  missing: {m}")
     print("\nRun: python3 tools/embeddings.py refresh --full")
@@ -683,7 +683,7 @@ def stats(verbose: bool = False) -> int:
     missing = sorted(expected - indexed)
     if missing:
         print(f"  missing: {', '.join(missing[:10])}"
-              + (" …" if len(missing) > 10 else ""))
+              + ("  " if len(missing) > 10 else ""))
     return 0
 
 

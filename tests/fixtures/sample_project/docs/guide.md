@@ -24,11 +24,11 @@ Advanced configuration options are described here.
 
 ### Advanced Options
 
-This is a second section with the same heading — used to test deduplication.
+This is a second section with the same heading - used to test deduplication.
 
 ## Installation
 
-A second Installation section — duplicate heading for the dedup test.
+A second Installation section - duplicate heading for the dedup test.
 
 ## Summary
 

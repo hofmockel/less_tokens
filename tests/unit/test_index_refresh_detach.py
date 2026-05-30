@@ -2,7 +2,7 @@
 
 `subprocess.Popen(..., start_new_session=True)` is POSIX-only. On Windows the
 kwarg is silently ignored, so the spawned `embeddings.py refresh` child stays
-attached to the Claude Code process instead of detaching — defeating the
+attached to the Claude Code process instead of detaching - defeating the
 fire-and-forget intent of the hook.
 
 The fix branches on `sys.platform`: POSIX keeps `start_new_session=True`;

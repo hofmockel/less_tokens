@@ -2,7 +2,7 @@
 index.db is portable across host endianness.
 
 The writer used `vec.tobytes()` and the reader `np.frombuffer(..., dtype=
-np.float32)` — both host-native. An index built on a little-endian host and
+np.float32)` - both host-native. An index built on a little-endian host and
 read on a big-endian host (s390x, some POWER/ARM) silently returns wrong
 cosine scores: the float32 bytes are reinterpreted with the reader's
 endianness. The fix pins the on-disk dtype to little-endian `<f4` at a single
@@ -50,7 +50,7 @@ class TestSerializationContract:
 
     def test_unpack_decodes_little_endian_not_native(self):
         # Bytes written little-endian must decode to the original values.
-        # Decoding the same bytes big-endian yields different numbers — that
+        # Decoding the same bytes big-endian yields different numbers - that
         # is exactly the silent cross-endian corruption this bug is about.
         v = np.array([1.5, 7.25, 1234.5], dtype=np.float32)
         le_bytes = np.asarray(v, dtype="<f4").tobytes()

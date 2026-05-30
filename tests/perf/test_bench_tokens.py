@@ -1,4 +1,4 @@
-"""Token performance benchmarks — measure reduction delivered by each strategy.
+"""Token performance benchmarks - measure reduction delivered by each strategy.
 
 Requires fastembed. Run with: pytest tests/perf/ -v -m perf
 
@@ -44,8 +44,8 @@ BENCHMARK_QUERIES = [
     "summary of the guide",
 ]
 
-MIN_SEARCH_REDUCTION = 0.50   # search must return ≤50% of chars vs reading whole files
-MIN_TRUNCATION_REDUCTION = 0.40  # truncation must remove ≥40% of chars
+MIN_SEARCH_REDUCTION = 0.50   # search must return <=50% of chars vs reading whole files
+MIN_TRUNCATION_REDUCTION = 0.40  # truncation must remove >=40% of chars
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +182,8 @@ class TestVectorSearchReduction:
 
         assert reduction >= MIN_SEARCH_REDUCTION, (
             f"Search returned {search_chars_total:,} chars vs "
-            f"{avg_source_chars_per_query * len(BENCHMARK_QUERIES):,} source chars — "
-            f"{reduction:.1%} reduction, need ≥{MIN_SEARCH_REDUCTION:.0%}"
+            f"{avg_source_chars_per_query * len(BENCHMARK_QUERIES):,} source chars - "
+            f"{reduction:.1%} reduction, need >={MIN_SEARCH_REDUCTION:.0%}"
         )
 
     def test_search_returns_relevant_chunk(self, indexed_project):
@@ -228,8 +228,8 @@ class TestTruncationReduction:
         _save_result("truncation_bash", result)
 
         assert reduction >= MIN_TRUNCATION_REDUCTION, (
-            f"Bash truncation: {before} → {after} chars, "
-            f"{reduction:.1%} reduction, need ≥{MIN_TRUNCATION_REDUCTION:.0%}"
+            f"Bash truncation: {before} -> {after} chars, "
+            f"{reduction:.1%} reduction, need >={MIN_TRUNCATION_REDUCTION:.0%}"
         )
 
     def test_char_split_truncation_meets_threshold(self):

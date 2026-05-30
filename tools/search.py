@@ -41,7 +41,7 @@ _DB_MOD = sys.modules[connect_index.__module__]
 def _newest_source_mtime() -> float:
     """Newest mtime across the files enumerate_sources() would index.
 
-    Heuristic only — mirrors embeddings.enumerate_sources file selection
+    Heuristic only - mirrors embeddings.enumerate_sources file selection
     (root/doc-glob markdown + *.py rglob / *.sql under INDEXED_SOURCE_DIRS)
     without reading or chunking content, so it stays cheap on every query.
     """
@@ -86,7 +86,7 @@ def _source_type_choices() -> list[str] | None:
     Deriving --source-type choices from the index keeps argparse in sync with
     reality: it accepts every value the current index contains (even ones a
     newer/older indexer produced) and never advertises a value that returns
-    zero rows. None means the index is unavailable — leave --source-type
+    zero rows. None means the index is unavailable - leave --source-type
     unconstrained rather than blocking on a stale static list.
     """
     try:
@@ -194,7 +194,7 @@ def main() -> int:
 
     if _index_is_stale():
         print(
-            "WARN: index may be stale — an indexed source file is newer than "
+            "WARN: index may be stale - an indexed source file is newer than "
             "index.db; run `tools/embeddings.py refresh`",
             file=sys.stderr,
         )
@@ -214,13 +214,13 @@ def main() -> int:
     results = search(args.query, k=k, source_type=args.source_type,
                      min_score=args.min_score)
     # Warn if returned chunks would consume a large fraction of the
-    # configured model's window (rough heuristic: 4 chars ≈ 1 token).
+    # configured model's window (rough heuristic: 4 chars   1 token).
     if prof and results:
         approx_tokens = sum(len(r["text"]) for r in results) // 4
         window = prof.get("context_window", 0)
         if window and approx_tokens > window // 4:
             print(
-                f"WARN: returned chunks ≈ {approx_tokens} tokens; "
+                f"WARN: returned chunks   {approx_tokens} tokens; "
                 f"{prof.get('context_window')}-token window may fill quickly. "
                 "Lower -k or raise --min-score.",
                 file=sys.stderr,
@@ -247,12 +247,12 @@ def main() -> int:
         print(json.dumps(results, indent=2))
         return 0
     if not results:
-        print("(no results — index may be empty; run `tools/embeddings.py refresh`)")
+        print("(no results - index may be empty; run `tools/embeddings.py refresh`)")
         return 0
     for r in results:
         print(f"\n[{r['score']:.3f}] {r['source_path']}::{r['source_key']}  ({r['source_type']})")
         snippet = r["text"][:600]
-        print(snippet + ("…" if len(r["text"]) > 600 else ""))
+        print(snippet + (" " if len(r["text"]) > 600 else ""))
     return 0
 
 

@@ -35,7 +35,7 @@ def main() -> int:
     except Exception:
         return 0
 
-    # Hooks receive tool output, not assistant prose — this fires on tool results
+    # Hooks receive tool output, not assistant prose - this fires on tool results
     # containing filler patterns (rare) and serves as a periodic in-context nudge.
     tool_output = payload.get("tool_response") or payload.get("tool_result") or ""
     if isinstance(tool_output, dict):

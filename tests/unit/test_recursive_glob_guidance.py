@@ -47,7 +47,7 @@ def test_suggest_recursive_globs_fires_for_doc_heavy_repo(tmp_path):
 
 
 def test_suggest_recursive_globs_silent_for_python_repo(tmp_path):
-    # Python repo: lots of .py, no subdir .md — should NOT print.
+    # Python repo: lots of .py, no subdir .md - should NOT print.
     for i in range(5):
         (tmp_path / f"module{i}.py").write_text("x = 1\n")
     (tmp_path / "README.md").write_text("root\n")

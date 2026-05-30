@@ -1,7 +1,7 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-This file uses Keep a Changelog format — NOT the date-only format the chunker expects.
+This file uses Keep a Changelog format - NOT the date-only format the chunker expects.
 
 ## [1.0.0] - 2026-05-01
 

@@ -14,17 +14,17 @@ Claude's token waste comes from four sources: reading entire files when only a f
 
 | Strategy | How | Savings |
 |---|---|---|
-| **Vector search** | Pre-embeds your source files; Claude searches before reading | 5–10× fewer input tokens |
-| **Caveman mode** | CLAUDE.md instruction that enforces terse, primitive output | 30–60% fewer output tokens |
-| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40–80% fewer tool-output tokens |
-| **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions |
+| **Vector search** | Pre-embeds your source files; Claude searches before reading | 5-10  fewer input tokens |
+| **Caveman mode** | CLAUDE.md instruction that enforces terse, primitive output | 30-60% fewer output tokens |
+| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40-80% fewer tool-output tokens |
+| **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50-70% fewer input tokens on long sessions |
 
-All four strategies are opt-in and independent — use any combination. A built-in **savings tracker** (`tools/stats.py`) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+All four strategies are opt-in and independent - use any combination. A built-in **savings tracker** (`tools/stats.py`) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 ```
 Without less_tokens:           With less_tokens:
 Read(large_file.py)            search.py "validate imports"
-→ 5,000 tokens                 → 3 chunks × ~150 tokens = 450 tokens
+-> 5,000 tokens                 -> 3 chunks   ~150 tokens = 450 tokens
 ```
 
 Files are chunked by structure (functions, headings, SQL statements), embedded locally using [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5), and stored in a local SQLite database. No data leaves your machine.
@@ -33,7 +33,7 @@ Files are chunked by structure (functions, headings, SQL statements), embedded l
 
 ## Quick start
 
-Clone this repo *into* the project you want to install it on, then run the installer — it targets the parent directory of the clone, so cwd doesn't matter:
+Clone this repo *into* the project you want to install it on, then run the installer - it targets the parent directory of the clone, so cwd doesn't matter:
 
 ```bash
 cd ~/myproject

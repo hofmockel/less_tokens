@@ -72,7 +72,7 @@ def init() -> int:
 def migrate() -> int:
     """Apply any pending schema migrations above the current recorded version."""
     if not INDEX_DB.exists():
-        print(f"{INDEX_DB.name}: MISSING — run `db.py init` first", file=sys.stderr)
+        print(f"{INDEX_DB.name}: MISSING - run `db.py init` first", file=sys.stderr)
         return 1
     with connect_index() as c:
         v = _current_version(c)
@@ -83,12 +83,12 @@ def migrate() -> int:
             # v1 stored embeddings in host-native byte order; v2 pins
             # little-endian on disk (search.py always decodes <f4). Drop the
             # rows so the next `embeddings.py refresh` repopulates them in the
-            # new format — a v1 index built on a big-endian host would
+            # new format - a v1 index built on a big-endian host would
             # otherwise score silently wrong for every unchanged row.
             try:
                 c.execute("DELETE FROM documents")
             except sqlite3.OperationalError:
-                pass  # no documents table yet — nothing to invalidate
+                pass  # no documents table yet - nothing to invalidate
         # Future migrations: add more `if v < N:` blocks here, then bump
         # SCHEMA_VERSION and let the version row below record it.
         c.execute(
@@ -112,7 +112,7 @@ def ensure_current_schema() -> int:
 
 def verify() -> int:
     if not INDEX_DB.exists():
-        print(f"{INDEX_DB.name}: MISSING — run `db.py init`")
+        print(f"{INDEX_DB.name}: MISSING - run `db.py init`")
         return 1
     with connect_index() as c:
         rows = c.execute(

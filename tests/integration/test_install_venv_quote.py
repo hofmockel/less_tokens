@@ -1,6 +1,6 @@
 """Regression: venv paths with a quote/backslash must not yield invalid Python.
 
-install.py emits `VENV_PY = _venv_python("<path>")` in two places — the line
+install.py emits `VENV_PY = _venv_python("<path>")` in two places - the line
 patch_venv_py writes into the host's search_config.py, and the next-steps hint
 printed for the user to paste. Both interpolated the path raw, so a path with
 an embedded `"` produced a SyntaxError: a broken config file, or an
@@ -67,7 +67,7 @@ class TestPatchVenvPyWithQuote:
 
     def test_written_config_is_valid_python_with_quoted_path(self, tmp_path):
         dst = self._setup_dst(tmp_path)
-        # Venv outside target_root → _venv_config_str returns str(path); the
+        # Venv outside target_root -> _venv_config_str returns str(path); the
         # embedded quote then lands verbatim in the written config line.
         outside = tmp_path.parent / 'we"ird' / ".venv"
         result = patch_venv_py(dst, SRC, tmp_path, outside)

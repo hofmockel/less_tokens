@@ -39,8 +39,11 @@ def make_fake_venv(root: Path) -> Path:
     else:
         py = venv / "bin" / "python"
     py.parent.mkdir(parents=True)
-    py.write_text("#!/bin/sh\nexec python3 \"$@\"\n")
-    if sys.platform != "win32":
+    if sys.platform == "win32":
+        # Windows CreateProcess requires a real executable.
+        shutil.copy2(sys.executable, py)
+    else:
+        py.write_text("#!/bin/sh\nexec python3 \"$@\"\n")
         py.chmod(0o755)
     return venv
 
@@ -167,7 +170,7 @@ class TestPatchVenvPy:
         venv = tmp_path / ".venv"
         first = patch_venv_py(dst, self.SRC, tmp_path, venv)
         assert first == ".venv"
-        # Second run: value now differs from source default → no-op (returns None)
+        # Second run: value now differs from source default -> no-op (returns None)
         second = patch_venv_py(dst, self.SRC, tmp_path, venv)
         assert second is None
 
@@ -193,7 +196,7 @@ class TestPatchVenvPy:
 
     def test_falls_back_to_absolute_when_outside_target(self, tmp_path):
         dst = self._setup_dst(tmp_path)
-        # Venv lives outside target_root → relative_to fails, expect absolute path
+        # Venv lives outside target_root -> relative_to fails, expect absolute path
         outside = tmp_path.parent / "external_venv"
         result = patch_venv_py(dst, self.SRC, tmp_path, outside)
         assert result == str(outside).replace("\\", "/")
@@ -293,7 +296,7 @@ class TestUpdateFlag:
         target = self._fresh_install(tmp_path)
         hook = target / ".claude" / "hooks" / "search-first.py"
         original = hook.read_text()
-        hook.write_text("# locally modified — should be overwritten by --update\n")
+        hook.write_text("# locally modified - should be overwritten by --update\n")
 
         rc = subprocess.call(
             [sys.executable, str(SOURCE / "install.py"),

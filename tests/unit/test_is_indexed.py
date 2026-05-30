@@ -73,7 +73,7 @@ class TestParity:
     def test_md_under_source_dir_not_gated(self, search_first, index_refresh):
         """A .md under an INDEXED_SOURCE_DIRS entry is never collected by
         enumerate_sources() (only *.py / *.sql there), so is_indexed() must
-        return False — otherwise the search-first gate is unclearable."""
+        return False - otherwise the search-first gate is unclearable."""
         assert sf_indexed(search_first, "tools/notes.md") == ir_indexed(index_refresh, "tools/notes.md")
         assert sf_indexed(search_first, "tools/notes.md") is False
 
@@ -100,7 +100,7 @@ class TestParity:
 
 class TestKnownDivergence:
     def test_midpath_excluded_dir_parity(self, search_first, index_refresh):
-        """tools/legacy/foo.py — 'legacy/' is an excluded prefix; both hooks must agree."""
+        """tools/legacy/foo.py - 'legacy/' is an excluded prefix; both hooks must agree."""
         sf_result = sf_indexed(search_first, "tools/legacy/foo.py")
         ir_result = ir_indexed(index_refresh, "tools/legacy/foo.py")
         assert sf_result == ir_result, (

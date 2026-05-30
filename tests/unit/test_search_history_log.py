@@ -3,7 +3,7 @@
 Maintainers had no way to see what Claude searched for or which queries
 returned weak results. Every run now appends one best-effort JSON line
 (timestamp, query, top score, result count) to .claude/state/
-search-history.log — it must never break the search it records.
+search-history.log - it must never break the search it records.
 """
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ def test_no_results_logs_null_score_and_appends(state, monkeypatch):
 
 
 def test_log_failure_is_swallowed(tmp_path, monkeypatch):
-    # STATE_DIR under a regular file → mkdir raises OSError; _log_history
+    # STATE_DIR under a regular file -> mkdir raises OSError; _log_history
     # must absorb it (an audit log can't break the search it records).
     afile = tmp_path / "afile"
     afile.write_text("x")

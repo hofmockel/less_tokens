@@ -4,7 +4,7 @@ static list.
 `--source-type` used `choices=SOURCE_TYPES`, a hardcoded list in
 search_config.py. That list and the `documents.source_type` column are two
 unsynchronised sources of truth: it advertises values the indexer never
-produces (`journal`, `note` → always zero rows) and rejects any value a
+produces (`journal`, `note` -> always zero rows) and rejects any value a
 different/older index legitimately contains. The fix derives the choices
 from `SELECT DISTINCT source_type FROM documents` at runtime, falling back
 to unconstrained (None) when the index is unavailable.
@@ -62,7 +62,7 @@ class TestSourceTypeChoices:
         assert "legacy" not in SOURCE_TYPES  # the drift the bug is about
 
     def test_none_when_index_unavailable(self, tmp_path, monkeypatch):
-        # Empty/uninitialised db → no `documents` table → unconstrained.
+        # Empty/uninitialised db -> no `documents` table -> unconstrained.
         empty = tmp_path / "empty.db"
         sqlite3.connect(empty).close()
         monkeypatch.setattr(_DB, "INDEX_DB", empty)

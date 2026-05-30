@@ -1,6 +1,6 @@
 """Pre-commit config wires ruff so contributors get lint feedback before pushing.
 
-Plain-text parse — avoids a PyYAML dependency for this single check.
+Plain-text parse - avoids a PyYAML dependency for this single check.
 """
 from __future__ import annotations
 

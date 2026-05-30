@@ -1,7 +1,7 @@
 """Installer can create .venv-tokens in a single pass.
 
 Without `--create-venv`, a missing venv aborts the install with an
-instruction to run `python3 -m venv .venv` and re-invoke — a two-step
+instruction to run `python3 -m venv .venv` and re-invoke - a two-step
 dance. The new flag does the venv creation inline.
 """
 from __future__ import annotations
@@ -44,7 +44,7 @@ def test_create_venv_helper_runs_python_m_venv(tmp_path, monkeypatch):
 
 def test_create_venv_helper_refuses_when_target_exists(tmp_path):
     (tmp_path / ".venv-tokens").mkdir()
-    # Should not clobber an existing directory — raise instead of
+    # Should not clobber an existing directory - raise instead of
     # quietly recreating, since a pre-existing path may be a partial
     # venv we don't want to overwrite.
     try:

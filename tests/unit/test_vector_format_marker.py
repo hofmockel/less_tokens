@@ -5,7 +5,7 @@ Vectors are now (de)serialized as little-endian `<f4` (4e53469). An
 `index.db` built before that pin on a big-endian host stored native
 big-endian bytes; `refresh()` skips rows whose *text* content_hash is
 unchanged, so those blobs are never rewritten, yet `search` now decodes
-every blob little-endian — silently wrong cosine scores until a manual
+every blob little-endian - silently wrong cosine scores until a manual
 full rebuild.
 
 The fix stamps a vector-format marker in `PRAGMA user_version`. `refresh()`
@@ -118,7 +118,7 @@ def test_clean_refresh_stamps_marker(temp_index, monkeypatch):
 
 def test_pre_pin_index_forces_reembed(temp_index, monkeypatch):
     """An unmarked index (user_version 0) with an otherwise-unchanged row is
-    force-re-embedded — the stale-layout blob is replaced, not skipped.
+    force-re-embedded - the stale-layout blob is replaced, not skipped.
     """
     text = "def f():\n    return 1\n"
     old_blob = b"OLD-NATIVE-ENDIAN-BYTES"
@@ -141,7 +141,7 @@ def test_pre_pin_index_forces_reembed(temp_index, monkeypatch):
 
 
 def test_marked_index_skips_forced_reembed(temp_index, monkeypatch):
-    """Guard: a marked index must NOT be wiped/re-embedded every refresh —
+    """Guard: a marked index must NOT be wiped/re-embedded every refresh -
     an unchanged row keeps its existing (current-format) embedding.
     """
     _set_user_version(temp_index, embeddings.VEC_FORMAT)
@@ -188,7 +188,7 @@ def unreadable_source_tree(tmp_path, monkeypatch):
 def test_stale_format_incomplete_defers(temp_index, unreadable_source_tree):
     """Composition with the incomplete-enumeration fix: when the index is
     stale-format AND enumeration is incomplete, the forced rebuild is
-    deferred — rows are kept and the marker is NOT stamped, so a later
+    deferred - rows are kept and the marker is NOT stamped, so a later
     clean refresh still performs the rebuild.
     """
     _seed(temp_index, "bad/old.py", "old_fn", "x", b"OLD-NATIVE-BYTES")

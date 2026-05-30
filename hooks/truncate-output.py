@@ -86,7 +86,7 @@ def main() -> int:
     _log_savings({"strategy": "truncation", "tool": tool_name,
                   "original_chars": len(tool_result), "saved_chars": omitted_chars})
     print(truncated)
-    print(f"[truncated — {omitted_chars:,} chars omitted ({len(tool_result):,} total)]",
+    print(f"[truncated - {omitted_chars:,} chars omitted ({len(tool_result):,} total)]",
           file=sys.stderr)
     return 2
 

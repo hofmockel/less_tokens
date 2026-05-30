@@ -1,4 +1,4 @@
-"""Unit tests for tools/db.py — schema init, migration, and verify."""
+"""Unit tests for tools/db.py - schema init, migration, and verify."""
 from __future__ import annotations
 
 import sqlite3
@@ -65,7 +65,7 @@ class TestMigrate:
         assert ret == 0
 
     def test_missing_db_returns_one(self, isolated_db):
-        # Don't call init — db doesn't exist
+        # Don't call init - db doesn't exist
         ret = db_mod.migrate()
         assert ret == 1
 

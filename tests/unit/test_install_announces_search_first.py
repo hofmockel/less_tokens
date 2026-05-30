@@ -1,7 +1,7 @@
 """NEXT STEPS output warns that the search-first gate is now active.
 
 Wiring the PreToolUse hook immediately changes Read behavior for any
-already-running Claude session in the target — reads of indexed files
+already-running Claude session in the target - reads of indexed files
 error until a search runs within the gate window. Surfacing this in the
 install summary saves the user a confused debugging trip.
 """
