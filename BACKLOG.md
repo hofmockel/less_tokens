@@ -8,6 +8,32 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
+- **Bug 1: Keep a Changelog headers fall back to markdown chunking** (embeddings.py:214)
+- **Bug 2: chunk_sql ignores comments but split on ;\\n is fragile** (embeddings.py:186)
+- **Bug 3: chunk_python ignores complex assignments** (embeddings.py:168)
+- **Bug 4: is_indexed discrepancy for root .py files** (hooks/search-first.py:49 vs embeddings.py:263)
+- **Bug 5: index-refresh.py misses root .py and .sql files** (hooks/index-refresh.py:50)
+- **Bug 6: search.py _newest_source_mtime is inconsistent with enumerate_sources** (tools/search.py:46)
+- **Bug 7: Search result token warning uses 4 chars per token heuristic** (tools/search.py:175)
+- **Bug 8: EXCLUDED_DIR_PREFIXES vs EXCLUDED_DIR_NAMES inconsistency** (tools/search_config.py:53)
+- **Bug 9: search_config.py default VENV_PY points to app/.venv** (tools/search_config.py:44)
+- **Bug 10: chunk_python prepends mod_doc incorrectly for classes/functions** (tools/embeddings.py:155)
+- **Bug 11: chunk_sql split on ;\\n fails with semicolons in strings** (embeddings.py:196)
+- **Bug 12: chunk_python misses assignments in tuples/lists** (embeddings.py:180)
+- **Bug 13: chunk_changelog regex too strict for common version formats** (embeddings.py:219)
+- **Bug 14: search.py _newest_source_mtime misses root .py and .sql files** (tools/search.py:59)
+- **Bug 15: _ClosingConn wrapper misses many sqlite3.Connection methods** (tools/db.py:46)
+- **Bug 16: install.py uses hardcoded 'python3' for venv creation** (install.py:141)
+- **Bug 17: truncate-output.py logs 'truncation' strategy even when disabled** (hooks/truncate-output.py:78)
+- **Bug 18: search.py returns mixed-model results with garbage scores** (tools/search.py:112)
+- **Bug 19: index.sql UNIQUE constraint collision for duplicate function names** (schema/index.sql:19)
+- **Bug 20: search_config.py WINDOW_SECONDS hardcoded fallback in search-first.py** (hooks/search-first.py:64)
+- **Bug 26: stats.py _set_tracking is fragile (fails on type hints)** (tools/stats.py:42)
+- **Bug 27: REPO resolution in hooks is broken in dev environment** (hooks/search-first.py:15)
+- **Bug 28: model_profiles.py inconsistent heuristics for Opus models** (tools/model_profiles.py:25)
+- **Bug 29: stats.py _load_records silent on JSON decode errors** (tools/stats.py:65)
+- **Bug 30: bughunt.md coverage list is for a different project (AIPortfolio)** (bughunt/bughunt.md:28)
+
 ---
 
 ## Vector Search & Indexing

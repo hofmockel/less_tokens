@@ -1030,11 +1030,8 @@ def main() -> int:
                   "(--update never overwrites tools/search_config.py).",
                   file=sys.stderr)
             return 1
-        if not args.no_build:
-            print("ERROR: --update cannot be combined with a default index build; "
-                  "pass --no-build to skip the index step when using --update.",
-                  file=sys.stderr)
-            return 1
+        # --update implies --no-build to simplify CI and manual upgrades
+        args.no_build = True
 
     # Resolve force flags
     force_hooks  = args.force or args.force_hooks or args.update
@@ -1169,19 +1166,19 @@ def main() -> int:
         )
         if venv_py_patched is not None:
             print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-                  f'VENV_PY → _venv_python("{venv_py_patched}")')
+                  f'VENV_PY -> _venv_python("{venv_py_patched}")')
             changes += 1
         dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
         if dirs_patched is not None:
             print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
-                  f'INDEXED_SOURCE_DIRS → {dirs_patched}')
+                  f'INDEXED_SOURCE_DIRS -> {dirs_patched}')
             changes += 1
         if venv_py_patched is None and dry and not dst_cfg.exists():
             # Fresh dry-run install: config not copied, so patch_venv_py is a
             # no-op — still preview the value it would write.
             cfg = _venv_config_str(venv_dir, target_root)
             print(f'  would patch tools/search_config.py: '
-                  f'VENV_PY → _venv_python("{cfg}")')
+                  f'VENV_PY -> _venv_python("{cfg}")')
             changes += 1
     else:
         venv_py_patched = None
