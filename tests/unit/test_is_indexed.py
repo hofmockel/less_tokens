@@ -18,7 +18,8 @@ def search_first(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("sf_repo")
     mod = load_hook(REPO_ROOT / "hooks" / "search-first.py")
     mod.REPO = tmp
-    mod._config["excluded"] = ("legacy/",)
+    mod._config["excluded_names"] = {"legacy"}
+    mod._config["excluded_prefixes"] = ("legacy/",)
     mod._config["dirs"] = ("tools/",)
     mod._config["root_globs"] = ("*.md",)
     return mod, tmp
@@ -30,7 +31,8 @@ def index_refresh(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("ir_repo")
     mod = load_hook(REPO_ROOT / "hooks" / "index-refresh.py")
     mod.REPO = tmp
-    mod.EXCLUDED_DIRS = ("legacy/",)
+    mod.EXCLUDED_DIR_NAMES = {"legacy"}
+    mod.EXCLUDED_DIR_PREFIXES = ("legacy/",)
     mod.INDEXED_DIRS = ("tools/",)
     return mod, tmp
 

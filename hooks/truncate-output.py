@@ -10,10 +10,13 @@ install.py wires this into .claude/settings.local.json automatically.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 def _resolve_repo() -> Path:
+    if os.environ.get("LESS_TOKENS_REPO"):
+        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
     curr = Path(__file__).resolve().parent
     for _ in range(4):
         if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():

@@ -8,7 +8,22 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import sys
+from pathlib import Path
+
+def _resolve_repo() -> Path:
+    if os.environ.get("LESS_TOKENS_REPO"):
+        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
+    curr = Path(__file__).resolve().parent
+    for _ in range(4):
+        if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
+            return curr
+        curr = curr.parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+REPO = _resolve_repo()
 
 VERBOSE_PATTERNS = [
     r"\bI apologize\b",
@@ -35,16 +50,14 @@ def main() -> int:
     except Exception:
         return 0
 
-    # Hooks receive tool output, not assistant prose — this fires on tool results
-    # containing filler patterns (rare) and serves as a periodic in-context nudge.
-    tool_output = payload.get("tool_response") or payload.get("tool_result") or ""
-    if isinstance(tool_output, dict):
-        tool_output = json.dumps(tool_output)
-    elif not isinstance(tool_output, str):
-        tool_output = str(tool_output)
+    # Support both tool_result and older tool_response keys
+    tool_out = payload.get("tool_result") or payload.get("tool_response")
+    if not isinstance(tool_out, str):
+        return 0
 
-    if _PATTERN.search(tool_output):
-        print("Caveman mode on. Short sentence. No filler.", file=sys.stderr)
+    if _PATTERN.search(tool_out):
+        print("Style spec reminder: maintain terse, primitive output. "
+              "Avoid filler/conversational phrases.", file=sys.stderr)
         return 2
 
     return 0
