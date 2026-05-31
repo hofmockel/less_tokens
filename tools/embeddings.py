@@ -170,6 +170,16 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
         header = "\n".join(f"# {ln}" for ln in mod_doc.splitlines())
         return f"{header}\n\n{code}"
 
+    def _get_upper_names(node: ast.AST) -> list[str]:
+        if isinstance(node, ast.Name) and node.id.isupper():
+            return [node.id]
+        if isinstance(node, (ast.Tuple, ast.List)):
+            names = []
+            for elt in node.elts:
+                names.extend(_get_upper_names(elt))
+            return names
+        return []
+
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             start = node.lineno - 1
@@ -177,23 +187,54 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
             code = "\n".join(lines[start:end])
             out.append((node.name, _ctx(code) if add_ctx else code))
         elif isinstance(node, ast.Assign):
+            names = []
             for target in node.targets:
-                if isinstance(target, ast.Name) and target.id.isupper():
-                    start = node.lineno - 1
-                    end = getattr(node, "end_lineno", start + 1)
-                    out.append((target.id, "\n".join(lines[start:end])))
-        elif isinstance(node, ast.AnnAssign):
-            if isinstance(node.target, ast.Name) and node.target.id.isupper():
+                names.extend(_get_upper_names(target))
+            for name in names:
                 start = node.lineno - 1
                 end = getattr(node, "end_lineno", start + 1)
-                out.append((node.target.id, "\n".join(lines[start:end])))
+                out.append((name, "\n".join(lines[start:end])))
+        elif isinstance(node, ast.AnnAssign):
+            for name in _get_upper_names(node.target):
+                start = node.lineno - 1
+                end = getattr(node, "end_lineno", start + 1)
+                out.append((name, "\n".join(lines[start:end])))
     return out
 
 
 def chunk_sql(path: Path) -> list[tuple[str, str]]:
     src = path.read_text(encoding="utf-8", errors="replace")
-    src_no_comments = re.sub(r"--[^\n]*", "", src)
-    blocks = re.split(r";\s*\n", src_no_comments)
+    # Basic SQL statement splitter that respects single/double quoted strings
+    # and ignores semicolons within them. Heuristic-based, better than split(;).
+    blocks: list[str] = []
+    current: list[str] = []
+    in_string: str | None = None
+    lines = src.splitlines(keepends=True)
+    for line in lines:
+        stripped = re.sub(r"--[^\n]*", "", line)
+        for i, char in enumerate(stripped):
+            if char in ("'", '"'):
+                if in_string == char:
+                    in_string = None
+                elif in_string is None:
+                    in_string = char
+            elif char == ";" and in_string is None:
+                # Check if this semicolon is followed by a newline or EOF
+                # (allowing for trailing whitespace)
+                after = stripped[i + 1 :].strip()
+                if not after:
+                    current.append(line[: i + 1])
+                    blocks.append("".join(current))
+                    current = []
+                    line = line[i + 1 :]
+                    break
+        if line:
+            current.append(line)
+    if current:
+        final = "".join(current).strip()
+        if final:
+            blocks.append(final)
+
     out: list[tuple[str, str]] = []
     for b in blocks:
         b = b.strip()
@@ -216,7 +257,9 @@ def chunk_changelog(path: Path) -> list[tuple[str, str]]:
     """
     text = path.read_text(encoding="utf-8", errors="replace")
     parts = re.split(
-        r"^(##\s+(?:\[.+?\]|\d{4}-\d{2}-\d{2}).*)$", text, flags=re.MULTILINE
+        r"^(##\s+(?:\[.+?\]|v?\d+\.\d+\.\d+|\d{4}-\d{2}-\d{2}).*)$",
+        text,
+        flags=re.MULTILINE,
     )
     out: list[tuple[str, str]] = []
     for i in range(1, len(parts), 2):
@@ -282,22 +325,26 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
         for k, t in chunk_python(py):
             out.append(("code", rel, k, t))
 
-    # SQL from indexed subdirs
+    # SQL from indexed subdirs + root .sql
+    sql_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
         if not d.exists():
             continue
         try:
-            sql_files = sorted(d.glob("*.sql"))
+            sql_paths.extend(d.glob("*.sql"))
         except OSError as e:
             incomplete = True
             print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
                   file=sys.stderr)
             continue
-        for sq in sql_files:
-            rel = sq.relative_to(BASE).as_posix()
-            for k, t in chunk_sql(sq):
-                out.append(("code", rel, k, t))
+    sql_paths.extend(BASE.glob("*.sql"))
+    for sq in sorted(set(sql_paths)):
+        if _excluded(sq):
+            continue
+        rel = sq.relative_to(BASE).as_posix()
+        for k, t in chunk_sql(sq):
+            out.append(("code", rel, k, t))
 
     return out, incomplete
 
@@ -507,18 +554,22 @@ def expected_source_paths() -> set[str]:
         if _excluded(py):
             continue
         out.add(py.relative_to(BASE).as_posix())
+    sql_paths: list[Path] = []
     for dir_str in INDEXED_SOURCE_DIRS:
         d = BASE / dir_str.rstrip("/")
         if not d.exists():
             continue
         try:
-            sql_files = sorted(d.glob("*.sql"))
+            sql_paths.extend(d.glob("*.sql"))
         except OSError as e:
             print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
                   file=sys.stderr)
             continue
-        for sq in sql_files:
-            out.add(sq.relative_to(BASE).as_posix())
+    sql_paths.extend(BASE.glob("*.sql"))
+    for sq in sorted(set(sql_paths)):
+        if _excluded(sq):
+            continue
+        out.add(sq.relative_to(BASE).as_posix())
     return out
 
 

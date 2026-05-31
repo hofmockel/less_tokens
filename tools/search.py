@@ -65,6 +65,12 @@ def _newest_source_mtime() -> float:
                         pass
             except OSError:
                 pass
+    for pattern in ("*.py", "*.sql"):
+        for f in BASE.glob(pattern):
+            try:
+                newest = max(newest, f.stat().st_mtime)
+            except OSError:
+                pass
     return newest
 
 

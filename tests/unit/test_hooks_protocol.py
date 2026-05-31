@@ -19,10 +19,9 @@ HOOKS = REPO / "hooks"
 
 _ENV = {**os.environ, "PYTHONPATH": str(REPO / "tools")}
 
-# compact-trigger.py computes REPO as __file__.parent.parent.parent — three levels
-# up from its own location.  When run from the source tree that resolves to the
-# *parent* of the repo, not the repo root.  The hook writes its state file there.
-_HOOK_REPO = (HOOKS / "compact-trigger.py").resolve().parent.parent.parent
+# compact-trigger.py computes REPO by climbing up to find CLAUDE.md or .git.
+# When run from the source tree that resolves to REPO.
+_HOOK_REPO = REPO
 _COMPACT_STATE = _HOOK_REPO / ".claude" / "state" / "compact-trigger-last"
 
 
@@ -158,13 +157,15 @@ class TestCompactTrigger:
         # Write state at the path the hook actually reads (HOOK_REPO, not REPO)
         _COMPACT_STATE.parent.mkdir(parents=True, exist_ok=True)
         _COMPACT_STATE.write_text("600000")
-        code, _, _ = run_hook("compact-trigger.py", {
-            "tool_name": "Bash",
-            "transcript_path": str(transcript),
-        })
-        _clear_compact_state()
-        # Within hysteresis window — should not re-fire
-        assert code == 0
+        try:
+            code, _, _ = run_hook("compact-trigger.py", {
+                "tool_name": "Bash",
+                "transcript_path": str(transcript),
+            })
+            # Within hysteresis window — should not re-fire
+            assert code == 0
+        finally:
+            _clear_compact_state()
 
 
 # ---------------------------------------------------------------------------

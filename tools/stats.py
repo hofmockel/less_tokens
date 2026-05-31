@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -41,12 +42,14 @@ _STRATEGY_LABELS = {
 
 def _set_tracking(enabled: bool) -> None:
     src = CONFIG_FILE.read_text(encoding="utf-8")
-    old = f"TRACK_SAVINGS = {not enabled}"
-    new = f"TRACK_SAVINGS = {enabled}"
-    if old not in src:
-        print(f"Could not find '{old}' in {CONFIG_FILE}", file=sys.stderr)
+    # Matches TRACK_SAVINGS = True, TRACK_SAVINGS: bool = False, etc.
+    pattern = r"^(TRACK_SAVINGS(?:\s*:\s*\w+)?\s*=\s*)(?:True|False)"
+    replacement = rf"\g<1>{enabled}"
+    new_src = re.sub(pattern, replacement, src, count=1, flags=re.MULTILINE)
+    if new_src == src:
+        print(f"Could not find 'TRACK_SAVINGS' in {CONFIG_FILE}", file=sys.stderr)
         return
-    CONFIG_FILE.write_text(src.replace(old, new, 1), encoding="utf-8")
+    CONFIG_FILE.write_text(new_src, encoding="utf-8")
 
 
 def _load_records(all_time: bool = False) -> list[dict]:
@@ -60,7 +63,8 @@ def _load_records(all_time: bool = False) -> list[dict]:
             continue
         try:
             r = json.loads(line)
-        except Exception:
+        except Exception as e:
+            print(f"  WARN: skipping malformed record in {LOG_FILE}: {e}", file=sys.stderr)
             continue
         if r.get("ts", 0) >= cutoff:
             out.append(r)

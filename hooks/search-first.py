@@ -12,7 +12,16 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent.parent
+def _resolve_repo() -> Path:
+    curr = Path(__file__).resolve().parent
+    for _ in range(4):
+        if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
+            return curr
+        curr = curr.parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+REPO = _resolve_repo()
 
 
 _config: dict = {}

@@ -18,7 +18,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent.parent
+def _resolve_repo() -> Path:
+    curr = Path(__file__).resolve().parent
+    for _ in range(4):
+        if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
+            return curr
+        curr = curr.parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / "tools"))
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
