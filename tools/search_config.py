@@ -46,16 +46,16 @@ def _venv_python(venv_rel: str) -> Path:
 # Venv python used for embeddings — change "app/.venv" to your venv location.
 VENV_PY = _venv_python("app/.venv")
 
-# Bare directory names excluded from indexing (used by embeddings.py parts check).
+# Directory names excluded from indexing if they appear anywhere in the path.
+# Used by embeddings.py and hooks to gate the search-first and auto-refresh rules.
 EXCLUDED_DIR_NAMES: set[str] = {
     ".venv", "__pycache__", "legacy", "backups", ".git", "reports", "node_modules",
+    ".claude", "parity",
 }
 
-# Path prefixes excluded by hooks' is_indexed() startswith check.
-# Includes runtime dirs (.claude/) that embeddings never sees.
+# Path prefixes excluded by hooks' is_indexed() check.
 EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
-    "legacy/", "backups/", ".claude/", "parity/", "reports/",
-    "app/.venv/", "__pycache__/",
+    "app/.venv/",
 )
 
 # Subdirectories whose *.py and *.sql files are indexed.

@@ -503,7 +503,7 @@ def handle_search_config(
         src_text = src_config.read_text(encoding="utf-8")
         dst_text = dst_config.read_text(encoding="utf-8")
         if src_text == dst_text:
-            print(f"  ✓ {rel} (already matches source)")
+            print(f"  + {rel} (already matches source)")
         else:
             summary = _diff_summary(src_text, dst_text)
             if not dry_run:
@@ -518,7 +518,7 @@ def handle_search_config(
         verb = "would inject" if dry_run else "injected"
         print(f"  ~ {rel}: {verb} new variables: {', '.join(added)}")
     else:
-        print(f"  ✓ {rel}: all variables present")
+        print(f"  + {rel}: all variables present")
 
 
 # ---------------------------------------------------------------------------
@@ -581,7 +581,7 @@ def wire_settings(
             for h in entry.get("hooks", [])
         )
         if found:
-            print(f"  ✓ {event_type} {matcher!r} already wired")
+            print(f"  + {event_type} {matcher!r} already wired")
             already_present += 1
         else:
             event_list.append({
@@ -823,7 +823,7 @@ def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
     gi = target_root / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
     if _GI_START in text:
-        print("  ✓ .gitignore: less_tokens block already present")
+        print("  + .gitignore: less_tokens block already present")
         return 0
     if not want:
         print("\n  Note: --no-gitignore set; index.db and .claude/state/ will "
@@ -1139,7 +1139,7 @@ def main() -> int:
     changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
               "tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     if args.update and (target_root / "tools" / "search_config.py").exists():
-        print("  ✓ tools/search_config.py (preserved — --update never touches it)")
+        print("  + tools/search_config.py (preserved — --update never touches it)")
     else:
         handle_search_config(
             SOURCE / "tools" / "search_config.py",

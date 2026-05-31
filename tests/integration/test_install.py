@@ -39,8 +39,12 @@ def make_fake_venv(root: Path) -> Path:
     else:
         py = venv / "bin" / "python"
     py.parent.mkdir(parents=True)
-    py.write_text("#!/bin/sh\nexec python3 \"$@\"\n")
-    if sys.platform != "win32":
+    if sys.platform == "win32":
+        # On Windows, a fake .exe must be a real executable to avoid WinError 216.
+        # Copy the current interpreter.
+        shutil.copy2(sys.executable, py)
+    else:
+        py.write_text("#!/bin/sh\nexec python3 \"$@\"\n")
         py.chmod(0o755)
     return venv
 

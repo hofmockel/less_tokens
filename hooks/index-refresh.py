@@ -14,14 +14,27 @@ self-coalescing — last one wins.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent.parent
+def _resolve_repo() -> Path:
+    if os.environ.get("LESS_TOKENS_REPO"):
+        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
+    curr = Path(__file__).resolve().parent
+    for _ in range(4):
+        if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
+            return curr
+        curr = curr.parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / "tools"))
 from search_config import (  # noqa: E402
-    EXCLUDED_DIR_PREFIXES as EXCLUDED_DIRS,
+    EXCLUDED_DIR_NAMES,
+    EXCLUDED_DIR_PREFIXES,
     INDEXED_SOURCE_DIRS as INDEXED_DIRS,
     VENV_PY,
 )
@@ -45,10 +58,15 @@ def is_indexed(path: Path) -> bool:
         rel = path.resolve().relative_to(REPO).as_posix()
     except ValueError:
         return False
-    if any(("/" + d) in ("/" + rel) or rel.startswith(d) for d in EXCLUDED_DIRS):
+
+    parts = set(Path(rel).parts)
+    if bool(parts & EXCLUDED_DIR_NAMES):
         return False
+    if any(rel.startswith(p) for p in EXCLUDED_DIR_PREFIXES):
+        return False
+
     if "/" not in rel:
-        return rel.endswith(".md")
+        return rel.endswith((".md", ".py", ".sql"))
     if any(rel.startswith(d) for d in INDEXED_DIRS):
         return rel.endswith((".py", ".sql"))
     return False
