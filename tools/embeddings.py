@@ -99,8 +99,14 @@ def _get_model():
 
 
 def _excluded(path: Path) -> bool:
-    parts = set(path.relative_to(BASE).parts)
-    return bool(parts & EXCLUDED_DIR_NAMES)
+    try:
+        rel = path.relative_to(BASE).as_posix()
+    except ValueError:
+        return True
+    parts = set(Path(rel).parts)
+    if bool(parts & EXCLUDED_DIR_NAMES):
+        return True
+    return any(rel.startswith(p) for p in EXCLUDED_DIR_PREFIXES)
 
 
 def _sha256(s: str) -> str:

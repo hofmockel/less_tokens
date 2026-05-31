@@ -52,8 +52,10 @@ def main() -> int:
 
     # Support both tool_result and older tool_response keys
     tool_out = payload.get("tool_result") or payload.get("tool_response")
-    if not isinstance(tool_out, str):
-        return 0
+    if isinstance(tool_out, dict):
+        tool_out = json.dumps(tool_out)
+    elif not isinstance(tool_out, str):
+        tool_out = str(tool_out)
 
     if _PATTERN.search(tool_out):
         print("Style spec reminder: maintain terse, primitive output. "
