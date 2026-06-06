@@ -13,10 +13,22 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent.parent
+def _find_base() -> Path:
+    """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor."""
+    cwd = Path.cwd().resolve()
+    if (cwd / ".claude" / "tools" / "search_config.py").exists():
+        return cwd
+    return Path(__file__).resolve().parent.parent.parent
+
+
+BASE = _find_base()
 CLAUDE_DIR = BASE / ".claude"
 INDEX_DB = CLAUDE_DIR / "index.db"
-SCHEMA_FILE = CLAUDE_DIR / "schema" / "index.sql"
+
+# Schema: prefer project-local copy; fall back to the one alongside this script
+_schema_local = CLAUDE_DIR / "schema" / "index.sql"
+_schema_global = Path(__file__).resolve().parent.parent / "schema" / "index.sql"
+SCHEMA_FILE = _schema_local if _schema_local.exists() else _schema_global
 
 SCHEMA_VERSION = 2
 

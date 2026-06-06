@@ -22,22 +22,43 @@ from pathlib import Path
 def _resolve_repo() -> Path:
     if os.environ.get("LESS_TOKENS_REPO"):
         return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
+    # Per-project install: walk up from __file__
     curr = Path(__file__).resolve().parent
     for _ in range(4):
         if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
             return curr
         curr = curr.parent
+    # Global install fallback: hooks live outside the project tree, so walk up from cwd
+    curr = Path.cwd().resolve()
+    for _ in range(10):
+        if (curr / ".git").exists() or (curr / "CLAUDE.md").exists():
+            return curr
+        if curr == curr.parent:
+            break
+        curr = curr.parent
     return Path(__file__).resolve().parent.parent.parent
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
-from search_config import (  # noqa: E402
-    EXCLUDED_DIR_NAMES,
-    EXCLUDED_DIR_PREFIXES,
-    INDEXED_SOURCE_DIRS as INDEXED_DIRS,
-    VENV_PY,
-)
+
+try:
+    sys.path.insert(0, str(REPO / ".claude" / "tools"))
+    from search_config import (  # noqa: E402
+        EXCLUDED_DIR_NAMES,
+        EXCLUDED_DIR_PREFIXES,
+        INDEXED_SOURCE_DIRS as INDEXED_DIRS,
+        VENV_PY,
+    )
+except Exception:
+    EXCLUDED_DIR_NAMES: set = set()
+    EXCLUDED_DIR_PREFIXES: tuple = ()
+    INDEXED_DIRS: tuple = ()
+    VENV_PY = None  # type: ignore[assignment]
+
+# Prefer project-local embeddings.py; fall back to global (alongside this hook)
+_local_embeddings = REPO / ".claude" / "tools" / "embeddings.py"
+_global_embeddings = Path(__file__).resolve().parent.parent / "tools" / "embeddings.py"
+EMBEDDINGS_PY: Path = _local_embeddings if _local_embeddings.exists() else _global_embeddings
 
 
 def _detach_kwargs(platform: str) -> dict:
@@ -86,14 +107,14 @@ def main() -> int:
         return 0
     if not is_indexed(Path(file_path)):
         return 0
-    if not VENV_PY.exists():
+    if VENV_PY is None or not VENV_PY.exists():
         return 0
 
     log = REPO / ".claude" / "state" / "index-refresh.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("ab") as f:
         subprocess.Popen(
-            [str(VENV_PY), ".claude/tools/embeddings.py", "refresh"],
+            [str(VENV_PY), str(EMBEDDINGS_PY), "refresh"],
             cwd=REPO,
             stdout=f,
             stderr=subprocess.STDOUT,

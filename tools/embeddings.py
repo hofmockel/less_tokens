@@ -43,7 +43,19 @@ warnings.filterwarnings(
 
 import numpy as np  # noqa: E402
 
-BASE = Path(__file__).parent.parent.parent
+def _find_base() -> Path:
+    """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor.
+
+    Lets the global install (tools living in the less_tokens source tree) operate on a
+    per-project index by running with cwd set to the target project root.
+    """
+    cwd = Path.cwd().resolve()
+    if (cwd / ".claude" / "tools" / "search_config.py").exists():
+        return cwd
+    return Path(__file__).resolve().parent.parent.parent
+
+
+BASE = _find_base()
 CLAUDE_DIR = BASE / ".claude"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import search_config  # noqa: E402
@@ -612,7 +624,7 @@ def _produces_no_chunks(rel_path: str) -> bool:
 
 
 def _config_path() -> Path:
-    return BASE / "tools" / "search_config.py"
+    return BASE / ".claude" / "tools" / "search_config.py"
 
 
 def switch_model(model: str, dim: int) -> int:

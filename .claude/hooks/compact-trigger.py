@@ -16,10 +16,19 @@ from pathlib import Path
 def _resolve_repo() -> Path:
     if os.environ.get("LESS_TOKENS_REPO"):
         return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
+    # Per-project install: walk up from __file__
     curr = Path(__file__).resolve().parent
     for _ in range(4):
         if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
             return curr
+        curr = curr.parent
+    # Global install fallback: hooks live outside the project tree, so walk up from cwd
+    curr = Path.cwd().resolve()
+    for _ in range(10):
+        if (curr / ".git").exists() or (curr / "CLAUDE.md").exists():
+            return curr
+        if curr == curr.parent:
+            break
         curr = curr.parent
     return Path(__file__).resolve().parent.parent.parent
 

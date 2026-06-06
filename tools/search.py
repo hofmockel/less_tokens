@@ -18,7 +18,15 @@ from pathlib import Path
 
 import numpy as np
 
-BASE = Path(__file__).parent.parent.parent
+def _find_base() -> Path:
+    """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor."""
+    cwd = Path.cwd().resolve()
+    if (cwd / ".claude" / "tools" / "search_config.py").exists():
+        return cwd
+    return Path(__file__).resolve().parent.parent.parent
+
+
+BASE = _find_base()
 CLAUDE_DIR = BASE / ".claude"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from db import connect_index  # noqa: E402
