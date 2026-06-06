@@ -30,10 +30,10 @@ jobs:
         run: pip install numpy pytest
 
       - name: Run unit tests
-        run: pytest tests/unit/ -v
+        run: pytest .claude/tests/unit/ -v
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v
+        run: pytest .claude/tests/integration/ -v
 
   # ---------------------------------------------------------------------------
   # Perf benchmarks: fastembed required, ubuntu only, model cached
@@ -59,11 +59,11 @@ jobs:
         run: pip install fastembed numpy pytest
 
       - name: Run perf benchmarks
-        run: pytest tests/perf/ -v -m perf
+        run: pytest .claude/tests/perf/ -v -m perf
 
       - name: Upload perf results
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: perf-results-${{ github.run_id }}
-          path: tests/perf/latest.json
+          path: .claude/tests/perf/latest.json

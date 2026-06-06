@@ -31,7 +31,7 @@ jobs:
         run: pip install numpy pytest
 
       - name: Run stats unit tests
-        run: pytest tests/unit/test_stats.py -v
+        run: pytest .claude/tests/unit/test_stats.py -v
 
   # ---------------------------------------------------------------------------
   # Enable tracking, generate synthetic events, produce a savings report
@@ -51,7 +51,7 @@ jobs:
         run: pip install numpy
 
       - name: Enable token tracking
-        run: python tools/stats.py --enable
+        run: python .claude/tools/stats.py --enable
 
       - name: Generate synthetic savings events
         run: |
@@ -63,8 +63,8 @@ jobs:
           append({"strategy": "truncation", "tool": "Bash",   "original_chars": 14200, "saved_chars": 10200})
           append({"strategy": "truncation", "tool": "Read",   "original_chars":  9800, "saved_chars":  5800})
           append({"strategy": "truncation", "tool": "Bash",   "original_chars":  6100, "saved_chars":  2100})
-          append({"strategy": "search-blocked", "file": "tools/embeddings.py", "saved_chars": 18400})
-          append({"strategy": "search-blocked", "file": "tools/search.py",     "saved_chars":  4200})
+          append({"strategy": "search-blocked", "file": ".claude/tools/embeddings.py", "saved_chars": 18400})
+          append({"strategy": "search-blocked", "file": ".claude/tools/search.py",     "saved_chars":  4200})
           append({"strategy": "search", "query": "chunk python AST", "chunk_chars": 1400, "full_file_chars": 18400, "saved_chars": 17000})
           append({"strategy": "search", "query": "cosine similarity", "chunk_chars":  900, "full_file_chars":  4200, "saved_chars":  3300})
           append({"strategy": "compaction", "transcript_chars": 620000, "saved_chars": 0})
@@ -72,10 +72,10 @@ jobs:
           EOF
 
       - name: Show session stats
-        run: python tools/stats.py
+        run: python .claude/tools/stats.py
 
       - name: Generate savings report
-        run: python tools/stats.py --report
+        run: python .claude/tools/stats.py --report
 
       - name: Show report contents
         run: cat .claude/state/savings-report.md
@@ -89,4 +89,4 @@ jobs:
 
       - name: Reset tracking to default-off
         if: always()
-        run: python tools/stats.py --disable
+        run: python .claude/tools/stats.py --disable

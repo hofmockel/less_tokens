@@ -15,7 +15,7 @@ Code blocks still normal — only prose go caveman.
 
 ## Search before Read
 
-Index covers `tools/`, `tests/`, `schema/`, and root `*.md` files. Before reading any indexed file, run a search:
+Index covers root `*.md` files. Before reading any indexed file, run a search:
 
 ```bash
 /search <query>
@@ -27,7 +27,7 @@ The `search-first` hook enforces this within the 300s gate window. Use `/build-i
 
 ## Project purpose
 
-This is a **toolkit** — it is installed *into other projects*, not run here directly. less_tokens is cloned *into* a host project (e.g. `~/myproject/less_tokens/`) and `install.py` targets the parent directory (`~/myproject/`), deploying `tools/` → `.claude/tools/`, `schema/` → `.claude/schema/`, hooks → `.claude/hooks/`, venv → `.claude/.venv-tokens/`, and `index.db` → `.claude/index.db`. Re-running `install.py` after `git pull` upgrades the install in place. The four token-reduction strategies it deploys are: vector search (search before Read), caveman mode (terse output), tool output truncation, and session compaction.
+This is a **toolkit** — it is installed *into other projects*, not run here directly. less_tokens is cloned *into* a host project (e.g. `~/myproject/less_tokens/`) and `install.py` targets the parent directory (`~/myproject/`), deploying `.claude/tools/` → `.claude/tools/`, `.claude/schema/` → `.claude/schema/`, `.claude/hooks/` → `.claude/hooks/`, venv → `.claude/.venv-tokens/`, and `index.db` → `.claude/index.db`. Re-running `install.py` after `git pull` upgrades the install in place. The four token-reduction strategies it deploys are: vector search (search before Read), caveman mode (terse output), tool output truncation, and session compaction.
 
 ## Commands
 
@@ -36,19 +36,19 @@ This is a **toolkit** — it is installed *into other projects*, not run here di
 ```bash
 # Unit + integration (no fastembed needed — matches CI)
 pip install numpy pytest
-pytest tests/unit/ -v
-pytest tests/integration/ -v
+pytest .claude/tests/unit/ -v
+pytest .claude/tests/integration/ -v
 
 # Single test
-pytest tests/unit/test_chunkers.py -v
-pytest tests/unit/test_chunkers.py::<test_name> -v
+pytest .claude/tests/unit/test_chunkers.py -v
+pytest .claude/tests/unit/test_chunkers.py::<test_name> -v
 
 # Perf benchmarks (require fastembed; marker-gated, ubuntu-only in CI)
 pip install fastembed numpy pytest
-pytest tests/perf/ -v -m perf
+pytest .claude/tests/perf/ -v -m perf
 ```
 
-pytest is configured in `pyproject.toml` (`testpaths=["tests"]`, `pythonpath=["."]`). CI
+pytest is configured in `pyproject.toml` (`testpaths=[".claude/tests"]`, `pythonpath=[".", ".claude"]`). CI
 (`.github/workflows/tests.yml`) runs unit + integration on Python 3.9/3.11/3.12 × 3 OS.
 
 ### End-to-end verification
@@ -77,26 +77,45 @@ python3 install.py --target /path/to/scratch --yes --build
 
 ## Architecture
 
+All source now lives under `.claude/`:
+
+```
+.claude/
+  hooks/           ← PreToolUse / PostToolUse hooks (strategies 1–5)
+  rules/           ← Output style rules (caveman.md)
+  skills/          ← Claude Code skills
+    bug-hunt/      ← Bug-hunt protocol (SKILL.md + bughuntlog.md)
+  tools/           ← Core Python scripts deployed to host projects
+  schema/          ← SQL schema deployed to host projects
+  tests/           ← Unit, integration, and perf test suites
+  commands/        ← /build-index and /search slash commands
+```
+
 ### Layer split
 
-The codebase has a clean two-layer split:
+**Agent-agnostic core (`.claude/tools/` and `.claude/schema/`)**
+- `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold
+- `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
+- `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
+- `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
+- `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
 
-**Agent-agnostic core (deployed to `.claude/tools/` and `.claude/schema/`)**
-- `tools/search_config.py` → `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold
-- `tools/embeddings.py` → `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
-- `tools/search.py` → `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
-- `tools/db.py` → `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
-- `schema/index.sql` → `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
-
-**Claude Code hook layer (`hooks/`)**
+**Claude Code hook layer (`.claude/hooks/`)**
 - All hooks read a JSON payload from stdin and exit `0` (pass) or `2` (block/replace)
-- `hooks/search-first.py` — PreToolUse on `Read`; blocks if the file is indexed and no search ran within `WINDOW_SECONDS` (300s hardcoded)
-- `hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
-- `hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines strategy; others use 60/40 char split)
-- `hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; has 25% hysteresis via `.claude/state/compact-trigger-last`
-- `hooks/caveman-reminder.py` — PostToolUse on `.*`; nudges back to terse output if filler phrases detected
+- `.claude/hooks/search-first.py` — PreToolUse on `Read`; blocks if the file is indexed and no search ran within `WINDOW_SECONDS` (300s hardcoded)
+- `.claude/hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
+- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines strategy; others use 60/40 char split)
+- `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; has 25% hysteresis via `.claude/state/compact-trigger-last`
+- `.claude/hooks/caveman-reminder.py` — PostToolUse on `.*`; nudges back to terse output if filler phrases detected
 
-Hooks are unit-tested by importing them as modules via `tests/conftest.py:load_hook()` (it puts `tools/` on `sys.path` so the source tools are importable during tests, then execs the hook file). Keep hook logic importable — no side effects at module load.
+**Rules (`.claude/rules/`)**
+- `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
+
+**Skills (`.claude/skills/`)**
+- `.claude/skills/bug-hunt/SKILL.md` — bug-hunt protocol: severity rubric, stop rule, agent prompt template
+- `.claude/skills/bug-hunt/bughuntlog.md` — hunt round history
+
+Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.py:load_hook()` (it puts `.claude/tools/` on `sys.path` so the source tools are importable during tests, then execs the hook file). Keep hook logic importable — no side effects at module load.
 
 ### State directory
 
@@ -109,7 +128,7 @@ Hooks are unit-tested by importing them as modules via `tests/conftest.py:load_h
 | `.py` | `chunk_python` — AST parse | top-level `def`/`class`/`UPPER_CASE` |
 | `.md` | `chunk_markdown` — regex H1/H2/H3 | heading sections |
 | `CHANGELOG.md` | `chunk_changelog` — `## YYYY-MM-DD` headers | **Note:** Keep a Changelog format (`## [v] - date`) won't match; falls back to `chunk_markdown` (known bug) |
-| `.sql` | `chunk_sql` — split on `;\n` | CREATE TABLE/VIEW/INDEX name | 
+| `.sql` | `chunk_sql` — split on `;\n` | CREATE TABLE/VIEW/INDEX name |
 
 ## Backlog and changelog lifecycle
 
@@ -121,7 +140,7 @@ The README reflects what the project *is today*; anything in both README and BAC
 
 ## Known bugs worth avoiding
 
-- `is_indexed()` logic differs between `hooks/search-first.py:74` and `hooks/index-refresh.py:37` — mid-path excluded dirs behave differently in each
+- `is_indexed()` logic differs between `.claude/hooks/search-first.py:74` and `.claude/hooks/index-refresh.py:37` — mid-path excluded dirs behave differently in each
 
 ## graphify
 

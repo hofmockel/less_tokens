@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+testpaths = [".claude/tests"]
+pythonpath = [".", ".claude"]
 markers = [
     "perf: token performance benchmarks — require fastembed; run on ubuntu CI only",
 ]

@@ -43,7 +43,7 @@ so only search_config.py + index.db live in the target project.
                         no venv is found
     --skip-deps         skip pip install of fastembed + numpy
     --no-build          copy config but skip the index build (build later with
-                        python3 tools/embeddings.py refresh)
+                        python3 .claude/tools/embeddings.py refresh)
     --no-gitignore      skip adding index.db / .claude/state/ to .gitignore
     --dry-run           preview without writing anything
     --uninstall         remove search_config.py from --target; use
@@ -394,11 +394,11 @@ _DEFAULT_INDEXED_SOURCE_DIRS = ()
 def _discover_source_dirs(target_root: Path) -> list[str]:
     """Top-level directories under target_root that contain any `.py` file.
 
-    Skips hidden dirs, venvs, caches, the less_tokens-owned `tools/` /
-    `schema/` (those are the defaults), and any directory that is itself
-    a git repo (has a .git entry) — those are sibling repos, not source
-    dirs of the host project. Returns paths with a trailing slash to
-    match INDEXED_SOURCE_DIRS conventions, alpha-sorted.
+    Skips hidden dirs (including .claude/), venvs, caches, and any
+    directory that is itself a git repo (has a .git entry) — those are
+    sibling repos, not source dirs of the host project. Returns paths
+    with a trailing slash to match INDEXED_SOURCE_DIRS conventions,
+    alpha-sorted.
     """
     found: list[str] = []
     try:
@@ -428,8 +428,8 @@ def patch_indexed_source_dirs(
     """Rewrite INDEXED_SOURCE_DIRS in search_config.py for the host repo.
 
     Conservative — same posture as patch_venv_py: only patches when the
-    existing value still matches the source default (("tools/",
-    "schema/")). User customizations are preserved.
+    existing value matches the source default (empty tuple). User
+    customizations are preserved.
 
     Returns the new tuple (sorted) on a successful write, or None if:
     - the existing value is customized
@@ -747,42 +747,23 @@ def _iter_tree_files(src: Path, exclude: frozenset[str] = frozenset()):
 # tools tree because it is handled (and, on uninstall, preserved) separately.
 def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
     specs = [
-        ("tools",  ".claude/tools",  frozenset({"search_config.py"})),
-        ("schema", ".claude/schema", frozenset()),
+        (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
+        (".claude/schema", ".claude/schema", frozenset()),
         (".claude/hooks",  ".claude/hooks",  frozenset()),
     ]
     if caveman:
-        specs.append(("caveman", "caveman", frozenset()))
+        specs.append((".claude/rules", ".claude/rules", frozenset()))
     return specs
 
 
 def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
     """Host-owned files sitting in a tree we would merge into.
 
-    Only tools/, schema/, caveman/ are gated: a host package at tools/ can
-    shadow our modules on sys.path, and a host schema/ can clash. .claude/hooks/
-    is intentionally NOT gated — it is a shared directory where we add our hook
-    files alongside the host's own hooks, and copy_tree already skips existing
-    files there.
+    .claude/hooks/ is intentionally NOT gated — it is a shared directory
+    where we add our hook files alongside the host's own hooks, and
+    copy_tree already skips existing files there.
     """
-    gated = ["caveman"] if caveman else []
-    foreign: list[str] = []
-    for sub in gated:
-        dstdir = target_root / sub
-        if not dstdir.is_dir():
-            continue
-        ours = {
-            str(rel) for rel in _iter_tree_files(source / sub)
-        } | ({"search_config.py"} if sub == "tools" else set())
-        for f in dstdir.rglob("*"):
-            if not f.is_file():
-                continue
-            rel = f.relative_to(dstdir)
-            if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
-                continue
-            if str(rel) not in ours:
-                foreign.append(f"{sub}/{rel.as_posix()}")
-    return sorted(foreign)
+    return []
 
 
 def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Path]:
@@ -924,7 +905,7 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
             removed += 1
 
     # Prune now-empty directories we created.
-    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", "caveman"):
+    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"):
         d = target_root / sub
         if d.is_dir() and not any(d.iterdir()):
             print(f"  {'would remove' if dry else '-'} {sub}/ (empty)")
@@ -973,7 +954,7 @@ def main() -> int:
     ap.add_argument("--force-hooks", action="store_true",
                     help="overwrite .claude/hooks/ files that match the source")
     ap.add_argument("--force-tools", action="store_true",
-                    help="overwrite tools/ and schema/ files that match the source")
+                    help="overwrite .claude/tools/ and .claude/schema/ files that match the source")
     ap.add_argument("--force-config", action="store_true",
                     help="overwrite search_config.py if it matches the source")
     ap.add_argument("--overwrite-modified", action="store_true",
@@ -990,7 +971,7 @@ def main() -> int:
                     help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="copy caveman/ and wire caveman-reminder hook")
+                    help="copy .claude/rules/ and wire caveman-reminder hook")
     ap.add_argument("--truncate", action="store_true",
                     help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",
@@ -999,7 +980,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="show exactly what would change without writing anything")
     ap.add_argument("--allow-merge", action="store_true",
-                    help="proceed even if tools/ or schema/ already contain non-less_tokens files")
+                    help="proceed even if .claude/tools/ or .claude/schema/ already contain non-less_tokens files")
     ap.add_argument("--local", action="store_true",
                     help="wire hooks into .claude/settings.local.json (personal / "
                          "untracked) instead of the project-shared .claude/settings.json. "
@@ -1011,7 +992,7 @@ def main() -> int:
     ap.add_argument("--update", action="store_true",
                     help="safe upgrade: re-copy hook and tool files (implies "
                          "--force-hooks --force-tools --overwrite-modified) "
-                         "but never touch tools/search_config.py or index.db. "
+                         "but never touch .claude/tools/search_config.py or index.db. "
                          "Incompatible with --force-config and --build.")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
@@ -1025,7 +1006,7 @@ def main() -> int:
     if args.update:
         if args.force_config or args.force:
             print("ERROR: --update cannot be combined with --force-config / --force "
-                  "(--update never overwrites tools/search_config.py).",
+                  "(--update never overwrites .claude/tools/search_config.py).",
                   file=sys.stderr)
             return 1
         # --update implies --no-build to simplify CI and manual upgrades
@@ -1113,44 +1094,37 @@ def main() -> int:
         return 1
     print(f"  Using venv: {venv_dir}")
 
-    # Namespace-collision guard: refuse to merge into a host's own tools/ or
-    # schema/ (sys.path shadowing / schema clashes) unless --allow-merge.
-    # Still before any writes.
     foreign = _foreign_files(SOURCE, target_root, args.caveman)
     if foreign and not args.allow_merge:
         print("\nERROR: the target already contains files that are not part of "
               "less_tokens:", file=sys.stderr)
         for f in foreign:
             print(f"    {f}", file=sys.stderr)
-        print("\nMerging less_tokens into these directories could shadow them on "
-              "sys.path", file=sys.stderr)
-        print("or clash with the host schema. Re-run with --allow-merge to proceed "
-              "anyway,", file=sys.stderr)
-        print("or install into a project without a top-level tools//schema/ of its "
-              "own. (Nothing was written.)", file=sys.stderr)
+        print("\nRe-run with --allow-merge to proceed anyway. (Nothing was written.)",
+              file=sys.stderr)
         return 1
 
     # ------------------------------------------------------------------
     # Step 2: Copy files
     # ------------------------------------------------------------------
     print(f"\n{tag}[2/5] Copying files...")
-    changes += copy_tree(SOURCE / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
+    changes += copy_tree(SOURCE / ".claude" / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
               ".claude/tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     if args.update and (target_root / ".claude" / "tools" / "search_config.py").exists():
         print("  + .claude/tools/search_config.py (preserved — --update never touches it)")
     else:
         handle_search_config(
-            SOURCE / "tools" / "search_config.py",
+            SOURCE / ".claude" / "tools" / "search_config.py",
             target_root / ".claude" / "tools" / "search_config.py",
             target_root,
             force_config, overwrite_modified, dry_run=dry,
         )
-    changes += copy_tree(SOURCE / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
+    changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
     changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
               target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
     if args.caveman:
-        changes += copy_tree(SOURCE / "caveman", target_root / "caveman",
-                  target_root, force_tools, overwrite_modified, "caveman/", dry_run=dry)
+        changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
+                  target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,
@@ -1159,7 +1133,7 @@ def main() -> int:
     dst_cfg = target_root / ".claude" / "tools" / "search_config.py"
     if not args.update:
         venv_py_patched = patch_venv_py(
-            dst_cfg, SOURCE / "tools" / "search_config.py", target_root, venv_dir,
+            dst_cfg, SOURCE / ".claude" / "tools" / "search_config.py", target_root, venv_dir,
             dry_run=dry,
         )
         if venv_py_patched is not None:
@@ -1281,7 +1255,7 @@ def main() -> int:
             print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
-            print("       cat caveman/caveman.md >> CLAUDE.md")
+            print("       cat .claude/rules/caveman.md >> CLAUDE.md")
     print("\nNOTE: the search-first PreToolUse hook is now active. Any")
     print("  already-running Claude session in this project will start")
     print("  blocking Read on indexed files (root *.md, configured source dirs)")

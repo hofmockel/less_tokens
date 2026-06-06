@@ -57,12 +57,12 @@ jobs:
           import json, os, sys
           from pathlib import Path
           host = Path(os.environ["HOST"])
-          for d in ("tools", "schema", ".claude/hooks"):
+          for d in (".claude/tools", ".claude/schema", ".claude/hooks"):
               assert (host / d).is_dir(), f"missing dir: {d}"
           assert (host / ".claude/settings.json").is_file(), "missing settings.json"
-          assert (host / "index.db").is_file(), "missing index.db"
+          assert (host / ".claude/index.db").is_file(), "missing index.db"
 
-          cfg = (host / "tools/search_config.py").read_text(encoding="utf-8")
+          cfg = (host / ".claude/tools/search_config.py").read_text(encoding="utf-8")
           assert '_venv_python(".venv")' in cfg, f"VENV_PY auto-patch missing\n{cfg}"
 
           settings = json.loads((host / ".claude/settings.json").read_text(encoding="utf-8"))
@@ -94,8 +94,8 @@ jobs:
           PY
           python -m venv "$HOST2/.venv"
           python "$HOST/less_tokens/install.py" --target "$HOST2" --skip-deps
-          test -d "$HOST2/tools" || { echo "FAIL: $HOST2/tools missing"; exit 1; }
-          grep -q '_venv_python(".venv")' "$HOST2/tools/search_config.py" \
+          test -d "$HOST2/.claude/tools" || { echo "FAIL: $HOST2/.claude/tools missing"; exit 1; }
+          grep -q '_venv_python(".venv")' "$HOST2/.claude/tools/search_config.py" \
             || { echo "FAIL: VENV_PY not patched in --target install"; exit 1; }
 
       - name: "Scenario D — sanity check aborts when parent is \\$HOME"
