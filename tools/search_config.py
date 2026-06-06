@@ -61,7 +61,7 @@ EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
 
 # Subdirectories whose *.py and *.sql files are indexed.
 # Also used by hooks to gate the search-first and auto-refresh rules.
-INDEXED_SOURCE_DIRS: tuple[str, ...] = ()
+INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "tests/", "schema/")
 
 # Root-level glob patterns that are also indexed (hooks use this too).
 # Supports recursive patterns via pathlib's `**`, e.g. "docs/**/*.md" or
@@ -103,7 +103,7 @@ MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 # recommended default `k` and warns if returned chunks risk filling the
 # context window. When None, the static DEFAULT_K (3) applies. Example:
 #   AGENT_MODEL = "claude-sonnet-4-6"
-AGENT_MODEL: str | None = None
+AGENT_MODEL: str | None = "claude-sonnet-4-6"
 
 STATE_DIR: Path = CLAUDE_DIR / "state"
 

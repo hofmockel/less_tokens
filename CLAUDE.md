@@ -2,6 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Output style — Caveman Mode
+
+Talk like caveman. Short sentence. No filler word. No "certainly". No "I'd be happy to". No "Great question!". No padding. No summary at end.
+
+Use noun. Use verb. Skip article when possible. Say what need saying. Stop.
+
+Good: "File not found. Check path."
+Bad: "I apologize, but I was unable to locate the file you specified. Could you please verify the path?"
+
+Code blocks still normal — only prose go caveman.
+
+## Search before Read
+
+Index covers `tools/`, `tests/`, `schema/`, and root `*.md` files. Before reading any indexed file, run a search:
+
+```bash
+/search <query>
+# or directly:
+.claude/.venv-tokens/bin/python .claude/tools/search.py "<query>"
+```
+
+The `search-first` hook enforces this within the 300s gate window. Use `/build-index` to create or refresh the index.
+
 ## Project purpose
 
 This is a **toolkit** — it is installed *into other projects*, not run here directly. less_tokens is cloned *into* a host project (e.g. `~/myproject/less_tokens/`) and `install.py` targets the parent directory (`~/myproject/`), deploying `tools/` → `.claude/tools/`, `schema/` → `.claude/schema/`, hooks → `.claude/hooks/`, venv → `.claude/.venv-tokens/`, and `index.db` → `.claude/index.db`. Re-running `install.py` after `git pull` upgrades the install in place. The four token-reduction strategies it deploys are: vector search (search before Read), caveman mode (terse output), tool output truncation, and session compaction.
