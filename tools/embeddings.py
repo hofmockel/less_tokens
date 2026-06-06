@@ -43,8 +43,9 @@ warnings.filterwarnings(
 
 import numpy as np  # noqa: E402
 
-BASE = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE / "tools"))
+BASE = Path(__file__).parent.parent.parent
+CLAUDE_DIR = BASE / ".claude"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import search_config  # noqa: E402
 from db import connect_index, ensure_current_schema  # noqa: E402
 from search_config import (  # noqa: E402

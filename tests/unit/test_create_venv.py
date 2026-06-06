@@ -1,8 +1,8 @@
-"""Installer can create .venv-tokens in a single pass.
+"""Installer can create .claude/.venv-tokens in a single pass.
 
 Without `--create-venv`, a missing venv aborts the install with an
 instruction to run `python3 -m venv .venv` and re-invoke — a two-step
-dance. The new flag does the venv creation inline.
+dance. The new flag does the venv creation inline inside .claude/.
 """
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ def test_create_venv_helper_runs_python_m_venv(tmp_path, monkeypatch):
         calls.append([str(c) for c in cmd])
         # Simulate venv creation by laying down the python binary.
         target = Path(cmd[-1])
+        target.mkdir(parents=True, exist_ok=True)
         (target / "bin").mkdir(parents=True, exist_ok=True)
         (target / "bin" / "python").write_text("")
         (target / "bin" / "python").chmod(0o755)
@@ -36,14 +37,14 @@ def test_create_venv_helper_runs_python_m_venv(tmp_path, monkeypatch):
 
     monkeypatch.setattr(subprocess, "check_call", fake_check_call)
     venv_dir = install.create_venv(tmp_path)
-    assert venv_dir == tmp_path / ".venv-tokens"
+    assert venv_dir == tmp_path / ".claude" / ".venv-tokens"
     assert calls and calls[0][1:3] == ["-m", "venv"]
     assert calls[0][-1].endswith(".venv-tokens")
     assert install.venv_python(venv_dir).exists()
 
 
 def test_create_venv_helper_refuses_when_target_exists(tmp_path):
-    (tmp_path / ".venv-tokens").mkdir()
+    (tmp_path / ".claude" / ".venv-tokens").mkdir(parents=True)
     # Should not clobber an existing directory — raise instead of
     # quietly recreating, since a pre-existing path may be a partial
     # venv we don't want to overwrite.

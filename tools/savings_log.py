@@ -10,14 +10,15 @@ import sys
 import time
 from pathlib import Path
 
-BASE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(BASE / "tools"))
+BASE = Path(__file__).resolve().parent.parent.parent
+CLAUDE_DIR = BASE / ".claude"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from search_config import STATE_DIR, TRACK_SAVINGS
 except Exception:
     TRACK_SAVINGS = False
-    STATE_DIR = BASE / ".claude" / "state"
+    STATE_DIR = CLAUDE_DIR / "state"
 
 _LOG_FILE = STATE_DIR / "savings.jsonl"
 

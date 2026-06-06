@@ -7,7 +7,8 @@ import os
 import sys
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
+BASE = Path(__file__).parent.parent.parent
+CLAUDE_DIR = BASE / ".claude"
 
 
 def _platform_python(base: Path) -> Path:
@@ -44,7 +45,7 @@ def _venv_python(venv_rel: str) -> Path:
 
 
 # Venv python used for embeddings — change "app/.venv" to your venv location.
-VENV_PY = _venv_python("app/.venv")
+VENV_PY = _venv_python(".claude/.venv-tokens")
 
 # Directory names excluded from indexing if they appear anywhere in the path.
 # Used by embeddings.py and hooks to gate the search-first and auto-refresh rules.
@@ -60,7 +61,7 @@ EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
 
 # Subdirectories whose *.py and *.sql files are indexed.
 # Also used by hooks to gate the search-first and auto-refresh rules.
-INDEXED_SOURCE_DIRS: tuple[str, ...] = ("tools/", "schema/")
+INDEXED_SOURCE_DIRS: tuple[str, ...] = ()
 
 # Root-level glob patterns that are also indexed (hooks use this too).
 # Supports recursive patterns via pathlib's `**`, e.g. "docs/**/*.md" or
@@ -104,7 +105,7 @@ MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 #   AGENT_MODEL = "claude-sonnet-4-6"
 AGENT_MODEL: str | None = None
 
-STATE_DIR: Path = BASE / ".claude" / "state"
+STATE_DIR: Path = CLAUDE_DIR / "state"
 
 # Search-first hook gate: how long after a search Reads on indexed files are
 # allowed without re-searching. Increase for long edit sessions; decrease to

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Installer deploys all artifacts into `.claude/`** — `tools/` → `.claude/tools/`, `schema/` → `.claude/schema/`, `index.db` → `.claude/index.db`, and the venv → `.claude/.venv-tokens/`. Keeps AI-tooling artifacts out of the host project's root directories, making them invisible to linters, import scanners, and source-tree tooling. Each tool script uses a three-level path anchor (`Path(__file__).parent.parent.parent`) to reach the project root from its deployed location under `.claude/tools/`. `INDEXED_SOURCE_DIRS` now defaults to `()` — the installer auto-discovers host Python source dirs, since `tools/` and `schema/` no longer live at the root and are not sensible defaults for host projects
+
 ### Added
 - **`install.py --update`** — safe upgrade path: re-copies `tools/`, `schema/`, and `.claude/hooks/` (implies `--force-hooks --force-tools --overwrite-modified`) but never touches `tools/search_config.py` or `index.db`. Skips the DB init/migrate step and the `VENV_PY` / `INDEXED_SOURCE_DIRS` auto-patches. Rejects `--force-config` / `--force` / `--build` so the safety contract can't be silently violated
 - **Installer auto-patches `INDEXED_SOURCE_DIRS`** — after copying `search_config.py`, the installer scans the host repo for top-level directories containing `.py` files (skipping `.venv*`, `__pycache__`, `node_modules`, etc.) and rewrites the default `("tools/", "schema/")` to that discovered set. Same conservative posture as `patch_venv_py`: only fires when the existing value is still the source default, so user customizations are preserved

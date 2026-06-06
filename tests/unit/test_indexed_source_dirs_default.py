@@ -1,9 +1,8 @@
-"""Guard: the shipped INDEXED_SOURCE_DIRS default must not reintroduce "app/".
+"""Guard: INDEXED_SOURCE_DIRS default must be empty (tools/schema live in .claude/).
 
-The installer never creates an app/ directory, so listing it made fresh
-installs report a health gap for every (absent) file under app/. It was
-removed; this test keeps the stale default from creeping back, and asserts
-CLAUDE.md no longer documents it as a live known bug.
+The installer deploys tools/ and schema/ into .claude/tools/ and .claude/schema/,
+so listing them in the default would cause healthy installs to report coverage
+gaps. The default is () so the installer's auto-discover step fills it per host.
 """
 from __future__ import annotations
 
@@ -15,9 +14,8 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 import search_config  # noqa: E402
 
 
-def test_default_source_dirs_excludes_app():
-    assert "app/" not in search_config.INDEXED_SOURCE_DIRS
-    assert search_config.INDEXED_SOURCE_DIRS == ("tools/", "schema/")
+def test_default_source_dirs_is_empty():
+    assert search_config.INDEXED_SOURCE_DIRS == ()
 
 
 def test_claude_md_known_bugs_drops_stale_app_entry():

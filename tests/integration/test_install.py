@@ -179,7 +179,7 @@ class TestPatchVenvPy:
         dst = self._setup_dst(tmp_path)
         # User edits VENV_PY to a custom path
         text = dst.read_text().replace(
-            'VENV_PY = _venv_python("app/.venv")',
+            'VENV_PY = _venv_python(".claude/.venv-tokens")',
             'VENV_PY = _venv_python(".my-venv")',
         )
         dst.write_text(text)
@@ -287,7 +287,7 @@ class TestUpdateFlag:
         make_fake_venv(tmp_path)
         rc = subprocess.call(
             [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(tmp_path), "--yes", "--skip-deps"],
+             "--target", str(tmp_path), "--yes", "--skip-deps", "--no-build"],
             cwd=str(tmp_path),
         )
         assert rc == 0
@@ -309,7 +309,7 @@ class TestUpdateFlag:
 
     def test_update_preserves_modified_search_config(self, tmp_path):
         target = self._fresh_install(tmp_path)
-        cfg = target / "tools" / "search_config.py"
+        cfg = target / ".claude" / "tools" / "search_config.py"
         custom = cfg.read_text() + "\n# user customization marker\n"
         cfg.write_text(custom)
 
@@ -323,7 +323,8 @@ class TestUpdateFlag:
 
     def test_update_preserves_index_db(self, tmp_path):
         target = self._fresh_install(tmp_path)
-        db = target / "index.db"
+        db = target / ".claude" / "index.db"
+        db.parent.mkdir(parents=True, exist_ok=True)
         db.write_bytes(b"FAKE_DB_SENTINEL_CONTENT")
 
         rc = subprocess.call(

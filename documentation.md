@@ -32,7 +32,7 @@ Re-running after `git pull` performs an in-place upgrade — existing files are 
 
 > By default the installer skips the index build so you can configure `search_config.py` first. Pass `--build` to build immediately (step 3 below covers manual build).
 
-The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into the host project, installs `fastembed` and `numpy`, and initializes `index.db`.
+The installer copies tools and schema into `.claude/tools/` and `.claude/schema/`, deploys hooks into `.claude/hooks/`, installs `fastembed` and `numpy`, and initializes `.claude/index.db`.
 
 **Optional flags:**
 
@@ -52,12 +52,12 @@ The installer copies `tools/`, `schema/`, `.claude/hooks/`, and `caveman/` into 
 
 ## Configuration
 
-**Edit one file:** `tools/search_config.py`
+**Edit one file:** `.claude/tools/search_config.py`
 
 The installer prints the exact line to paste in. At minimum, set your venv path and the source directories to index:
 
 ```python
-# tools/search_config.py
+# .claude/tools/search_config.py
 
 VENV_PY = _venv_python(".venv")               # change to your venv location
 INDEXED_SOURCE_DIRS = ("src/", "schema/")      # dirs whose .py and .sql files get indexed
@@ -78,7 +78,7 @@ All variables:
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
-| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `python tools/stats.py --enable`) |
+| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `python .claude/tools/stats.py --enable`) |
 
 ---
 
@@ -90,10 +90,10 @@ Run this once after configuring, and again whenever you want a full refresh:
 
 ```bash
 # macOS / Linux
-.venv/bin/python tools/embeddings.py refresh
+.venv/bin/python .claude/tools/embeddings.py refresh
 
 # Windows
-.venv\Scripts\python tools/embeddings.py refresh
+.venv\Scripts\python .claude/tools/embeddings.py refresh
 ```
 
 > First run downloads the embedding model (~130 MB to `~/.cache/huggingface`). Subsequent runs are incremental and typically take under a second.
@@ -102,25 +102,25 @@ Run this once after configuring, and again whenever you want a full refresh:
 
 ```bash
 # macOS / Linux
-.venv/bin/python tools/search.py "your query"
+.venv/bin/python .claude/tools/search.py "your query"
 
 # Windows
-.venv\Scripts\python tools/search.py "your query"
+.venv\Scripts\python .claude/tools/search.py "your query"
 ```
 
 **Examples:**
 
 ```bash
-.venv/bin/python tools/search.py "how are imports validated"
-.venv/bin/python tools/search.py "cash floor logic" --source-type code
-.venv/bin/python tools/search.py "deployment steps" -k 5 --json
+.venv/bin/python .claude/tools/search.py "how are imports validated"
+.venv/bin/python .claude/tools/search.py "cash floor logic" --source-type code
+.venv/bin/python .claude/tools/search.py "deployment steps" -k 5 --json
 ```
 
 ### Verify the index
 
 ```bash
-.venv/bin/python tools/embeddings.py health   # exits 1 if any source has no chunks
-.venv/bin/python tools/db.py verify           # prints row counts per source type
+.venv/bin/python .claude/tools/embeddings.py health   # exits 1 if any source has no chunks
+.venv/bin/python .claude/tools/db.py verify           # prints row counts per source type
 ```
 
 ### Token savings tracking
@@ -130,9 +130,9 @@ Track how many chars and tokens each strategy saves across a session.
 Tracking is **off by default**. Enable it with:
 
 ```bash
-python tools/stats.py --enable    # non-interactive
+python .claude/tools/stats.py --enable    # non-interactive
 # or
-python tools/stats.py             # interactive prompt
+python .claude/tools/stats.py             # interactive prompt
 ```
 
 Once enabled, each hook call appends one JSON record to `.claude/state/savings.jsonl`.
@@ -140,16 +140,16 @@ Once enabled, each hook call appends one JSON record to `.claude/state/savings.j
 **Commands:**
 
 ```bash
-python tools/stats.py              # show session table (last 8h)
-python tools/stats.py --all        # show all-time totals
-python tools/stats.py --report     # write .claude/state/savings-report.md and print table
-python tools/stats.py --disable    # turn tracking off
+python .claude/tools/stats.py              # show session table (last 8h)
+python .claude/tools/stats.py --all        # show all-time totals
+python .claude/tools/stats.py --report     # write .claude/state/savings-report.md and print table
+python .claude/tools/stats.py --disable    # turn tracking off
 ```
 
 Also accessible as:
 
 ```bash
-.venv/bin/python tools/embeddings.py savings
+.venv/bin/python .claude/tools/embeddings.py savings
 ```
 
 **Example output:**
@@ -194,8 +194,8 @@ Before and after example:
 
 Before reading any indexed file in full, run vector search first:
 
-    .venv/bin/python tools/search.py "QUERY"     # macOS/Linux
-    .venv\Scripts\python tools/search.py "QUERY"  # Windows
+    .venv/bin/python .claude/tools/search.py "QUERY"     # macOS/Linux
+    .venv\Scripts\python .claude/tools/search.py "QUERY"  # Windows
 
 Indexed sources: [list your dirs here]
 
@@ -244,7 +244,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 }
 ```
 
-Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
+Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
 
 **Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
 
@@ -255,32 +255,33 @@ Tune the ceiling in `tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (defaul
 }
 ```
 
-Tune in `tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). The hook has built-in hysteresis — once tripped it only re-fires after the transcript grows by another 25%.
+Tune in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). The hook has built-in hysteresis — once tripped it only re-fires after the transcript grows by another 25%.
 
 ### 3. Optional: session-start preflight
 
 ```bash
-.venv/bin/python tools/embeddings.py refresh   # incremental, ~1s when nothing changed
-.venv/bin/python tools/embeddings.py health    # fail fast if index is stale
+.venv/bin/python .claude/tools/embeddings.py refresh   # incremental, ~1s when nothing changed
+.venv/bin/python .claude/tools/embeddings.py health    # fail fast if index is stale
 ```
 
 ---
 
 ## Repository layout
 
+**Source repo** (`less_tokens/`):
 ```
-less_tokens_claude/
+less_tokens/
 ├── install.py                 # cross-platform installer
-├── tools/
-│   ├── search_config.py       # ← only file to edit when porting
+├── tools/                     # deployed to .claude/tools/
+│   ├── search_config.py       # ← only file to edit after install
 │   ├── embeddings.py          # build/refresh the vector index
 │   ├── search.py              # semantic search CLI
 │   ├── db.py                  # SQLite helpers
 │   ├── savings_log.py         # per-event savings logger (used by hooks)
 │   └── stats.py               # savings tracker CLI (enable / report / disable)
-├── schema/
+├── schema/                    # deployed to .claude/schema/
 │   └── index.sql              # documents table schema
-├── hooks/
+├── hooks/                     # deployed to .claude/hooks/
 │   ├── search-first.py        # PreToolUse: gate Read on indexed files
 │   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
 │   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
@@ -288,6 +289,19 @@ less_tokens_claude/
 │   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
 └── caveman/
     └── caveman.md             # CLAUDE.md snippet for caveman output style
+```
+
+**Deployed layout** (inside the host project's `.claude/`):
+```
+<host-project>/
+├── .claude/
+│   ├── .venv-tokens/          # isolated Python env for fastembed/numpy
+│   ├── hooks/                 # hook scripts (wired in settings.json)
+│   ├── index.db               # SQLite vector index (regenerable)
+│   ├── schema/                # index.sql schema
+│   ├── state/                 # runtime state (last-search, logs)
+│   └── tools/                 # search_config.py, embeddings.py, search.py, …
+└── less_tokens/               # the clone; not touched after install
 ```
 
 ---
@@ -346,16 +360,16 @@ Items tracked for future documentation improvement.
 
 ### High Priority
 
-- **No troubleshooting section** — the three most common failure modes (fastembed download fails on first run, wrong venv path in `search_config.py`, empty index returning no results) have no documented recovery steps anywhere
+- **No troubleshooting section** — the three most common failure modes (fastembed download fails on first run, wrong venv path in `.claude/tools/search_config.py`, empty index returning no results) have no documented recovery steps anywhere
 
 ### Medium Priority
 
 - **Wiring section shows separate JSON blocks** — users must manually merge hook entries; JSON merging is a common error source; should show one complete unified `settings.local.json` block
 - **`index-refresh.log` is never mentioned** — background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere; users can't diagnose silent refresh failures without reading source
-- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `<venv-python> tools/embeddings.py refresh`
+- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `<venv-python> .claude/tools/embeddings.py refresh`
 - **CONTRIBUTING.md verification step has no specifics** — should list concrete commands to run and what passing looks like
 - **`EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` not explained** — both exclude dirs but via different mechanisms; distinction trips up new users
-- **`WINDOW_SECONDS` not documented** — the 5-minute search-gate window is mentioned in passing; no explanation it's hardcoded or where to change it
+- **`WINDOW_SECONDS` not documented** — the 5-minute search-gate window is mentioned in passing; no explanation it's configurable in `.claude/tools/search_config.py`
 - **Empty search result behavior not explained** — README mentions fallback conditions but not whether the gate lifts automatically or Claude must detect the empty result
 - **CHANGELOG format vs `chunk_changelog` mismatch not noted** — chunker's date-only regex won't match `## [version] - date` headers; developers won't know the index is silently not splitting correctly
 

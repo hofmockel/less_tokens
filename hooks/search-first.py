@@ -33,7 +33,7 @@ _config: dict = {}
 def _load_config() -> bool:
     """Load search_config into _config. Returns False (and warns) on failure."""
     try:
-        sys.path.insert(0, str(REPO / "tools"))
+        sys.path.insert(0, str(REPO / ".claude" / "tools"))
         import search_config  # noqa: E402
         _config["excluded_prefixes"] = search_config.EXCLUDED_DIR_PREFIXES
         _config["excluded_names"] = search_config.EXCLUDED_DIR_NAMES
@@ -116,7 +116,7 @@ def main() -> int:
     msg = (
         f"Search-first rule (CLAUDE.md): {rel} is indexed.\n"
         f"Run vector search before Read:\n"
-        f"  {venv_py} tools/search.py \"<your query>\"\n"
+        f"  {venv_py} .claude/tools/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
         f"{_config.get('window_seconds', 300)}s. If you need to edit this file, search first to "
         f"satisfy the gate, then Read + Edit normally."

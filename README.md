@@ -19,7 +19,7 @@ Claude's token waste comes from four sources: reading entire files when only a f
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40–80% fewer tool-output tokens |
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions |
 
-All four strategies are opt-in and independent — use any combination. A built-in **savings tracker** (`tools/stats.py`) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+All four strategies are opt-in and independent — use any combination. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 ```
 Without less_tokens:           With less_tokens:
@@ -41,11 +41,25 @@ git clone https://github.com/<you>/less_tokens.git
 python3 less_tokens/install.py            # installs into ~/myproject
 ```
 
+After install, all artifacts land under `.claude/` to keep the project root clean:
+
+```
+~/myproject/
+├── .claude/
+│   ├── .venv-tokens/   # fastembed + numpy
+│   ├── hooks/          # Claude Code hook scripts
+│   ├── index.db        # vector index
+│   ├── schema/         # SQL schema
+│   ├── state/          # runtime state (last-search, savings log, …)
+│   └── tools/          # search.py, embeddings.py, db.py, stats.py, …
+└── less_tokens/        # this clone — unchanged after install
+```
+
 Upgrade an existing install the same way:
 
 ```bash
 cd ~/myproject/less_tokens && git pull
-python3 install.py                         # idempotent re-run
+python3 install.py --update                # safe re-copy of hooks + tools
 ```
 
 See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions.

@@ -18,8 +18,9 @@ from pathlib import Path
 
 import numpy as np
 
-BASE = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE / "tools"))
+BASE = Path(__file__).parent.parent.parent
+CLAUDE_DIR = BASE / ".claude"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from db import connect_index  # noqa: E402
 from embeddings import DIM, embed, unpack_vectors  # noqa: E402
 import search_config  # noqa: E402

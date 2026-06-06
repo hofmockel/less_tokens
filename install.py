@@ -95,7 +95,7 @@ def detect_venv(target_root: Path) -> Path | None:
         d = Path(env)
         if venv_python(d).exists():
             return d
-    for candidate in [".venv-tokens", ".venv", "venv", "env", "app/.venv"]:
+    for candidate in [".claude/.venv-tokens", ".venv-tokens", ".venv", "venv", "env", "app/.venv"]:
         d = target_root / candidate
         if venv_python(d).exists():
             return d
@@ -109,7 +109,7 @@ def create_venv(target_root: Path) -> Path:
     don't want to clobber). Returns the venv directory; caller should
     follow up with `pip install` of dependencies.
     """
-    venv_dir = target_root / ".venv-tokens"
+    venv_dir = target_root / ".claude" / ".venv-tokens"
     if venv_dir.exists():
         raise FileExistsError(
             f"{venv_dir} already exists; pass --venv {venv_dir} to use it "
@@ -392,7 +392,7 @@ _SOURCE_DIR_EXCLUDE = frozenset({
     ".ruff_cache", "htmlcov", "site-packages",
 })
 
-_DEFAULT_INDEXED_SOURCE_DIRS = ("tools/", "schema/")
+_DEFAULT_INDEXED_SOURCE_DIRS = ()
 
 
 def _discover_source_dirs(target_root: Path) -> list[str]:
@@ -635,7 +635,7 @@ def install_deps(venv_py: Path, dry_run: bool = False) -> tuple[int, bool]:
 
 def _index_db_at_current_schema(target_root: Path) -> bool:
     """True iff index.db exists and schema_version reports the current version."""
-    db = target_root / "index.db"
+    db = target_root / ".claude" / "index.db"
     if not db.exists():
         return False
     try:
@@ -658,7 +658,7 @@ def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[in
     print("\n[4/5] Initializing / migrating index.db...")
     try:
         subprocess.check_call(
-            [str(venv_py), "tools/db.py", "init"], cwd=target_root
+            [str(venv_py), ".claude/tools/db.py", "init"], cwd=target_root
         )
         return 0, True
     except subprocess.CalledProcessError as e:
@@ -674,7 +674,7 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
     print("\nBuilding initial embeddings (first run downloads ~130 MB model)...")
     try:
         subprocess.check_call(
-            [str(venv_py), "tools/embeddings.py", "refresh"], cwd=target_root
+            [str(venv_py), ".claude/tools/embeddings.py", "refresh"], cwd=target_root
         )
     except subprocess.CalledProcessError as e:
         print(f"  refresh failed (exit {e.returncode})", file=sys.stderr)
@@ -687,7 +687,7 @@ def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
     print("\nVerifying index is queryable...")
     try:
         subprocess.check_call(
-            [str(venv_py), "tools/embeddings.py", "stats"], cwd=target_root
+            [str(venv_py), ".claude/tools/embeddings.py", "stats"], cwd=target_root
         )
     except subprocess.CalledProcessError as e:
         print(f"  smoke check failed (exit {e.returncode}); "
@@ -751,9 +751,9 @@ def _iter_tree_files(src: Path, exclude: frozenset[str] = frozenset()):
 # tools tree because it is handled (and, on uninstall, preserved) separately.
 def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
     specs = [
-        ("tools",  "tools",         frozenset({"search_config.py"})),
-        ("schema", "schema",        frozenset()),
-        ("hooks",  ".claude/hooks", frozenset()),
+        ("tools",  ".claude/tools",  frozenset({"search_config.py"})),
+        ("schema", ".claude/schema", frozenset()),
+        ("hooks",  ".claude/hooks",  frozenset()),
     ]
     if caveman:
         specs.append(("caveman", "caveman", frozenset()))
@@ -769,7 +769,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
     files alongside the host's own hooks, and copy_tree already skips existing
     files there.
     """
-    gated = ["tools", "schema"] + (["caveman"] if caveman else [])
+    gated = ["caveman"] if caveman else []
     foreign: list[str] = []
     for sub in gated:
         dstdir = target_root / sub
@@ -805,7 +805,7 @@ def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Pa
 
 _GI_START = "# >>> less_tokens (generated artifacts) >>>"
 _GI_END = "# <<< less_tokens <<<"
-_GI_PATHS = ["/index.db", "/index.db-wal", "/index.db-shm", "/.claude/state/"]
+_GI_PATHS = ["/.claude/index.db", "/.claude/index.db-wal", "/.claude/index.db-shm", "/.claude/state/"]
 
 
 def _gitignore_block() -> str:
@@ -826,7 +826,7 @@ def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
         print("  + .gitignore: less_tokens block already present")
         return 0
     if not want:
-        print("\n  Note: --no-gitignore set; index.db and .claude/state/ will "
+        print("\n  Note: --no-gitignore set; .claude/index.db and .claude/state/ will "
               "show as untracked in this git repo unless you add them to "
               ".gitignore yourself or commit them deliberately.")
         return 0
@@ -926,7 +926,7 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
             removed += 1
 
     # Prune now-empty directories we created.
-    for sub in ("tools", "schema", ".claude/hooks", "caveman"):
+    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", "caveman"):
         d = target_root / sub
         if d.is_dir() and not any(d.iterdir()):
             print(f"  {'would remove' if dry else '-'} {sub}/ (empty)")
@@ -938,17 +938,17 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
 
     if args.purge_index:
         for n in ("index.db", "index.db-wal", "index.db-shm"):
-            p = target_root / n
+            p = target_root / ".claude" / n
             if p.exists():
-                print(f"  {'would remove' if dry else '-'} {n}")
+                print(f"  {'would remove' if dry else '-'} .claude/{n}")
                 if not dry:
                     p.unlink()
                 removed += 1
-    elif (target_root / "index.db").exists():
-        print("  · index.db preserved (pass --purge-index to also remove it)")
+    elif (target_root / ".claude" / "index.db").exists():
+        print("  · .claude/index.db preserved (pass --purge-index to also remove it)")
 
-    if (target_root / "tools" / "search_config.py").exists():
-        print("  · tools/search_config.py preserved (may contain your customizations)")
+    if (target_root / ".claude" / "tools" / "search_config.py").exists():
+        print("  · .claude/tools/search_config.py preserved (may contain your customizations)")
 
     print(f"\n{tag}Done — {removed} file(s) "
           f"{'would be removed' if dry else 'removed'}.")
@@ -1101,7 +1101,7 @@ def main() -> int:
                 print(f"\n--create-venv failed: {e}", file=sys.stderr)
                 return 1
         else:
-            print("\nNo venv detected at .venv-tokens, .venv, venv, env, or app/.venv.")
+            print("\nNo venv detected at .claude/.venv-tokens, .venv-tokens, .venv, venv, env, or app/.venv.")
             print("Pass --venv PATH, --create-venv to make .venv-tokens here, "
                   "or create one yourself:")
             print("    python3 -m venv .venv    # macOS/Linux")
@@ -1136,18 +1136,18 @@ def main() -> int:
     # Step 2: Copy files
     # ------------------------------------------------------------------
     print(f"\n{tag}[2/5] Copying files...")
-    changes += copy_tree(SOURCE / "tools",  target_root / "tools", target_root, force_tools,  overwrite_modified,
-              "tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
-    if args.update and (target_root / "tools" / "search_config.py").exists():
-        print("  + tools/search_config.py (preserved — --update never touches it)")
+    changes += copy_tree(SOURCE / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
+              ".claude/tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
+    if args.update and (target_root / ".claude" / "tools" / "search_config.py").exists():
+        print("  + .claude/tools/search_config.py (preserved — --update never touches it)")
     else:
         handle_search_config(
             SOURCE / "tools" / "search_config.py",
-            target_root / "tools" / "search_config.py",
+            target_root / ".claude" / "tools" / "search_config.py",
             target_root,
             force_config, overwrite_modified, dry_run=dry,
         )
-    changes += copy_tree(SOURCE / "schema", target_root / "schema", target_root, force_tools,  overwrite_modified, "schema/", dry_run=dry)
+    changes += copy_tree(SOURCE / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
     changes += copy_tree(SOURCE / "hooks",  target_root / ".claude" / "hooks",
               target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
     if args.caveman:
@@ -1158,26 +1158,26 @@ def main() -> int:
     # Conservative: only fires when the existing value is the source default,
     # so a user customization is never clobbered. Skipped entirely under
     # --update (which never touches search_config.py).
-    dst_cfg = target_root / "tools" / "search_config.py"
+    dst_cfg = target_root / ".claude" / "tools" / "search_config.py"
     if not args.update:
         venv_py_patched = patch_venv_py(
             dst_cfg, SOURCE / "tools" / "search_config.py", target_root, venv_dir,
             dry_run=dry,
         )
         if venv_py_patched is not None:
-            print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+            print(f'  {"would patch" if dry else "~"} .claude/tools/search_config.py: '
                   f'VENV_PY -> _venv_python("{venv_py_patched}")')
             changes += 1
         dirs_patched = patch_indexed_source_dirs(dst_cfg, target_root, dry_run=dry)
         if dirs_patched is not None:
-            print(f'  {"would patch" if dry else "~"} tools/search_config.py: '
+            print(f'  {"would patch" if dry else "~"} .claude/tools/search_config.py: '
                   f'INDEXED_SOURCE_DIRS -> {dirs_patched}')
             changes += 1
         if venv_py_patched is None and dry and not dst_cfg.exists():
             # Fresh dry-run install: config not copied, so patch_venv_py is a
             # no-op — still preview the value it would write.
             cfg = _venv_config_str(venv_dir, target_root)
-            print(f'  would patch tools/search_config.py: '
+            print(f'  would patch .claude/tools/search_config.py: '
                   f'VENV_PY -> _venv_python("{cfg}")')
             changes += 1
     else:
@@ -1258,25 +1258,25 @@ def main() -> int:
     print("NEXT STEPS")
     print("=" * 60)
     if venv_py_patched is not None:
-        print("\n1. Edit tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
+        print("\n1. Edit .claude/tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
         print("   your source directories (the .py/.sql dirs). For markdown,")
         print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
         print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
         print("   VENV_PY is already set to the detected venv.")
         _maybe_suggest_recursive_globs(target_root)
     else:
-        print("\n1. Edit tools/search_config.py — set your venv and source dirs.")
+        print("\n1. Edit .claude/tools/search_config.py — set your venv and source dirs.")
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if args.no_build:
         print("\n2. Build the index:")
-        print(f"       {venv_py} tools/embeddings.py refresh")
+        print(f"       {venv_py} .claude/tools/embeddings.py refresh")
         print("\n3. Test search:")
-        print(f"       {venv_py} tools/search.py \"your query here\"")
+        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
     else:
         print("\n2. Test search:")
-        print(f"       {venv_py} tools/search.py \"your query here\"")
+        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
     if args.caveman:
         step = 4 if args.no_build else 3
         if _caveman_in_claude_md(target_root):
@@ -1286,9 +1286,9 @@ def main() -> int:
             print("       cat caveman/caveman.md >> CLAUDE.md")
     print("\nNOTE: the search-first PreToolUse hook is now active. Any")
     print("  already-running Claude session in this project will start")
-    print("  blocking Read on indexed files (tools/, schema/, root *.md)")
+    print("  blocking Read on indexed files (root *.md, configured source dirs)")
     print("  until a search runs within the gate window. Tune the window")
-    print("  via WINDOW_SECONDS in tools/search_config.py (default 300s).")
+    print("  via WINDOW_SECONDS in .claude/tools/search_config.py (default 300s).")
     print()
     return 0
 

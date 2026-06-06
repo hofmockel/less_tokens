@@ -25,7 +25,7 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / "tools"))
+sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 try:
     from search_config import MAX_SESSION_CHARS

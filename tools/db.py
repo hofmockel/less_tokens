@@ -13,9 +13,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
-INDEX_DB = BASE / "index.db"
-SCHEMA_FILE = BASE / "schema" / "index.sql"
+BASE = Path(__file__).parent.parent.parent
+CLAUDE_DIR = BASE / ".claude"
+INDEX_DB = CLAUDE_DIR / "index.db"
+SCHEMA_FILE = CLAUDE_DIR / "schema" / "index.sql"
 
 SCHEMA_VERSION = 2
 

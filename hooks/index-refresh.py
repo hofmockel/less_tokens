@@ -31,7 +31,7 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / "tools"))
+sys.path.insert(0, str(REPO / ".claude" / "tools"))
 from search_config import (  # noqa: E402
     EXCLUDED_DIR_NAMES,
     EXCLUDED_DIR_PREFIXES,
@@ -93,7 +93,7 @@ def main() -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("ab") as f:
         subprocess.Popen(
-            [str(VENV_PY), "tools/embeddings.py", "refresh"],
+            [str(VENV_PY), ".claude/tools/embeddings.py", "refresh"],
             cwd=REPO,
             stdout=f,
             stderr=subprocess.STDOUT,
