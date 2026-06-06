@@ -49,6 +49,7 @@ After install, all artifacts land under `.claude/` to keep the project root clea
 │   ├── .venv-tokens/   # fastembed + numpy
 │   ├── hooks/          # Claude Code hook scripts
 │   ├── index.db        # vector index
+│   ├── rules/          # output style rules (caveman.md)
 │   ├── schema/         # SQL schema
 │   ├── state/          # runtime state (last-search, savings log, …)
 │   └── tools/          # search.py, embeddings.py, db.py, stats.py, …

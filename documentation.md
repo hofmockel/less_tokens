@@ -44,7 +44,7 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 | `--venv PATH` | Point to a venv not in a standard location |
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
 | `--build` | Build the index immediately after install |
-| `--caveman` | Also copy `caveman/` for terse output mode |
+| `--caveman` | Also copy `.claude/rules/` (caveman output style) |
 | `--truncate` | Print next-steps wiring for the tool output truncation hook |
 | `--compact` | Print next-steps wiring for the conversation compaction trigger hook |
 
@@ -174,7 +174,7 @@ Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text retur
 Append the caveman snippet to your `CLAUDE.md` to enforce terse output:
 
 ```bash
-cat caveman/caveman.md >> CLAUDE.md
+cat .claude/rules/caveman.md >> CLAUDE.md
 ```
 
 Before and after example:
@@ -268,27 +268,37 @@ Tune in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_0
 
 ## Repository layout
 
+All source lives under `.claude/` — the same structure that gets deployed into host projects.
+
 **Source repo** (`less_tokens/`):
 ```
 less_tokens/
 ├── install.py                 # cross-platform installer
-├── tools/                     # deployed to .claude/tools/
-│   ├── search_config.py       # ← only file to edit after install
-│   ├── embeddings.py          # build/refresh the vector index
-│   ├── search.py              # semantic search CLI
-│   ├── db.py                  # SQLite helpers
-│   ├── savings_log.py         # per-event savings logger (used by hooks)
-│   └── stats.py               # savings tracker CLI (enable / report / disable)
-├── schema/                    # deployed to .claude/schema/
-│   └── index.sql              # documents table schema
-├── hooks/                     # deployed to .claude/hooks/
-│   ├── search-first.py        # PreToolUse: gate Read on indexed files
-│   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
-│   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
-│   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
-│   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
-└── caveman/
-    └── caveman.md             # CLAUDE.md snippet for caveman output style
+└── .claude/
+    ├── hooks/                 # deployed to <host>/.claude/hooks/
+    │   ├── search-first.py        # PreToolUse: gate Read on indexed files
+    │   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
+    │   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
+    │   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
+    │   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
+    ├── rules/                 # deployed to <host>/.claude/rules/
+    │   └── caveman.md             # CLAUDE.md snippet for caveman output style
+    ├── schema/                # deployed to <host>/.claude/schema/
+    │   └── index.sql              # documents table schema
+    ├── skills/                # Claude Code skills (not deployed; dev tooling only)
+    │   └── bug-hunt/
+    │       └── SKILL.md           # bug-hunt protocol and round log
+    ├── tests/                 # test suite (not deployed)
+    │   ├── unit/
+    │   ├── integration/
+    │   └── perf/
+    └── tools/                 # deployed to <host>/.claude/tools/
+        ├── search_config.py       # ← only file to edit after install
+        ├── embeddings.py          # build/refresh the vector index
+        ├── search.py              # semantic search CLI
+        ├── db.py                  # SQLite helpers
+        ├── savings_log.py         # per-event savings logger (used by hooks)
+        └── stats.py               # savings tracker CLI (enable / report / disable)
 ```
 
 **Deployed layout** (inside the host project's `.claude/`):
@@ -298,6 +308,7 @@ less_tokens/
 │   ├── .venv-tokens/          # isolated Python env for fastembed/numpy
 │   ├── hooks/                 # hook scripts (wired in settings.json)
 │   ├── index.db               # SQLite vector index (regenerable)
+│   ├── rules/                 # caveman.md (if --caveman was passed)
 │   ├── schema/                # index.sql schema
 │   ├── state/                 # runtime state (last-search, logs)
 │   └── tools/                 # search_config.py, embeddings.py, search.py, …
@@ -335,10 +346,8 @@ Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exc
 | `README.md` | User-facing marketing page; content is in `documentation.md` |
 | `documentation.md` | Reference docs; Claude reads source, not its own docs |
 | `CHANGELOG.md` | History log; not relevant to active development |
-| `bughunt/` | Bug-hunt protocol and log; not part of the core toolkit |
 | `.github/` | CI workflow config; rarely needs reading during development |
-| `tests/perf/latest.json` | Generated benchmark artifact |
-| `caveman/caveman.md` | Template copied into target projects; not used in this repo |
+| `.claude/tests/perf/latest.json` | Generated benchmark artifact |
 
 **When installing into your own project**, add a `.claudeignore` at the project root to exclude any large files Claude doesn't need for its day-to-day work — test fixtures, generated output, vendored assets, docs:
 

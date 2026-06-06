@@ -10,10 +10,10 @@ The rule:
 
 > One index/search engine, one config model, one test suite for shared behavior; separate thin adapters for Claude and Codex installation, instructions, hook payloads, and runtime state.
 
-Do **not** fork `tools/search.py`, `tools/embeddings.py`, `schema/index.sql`, or savings/stat logic. Instead, split responsibilities like this:
+Do **not** fork `.claude/tools/search.py`, `.claude/tools/embeddings.py`, `.claude/schema/index.sql`, or savings/stat logic. Instead, split responsibilities like this:
 
 ```text
-core:        tools/, schema/, shared hook logic
+core:        .claude/tools/, .claude/schema/, shared hook logic
 claude:      CLAUDE.md, .claude/hooks, .claude/settings.json wiring
 codex:       AGENTS.md, .agents/skills, .codex/hooks.json wiring
 installer:   --agent claude|codex|both
@@ -23,10 +23,10 @@ installer:   --agent claude|codex|both
 
 The existing codebase already has a partial separation:
 
-- The core search and indexing path lives in `tools/` and `schema/`.
+- The core search and indexing path lives in `.claude/tools/` and `.claude/schema/`.
 - The current agent integration path is Claude-specific.
 - `install.py` copies shared assets and wires `.claude/settings.json`.
-- `tools/search_config.py` centralizes venv, indexed paths, model settings, output truncation, compaction limits, and state.
+- `.claude/tools/search_config.py` centralizes venv, indexed paths, model settings, output truncation, compaction limits, and state.
 - `STATE_DIR` currently defaults to `.claude/state`, which must become agent-aware or neutral.
 
 The multi-agent implementation should preserve existing Claude behavior by default while adding Codex as an optional path.
@@ -38,7 +38,7 @@ The multi-agent implementation should preserve existing Claude behavior by defau
 Keep these files agent-neutral:
 
 ```text
-tools/
+.claude/tools/
   db.py
   embeddings.py
   search.py
@@ -46,7 +46,7 @@ tools/
   savings_log.py
   stats.py
 
-schema/
+.claude/schema/
   index.sql
 ```
 
@@ -251,8 +251,8 @@ Current install specs deploy hooks only to `.claude/hooks`. Replace that with ag
 ```python
 def _install_specs(agents: set[Agent], caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
     specs = [
-        ("tools", "tools", frozenset({"search_config.py"})),
-        ("schema", "schema", frozenset()),
+        (".claude/tools", ".claude/tools", frozenset({"search_config.py"})),
+        (".claude/schema", ".claude/schema", frozenset()),
     ]
 
     if Agent.CLAUDE in agents:
@@ -263,14 +263,14 @@ def _install_specs(agents: set[Agent], caveman: bool) -> list[tuple[str, str, fr
         specs.append(("agents/codex/skills", ".agents/skills", frozenset()))
 
     if caveman:
-        specs.append(("caveman", "caveman", frozenset()))
+        specs.append((".claude/rules", ".claude/rules", frozenset()))
 
     return specs
 ```
 
 ### Update collision checks
 
-Collision checks should still protect shared `tools/` and `schema/` by default. They should also account for selected agent trees:
+Collision checks should still protect shared `.claude/tools/` and `.claude/schema/` by default. They should also account for selected agent trees:
 
 - For Claude installs, check `.claude/hooks` for exact files managed by this project.
 - For Codex installs, check `.codex/hooks` and `.agents/skills/less-tokens`.
@@ -291,7 +291,7 @@ Rules:
 - `--agent claude --uninstall`: remove only Claude hook wiring and Claude hook files.
 - `--agent codex --uninstall`: remove only Codex hook wiring, Codex hook files, and the optional skill.
 - `--agent both --uninstall`: remove both agent integrations.
-- Never remove shared `tools/`, `schema/`, or `index.db` unless no installed agents remain, or unless an explicit purge flag is passed.
+- Never remove shared `.claude/tools/`, `.claude/schema/`, or `index.db` unless no installed agents remain, or unless an explicit purge flag is passed.
 - Keep `--purge-index` explicit.
 
 ## State management
@@ -312,7 +312,7 @@ as project-level artifacts shared by Claude, Codex, and manual CLI use.
 
 ### Separate runtime state
 
-Add state constants to `tools/search_config.py`:
+Add state constants to `.claude/tools/search_config.py`:
 
 ```python
 STATE_ROOT: Path = BASE / ".less_tokens" / "state"
@@ -342,7 +342,7 @@ def active_state_dir() -> Path:
     return state_dir_for(os.environ.get("LESS_TOKENS_AGENT"))
 ```
 
-Update `tools/search.py` to write `last-search` to `active_state_dir()` rather than a hardcoded `STATE_DIR`.
+Update `.claude/tools/search.py` to write `last-search` to `active_state_dir()` rather than a hardcoded `STATE_DIR`.
 
 Hook adapters should run with one of:
 
@@ -473,7 +473,7 @@ def refresh_index_if_needed(payload: HookPayload, *, repo_root: Path, venv_py: P
 Responsibilities:
 
 - inspect `payload.touched_files`,
-- if any touched file is indexed, spawn `tools/embeddings.py refresh`,
+- if any touched file is indexed, spawn `.claude/tools/embeddings.py refresh`,
 - write logs under the agent-specific state directory,
 - do not block the agent unless subprocess launch itself fails.
 
@@ -633,11 +633,11 @@ description: Use before exploring indexed repository files; runs local vector se
 
 Before reading indexed files, run:
 
-    <venv-python> tools/search.py "<query>"
+    <venv-python> .claude/tools/search.py "<query>"
 
 If the index is missing or stale, run:
 
-    <venv-python> tools/embeddings.py refresh
+    <venv-python> .claude/tools/embeddings.py refresh
 
 Prefer the default top 3 chunks. Read full files only after search identifies the likely target path or section.
 
@@ -649,8 +649,8 @@ If search returns no useful chunks, proceed with normal repository inspection an
 After `--agent claude`:
 
 ```text
-tools/
-schema/
+.claude/tools/
+.claude/schema/
 .claude/hooks/search-first.py
 .claude/hooks/index-refresh.py
 .claude/hooks/truncate-output.py
@@ -663,8 +663,8 @@ CLAUDE.md
 After `--agent codex`:
 
 ```text
-tools/
-schema/
+.claude/tools/
+.claude/schema/
 .codex/hooks/search-first.py
 .codex/hooks/index-refresh.py
 .codex/hooks/truncate-output.py
@@ -683,7 +683,7 @@ These must remain true:
 
 1. `python3 install.py` installs Claude support just like today.
 2. Existing Claude users do not need new flags.
-3. Existing `tools/search.py` and `tools/embeddings.py` CLI usage remains valid.
+3. Existing `.claude/tools/search.py` and `.claude/tools/embeddings.py` CLI usage remains valid.
 4. Existing Claude tests continue to pass.
 5. Existing `.claude/settings.json` wiring remains idempotent.
 6. Existing generated `index.db` remains usable unless a schema migration explicitly changes it.
@@ -695,7 +695,7 @@ These must remain true:
 Create fixtures:
 
 ```text
-tests/fixtures/hooks/
+.claude/tests/fixtures/hooks/
   claude/
     pre_read_indexed.json
     post_edit_indexed.json
@@ -713,9 +713,9 @@ tests/fixtures/hooks/
 Add or update tests for shared behavior:
 
 ```bash
-pytest tests/unit/test_common_hooks.py -v
-pytest tests/unit/test_search.py -v
-pytest tests/unit/test_chunkers.py -v
+pytest .claude/tests/unit/test_common_hooks.py -v
+pytest .claude/tests/unit/test_search.py -v
+pytest .claude/tests/unit/test_chunkers.py -v
 ```
 
 Core tests should verify:
@@ -732,8 +732,8 @@ Core tests should verify:
 Add tests:
 
 ```bash
-pytest tests/unit/test_claude_hooks.py -v
-pytest tests/integration/test_install_claude.py -v
+pytest .claude/tests/unit/test_claude_hooks.py -v
+pytest .claude/tests/integration/test_install_claude.py -v
 ```
 
 Claude adapter tests should verify:
@@ -749,8 +749,8 @@ Claude adapter tests should verify:
 Add tests:
 
 ```bash
-pytest tests/unit/test_codex_hooks.py -v
-pytest tests/integration/test_install_codex.py -v
+pytest .claude/tests/unit/test_codex_hooks.py -v
+pytest .claude/tests/integration/test_install_codex.py -v
 ```
 
 Codex adapter tests should verify:
@@ -767,7 +767,7 @@ Codex adapter tests should verify:
 Add tests:
 
 ```bash
-pytest tests/integration/test_install_both.py -v
+pytest .claude/tests/integration/test_install_both.py -v
 ```
 
 Both-mode tests should verify:
@@ -796,7 +796,7 @@ Implement in small PRs.
 
 - Add `STATE_ROOT`, `CLAUDE_STATE_DIR`, `CODEX_STATE_DIR`.
 - Add `active_state_dir()`.
-- Update `tools/search.py` and hooks to use `active_state_dir()` or an adapter-supplied state path.
+- Update `.claude/tools/search.py` and hooks to use `active_state_dir()` or an adapter-supplied state path.
 - Preserve `.claude/state` for current Claude installs.
 
 ### PR 3: installer agent selector
@@ -866,7 +866,7 @@ The existing hooks assume Claude payloads and Claude state paths. Copying them i
 
 ### Do not fork the search/index core
 
-There should not be `tools/search_claude.py` and `tools/search_codex.py`, nor separate schemas. That would double maintenance and create inconsistent results.
+There should not be `.claude/tools/search_claude.py` and `.claude/tools/search_codex.py`, nor separate schemas. That would double maintenance and create inconsistent results.
 
 ### Do not hand-maintain unrelated `CLAUDE.md` and `AGENTS.md`
 
