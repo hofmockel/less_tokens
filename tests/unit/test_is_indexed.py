@@ -16,7 +16,7 @@ from tests.conftest import REPO_ROOT, load_hook
 def search_first(tmp_path_factory):
     """Load hooks/search-first.py and patch REPO + _config for isolated testing."""
     tmp = tmp_path_factory.mktemp("sf_repo")
-    mod = load_hook(REPO_ROOT / "hooks" / "search-first.py")
+    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "search-first.py")
     mod.REPO = tmp
     mod._config["excluded_names"] = {"legacy"}
     mod._config["excluded_prefixes"] = ("legacy/",)
@@ -29,7 +29,7 @@ def search_first(tmp_path_factory):
 def index_refresh(tmp_path_factory):
     """Load hooks/index-refresh.py and patch REPO + globals for isolated testing."""
     tmp = tmp_path_factory.mktemp("ir_repo")
-    mod = load_hook(REPO_ROOT / "hooks" / "index-refresh.py")
+    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "index-refresh.py")
     mod.REPO = tmp
     mod.EXCLUDED_DIR_NAMES = {"legacy"}
     mod.EXCLUDED_DIR_PREFIXES = ("legacy/",)

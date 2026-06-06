@@ -12,7 +12,7 @@ from tests.conftest import REPO_ROOT, load_hook
 
 
 def test_docstring_names_settings_json_not_local():
-    mod = load_hook(REPO_ROOT / "hooks" / "search-first.py")
+    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "search-first.py")
     doc = mod.__doc__ or ""
     assert "settings.local.json" not in doc
     assert "settings.json" in doc

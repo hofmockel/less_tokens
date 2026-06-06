@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).parent.parent.parent
-HOOKS = REPO / "hooks"
+HOOKS = REPO / ".claude" / "hooks"
 
 _ENV = {**os.environ, "PYTHONPATH": str(REPO / "tools")}
 

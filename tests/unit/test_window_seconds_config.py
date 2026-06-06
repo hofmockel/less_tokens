@@ -17,7 +17,7 @@ def test_window_seconds_in_search_config():
 def test_hook_reads_window_from_config(monkeypatch):
     import search_config
     monkeypatch.setattr(search_config, "WINDOW_SECONDS", 999)
-    mod = load_hook(REPO_ROOT / "hooks" / "search-first.py")
+    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "search-first.py")
     # Force config reload so the patched value is picked up.
     mod._config.clear()
     assert mod._load_config()
@@ -25,6 +25,6 @@ def test_hook_reads_window_from_config(monkeypatch):
 
 
 def test_hook_source_has_no_hardcoded_window():
-    src = (REPO_ROOT / "hooks" / "search-first.py").read_text()
+    src = (REPO_ROOT / ".claude" / "hooks" / "search-first.py").read_text()
     # The literal must not appear as an assignment in the hook.
     assert "WINDOW_SECONDS = 300" not in src

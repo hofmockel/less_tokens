@@ -27,7 +27,7 @@ _DETACHED = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
 
 @pytest.fixture()
 def index_refresh(tmp_path):
-    mod = load_hook(REPO_ROOT / "hooks" / "index-refresh.py")
+    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "index-refresh.py")
     mod.REPO = tmp_path
     return mod
 

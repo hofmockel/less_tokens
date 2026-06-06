@@ -206,7 +206,7 @@ class TestTruncationReduction:
     def test_bash_truncation_meets_threshold(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location(
-            "truncate_output", REPO / "hooks" / "truncate-output.py"
+            "truncate_output", REPO / ".claude" / "hooks" / "truncate-output.py"
         )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -235,7 +235,7 @@ class TestTruncationReduction:
     def test_char_split_truncation_meets_threshold(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location(
-            "truncate_output", REPO / "hooks" / "truncate-output.py"
+            "truncate_output", REPO / ".claude" / "hooks" / "truncate-output.py"
         )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -259,7 +259,7 @@ class TestCompactionTrigger:
         transcript.write_text("x" * 600_000)
         env = {**os.environ, "PYTHONPATH": str(REPO / "tools")}
         result = subprocess.run(
-            [sys.executable, str(REPO / "hooks" / "compact-trigger.py")],
+            [sys.executable, str(REPO / ".claude" / "hooks" / "compact-trigger.py")],
             input=json.dumps({"tool_name": "Bash", "transcript_path": str(transcript)}),
             capture_output=True,
             text=True,
@@ -281,7 +281,7 @@ class TestCompactionTrigger:
         transcript.write_text("x" * 100_000)
         env = {**os.environ, "PYTHONPATH": str(REPO / "tools")}
         result = subprocess.run(
-            [sys.executable, str(REPO / "hooks" / "compact-trigger.py")],
+            [sys.executable, str(REPO / ".claude" / "hooks" / "compact-trigger.py")],
             input=json.dumps({"tool_name": "Bash", "transcript_path": str(transcript)}),
             capture_output=True,
             text=True,

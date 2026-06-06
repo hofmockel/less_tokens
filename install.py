@@ -1,58 +1,54 @@
 #!/usr/bin/env python3
-"""Install less_tokens into the host project that contains this clone.
+"""less_tokens installer — two modes.
 
-less_tokens is designed to be cloned *into* a host project — e.g.
-~/myproject/less_tokens/ — and then deploy its files into the host project
-root (~/myproject/). The installer targets the parent directory of this
-source clone, so it works regardless of the current working directory:
+──────────────────────────────────────────────────────────────
+GLOBAL INSTALL  (one-time, wires hooks for all Claude projects)
+──────────────────────────────────────────────────────────────
 
-    # macOS / Linux
-    python3 path/to/less_tokens/install.py [options]
+    python3 path/to/less_tokens/install.py --global [options]
 
-    # Windows
-    python path/to/less_tokens/install.py [options]
+Wires hooks into ~/.claude/settings.json so they fire for every Claude Code
+project. Hooks are served directly from this source tree — nothing is copied
+system-wide. Venv is created here (--create-venv) or detected automatically.
 
-Re-running after `git pull` upgrades an existing install in place — files
-that exist are skipped by default and hook wiring is idempotent.
+    --global            enable global mode (required for this flow)
+    --create-venv       create .venv-tokens in the less_tokens source dir if
+                        no venv is found
+    --venv PATH         use an existing venv instead of auto-detecting
+    --skip-deps         skip pip install of fastembed + numpy
+    --truncate          also wire tool-output truncation hook (Strategy 3)
+    --compact           also wire compact-trigger hook (Strategy 4)
+    --caveman           also wire caveman-reminder hook (Strategy 5)
+    --local             write settings.local.json instead of settings.json
+    --no-gitignore      skip the .gitignore block for generated artifacts
+    --dry-run           preview without writing anything
+    --uninstall         unwire hooks from ~/.claude/settings.json
 
-What it does:
-  1. Copies tools/, schema/, hooks/, and caveman/ into the host project
-  2. Merges new variables into search_config.py without clobbering existing values
-  3. Detects or accepts --venv PATH; installs fastembed + numpy into it
-  4. Initializes or migrates index.db from schema/index.sql
-  5. Wires core hooks into .claude/settings.json (idempotent, project-shared)
-  6. Builds the first index by default (~30s + ~130 MB model download on
-     first run); pass --no-build to skip and build later
+──────────────────────────────────────────────────────────────
+PROJECT INSTALL  (per-project: config + index only, no hooks)
+──────────────────────────────────────────────────────────────
 
-Target selection:
-  --target PATH  install into PATH instead of the parent of this clone
-  --yes          bypass the suspicious-target sanity check (root / $HOME)
+    python3 path/to/less_tokens/install.py --target /path/to/project [options]
 
-Force / overwrite flags:
-  --force              shorthand for --force-hooks --force-tools --force-config
-  --force-hooks        overwrite .claude/hooks/ files that match the source
-  --force-tools        overwrite tools/ files that match the source (not search_config.py)
-  --force-config       overwrite search_config.py wholesale if it matches the source
-  --overwrite-modified also overwrite files that differ from the source (requires a --force* flag)
+Copies search_config.py into the project and builds a per-project vector
+index. Hooks are NOT wired here — they come from the global install above.
+Scripts (embeddings.py, db.py, etc.) are run from the less_tokens source tree
+so only search_config.py + index.db live in the target project.
 
-Other options:
-  --venv PATH    path to virtualenv (auto-detected if omitted)
-  --skip-deps    skip pip install step
-  --no-build     skip the default initial index build (defer the ~130 MB model download)
-  --caveman      copy caveman/ directory and wire caveman-reminder hook
-  --truncate     wire tool output truncation hook (Strategy 3)
-  --compact      wire conversation compaction trigger hook (Strategy 4)
-
-Safety / lifecycle:
-  --dry-run      print exactly what would change; write nothing
-  --allow-merge  proceed even if tools/ or schema/ already hold non-less_tokens files
-  --no-gitignore skip the default managed .gitignore block for generated artifacts
-  --uninstall    remove a previous deployment (settings.json hooks + copied files)
-  --purge-index  with --uninstall, also delete index.db and its WAL sidecars
-
-Ordering note: the venv is resolved and validated, and a namespace-collision
-check runs, *before* any files are copied — a failed precondition aborts with
-nothing written (no silent half-install).
+    --target PATH       project directory to set up (required / recommended)
+    --yes               bypass the suspicious-target check (/ or $HOME)
+    --venv PATH         venv to use (defaults to the global venv detected in
+                        the less_tokens source dir, then falls back to --target)
+    --create-venv       create .venv-tokens in the less_tokens source dir if
+                        no venv is found
+    --skip-deps         skip pip install of fastembed + numpy
+    --no-build          copy config but skip the index build (build later with
+                        python3 tools/embeddings.py refresh)
+    --no-gitignore      skip adding index.db / .claude/state/ to .gitignore
+    --dry-run           preview without writing anything
+    --uninstall         remove search_config.py from --target; use
+                        --purge-index to also delete index.db
+    --purge-index       with --uninstall, also delete index.db + WAL sidecars
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
@@ -753,7 +749,7 @@ def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
     specs = [
         ("tools",  ".claude/tools",  frozenset({"search_config.py"})),
         ("schema", ".claude/schema", frozenset()),
-        ("hooks",  ".claude/hooks",  frozenset()),
+        (".claude/hooks",  ".claude/hooks",  frozenset()),
     ]
     if caveman:
         specs.append(("caveman", "caveman", frozenset()))
@@ -867,7 +863,7 @@ def _remove_gitignore_block(gi: Path, dry_run: bool) -> bool:
 # ---------------------------------------------------------------------------
 
 def _our_hook_names(source: Path) -> set[str]:
-    return {rel.name for rel in _iter_tree_files(source / "hooks")}
+    return {rel.name for rel in _iter_tree_files(source / ".claude" / "hooks")}
 
 
 def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
@@ -884,7 +880,9 @@ def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
     names = _our_hook_names(source)
 
     def _is_ours(cmd: str) -> bool:
-        return any(f".claude/hooks/{n}" in cmd for n in names)
+        # Match per-project hooks (project/.claude/hooks/foo.py) and
+        # global hooks (absolute path to source/.claude/hooks/foo.py)
+        return any(f"hooks/{n}" in cmd or f"hooks\\{n}" in cmd for n in names)
 
     removed = 0
     for event_type in list(hooks.keys()):
@@ -1148,7 +1146,7 @@ def main() -> int:
             force_config, overwrite_modified, dry_run=dry,
         )
     changes += copy_tree(SOURCE / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
-    changes += copy_tree(SOURCE / "hooks",  target_root / ".claude" / "hooks",
+    changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
               target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
     if args.caveman:
         changes += copy_tree(SOURCE / "caveman", target_root / "caveman",
