@@ -151,11 +151,14 @@ def search(
 
     try:
         with connect_index() as c:
-            sql = "SELECT id, source_type, source_path, source_key, text, embedding FROM documents"
-            params: tuple = ()
+            sql = (
+                "SELECT id, source_type, source_path, source_key, text, embedding "
+                "FROM documents WHERE embedding_model = ?"
+            )
+            params: tuple = (search_config.EMBEDDING_MODEL,)
             if source_type:
-                sql += " WHERE source_type = ?"
-                params = (source_type,)
+                sql += " AND source_type = ?"
+                params = (search_config.EMBEDDING_MODEL, source_type)
             rows = c.execute(sql, params).fetchall()
     except sqlite3.OperationalError as e:
         print(f"ERROR: index unavailable ({e}); run `tools/embeddings.py refresh`", file=sys.stderr)

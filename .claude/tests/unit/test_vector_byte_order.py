@@ -25,6 +25,7 @@ import pytest
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 from tools import embeddings, search  # noqa: E402
+import search_config  # noqa: E402
 
 # search.py imports `connect_index` from the top-level `db` module (tools/ is
 # put on sys.path inside search.py); patch INDEX_DB on that exact module.
@@ -64,12 +65,14 @@ def _make_index(path: Path, rows: list[tuple]) -> None:
     conn = sqlite3.connect(path)
     conn.execute(
         "CREATE TABLE documents (id INTEGER PRIMARY KEY, source_type TEXT, "
-        "source_path TEXT, source_key TEXT, text TEXT, embedding BLOB)"
+        "source_path TEXT, source_key TEXT, text TEXT, embedding BLOB, "
+        "embedding_model TEXT)"
     )
+    model = search_config.EMBEDDING_MODEL
     conn.executemany(
         "INSERT INTO documents (source_type, source_path, source_key, text, "
-        "embedding) VALUES (?, ?, ?, ?, ?)",
-        rows,
+        "embedding, embedding_model) VALUES (?, ?, ?, ?, ?, ?)",
+        [(*r, model) for r in rows],
     )
     conn.commit()
     conn.close()

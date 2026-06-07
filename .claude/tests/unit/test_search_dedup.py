@@ -17,6 +17,7 @@ import pytest
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 from tools import search  # noqa: E402
+import search_config  # noqa: E402
 
 _DB = sys.modules[search.connect_index.__module__]
 
@@ -33,16 +34,18 @@ def index_db(tmp_path, monkeypatch):
     conn = sqlite3.connect(dbp)
     conn.execute(
         "CREATE TABLE documents (id INTEGER PRIMARY KEY, source_type TEXT, "
-        "source_path TEXT, source_key TEXT, text TEXT, embedding BLOB)"
+        "source_path TEXT, source_key TEXT, text TEXT, embedding BLOB, "
+        "embedding_model TEXT)"
     )
+    model = search_config.EMBEDDING_MODEL
     conn.executemany(
         "INSERT INTO documents (source_type, source_path, source_key, text, "
-        "embedding) VALUES (?, ?, ?, ?, ?)",
+        "embedding, embedding_model) VALUES (?, ?, ?, ?, ?, ?)",
         [
-            ("code", "p/a.py", "a1", "a-one", _vec(0.9)),
-            ("code", "p/a.py", "a2", "a-two", _vec(0.8)),
-            ("code", "p/b.py", "b1", "b-one", _vec(0.7)),
-            ("code", "p/c.py", "c1", "c-one", _vec(0.3)),
+            ("code", "p/a.py", "a1", "a-one", _vec(0.9), model),
+            ("code", "p/a.py", "a2", "a-two", _vec(0.8), model),
+            ("code", "p/b.py", "b1", "b-one", _vec(0.7), model),
+            ("code", "p/c.py", "c1", "c-one", _vec(0.3), model),
         ],
     )
     conn.commit()
