@@ -23,10 +23,11 @@ MODEL_PROFILES: dict[str, dict[str, int]] = {
     "claude-sonnet-4-5":  {"context_window": 200_000, "recommended_k": 5},
     "claude-sonnet-4-6":  {"context_window": 1_000_000, "recommended_k": 8},
     # Opus — biggest budget, can afford a wider funnel.
-    "claude-opus-3":      {"context_window": 200_000, "recommended_k": 5},
+    "claude-opus-3":      {"context_window": 200_000, "recommended_k": 8},
     "claude-opus-4-0":    {"context_window": 200_000, "recommended_k": 8},
     "claude-opus-4-5":    {"context_window": 200_000, "recommended_k": 8},
     "claude-opus-4-7":    {"context_window": 200_000, "recommended_k": 8},
+    "claude-opus-4-8":    {"context_window": 200_000, "recommended_k": 8},
 }
 
 

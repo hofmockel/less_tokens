@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Bug 28: `model_profiles.py` Opus entries are now consistent** — `claude-opus-3` raised to `recommended_k=8` (matching all other Opus models), and `claude-opus-4-8` added.
 - **Bug 27: `_resolve_repo()` correctly handles CLAUDE.md-only projects** — confirmed by regression tests: the dev-env walk checks both `.git` and `CLAUDE.md`, and the `LESS_TOKENS_REPO` env var override takes precedence.
 - **Bug 26: `stats._set_tracking` handles complex type hints** — regex broadened from `\w+` to `[^=]+` so `TRACK_SAVINGS: bool | None = ...` and `Optional[bool]` forms are matched correctly.
 - **Bug 20: `search-first.py` no longer has a hardcoded 300-second fallback** — `search_was_recent()` now reads `_config["window_seconds"]` directly; the unreachable `.get(..., 300)` fallback that would have bypassed the configured value is removed.
