@@ -54,7 +54,12 @@ class _ClosingConn:
 
 def connect_index() -> sqlite3.Connection:
     c = sqlite3.connect(INDEX_DB)
-    c.execute("PRAGMA journal_mode = WAL")
+    # DELETE journal mode: no -wal or -shm files. WAL created those files, and
+    # on FUSE mounts (e.g. Cowork sandbox) SQLite's -shm cleanup while another
+    # process held the file open caused FUSE to rename them to .fuse_hidden*,
+    # which accumulated indefinitely. index.db is small and single-writer, so
+    # WAL's concurrency advantage does not apply here.
+    c.execute("PRAGMA journal_mode = DELETE")
     c.row_factory = sqlite3.Row
     return _ClosingConn(c)  # type: ignore[return-value]
 
