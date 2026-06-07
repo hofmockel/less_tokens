@@ -8,7 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Bug 27: REPO resolution in hooks is broken in dev environment** (.claude/hooks/search-first.py:15)
 - **Bug 28: model_profiles.py inconsistent heuristics for Opus models** (.claude/tools/model_profiles.py:25)
 - **Bug 29: stats.py _load_records silent on JSON decode errors** (.claude/tools/stats.py:65)
 - **Bug 30: bughunt.md coverage list is for a different project (AIPortfolio)** (.claude/skills/bug-hunt/SKILL.md:28)
