@@ -111,9 +111,8 @@ def create_venv(target_root: Path) -> Path:
             f"{venv_dir} already exists; pass --venv {venv_dir} to use it "
             "or remove it before re-running with --create-venv"
         )
-    py = "python" if sys.platform == "win32" else "python3"
     print(f"  Creating venv: {venv_dir}")
-    subprocess.check_call([py, "-m", "venv", str(venv_dir)])
+    subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
     return venv_dir
 
 

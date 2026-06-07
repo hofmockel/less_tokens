@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`install.py --create-venv` uses `sys.executable` instead of hardcoded `"python3"`** — venv is now created with the exact interpreter that ran `install.py`, so version mismatches and missing-`python3`-on-PATH failures are eliminated.
+
 ### Changed
 - **All source directories moved into `.claude/`** — `tools/`, `schema/`, `tests/`, `hooks/`, and `caveman/` now live under `.claude/` in the source repo (`less_tokens/.claude/`). Nothing in the deployed layout changes — artifacts were already installed into `.claude/`. The repo tree now matches exactly what gets deployed, and the bughunt protocol is a native Claude Code skill at `.claude/skills/bug-hunt/SKILL.md`. The caveman output style is a Claude Code rule at `.claude/rules/caveman.md`.
 - **Installer deploys all artifacts into `.claude/`** — `tools/` → `.claude/tools/`, `schema/` → `.claude/schema/`, `index.db` → `.claude/index.db`, and the venv → `.claude/.venv-tokens/`. Keeps AI-tooling artifacts out of the host project's root directories, making them invisible to linters, import scanners, and source-tree tooling. Each tool script uses a three-level path anchor (`Path(__file__).parent.parent.parent`) to reach the project root from its deployed location under `.claude/tools/`. `INDEXED_SOURCE_DIRS` now defaults to `()` — the installer auto-discovers host Python source dirs, since `tools/` and `schema/` no longer live at the root and are not sensible defaults for host projects
