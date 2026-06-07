@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Bug 17: `truncate-output.py` does not log savings when disabled** — confirmed by regression test: with `MAX_TOOL_OUTPUT_CHARS=0`, `_log_savings` is never called regardless of result size.
 - **Bug 10: `chunk_python` no longer emits trailing-space comment lines for blank docstring lines** — `_ctx()` now produces `#` (bare) instead of `# ` when the module docstring contains empty lines, eliminating hidden trailing whitespace in embedded chunk headers.
 - **Bug 7: token warning uses `search_config.CHARS_PER_TOKEN` instead of hardcoded `4`** — chars-per-token ratio is now a named constant in `search_config.py` (default `4`) so users can tune it for code-heavy corpora without editing `search.py`.
 - **`install.py --create-venv` uses `sys.executable` instead of hardcoded `"python3"`** — venv is now created with the exact interpreter that ran `install.py`, so version mismatches and missing-`python3`-on-PATH failures are eliminated.
