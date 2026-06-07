@@ -186,7 +186,7 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
     def _ctx(code: str) -> str:
         # Prefix the module docstring as a comment so the chunk still reads
         # as the original source, just with the file's purpose attached.
-        header = "\n".join(f"# {ln}" for ln in mod_doc.splitlines())
+        header = "\n".join(f"# {ln}" if ln else "#" for ln in mod_doc.splitlines())
         return f"{header}\n\n{code}"
 
     def _get_upper_names(node: ast.AST) -> list[str]:
