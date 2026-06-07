@@ -66,6 +66,50 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent
 
+# Relative path (within target_root) where we record installed version.
+_INSTALL_STATE_PATH = Path(".claude") / "state" / "install.json"
+
+
+# ---------------------------------------------------------------------------
+# Version helpers
+# ---------------------------------------------------------------------------
+
+def _source_git_hash() -> str | None:
+    """Short commit hash of the less_tokens source tree, or None if unavailable."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(SOURCE), capture_output=True, text=True, timeout=5,
+        )
+        return r.stdout.strip() if r.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _read_install_state(target_root: Path) -> dict | None:
+    """Read .claude/state/install.json; return dict or None if absent/corrupt."""
+    p = target_root / _INSTALL_STATE_PATH
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _write_install_state(target_root: Path, version: str | None, dry_run: bool) -> None:
+    """Write .claude/state/install.json with version + timestamp."""
+    import datetime
+    state = {
+        "version": version or "unknown",
+        "installed_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "source": str(SOURCE),
+    }
+    p = target_root / _INSTALL_STATE_PATH
+    if not dry_run:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
 
 # ---------------------------------------------------------------------------
 # Venv helpers
@@ -761,11 +805,35 @@ def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
 def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
     """Host-owned files sitting in a tree we would merge into.
 
-    .claude/hooks/ is intentionally NOT gated — it is a shared directory
-    where we add our hook files alongside the host's own hooks, and
-    copy_tree already skips existing files there.
+    Only runs on a fresh install (no install.json yet) — on re-install the
+    files in tools/schema are ours. .claude/hooks/ and .claude/rules/ are
+    intentionally NOT gated: they are shared directories where we add our
+    files alongside the host's own, and copy_tree already skips existing ones.
     """
-    return []
+    # Previously installed — all files in those dirs are ours.
+    if (target_root / _INSTALL_STATE_PATH).exists():
+        return []
+
+    foreign: list[str] = []
+    for sub, dst_rel, excl in _install_specs(caveman):
+        if any(seg in sub for seg in ("hooks", "rules")):
+            continue  # shared dirs — host files allowed
+        dst_base = target_root / dst_rel
+        if not dst_base.is_dir():
+            continue
+        # Build the set of filenames less_tokens would deploy here.
+        our_names: set[str] = (
+            {rel.name for rel in _iter_tree_files(source / sub, excl)} | excl
+        )
+        for f in dst_base.rglob("*"):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(target_root)
+            if any(p.startswith(".") or p in _SKIP_PARTS for p in rel.parts):
+                continue
+            if f.name not in our_names:
+                foreign.append(str(rel))
+    return foreign
 
 
 def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Path]:
@@ -1058,8 +1126,20 @@ def main() -> int:
     if args.uninstall:
         return do_uninstall(target_root, args)
 
+    # Resolve source version (git short hash) once; used in header + state file.
+    src_version = _source_git_hash()
+    prev_state = _read_install_state(target_root)
+    prev_version = prev_state.get("version") if prev_state else None
+
+    if prev_version and prev_version == src_version:
+        version_line = f"version {src_version} (already current)"
+    elif prev_version:
+        version_line = f"version {prev_version} → {src_version or 'unknown'}"
+    else:
+        version_line = f"version {src_version or 'unknown'}"
+
     print(f"{tag}Installing less_tokens into {target_root}")
-    print(f"Source: {SOURCE}\n")
+    print(f"Source: {SOURCE}  [{version_line}]\n")
 
     # Track whether anything actually changed so the final summary can
     # report a clean no-op on idempotent re-runs.
@@ -1223,6 +1303,11 @@ def main() -> int:
     if dry:
         print(f"\n[DRY RUN] {changes} change(s) would be made. Nothing was written.")
         return 0
+
+    # Always (re-)write the state file so the installed version is current,
+    # even on a no-op re-run (nothing else changed but the source may differ).
+    _write_install_state(target_root, src_version, dry_run=False)
+
     if changes == 0:
         print("\nDone — installation already current, no changes.")
         return 0
