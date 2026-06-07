@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - **`install.py --create-venv` uses `sys.executable` instead of hardcoded `"python3"`** — venv is now created with the exact interpreter that ran `install.py`, so version mismatches and missing-`python3`-on-PATH failures are eliminated.
+- **Bugs 1 & 13: `chunk_changelog` now matches Keep a Changelog headers** — regex updated to `(?:\[.+?\]|v?\d+\.\d+\.\d+|\d{4}-\d{2}-\d{2})`, matching `## [Unreleased]`, `## [1.2.3] - 2024-01-01`, and bare date headers; confirmed fixed by test.
+- **Bugs 2 & 11: `chunk_sql` uses a string-aware parser** — replaced naïve `;\n` split with a character-level scanner that tracks single/double-quoted strings and strips `--` comments, so semicolons inside string literals no longer split statements incorrectly; confirmed fixed by test.
+- **Bugs 3 & 12: `chunk_python` handles tuple/list unpack assignments** — `MY_CONST, OTHER = 1, 2`, `(A, B) = (3, 4)`, and `[X, Y] = [5, 6]` are now indexed as individual UPPER_CASE names; confirmed fixed by test.
+- **Bugs 4 & 5: `is_indexed()` is now consistent across hooks and embeddings** — `search-first.py`, `index-refresh.py`, and `embeddings._excluded()` all use the same `parts & EXCLUDED_DIR_NAMES` + `rel.startswith(prefix)` logic, and all three treat root `.py` and `.sql` files as indexed; confirmed fixed by code inspection.
+- **Bugs 6 & 14: `_newest_source_mtime` now mirrors `enumerate_sources`** — includes root `*.py` and `*.sql` via `BASE.glob()` in addition to files under `INDEXED_SOURCE_DIRS`, matching the full set that `enumerate_sources()` would index; confirmed fixed by code inspection.
+- **Bug 8: `EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` logic is consistent** — all three exclusion sites (`_excluded()`, `search-first.is_indexed()`, `index-refresh.is_indexed()`) apply both checks identically; confirmed fixed by code inspection.
+- **Bug 9: `VENV_PY` default now points to `.claude/.venv-tokens`** — `search_config.py` default changed from `app/.venv` to `.claude/.venv-tokens`, matching the installer's actual venv location; confirmed fixed by code inspection.
+- **Bug 15: `_ClosingConn` missing methods are non-functional** — every call site uses `with connect_index() as c:`, which returns the unwrapped `sqlite3.Connection` via `__enter__`; the wrapper's limited surface is never accessed directly; confirmed non-issue by code inspection.
 
 ### Changed
 - **All source directories moved into `.claude/`** — `tools/`, `schema/`, `tests/`, `hooks/`, and `caveman/` now live under `.claude/` in the source repo (`less_tokens/.claude/`). Nothing in the deployed layout changes — artifacts were already installed into `.claude/`. The repo tree now matches exactly what gets deployed, and the bughunt protocol is a native Claude Code skill at `.claude/skills/bug-hunt/SKILL.md`. The caveman output style is a Claude Code rule at `.claude/rules/caveman.md`.

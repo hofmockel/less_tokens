@@ -8,21 +8,8 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Bug 1: Keep a Changelog headers fall back to markdown chunking** (.claude/tools/embeddings.py:214)
-- **Bug 2: chunk_sql ignores comments but split on ;\\n is fragile** (.claude/tools/embeddings.py:186)
-- **Bug 3: chunk_python ignores complex assignments** (.claude/tools/embeddings.py:168)
-- **Bug 4: is_indexed discrepancy for root .py files** (.claude/hooks/search-first.py:49 vs .claude/tools/embeddings.py:263)
-- **Bug 5: index-refresh.py misses root .py and .sql files** (.claude/hooks/index-refresh.py:50)
-- **Bug 6: search.py _newest_source_mtime is inconsistent with enumerate_sources** (.claude/tools/search.py:46)
 - **Bug 7: Search result token warning uses 4 chars per token heuristic** (.claude/tools/search.py:175)
-- **Bug 8: EXCLUDED_DIR_PREFIXES vs EXCLUDED_DIR_NAMES inconsistency** (.claude/tools/search_config.py:53)
-- **Bug 9: search_config.py default VENV_PY points to app/.venv** (.claude/tools/search_config.py:44)
 - **Bug 10: chunk_python prepends mod_doc incorrectly for classes/functions** (.claude/tools/embeddings.py:155)
-- **Bug 11: chunk_sql split on ;\\n fails with semicolons in strings** (.claude/tools/embeddings.py:196)
-- **Bug 12: chunk_python misses assignments in tuples/lists** (.claude/tools/embeddings.py:180)
-- **Bug 13: chunk_changelog regex too strict for common version formats** (.claude/tools/embeddings.py:219)
-- **Bug 14: search.py _newest_source_mtime misses root .py and .sql files** (.claude/tools/search.py:59)
-- **Bug 15: _ClosingConn wrapper misses many sqlite3.Connection methods** (.claude/tools/db.py:46)
 - **Bug 17: truncate-output.py logs 'truncation' strategy even when disabled** (.claude/hooks/truncate-output.py:78)
 - **Bug 18: search.py returns mixed-model results with garbage scores** (.claude/tools/search.py:112)
 - **Bug 19: index.sql UNIQUE constraint collision for duplicate function names** (.claude/schema/index.sql:19)
