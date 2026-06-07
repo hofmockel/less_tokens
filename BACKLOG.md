@@ -22,7 +22,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 
 
-- **G3 — Directory & listing dump control** *(tool)* — a scoped lister (depth-limited, `.gitignore`-aware, counts per dir instead of every file). PreToolUse on `Bash` detects bare `ls -R` / `find .` / `tree` and routes to it; cap `Glob` result count with an "N more" tail. Goes beyond truncation (S3), which keeps random head/tail of a still-noisy listing. (gap.md)
 
 ### Medium Priority
 

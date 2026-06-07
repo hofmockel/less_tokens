@@ -588,9 +588,10 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
         ("PreToolUse",  "Read|Grep",      f"{py} .claude/hooks/context-cache.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/post-edit-diff.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
+        ("PreToolUse",  "Bash",          f"{py} .claude/hooks/listing-guard.py"),
     ]
     if getattr(args, "truncate", False):
-        entries.append(("PostToolUse", "Bash|Read|WebFetch",
+        entries.append(("PostToolUse", "Bash|Read|WebFetch|Glob",
                          f"{py} .claude/hooks/truncate-output.py"))
     if getattr(args, "compact", False):
         entries.append(("PostToolUse", ".*",

@@ -178,3 +178,14 @@ MAX_DIFF_LINES: int = 60
 # disable entirely.
 CONTEXT_CACHE_ENABLED: bool = True
 CONTEXT_CACHE_GREP_TTL: int = 300  # seconds; mirrors WINDOW_SECONDS
+
+# --- G3: Directory listing dump control (listing-guard.py + lean-ls.py) ---
+# PreToolUse on Bash: intercept ls -R / find . / tree and replace with lean-ls
+# output (depth-limited, .gitignore-aware, dir-count summary). Set False to
+# disable interception and pass the command through unchanged.
+LISTING_GUARD_ENABLED: bool = True
+
+# PostToolUse on Glob: cap result count; append "N more files..." tail when
+# exceeded. Set 0 to disable. lean-ls outputs are already compact; this is a
+# safety net for large wildcard Glob calls.
+MAX_GLOB_RESULTS: int = 100
