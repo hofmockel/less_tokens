@@ -45,6 +45,15 @@
             "command": ".claude/.venv-tokens/bin/python .claude/hooks/auto-slice.py"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/grep-first-read.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

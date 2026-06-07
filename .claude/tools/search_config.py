@@ -152,3 +152,12 @@ READ_DENY_DATA_MAX_LINES: int = 1000
 READ_DENY_DATA_EXTS: tuple[str, ...] = (
     ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".parquet",
 )
+
+# --- S13: Grep-first Read gate (grep-first-read.py) ---
+# PreToolUse on Read: block whole-file Reads of files over this line count when
+# no offset is given. Claude is told to locate the target first via the symbol
+# index (/def) then Read only the relevant slice.
+# Files already handled by auto-slice (in last-search.json) or search-first
+# (indexed, no recent search) are exempted — no double gate.
+# Set 0 to disable.
+GREP_FIRST_LINE_THRESHOLD: int = 150

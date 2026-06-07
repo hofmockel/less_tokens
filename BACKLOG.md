@@ -20,7 +20,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **S13 — Grep-first Read gate (adopt former Strategy 7)** *(input)* — PreToolUse on `Read`: block files over a line threshold (default 150) read with no `offset`, telling Claude to locate first. Exempt files the shipped auto-slice hook already handles and search-first-gated indexed files (no double gate); route the locate step to the shipped symbol table (`symbols.py` / `/def`) rather than raw `grep -n`. S13 (with the shipped symbol index + auto-slice hook) completes the input pipeline: locate by symbol → read only the slice. Optionally log blocked Reads + lines saved via `.claude/tools/stats.py`. (evaluate.md; supersedes the old Strategy 7 sketch)
 
 - **S10 — Post-Edit diff + block the re-Read** *(input)* — PostToolUse on `Edit`/`Write`: emit a tight unified diff (`git diff -U2` or difflib on before/after) so Claude sees the change without re-reading. PreToolUse on `Read`: if the file was edited within N seconds (track `STATE_DIR/last-edit`), block the verify re-Read. Replaces a full-file Read after every edit with a 2–10 line diff. (evaluate.md)
 
