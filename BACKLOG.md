@@ -10,7 +10,39 @@ Token-reduction strategies and their rationale live in [evaluate.md](evaluate.md
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-_None open._
+| **Bug** | **Details** | **Status** |
+|---|---|---|
+| **`EXCLUDED_DIR_PREFIXES` NameError in `_excluded()`** | `_excluded()` references `EXCLUDED_DIR_PREFIXES` at line 122 but it is never imported from `search_config`; prefix filtering is always skipped and excluded-dir files get indexed silently. `embeddings.py:122` | open |
+| **`_extract_block` truncates multi-line assignments** | `merge_search_config` stores `(lineno, end_lineno)` but passes only `lineno` to `_extract_block`; multi-line vars (sets, dicts) are injected as their opening line only — broken Python. `install.py:300` | open |
+| **`_index_db_at_current_schema` accepts v1 as current** | `bool(row and row[0])` is True for any schema version ≥ 1; a v1 index is treated as current and the v1→v2 endianness migration is skipped, silently corrupting search scores. `install.py:692` | open |
+| **Filename-only path match in `auto-slice` / `grep-first`** | `kp.name == p.name` matches any file sharing a basename regardless of directory, causing wrong line-range injection in `auto-slice.py` and false gate exemptions in `grep-first-read.py`. `auto-slice.py:64`, `grep-first-read.py:98` | open |
+| **Context-cache shares state across sessions when `transcript_path` is None** | `session_key = transcript_path or ""` is always `""` for sessions without a transcript path; a new session matches the old session key and sees stale "already read" cache entries. `context-cache.py:87` | open |
+| **`grep-first-read` hardcodes `.venv-tokens` path** | Line 178 hardcodes the venv path instead of reading `VENV_PY` from `search_config`; users with a custom venv location see a wrong python path in the gate error message. `grep-first-read.py:178` | open |
+| **`_remove_gitignore_block` leaves orphan trailing blank** | Removes the blank line before the managed block but not any blank line after `_GI_END`; uninstall leaves an orphan blank line in `.gitignore`. `install.py:907` | open |
+| **`truncate_bash` falls back on original text when head+tail fits** | When `omitted_lines <= 0`, calls `truncate_chars(text, ceiling)` on the original full text instead of the assembled head+tail result; discards the error-preserving tail structure. `truncate-output.py:78` | open |
+| **`offset=0` treated as absent, blocks legitimate sliced Reads** | `inp.get("offset")` is falsy for `0`; an explicit `Read(offset=0, limit=N)` is treated as an unsliced whole-file read and incorrectly blocked by both hooks. `read-after-edit.py:69`, `read-guard.py:110` | open |
+| **`savings_log` import failure silently kills search-first gate** | `from savings_log import append` is inside the same try-block as `search_config`; any unrelated import error prints "could not load search_config" and disables the entire gate. `search-first.py:54` | open |
+| **`is_indexed()` ignores `INDEXED_ROOT_GLOBS`, hardcodes suffixes** | `_load_config` stores `INDEXED_ROOT_GLOBS` in `_config["root_globs"]` but `is_indexed()` hardcodes `.md`/`.py`/`.sql` for root files and never consults it; gate is out of sync with indexer. `search-first.py:78` | open |
+| **`index-refresh.py` same hardcoded suffix heuristic** | Same root bug as above — `is_indexed()` hardcodes suffixes instead of consulting `INDEXED_ROOT_GLOBS`; triggers spurious re-embeds for unindexed root files. `index-refresh.py:90` | open |
+| **`duplication()` missing `embedding_model` filter** | Query fetches all rows regardless of model; after a model switch, mixed-dimension blobs cause `np.vstack` to fail with `ValueError`, silently disabling duplicate detection via the outer `except Exception → return None`. `claudemd_audit.py:180` | open |
+| **`listing-guard` tree detection start-anchored, chained commands bypass** | `re.match(r'\s*tree\b', stripped)` fails for `echo foo && tree`; the ls guard uses `re.search` (anywhere), making detection inconsistent. `listing-guard.py:81` | open |
+| **`listing-guard` false-positive on `find . -type f`** | `-type` is absent from `_ALLOW_RE`; `find . -type f` (no other predicate) is intercepted as a bare dump and replaced with `lean-ls` output. `listing-guard.py:99` | open |
+| **`_resolve()` can't find partial paths containing `/`** | For paths with `/`, only `BASE / path` is tried; `tools/search.py` resolves to `BASE/tools/search.py` (missing), falsely flagging a valid ref. `rglob` fallback is only used for bare filenames. `claudemd_audit.py:101` | open |
+| **`toolcost._recv()` reads one line, skips server notifications** | Reads exactly one stdout line; if the MCP server emits a notification before the `tools/list` response, `_recv` returns the notification and the caller gets 0 tools — silent under-count. `toolcost.py:97` | open |
+| **`compact-trigger` stale `last-size` silences trigger in new sessions** | `last-size` persists across sessions; after a large session the new-session transcript starts small but `size < last + hysteresis` holds true, preventing the nudge from ever firing. `compact-trigger.py:87` | open |
+| **`search.py` creates empty `index.db`, breaking subsequent `migrate()`** | `connect_index()` calls `sqlite3.connect(INDEX_DB)` which creates an empty db file; later `ensure_current_schema()` calls `migrate()` instead of `init()`, and `migrate()`'s `INSERT INTO schema_version` crashes because the table is absent. `search.py:108`, `db.py:128` | open |
+| **`lean-ls` crashes on broken symlinks** | Broken symlink returns `is_file()=False` and is added to `dirs`; subsequent `iterdir()` raises `FileNotFoundError` which is not caught (only `PermissionError` is). `lean-ls.py:83` | open |
+| **`_locate_range` returns wrong range on duplicate first line** | When the last-line confirmation fails, immediately returns a fallback range for the wrong occurrence instead of `continue`-ing the loop to find the correct one. `search.py:219` | open |
+| **`post-edit-diff` runs `git diff` in wrong repo for host-project files** | `cwd=REPO` is hardcoded to the less_tokens dir; writes to host-project files show as all-added new files rather than diffs against the actual tracked version. `post-edit-diff.py:78` | open |
+| **`symbols.py refresh()` ignores `--full` flag** | `full` parameter is accepted and documented but never consulted inside the function; always performs a full DELETE+reinsert regardless. `symbols.py:127` | open |
+| **`caveman-reminder` counts unclosed code fence content as prose** | `_FENCE` regex requires a closing ` ``` `; an unclosed fence leaves code words in the prose word count, triggering false violation alerts. `caveman-reminder.py:67` | open |
+| **`db.py connect_index()` return type annotation wrong** | Annotated `-> sqlite3.Connection` but returns `_ClosingConn`; suppressed with `# type: ignore[return-value]`; callers using the return value directly (outside `with`) get `AttributeError`. `db.py:55` | open |
+| **`load_toolignore` keeps inline `#` comments as server names** | `"slack  # note"` is added verbatim to `ignored`; it never matches the settings key `"slack"`, so the server is never pruned. `mcp-prune.py:47` | open |
+| **`mcp-prune._BASE` targets less_tokens dir, not host project** | `_BASE = Path(__file__).resolve().parent.parent.parent` resolves to the less_tokens source tree; `.toolignore` and `settings.json` are always looked up in the wrong directory when run from a host project. `mcp-prune.py:36` | open |
+| **`--global` documented in docstring but absent from argparse** | Module docstring at lines 8 and 14 describes `--global` as a required flag for global-install mode, but no `add_argument("--global", ...)` exists; `install.py --global` crashes with an unrecognised-argument error. `install.py:8` | open |
+| **`total_tokens` undercounted due to per-row integer truncation** | `tok = sc // CHARS_PER_TOKEN` truncates per strategy; `sum(sc//4)` ≠ `sum(sc)//4`, so strategies saving fewer than 4 chars each contribute 0 tokens to the total. `stats.py:93` | open |
+| **`_strip_code` unclosed fence leaks code into prose word count** | `re.sub(r"```.*?```", …)` only removes balanced fences; an unclosed ` ``` ` leaves its content in the prose, inflating filler/word counts and producing false `TRIM` verdicts. `claudemd_audit.py:94` | open |
+| **`embed([])` crashes on empty section list, silently disabling dup check** | When CLAUDE.md has no headed sections `targets=[]`; `embed([])` produces a shape-`(0,)` array; `np.linalg.norm(axis=1)` raises `AxisError` caught by `except Exception → return None`, silently disabling duplicate detection. `claudemd_audit.py:196`, `embeddings.py:396` | open |
 
 ---
 
@@ -92,3 +124,43 @@ Cut deliberately; they touch the periphery, not tokens spent. Recorded here so t
 - **`embeddings.py` file-watcher mode** — duplicates the existing PostToolUse refresh hook; DX, not token reduction.
 - **Search quality metrics log** (`.claude/state/search.log`) — audit aid, saves no tokens.
 - **`search.py` query history log** (`.claude/state/search-history.log`) — audit aid, saves no tokens.
+
+---
+
+## Bug-Hunt Protocol
+
+### Current state (post-round-4)
+
+- **Round 4** (7 surfaced; 6 real, 1 dismissed, 0 duplicate): silent ×3, ux ×2, cosmetic ×1. Overlap 0%. New files: `mcp-prune.py`, `stats.py`. Revisited: `install.py`, `claudemd_audit.py`, `embeddings.py`.
+- **Severity slide**: ✗ — median ux both rounds (no drop).
+- **Overlap rate**: ✗ — 0% (< 60%).
+- **File coverage**: ✓ — ~85% (22/26 files, ≥ 80%).
+
+**Verdict: keep hunting. 1 of 3 signals met; 4 files still unexplored (`claudemd-budget.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`). Overlap still 0% — surface not yet saturated.**
+
+### Previous state (post-round-3)
+
+- **Round 3** (8 bugs surfaced; 8 real, 0 dismissed, 0 duplicate): silent ×3, ux ×3, cosmetic ×2. Overlap 0%. New files: `compact-trigger.py`, `search.py`, `lean-ls.py`, `post-edit-diff.py`, `symbols.py`, `caveman-reminder.py`, `db.py`.
+- **Severity slide**: ✓ — median dropped from silent (R2) to ux (R3).
+- **Overlap rate**: ✗ — 0% (< 60%).
+- **File coverage**: ✗ — ~77% (20/26 files, < 80%).
+
+**Verdict: keep hunting. 1 of 3 signals met; file coverage is 77% — one more round should push past 80% (6 files remain: `claudemd-budget.py`, `mcp-prune.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`, `stats.py`).**
+
+### Previous state (post-round-2)
+
+- **Round 2** (10 bugs surfaced; 10 real, 0 dismissed, 0 duplicate): silent ×7, ux ×3. Overlap 0%. New files: `truncate-output.py`, `read-after-edit.py`, `read-guard.py`, `search-first.py`, `index-refresh.py`, `claudemd_audit.py`, `listing-guard.py`, `toolcost.py`.
+- **Severity slide**: ✗ — median silent both rounds (no drop).
+- **Overlap rate**: ✗ — 0% (< 60%).
+- **File coverage**: ✗ — ~50% (13/26 files, < 80%).
+
+**Verdict: keep hunting.**
+
+### Previous state (post-round-1)
+
+- **Round 1** (7 bugs surfaced; 7 real, 0 dismissed, 0 duplicate): silent ×5, ux ×2, cosmetic ×1. Overlap 0%. Files hit: `embeddings.py`, `install.py`, `auto-slice.py`, `grep-first-read.py`, `context-cache.py` (5 of ~26 source files).
+- **Severity slide**: ✗ — Round 1, no prior round to compare.
+- **Overlap rate**: ✗ — 0% (< 60%).
+- **File coverage**: ✗ — ~19% (5/26 files, < 80%).
+
+**Verdict: keep hunting.**
