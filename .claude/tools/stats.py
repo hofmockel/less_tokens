@@ -43,8 +43,9 @@ _STRATEGY_LABELS = {
 
 def _set_tracking(enabled: bool) -> None:
     src = CONFIG_FILE.read_text(encoding="utf-8")
-    # Matches TRACK_SAVINGS = True, TRACK_SAVINGS: bool = False, etc.
-    pattern = r"^(TRACK_SAVINGS(?:\s*:\s*\w+)?\s*=\s*)(?:True|False)"
+    # Matches TRACK_SAVINGS = True, TRACK_SAVINGS: bool = False,
+    # TRACK_SAVINGS: bool | None = False, etc.
+    pattern = r"^(TRACK_SAVINGS(?:\s*:[^=]+)?\s*=\s*)(?:True|False)"
     replacement = rf"\g<1>{enabled}"
     new_src = re.sub(pattern, replacement, src, count=1, flags=re.MULTILINE)
     if new_src == src:
