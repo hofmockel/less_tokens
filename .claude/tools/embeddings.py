@@ -218,7 +218,23 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
                 start = node.lineno - 1
                 end = getattr(node, "end_lineno", start + 1)
                 out.append((name, "\n".join(lines[start:end])))
-    return out
+    # Dedup source_key values: same name defined twice in one file (valid Python)
+    # would produce two chunks with identical keys; the UPSERT would silently
+    # drop the first.  Append a _N suffix for subsequent duplicates, same as
+    # chunk_markdown does for repeated headings.
+    literal_keys = {k for k, _ in out}
+    deduped: list[tuple[str, str]] = []
+    emitted: set[str] = set()
+    for k, body in out:
+        key = k
+        if key in emitted:
+            n = 2
+            while f"{k}_{n}" in literal_keys or f"{k}_{n}" in emitted:
+                n += 1
+            key = f"{k}_{n}"
+        emitted.add(key)
+        deduped.append((key, body))
+    return deduped
 
 
 def chunk_sql(path: Path) -> list[tuple[str, str]]:

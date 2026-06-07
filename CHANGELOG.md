@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Bug 19: `chunk_python` deduplicates source_key for same-named definitions** — when a file defines two functions or classes with identical names, each gets a unique `_N` suffix key so the UPSERT does not silently discard the first chunk.
 - **Bug 18: `search()` now filters by `embedding_model`** — queries no longer score rows from a stale/switched model against the current query vector, eliminating garbage cosine scores in mixed-model indexes.
 - **Bug 17: `truncate-output.py` does not log savings when disabled** — confirmed by regression test: with `MAX_TOOL_OUTPUT_CHARS=0`, `_log_savings` is never called regardless of result size.
 - **Bug 10: `chunk_python` no longer emits trailing-space comment lines for blank docstring lines** — `_ctx()` now produces `#` (bare) instead of `# ` when the module docstring contains empty lines, eliminating hidden trailing whitespace in embedded chunk headers.
