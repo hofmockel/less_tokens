@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Bug 30: `bug-hunt/SKILL.md` now references less_tokens project** — replaced stale AIPortfolio file coverage list and project path with less_tokens source files; severity rubric examples updated to match less_tokens failure modes.
+- **Bug 29: `stats._load_records` emits WARN for malformed JSON lines** — confirmed by regression test: corrupt JSONL records print a warning to stderr; valid records are still returned.
 - **Bug 28: `model_profiles.py` Opus entries are now consistent** — `claude-opus-3` raised to `recommended_k=8` (matching all other Opus models), and `claude-opus-4-8` added.
 - **Bug 27: `_resolve_repo()` correctly handles CLAUDE.md-only projects** — confirmed by regression tests: the dev-env walk checks both `.git` and `CLAUDE.md`, and the `LESS_TOKENS_REPO` env var override takes precedence.
 - **Bug 26: `stats._set_tracking` handles complex type hints** — regex broadened from `\w+` to `[^=]+` so `TRACK_SAVINGS: bool | None = ...` and `Optional[bool]` forms are matched correctly.

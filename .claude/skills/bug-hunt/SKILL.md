@@ -10,9 +10,9 @@ Hunt statistics are recorded in [bughuntlog.md](bughuntlog.md) — one entry per
 
 | Tier | Definition | Example |
 |---|---|---|
-| **data-loss** | Wrong number lands in IRS-grade ledger, FIFO, wash-sale, or P&L. Real money at stake. | Lockouts dict collapse hides longer restriction; same-day rebuy missed by report adherence check. |
-| **silent** | Behavior is wrong but no immediate money impact; numbers reported are misleading. | Correlation aligns by index not date; trailing_return falls back to earliest close on IPOs. |
-| **ux** | Tool gives bad signal, false reassurance, or noise that trains the operator to ignore the gate. | parity-check baselines drift daily; universe.py refresh prints UPD on every row. |
+| **data-loss** | Index corrupted or wrong results returned silently; token savings tracked incorrectly. | UPSERT collision clobbers a different file's embedding; duplicate source_key silently dropped. |
+| **silent** | Behavior is wrong but no immediate data loss; results or counts are misleading. | search() returns stale-model rows; savings stats under-count due to off-by-one in char math. |
+| **ux** | Hook gives bad signal, false block, or noise that trains the user to ignore it. | search-first blocks when a search did run; truncate hook logs savings when disabled. |
 | **cosmetic** | Wording / formatting / log-line issue. No functional impact. | (none documented yet — surface only if encountered.) |
 
 ---
@@ -21,7 +21,7 @@ Hunt statistics are recorded in [bughuntlog.md](bughuntlog.md) — one entry per
 
 1. **Severity slide** — what's the median tier of THIS round vs the previous? Going `data-loss → silent → ux → cosmetic` means the high-value surface is exhausted.
 2. **Overlap rate** — when running a hunt, do NOT pre-exclude the existing bug list (let the agent rediscover). Then count: of the bugs surfaced, what fraction matches a bug already in the table by file:line or paraphrase? Rising overlap = saturated surface.
-3. **File coverage** — cumulative distinct files where bugs have been found, vs the high-yield target list (`wash.py`, `add-fills.py`, `rh-sync.py`, `dataio.py`, `db.py`, `alerts.py`, `state.py`, `snapshot-state.py`, `refresh-prices.py`, `refresh-earnings.py`, `recalc-coverage.py`, `sell-check.py`, `pnl.py`, `report.py`, `pre-buy-check.py`, `momentum.py`, `stress.py`, `size.py`, `weekly-budget.py`, `universe.py`, `universe-coverage.py`, `discover.py`, `lockout-cost.py`, `journal*.py`, `parity-check.py`, `validate-ledger.py`, `backup.py`, `restore-check.py`, `embeddings.py`, `search.py`, `commit-hygiene.py`, `doc-drift.py`, `gen-tools-readme.py`, `secret-scan.py`, `app/scan.py`, `app/layers.py`, `schema/portfolio.sql`, `schema/migrations/*.sql`). When new hunts stop landing on new files, surface is covered.
+3. **File coverage** — cumulative distinct files where bugs have been found, vs the high-yield target list (`embeddings.py`, `search.py`, `search_config.py`, `model_profiles.py`, `stats.py`, `savings_log.py`, `db.py`, `search-first.py`, `truncate-output.py`, `index-refresh.py`, `compact-trigger.py`, `caveman-reminder.py`, `install.py`, `index.sql`). When new hunts stop landing on new files, surface is covered.
 
 ---
 
@@ -38,10 +38,10 @@ If 2 of 3 hold, run one more round. If ≤1 of 3, keep hunting.
 ## How to run a hunt (one-shot agent prompt template)
 
 ```
-Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/AIPortfolio/.
-- Read backlog.md ## Bugs section first; do NOT pre-exclude (overlap is a signal we want to measure).
-- Bug definition: logic / silent failure / state / financial-logic / chain-ordering / docstring drift / schema / auth-UX / encoding.
-- NOT bugs: features, refactors, "add tests", performance unless incorrect, anything in non-Bugs backlog sections, backup-section variants (deferred per memory), token instrumentation.
+Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/less_tokens/.
+- Read BACKLOG.md ## Bugs section first; do NOT pre-exclude (overlap is a signal we want to measure).
+- Bug definition: logic / silent failure / state / docstring drift / schema / encoding / hook-ordering.
+- NOT bugs: features, refactors, "add tests", performance unless incorrect, anything in non-Bugs backlog sections.
 - Method: search-first for indexed files; read whole files for high-yield targets; verify each candidate by tracing or sqlite3 query; rank by severity tier.
 - Output: 10 bugs in `**Bug N: title** (file:line)` + What/Why/Repro/Fix format, ≤6 lines each. If <10 solid, surface fewer + say so.
 ```

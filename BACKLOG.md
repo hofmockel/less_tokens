@@ -8,9 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Bug 29: stats.py _load_records silent on JSON decode errors** (.claude/tools/stats.py:65)
-- **Bug 30: bughunt.md coverage list is for a different project (AIPortfolio)** (.claude/skills/bug-hunt/SKILL.md:28)
-
 ---
 
 ## Vector Search & Indexing
