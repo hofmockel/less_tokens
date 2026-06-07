@@ -8,7 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Bug 7: Search result token warning uses 4 chars per token heuristic** (.claude/tools/search.py:175)
 - **Bug 10: chunk_python prepends mod_doc incorrectly for classes/functions** (.claude/tools/embeddings.py:155)
 - **Bug 17: truncate-output.py logs 'truncation' strategy even when disabled** (.claude/hooks/truncate-output.py:78)
 - **Bug 18: search.py returns mixed-model results with garbage scores** (.claude/tools/search.py:112)

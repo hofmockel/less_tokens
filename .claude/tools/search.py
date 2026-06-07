@@ -229,9 +229,9 @@ def main() -> int:
     results = search(args.query, k=k, source_type=args.source_type,
                      min_score=args.min_score)
     # Warn if returned chunks would consume a large fraction of the
-    # configured model's window (rough heuristic: 4 chars ≈ 1 token).
+    # configured model's window.
     if prof and results:
-        approx_tokens = sum(len(r["text"]) for r in results) // 4
+        approx_tokens = sum(len(r["text"]) for r in results) // search_config.CHARS_PER_TOKEN
         window = prof.get("context_window", 0)
         if window and approx_tokens > window // 4:
             print(

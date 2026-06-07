@@ -90,6 +90,10 @@ CHUNK_INCLUDE_MODULE_CONTEXT: bool = False
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
+# Approximate chars per token — used by search.py to estimate result token cost.
+# English prose: ~4 chars/token; dense code: ~3 chars/token. Tune if your corpus differs.
+CHARS_PER_TOKEN: int = 4
+
 # --- Strategy 3: Tool Output Truncation ---
 MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
 TOOL_OUTPUT_HEAD_LINES: int = 50    # Bash: lines kept from output start
