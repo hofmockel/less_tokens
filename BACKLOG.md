@@ -14,18 +14,15 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ### High Priority
 
-- **Multi-repo indexing** — support indexing across multiple project roots so a single search spans related repos (monorepo support)
 - **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `.claude/tools/search_config.py` so users can tune for their Claude model's context window
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
 
 ### Medium Priority
 
-- **Keyword fallback** — when `fastembed` is not installed or the model download fails, fall back to a stdlib BM25/TF-IDF search over raw chunk text. Quality is lower but the system remains usable before the model cache is warm. Exit code and output format identical to normal search so hooks require no changes.
 - **Implement graceful degradation** — explicit handlers in `.claude/tools/embeddings.py` and `.claude/tools/search.py` for each failure condition; each catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
 
 ### Low Priority
 
-- **Remote index option** — store `index.db` in S3 / R2 for teams sharing an index across machines
 - **`search.py` interactive REPL** — `search.py --interactive` for rapid exploratory querying during development
 - **`embeddings.py` file-watcher mode** — a `watch` subcommand using `watchdog` that monitors `INDEXED_SOURCE_DIRS` and triggers incremental refresh automatically on save, as an alternative to the PostToolUse hook
 
@@ -46,7 +43,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ### High Priority
 
-- **Calibrated verbosity levels** — replace binary caveman on/off with a 1–5 verbosity dial in `.claude/tools/search_config.py`; level 1 = full caveman, level 5 = normal prose
 - **Per-task exemptions** — allow CLAUDE.md to declare specific task types (e.g., user-facing copy, PR descriptions) that bypass caveman mode
 
 ---
@@ -57,7 +53,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 - **Search quality metrics** — log query, top result score, and result count to `.claude/state/search.log` so users can audit what Claude is finding
 - **`search.py` query history log** — append each query and its top result score to `.claude/state/search-history.log` so maintainers can audit what Claude searched for and identify queries that consistently return poor results
-- **Dashboard command** — `embeddings.py stats --verbose` showing index age, chunk count by source type, and estimated coverage
 
 ---
 
@@ -127,7 +122,3 @@ sys.exit(0)
 ### Strategy 6 — Tiered Effort
 
 Route each task to the cheapest Claude model + effort level it needs. Three tiers: **L1 Mechanical** (Haiku, one confirmation, no summaries), **L2 Rules** (Sonnet, result + brief reasoning), **L3 Planning** (Opus, full analysis). Before each task the agent emits one line with the recommended tier only when it changes from the prior turn. Implementation: `.claude/rules/tier-matrix.md` appended to `CLAUDE.md` + `AGENT_TIER_HINTS: bool` config flag. Expected savings: 50–70% blended reduction.
-
-### Strategy 4 — Prompt Caching *(deferred — likely redundant with Claude Code defaults)*
-
-Claude Code already caches the system prompt and `CLAUDE.md` automatically. Revisit if measurement on a real session shows the auto-cache is missing large doc files Claude reads every turn.
