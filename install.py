@@ -584,6 +584,9 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/auto-slice.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/grep-first-read.py"),
+        ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-after-edit.py"),
+        ("PreToolUse",  "Read|Grep",      f"{py} .claude/hooks/context-cache.py"),
+        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/post-edit-diff.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
     ]
     if getattr(args, "truncate", False):

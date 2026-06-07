@@ -29,6 +29,15 @@
         ]
       },
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/read-after-edit.py"
+          }
+        ]
+      },
+      {
         "matcher": "Grep",
         "hooks": [
           {
@@ -54,9 +63,36 @@
             "command": ".claude/.venv-tokens/bin/python .claude/hooks/grep-first-read.py"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/context-cache.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/context-cache.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/post-edit-diff.py"
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

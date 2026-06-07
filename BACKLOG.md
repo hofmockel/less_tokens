@@ -21,9 +21,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 ### High Priority
 
 
-- **S10 — Post-Edit diff + block the re-Read** *(input)* — PostToolUse on `Edit`/`Write`: emit a tight unified diff (`git diff -U2` or difflib on before/after) so Claude sees the change without re-reading. PreToolUse on `Read`: if the file was edited within N seconds (track `STATE_DIR/last-edit`), block the verify re-Read. Replaces a full-file Read after every edit with a 2–10 line diff. (evaluate.md)
-
-- **G2 — In-session re-read / re-search cache** *(input)* — PreToolUse content cache keyed on `(tool, args, file-mtime)`. On a repeat with unchanged inputs, block and return `"already in context (turn N) — unchanged since"` instead of re-injecting the payload. The general case of which S10 is the edit-specific slice; reuses the `STATE_DIR/last-search` plumbing. Distinct from the "query cache" cut in evaluate.md (that saved embedding compute; this stops re-injection into context). (gap.md)
 
 - **G1 — Tool / MCP schema overhead** *(fixed)* — every tool/MCP schema sits in context on every turn; fat connectors can dwarf CLAUDE.md. Lazy tool exposure (load only what a task needs, fetch the rest on demand) + a `.toolignore` to drop unused servers from the session. Audit tool `.claude/tools/toolcost.py` estimates per-server schema tokens so the tax is visible. Enforcement is config-time (what loads), not a runtime hook. *Often the single largest untouched cost on real setups.* (gap.md)
 

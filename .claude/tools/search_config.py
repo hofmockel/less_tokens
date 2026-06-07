@@ -161,3 +161,20 @@ READ_DENY_DATA_EXTS: tuple[str, ...] = (
 # (indexed, no recent search) are exempted — no double gate.
 # Set 0 to disable.
 GREP_FIRST_LINE_THRESHOLD: int = 150
+
+# --- S10: Post-edit diff + re-Read block ---
+# PostToolUse on Edit|Write: emit a unified diff as hookSpecificOutput so
+# Claude has the change in context without re-reading the whole file.
+# PreToolUse on Read: block a verify re-Read of the same file within this
+# many seconds of the edit (diff already in context).  Set 0 to disable
+# the block.  MAX_DIFF_LINES caps the emitted diff; 0 = no cap.
+LAST_EDIT_WINDOW_SECONDS: int = 120
+MAX_DIFF_LINES: int = 60
+
+# --- G2: In-session re-read/re-search cache (context-cache.py) ---
+# PreToolUse on Read|Grep: block repeat calls whose payload is already in
+# context. Read cache is invalidated by file mtime change; Grep cache expires
+# after CONTEXT_CACHE_GREP_TTL seconds. Set CONTEXT_CACHE_ENABLED=False to
+# disable entirely.
+CONTEXT_CACHE_ENABLED: bool = True
+CONTEXT_CACHE_GREP_TTL: int = 300  # seconds; mirrors WINDOW_SECONDS
