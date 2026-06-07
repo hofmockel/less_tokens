@@ -8,7 +8,6 @@ Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item
 
 Confirmed defects found by code inspection. Each has a specific file and line reference.
 
-- **Bug 20: search_config.py WINDOW_SECONDS hardcoded fallback in search-first.py** (.claude/hooks/search-first.py:64)
 - **Bug 26: stats.py _set_tracking is fragile (fails on type hints)** (.claude/tools/stats.py:42)
 - **Bug 27: REPO resolution in hooks is broken in dev environment** (.claude/hooks/search-first.py:15)
 - **Bug 28: model_profiles.py inconsistent heuristics for Opus models** (.claude/tools/model_profiles.py:25)

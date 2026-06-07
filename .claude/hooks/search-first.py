@@ -89,7 +89,7 @@ def search_was_recent() -> bool:
         mtime = state_file.stat().st_mtime
     except OSError:
         return False
-    return (time.time() - mtime) < _config.get("window_seconds", 300)
+    return (time.time() - mtime) < _config["window_seconds"]
 
 
 def main() -> int:
