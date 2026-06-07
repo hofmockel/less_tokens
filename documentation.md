@@ -231,7 +231,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 ```json
 {
   "matcher": ".*",
-  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/caveman-reminder.py"}]
+  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/caveman-reminder.py"}]  // Stop event
 }
 ```
 
@@ -278,7 +278,7 @@ less_tokens/
     ├── hooks/                 # deployed to <host>/.claude/hooks/
     │   ├── search-first.py        # PreToolUse: gate Read on indexed files
     │   ├── index-refresh.py       # PostToolUse: re-embed after Edit/Write
-    │   ├── caveman-reminder.py    # PostToolUse: nudge back to terse output
+    │   ├── caveman-reminder.py    # Stop: nudge back to terse output
     │   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
     │   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
     ├── rules/                 # deployed to <host>/.claude/rules/
@@ -386,3 +386,84 @@ Items tracked for future documentation improvement.
 
 - **Animated GIF demo** — screencast showing before/after: full Read vs. search returning targeted chunks
 - **Token savings benchmarks** — documented measurements on a real codebase showing actual reduction
+
+---
+
+## Architecture internals
+
+_Moved from CLAUDE.md to keep that file lean. Indexed — reachable by search._
+
+All source lives under `.claude/`:
+
+```
+.claude/
+  hooks/           ← PreToolUse / PostToolUse / Stop hooks
+  rules/           ← Output style rules (caveman.md)
+  skills/          ← Claude Code skills (bug-hunt, claudemd)
+  tools/           ← Core Python scripts deployed to host projects
+  schema/          ← SQL schema deployed to host projects
+  tests/           ← Unit, integration, and perf test suites
+  commands/        ← /build-index, /search, /def slash commands
+```
+
+### Layer split
+
+**Agent-agnostic core (`.claude/tools/` and `.claude/schema/`)**
+- `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold
+- `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
+- `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
+- `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
+- `.claude/tools/symbols.py` — AST-only symbol index; `symbols.py <name>` (and the `/def` command) returns a definition's exact `file:line` + a `Read(offset,limit)`, no grep dump. Self-creating `symbols` table; refreshes when sources change
+- `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
+
+**Claude Code hook layer (`.claude/hooks/`)**
+- All hooks read a JSON payload from stdin and exit `0` (pass) or `2` (block/replace)
+- `.claude/hooks/search-first.py` — PreToolUse on `Read` (blocks if the file is indexed and no search ran within `WINDOW_SECONDS`, 300s) and on `Grep` (non-blocking: if the pattern is a known symbol, suggests `/def` for the exact location)
+- `.claude/hooks/read-guard.py` — PreToolUse on `Read`; blocks an un-sliced Read of a noise file (lockfile/minified/binary/oversized data) per `READ_DENY_GLOBS` + `READ_DENY_DATA_MAX_LINES`; a Read with an `offset` is allowed
+- `.claude/hooks/auto-slice.py` — PreToolUse on `Read`; if the file was a hit in the last (recent) search, blocks an un-sliced Read with the exact `Read(offset, limit)` for the matched range (`STATE_DIR/last-search.json`, written by `search.py`); pass `offset` to override
+- `.claude/hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
+- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split)
+- `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; 25% hysteresis via `.claude/state/compact-trigger-last`
+- `.claude/hooks/caveman-reminder.py` — Stop hook; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
+- `.claude/hooks/claudemd-budget.py` — PostToolUse on `Edit|Write`; blocks when CLAUDE.md exceeds `CLAUDE_MD_TOKEN_BUDGET` or gains a stale ref
+
+**Rules (`.claude/rules/`)**
+- `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
+
+**Skills (`.claude/skills/`)**
+- `.claude/skills/bug-hunt/SKILL.md` — bug-hunt protocol: severity rubric, stop rule, agent prompt template
+- `.claude/skills/claudemd/SKILL.md` — prune CLAUDE.md to only what must be always-loaded
+
+Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.py:load_hook()` (it puts `.claude/tools/` on `sys.path` so the source tools are importable during tests, then execs the hook file). Keep hook logic importable — no side effects at module load.
+
+### State directory
+
+`STATE_DIR` in `search_config.py` is `CLAUDE_DIR / "state"` (i.e., `.claude/state/` in the host project).
+
+### Chunking strategies
+
+| File type | Strategy | Key unit |
+|---|---|---|
+| `.py` | `chunk_python` — AST parse | top-level `def`/`class`/`UPPER_CASE` |
+| `.md` | `chunk_markdown` — regex H1/H2/H3 | heading sections |
+| `CHANGELOG.md` | `chunk_changelog` — `## YYYY-MM-DD` headers | **Note:** Keep a Changelog format (`## [v] - date`) won't match; falls back to `chunk_markdown` (known bug) |
+| `.sql` | `chunk_sql` — split on `;\n` | CREATE TABLE/VIEW/INDEX name |
+
+### End-to-end verification
+
+For hook behavior and the full install path, verify against a scratch project:
+
+```bash
+# Install into a scratch project. The installer targets the parent of this clone — cwd doesn't matter.
+python3 install.py --build
+# Override the target:
+python3 install.py --target /path/to/scratch --yes --build
+# Build the local index (requires fastembed)
+.claude/.venv-tokens/bin/python .claude/tools/embeddings.py refresh
+# Search
+.claude/.venv-tokens/bin/python .claude/tools/search.py "your query"
+.claude/.venv-tokens/bin/python .claude/tools/search.py "query" --source-type code -k 5 --json
+# Index health
+.claude/.venv-tokens/bin/python .claude/tools/embeddings.py health
+.claude/.venv-tokens/bin/python .claude/tools/db.py verify
+```

@@ -18,7 +18,7 @@ system-wide. Venv is created here (--create-venv) or detected automatically.
     --skip-deps         skip pip install of fastembed + numpy
     --truncate          also wire tool-output truncation hook (Strategy 3)
     --compact           also wire compact-trigger hook (Strategy 4)
-    --caveman           also wire caveman-reminder hook (Strategy 5)
+    --caveman           also wire caveman-reminder Stop hook (terse output)
     --local             write settings.local.json instead of settings.json
     --no-gitignore      skip the .gitignore block for generated artifacts
     --dry-run           preview without writing anything
@@ -536,6 +536,9 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
         py = str(venv_py)
     entries: list[tuple[str, str, str]] = [
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
+        ("PreToolUse",  "Grep",          f"{py} .claude/hooks/search-first.py"),
+        ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),
+        ("PreToolUse",  "Read",          f"{py} .claude/hooks/auto-slice.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
     ]
     if getattr(args, "truncate", False):
@@ -545,7 +548,7 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
         entries.append(("PostToolUse", ".*",
                          f"{py} .claude/hooks/compact-trigger.py"))
     if getattr(args, "caveman", False):
-        entries.append(("PostToolUse", ".*",
+        entries.append(("Stop", "",
                          f"{py} .claude/hooks/caveman-reminder.py"))
     return entries
 
@@ -970,7 +973,7 @@ def main() -> int:
                     help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="copy .claude/rules/ and wire caveman-reminder hook")
+                    help="copy .claude/rules/ and wire caveman-reminder Stop hook")
     ap.add_argument("--truncate", action="store_true",
                     help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",

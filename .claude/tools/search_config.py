@@ -118,3 +118,37 @@ WINDOW_SECONDS: int = 300
 
 # --- Token savings tracking (Strategy metrics) ---
 TRACK_SAVINGS = False   # set True via: python .claude/tools/stats.py
+
+# --- CLAUDE.md budget (claudemd skill + claudemd-budget hook) ---
+# CLAUDE.md is always-loaded, never searched — every token is a per-turn tax.
+# The audit tool warns and the PostToolUse hook blocks when CLAUDE.md exceeds
+# this token estimate. Set 0 to disable the hook. Move cut detail to the
+# overflow doc (which IS indexed) so it stays discoverable by search.
+CLAUDE_MD_TOKEN_BUDGET: int = 1200
+CLAUDE_MD_OVERFLOW_DOC: str = "documentation.md"
+
+# --- Caveman output enforcement (Stop hook: caveman-reminder.py) ---
+# Checks the last assistant turn (not tool output) for filler phrases and an
+# over-long prose body. Code fences are exempt. Set False to disable.
+CAVEMAN_ENFORCE: bool = True
+MAX_RESPONSE_WORDS: int = 600   # prose-word ceiling per turn; 0 disables the word check
+
+# --- Noise-file read guard (read-guard.py) ---
+# PreToolUse on Read blocks whole-file reads of high-noise files (pure token
+# waste). A Read with an explicit offset (i.e. a slice) is always allowed.
+# Set READ_DENY_GLOBS empty to disable glob blocking.
+READ_DENY_GLOBS: tuple[str, ...] = (
+    "*.lock", "*-lock.json", "*-lock.yaml", "package-lock.json", "yarn.lock",
+    "poetry.lock", "Pipfile.lock", "Cargo.lock", "pnpm-lock.yaml", "composer.lock",
+    "go.sum",
+    "*.min.js", "*.min.css", "*.map",
+    "*.ipynb",
+    "*.pdf", "*.zip", "*.tar", "*.gz", "*.tgz", "*.whl", "*.so", "*.dll",
+    "*.bin", "*.pyc", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.ico",
+)
+# Data files (below) are allowed up to this many lines; over it the guard
+# suggests head/wc/column-summary instead. Set 0 to disable the size check.
+READ_DENY_DATA_MAX_LINES: int = 1000
+READ_DENY_DATA_EXTS: tuple[str, ...] = (
+    ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".parquet",
+)

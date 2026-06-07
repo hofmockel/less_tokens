@@ -20,3 +20,15 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 CREATE INDEX IF NOT EXISTS idx_documents_source_type ON documents(source_type);
 CREATE INDEX IF NOT EXISTS idx_documents_source_path ON documents(source_path);
+
+-- Symbol index (S8): exact file:line for top-level defs/classes/constants.
+-- AST-only, populated by tools/symbols.py; independent of the embedding rows.
+CREATE TABLE IF NOT EXISTS symbols (
+  name        TEXT NOT NULL,
+  kind        TEXT NOT NULL,          -- 'func', 'class', 'const'
+  source_path TEXT NOT NULL,
+  start_line  INTEGER NOT NULL,
+  end_line    INTEGER NOT NULL,
+  PRIMARY KEY (name, source_path, start_line)
+);
+CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);

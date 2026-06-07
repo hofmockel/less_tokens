@@ -18,6 +18,33 @@
             "command": ".claude/.venv-tokens/bin/python .claude/hooks/search-first.py"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/read-guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/search-first.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/auto-slice.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -47,9 +74,11 @@
             "command": ".claude/.venv-tokens/bin/python .claude/hooks/compact-trigger.py"
           }
         ]
-      },
+      }
+    ],
+    "Stop": [
       {
-        "matcher": ".*",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",

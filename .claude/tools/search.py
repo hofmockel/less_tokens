@@ -195,6 +195,57 @@ def search(
     return results
 
 
+def _locate_range(file_text: str, chunk_text: str) -> tuple[int, int] | None:
+    """Best-effort 1-based (start, end) line span of a chunk within its file.
+
+    Matches the chunk's first non-blank line, and confirms with the last line
+    when the span fits. Returns None if not found. Used to turn a search hit
+    into a Read(offset, limit) slice (Strategy S9).
+    """
+    flines = file_text.splitlines()
+    clines = chunk_text.splitlines()
+    while clines and not clines[0].strip():
+        clines.pop(0)
+    while clines and not clines[-1].strip():
+        clines.pop()
+    if not clines:
+        return None
+    first, last, n = clines[0], clines[-1], len(clines)
+    for i, ln in enumerate(flines):
+        if ln == first:
+            end_idx = i + n - 1
+            if end_idx < len(flines) and flines[end_idx] == last:
+                return (i + 1, end_idx + 1)
+            return (i + 1, min(i + n, len(flines)))
+    return None
+
+
+def _write_last_search_ranges(results: list[dict]) -> None:
+    """Write STATE_DIR/last-search.json: {source_path: [[start, end], ...]}.
+
+    Lets the auto-slice hook (S9) suggest a Read(offset, limit) for a file the
+    last search matched, instead of a whole-file read. Best-effort; never raises.
+    """
+    ranges: dict[str, list[list[int]]] = {}
+    for r in results:
+        path = r.get("source_path", "")
+        if not path:
+            continue
+        try:
+            text = (BASE / path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        span = _locate_range(text, r.get("text", ""))
+        if span:
+            ranges.setdefault(path, []).append([span[0], span[1]])
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        (STATE_DIR / "last-search.json").write_text(
+            json.dumps(ranges), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("query")
@@ -260,6 +311,8 @@ def main() -> int:
             "full_file_chars": full_file_chars,
             "saved_chars": max(0, full_file_chars - chunk_chars),
         })
+
+    _write_last_search_ranges(results)
 
     if args.json:
         print(json.dumps(results, indent=2))

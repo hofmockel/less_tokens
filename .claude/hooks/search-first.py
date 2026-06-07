@@ -92,6 +92,35 @@ def search_was_recent() -> bool:
     return (time.time() - mtime) < _config["window_seconds"]
 
 
+import re as _re  # noqa: E402
+
+
+def _symbol_exists(name: str) -> bool:
+    try:
+        from symbols import has_symbol  # noqa: PLC0415
+        return has_symbol(name)
+    except Exception:
+        return False
+
+
+def _grep_symbol_hint(payload: dict) -> int:
+    """Non-blocking: if a Grep pattern is a known symbol, suggest /def.
+
+    Grep is still allowed (it finds usages); this only points at the cheaper
+    definition lookup. Never blocks.
+    """
+    pat = (payload.get("tool_input", {}) or {}).get("pattern", "")
+    name = pat.strip()
+    if _re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and _symbol_exists(name):
+        ctx = (f"`{name}` is a defined symbol. For its definition, "
+               f"`/def {name}` (python .claude/tools/symbols.py {name}) returns the exact "
+               f"file:line + a Read(offset,limit) — cheaper than grepping. "
+               f"Grep is fine if you want usages.")
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "additionalContext": ctx}}))
+    return 0
+
+
 def main() -> int:
     if not _load_config():
         return 0  # degrade gracefully; don't block Reads
@@ -101,7 +130,10 @@ def main() -> int:
     except Exception:
         return 0
 
-    if payload.get("tool_name") != "Read":
+    tool = payload.get("tool_name")
+    if tool == "Grep":
+        return _grep_symbol_hint(payload)
+    if tool != "Read":
         return 0
     file_path = payload.get("tool_input", {}).get("file_path", "")
     if not file_path:
