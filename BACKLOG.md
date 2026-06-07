@@ -22,8 +22,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 
 
-- **G1 — Tool / MCP schema overhead** *(fixed)* — every tool/MCP schema sits in context on every turn; fat connectors can dwarf CLAUDE.md. Lazy tool exposure (load only what a task needs, fetch the rest on demand) + a `.toolignore` to drop unused servers from the session. Audit tool `.claude/tools/toolcost.py` estimates per-server schema tokens so the tax is visible. Enforcement is config-time (what loads), not a runtime hook. *Often the single largest untouched cost on real setups.* (gap.md)
-
 - **G3 — Directory & listing dump control** *(tool)* — a scoped lister (depth-limited, `.gitignore`-aware, counts per dir instead of every file). PreToolUse on `Bash` detects bare `ls -R` / `find .` / `tree` and routes to it; cap `Glob` result count with an "N more" tail. Goes beyond truncation (S3), which keeps random head/tail of a still-noisy listing. (gap.md)
 
 ### Medium Priority
