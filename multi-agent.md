@@ -15,9 +15,11 @@ Do **not** fork `.claude/tools/search.py`, `.claude/tools/embeddings.py`, `.clau
 ```text
 core:        .claude/tools/, .claude/schema/, shared hook logic
 claude:      CLAUDE.md, .claude/hooks, .claude/settings.json wiring
-codex:       AGENTS.md, .agents/skills, .codex/hooks.json wiring
+codex:       AGENTS.md, .less_tokens/skills, .codex/hooks.json wiring (when available)
 installer:   --agent claude|codex|both
 ```
+
+> **Codex hook caveat (from field testing):** `.codex/hooks.json` and `.agents/skills/` may not be writable in all Codex environments. Treat Codex hook wiring and skill installation as optional capabilities. The Codex MVP installs shared tools under `.less_tokens/` and the skill under `.less_tokens/skills/less-tokens/`; hooks and `.agents/skills/` are added only when the runtime confirms they are available.
 
 ## Current repo facts to preserve
 
@@ -45,6 +47,9 @@ Keep these files agent-neutral:
   search_config.py
   savings_log.py
   stats.py
+  agentsmd_audit.py    # AGENTS.md / CLAUDE.md budget and ref checker
+  read_guard.py        # noisy-file denylist guard
+  lean-ls.py           # compact directory listing
 
 .claude/schema/
   index.sql
@@ -99,7 +104,7 @@ agents/
     settings.py
     skills/
       less-tokens/
-        SKILL.md
+        SKILL.md          # installed to .less_tokens/skills/less-tokens/ (fallback from .agents/skills/)
 ```
 
 The files under `agents/common/` contain behavior. The files under `agents/claude/` and `agents/codex/` only:
@@ -259,8 +264,12 @@ def _install_specs(agents: set[Agent], caveman: bool) -> list[tuple[str, str, fr
         specs.append(("agents/claude/hooks", ".claude/hooks", frozenset()))
 
     if Agent.CODEX in agents:
-        specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
-        specs.append(("agents/codex/skills", ".agents/skills", frozenset()))
+        # .codex/hooks may not be writable in all Codex environments — install only when available
+        if _dir_is_writable(".codex"):
+            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
+        # prefer .agents/skills/ but fall back to .less_tokens/skills/
+        skill_target = ".agents/skills" if _dir_is_writable(".agents") else ".less_tokens/skills"
+        specs.append(("agents/codex/skills", skill_target, frozenset()))
 
     if caveman:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
@@ -273,7 +282,7 @@ def _install_specs(agents: set[Agent], caveman: bool) -> list[tuple[str, str, fr
 Collision checks should still protect shared `.claude/tools/` and `.claude/schema/` by default. They should also account for selected agent trees:
 
 - For Claude installs, check `.claude/hooks` for exact files managed by this project.
-- For Codex installs, check `.codex/hooks` and `.agents/skills/less-tokens`.
+- For Codex installs, check `.codex/hooks` (if present) and the resolved skill target (`.agents/skills/less-tokens` or `.less_tokens/skills/less-tokens`).
 - Do not treat unrelated user hooks in `.claude/hooks` or `.codex/hooks` as fatal unless a managed file name conflicts and differs.
 
 ### Make uninstall agent-aware
@@ -289,7 +298,7 @@ python3 install.py --uninstall --agent both
 Rules:
 
 - `--agent claude --uninstall`: remove only Claude hook wiring and Claude hook files.
-- `--agent codex --uninstall`: remove only Codex hook wiring, Codex hook files, and the optional skill.
+- `--agent codex --uninstall`: remove only Codex hook wiring (if installed), Codex hook files, and the optional skill (from whichever target was used).
 - `--agent both --uninstall`: remove both agent integrations.
 - Never remove shared `.claude/tools/`, `.claude/schema/`, or `index.db` unless no installed agents remain, or unless an explicit purge flag is passed.
 - Keep `--purge-index` explicit.
@@ -317,7 +326,7 @@ Add state constants to `.claude/tools/search_config.py`:
 ```python
 STATE_ROOT: Path = BASE / ".less_tokens" / "state"
 CLAUDE_STATE_DIR: Path = BASE / ".claude" / "state"
-CODEX_STATE_DIR: Path = BASE / ".codex" / "state"
+CODEX_STATE_DIR: Path = BASE / ".less_tokens" / "state"  # .codex/ may not be writable
 STATE_DIR: Path = STATE_ROOT
 ```
 
@@ -615,11 +624,10 @@ Add a repo-local skill at:
 agents/codex/skills/less-tokens/SKILL.md
 ```
 
-Install it to:
+Install target (in order of preference):
 
-```text
-.agents/skills/less-tokens/SKILL.md
-```
+1. `.agents/skills/less-tokens/SKILL.md` — if `.agents/` is writable
+2. `.less_tokens/skills/less-tokens/SKILL.md` — fallback (always writable; confirmed working in field testing)
 
 Suggested content:
 
@@ -633,15 +641,23 @@ description: Use before exploring indexed repository files; runs local vector se
 
 Before reading indexed files, run:
 
-    <venv-python> .claude/tools/search.py "<query>"
+    <venv-python> .less_tokens/tools/search.py "<query>"
 
 If the index is missing or stale, run:
 
-    <venv-python> .claude/tools/embeddings.py refresh
+    <venv-python> .less_tokens/tools/embeddings.py refresh
 
 Prefer the default top 3 chunks. Read full files only after search identifies the likely target path or section.
 
 If search returns no useful chunks, proceed with normal repository inspection and consider refreshing the index.
+
+For directory navigation, prefer `rg --files` over `find . -R` or `tree`. For AGENTS.md hygiene:
+
+    <venv-python> .less_tokens/tools/agentsmd_audit.py
+
+For noisy-file checks before reading:
+
+    <venv-python> .less_tokens/tools/read_guard.py <path>
 ```
 
 ## Deployed file layout
@@ -665,14 +681,27 @@ After `--agent codex`:
 ```text
 .claude/tools/
 .claude/schema/
+
+# always installed:
+.less_tokens/tools/search.py
+.less_tokens/tools/embeddings.py
+.less_tokens/tools/db.py
+.less_tokens/tools/symbols.py
+.less_tokens/tools/agentsmd_audit.py
+.less_tokens/tools/read_guard.py
+.less_tokens/tools/lean-ls.py
+.less_tokens/schema/index.sql
+.less_tokens/skills/less-tokens/SKILL.md   # fallback when .agents/ is not writable
+AGENTS.md
+
+# installed only when runtime confirms writability:
 .codex/hooks/search-first.py
 .codex/hooks/index-refresh.py
 .codex/hooks/truncate-output.py
 .codex/hooks/compact-trigger.py
 .codex/hooks/terse-reminder.py
 .codex/hooks.json
-.agents/skills/less-tokens/SKILL.md
-AGENTS.md
+.agents/skills/less-tokens/SKILL.md        # preferred over .less_tokens/skills/ when available
 ```
 
 After `--agent both`, both sets should exist and share one `index.db`.
@@ -812,14 +841,17 @@ Implement in small PRs.
 - Add `agents/codex/instructions/AGENTS.md.fragment`.
 - Add `agents/codex/skills/less-tokens/SKILL.md`.
 - Add installer support for writing/updating `AGENTS.md`.
+- Install skill to `.less_tokens/skills/less-tokens/` (always) and `.agents/skills/less-tokens/` (when writable).
+- Add `agentsmd_audit.py`, `read_guard.py`, and `lean-ls.py` to shared core.
 - Add tests for generated/merged Codex instruction assets.
 
 ### PR 5: Codex hooks and settings
 
 - Add `agents/codex/hooks/` adapters.
-- Add `.codex/hooks.json` writer.
+- Add `.codex/hooks.json` writer with writability probe — skip gracefully if not available.
 - Add Codex payload fixtures and tests.
 - Add `--agent codex` and `--agent both` integration tests.
+- Verify that a Codex install with no `.codex/` write access still produces a functional MVP (tools + skill + AGENTS.md).
 
 ### PR 6: docs and release notes
 
@@ -847,6 +879,16 @@ Claude's current path can block direct `Read` tool calls. Codex search-first sho
 The Codex path should not claim sandbox-like enforcement. It should say:
 
 > Search-first is enforced where hook-visible tool calls expose file paths or commands. It remains backed by `AGENTS.md` and the `less-tokens` skill for cases hooks cannot intercept.
+
+### Codex hook and skill installation is environment-dependent
+
+Field testing confirmed that `.codex/skills` is not writable in all Codex environments and `.agents/skills/` may also be unavailable. The installer must probe before writing. The `.less_tokens/skills/` fallback is always safe because `less_tokens` already owns that directory.
+
+If `.codex/hooks.json` does not exist and cannot be created, Codex hook behavior is unavailable for that install. The MVP still works: search, symbols, guards, and AGENTS.md audit all run as explicit script calls without any hook wiring.
+
+### Lazy tool discovery reduces MCP pruning priority
+
+Codex has deferred tool discovery via `tool_search`. The Claude-specific `mcp-prune` direction has lower value in Codex. Do not make it a Codex-side feature.
 
 ### Apply-patch parsing can start conservative
 
@@ -882,7 +924,7 @@ The multi-agent work is complete when all of the following are true:
 
 - `python3 install.py` behaves like the current Claude install.
 - `python3 install.py --agent claude` behaves the same as the default.
-- `python3 install.py --agent codex` installs Codex hooks, `AGENTS.md`, and the Codex skill without installing Claude hooks.
+- `python3 install.py --agent codex` installs `.less_tokens/` tools and `AGENTS.md`; conditionally installs Codex hooks and skill to preferred targets when writable.
 - `python3 install.py --agent both` installs both agent layers over one shared core.
 - Claude and Codex state files are separate.
 - Claude and Codex share the same `index.db`.
@@ -890,4 +932,7 @@ The multi-agent work is complete when all of the following are true:
 - Claude payload normalization is tested.
 - Codex payload normalization is tested.
 - Installer tests cover Claude, Codex, and both modes.
+- Installer probes writability before installing to `.codex/` or `.agents/` paths.
+- Codex skill falls back to `.less_tokens/skills/less-tokens/SKILL.md` when preferred targets are unavailable.
 - Documentation clearly states Codex search-first enforcement is best-effort.
+- Documentation notes that `.codex/hooks.json` and `.agents/skills/` are optional, not guaranteed.
