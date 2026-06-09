@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`EXCLUDED_DIR_PREFIXES` NameError in `_excluded()`** | `_excluded()` references `EXCLUDED_DIR_PREFIXES` at line 122 but it is never imported from `search_config`; prefix filtering is always skipped and excluded-dir files get indexed silently. `embeddings.py:122` | open |
 | **`_extract_block` truncates multi-line assignments** | `merge_search_config` stores `(lineno, end_lineno)` but passes only `lineno` to `_extract_block`; multi-line vars (sets, dicts) are injected as their opening line only — broken Python. `install.py:300` | open |
 | **`_index_db_at_current_schema` accepts v1 as current** | `bool(row and row[0])` is True for any schema version ≥ 1; a v1 index is treated as current and the v1→v2 endianness migration is skipped, silently corrupting search scores. `install.py:692` | open |
 | **Filename-only path match in `auto-slice` / `grep-first`** | `kp.name == p.name` matches any file sharing a basename regardless of directory, causing wrong line-range injection in `auto-slice.py` and false gate exemptions in `grep-first-read.py`. `auto-slice.py:64`, `grep-first-read.py:98` | open |
