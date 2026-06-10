@@ -1,8 +1,6 @@
 """Unit tests for the context-cache PreToolUse hook (G2)."""
 from __future__ import annotations
 
-import json
-import time
 from pathlib import Path
 
 import pytest
@@ -145,3 +143,27 @@ def test_new_session_clears_cache(hook, tmp_path):
     fresh = hook._get_state("transcript_B")
     assert fresh["reads"] == {}
     assert fresh["call"] == 0
+
+
+# ---------------------------------------------------------------------------
+# None transcript_path must not share state across sessions
+# ---------------------------------------------------------------------------
+
+def test_none_transcript_path_does_not_share_state(hook, tmp_path):
+    """_get_state(None) must return a fresh state even when a prior None
+    session saved entries — two sessions both with transcript_path=None
+    are indistinguishable, so the cache must not bleed across them."""
+    p = tmp_path / "shared.py"
+    p.write_text("x = 1")
+
+    # Simulate session 1: get state, record a read, save
+    state1 = hook._get_state(None)
+    hook.record_read(state1, str(p), None, None)
+    hook._save(state1)
+
+    # Simulate session 2 (new session, also transcript_path=None):
+    # must see empty reads, not the stale entry from session 1
+    state2 = hook._get_state(None)
+    assert state2["reads"] == {}, (
+        "_get_state(None) returned stale reads from a previous None-keyed session"
+    )

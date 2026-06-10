@@ -87,11 +87,11 @@ def _save(state: dict) -> None:
 
 
 def _get_state(transcript_path: str | None) -> dict:
+    if transcript_path is None:
+        return {"session": None, "call": 0, "reads": {}, "greps": {}}
     state = _load()
-    session_key = transcript_path or ""
-    if state.get("session") != session_key:
-        # New session — clear stale cache
-        return {"session": session_key, "call": 0, "reads": {}, "greps": {}}
+    if state.get("session") != transcript_path:
+        return {"session": transcript_path, "call": 0, "reads": {}, "greps": {}}
     return state
 
 
