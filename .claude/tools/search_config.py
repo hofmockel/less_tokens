@@ -87,6 +87,13 @@ EMBEDDING_DIM: int = 384
 # hashes, so the next refresh re-embeds all Python sources. Default off.
 CHUNK_INCLUDE_MODULE_CONTEXT: bool = False
 
+# Hard ceiling on chunk body size in characters. Chunks exceeding this limit
+# are split at paragraph/line boundaries into numbered sub-chunks (key, key_2,
+# key_3, …). Smaller chunks → tighter search hits; larger → more context per
+# hit. Tune for your model's context window. Set 0 to disable.
+# Rough guide: 2000 chars ≈ 500 tokens (prose) or 650 tokens (dense code).
+MAX_CHUNK_CHARS: int = 2000
+
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 

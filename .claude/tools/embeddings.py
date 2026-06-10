@@ -127,6 +127,43 @@ def _sha256(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+# ----- chunking helpers -----------------------------------------------------
+
+def _split_at_boundary(text: str, max_chars: int) -> list[str]:
+    """Split text into pieces ≤ max_chars at paragraph, then line boundaries."""
+    if len(text) <= max_chars:
+        return [text]
+    parts: list[str] = []
+    remaining = text
+    while len(remaining) > max_chars:
+        cut = remaining.rfind("\n\n", 0, max_chars + 1)
+        if cut <= 0:
+            cut = remaining.rfind("\n", 0, max_chars + 1)
+        if cut <= 0:
+            cut = max_chars
+        parts.append(remaining[:cut].strip())
+        remaining = remaining[cut:].strip()
+    if remaining:
+        parts.append(remaining)
+    return [p for p in parts if p]
+
+
+def _split_oversized(
+    chunks: list[tuple[str, str]], max_chars: int
+) -> list[tuple[str, str]]:
+    """Split any chunk whose body exceeds max_chars into numbered sub-chunks."""
+    if max_chars <= 0:
+        return chunks
+    out: list[tuple[str, str]] = []
+    for key, body in chunks:
+        if len(body) <= max_chars:
+            out.append((key, body))
+            continue
+        for i, part in enumerate(_split_at_boundary(body, max_chars)):
+            out.append((key if i == 0 else f"{key}_{i + 1}", part))
+    return out
+
+
 # ----- chunking -------------------------------------------------------------
 
 def chunk_markdown(path: Path) -> list[tuple[str, str]]:
@@ -165,7 +202,7 @@ def chunk_markdown(path: Path) -> list[tuple[str, str]]:
             key = f"{k}_{n}"
         emitted.add(key)
         out.append((key, body))
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_python(path: Path) -> list[tuple[str, str]]:
@@ -235,7 +272,7 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
             key = f"{k}_{n}"
         emitted.add(key)
         deduped.append((key, body))
-    return deduped
+    return _split_oversized(deduped, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_sql(path: Path) -> list[tuple[str, str]]:
@@ -282,7 +319,7 @@ def chunk_sql(path: Path) -> list[tuple[str, str]]:
         )
         key = m.group(1) if m else f"stmt:{_sha256(b)[:8]}"
         out.append((key, b))
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_changelog(path: Path) -> list[tuple[str, str]]:
@@ -304,7 +341,7 @@ def chunk_changelog(path: Path) -> list[tuple[str, str]]:
         out.append((head.lstrip("#").strip(), (head + "\n" + body).strip()))
     if not out:
         return chunk_markdown(path)
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 # ----- source enumeration ---------------------------------------------------

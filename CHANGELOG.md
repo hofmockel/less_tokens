@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **`MAX_CHUNK_CHARS` in `search_config.py`** — configurable hard ceiling (default 2000 chars) on chunk body size; oversized chunks are split at paragraph/line boundaries into numbered sub-chunks (`key`, `key_2`, …). Set `0` to disable. Applied to all four chunkers (`chunk_markdown`, `chunk_python`, `chunk_sql`, `chunk_changelog`).
+
 ### Fixed
 - **`claudemd_audit.duplication()` now returns `{}` when no headed sections exist** — `embed([])` produced a shape-`(0,)` array causing `AxisError` in `np.linalg.norm(axis=1)`, caught by `except Exception → return None` and silently disabling dup detection; added `if not targets: return {}` guard. `claudemd_audit.py:196`
 - **`claudemd_audit._strip_code` now strips unclosed code fences** — `re.sub(r"```.*?```")` left unclosed fences intact, leaking code into prose and inflating filler/word counts; changed to `r"```.*?(?:```|\Z)"` so an unclosed fence is stripped to end-of-string. `claudemd_audit.py:94`
