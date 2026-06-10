@@ -1087,11 +1087,14 @@ def _remove_gitignore_block(gi: Path, dry_run: bool) -> bool:
     lines = text.splitlines(keepends=True)
     start = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_START)
     end = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_END)
-    # Drop the block and one immediately-preceding blank separator line.
+    # Drop the block, one immediately-preceding blank, and one immediately-following blank.
     lead = start
     if lead > 0 and lines[lead - 1].strip() == "":
         lead -= 1
-    new = "".join(lines[:lead] + lines[end + 1:])
+    tail = end + 1
+    if tail < len(lines) and lines[tail].strip() == "":
+        tail += 1
+    new = "".join(lines[:lead] + lines[tail:])
     print(f"  {'would remove' if dry_run else '-'} .gitignore: managed less_tokens block")
     if not dry_run:
         if new.strip():

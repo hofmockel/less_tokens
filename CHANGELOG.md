@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`_remove_gitignore_block` no longer leaves an orphan blank line after the managed block** — now also skips one blank line immediately following `_GI_END`, matching the existing behaviour for the preceding blank. `install.py:1090`
 - **`grep-first-read` gate message now uses `VENV_PY` from `search_config`** — was hardcoding `.claude/.venv-tokens/bin/python`; users with a custom venv location now see the correct interpreter path in the gate hint. `.claude/hooks/grep-first-read.py:179`
 - **`context-cache` no longer bleeds across sessions when `transcript_path` is `None`** — `_get_state(None)` now always returns a fresh empty state instead of matching the prior session's `""` key; stale "already read" entries from a previous sessionless run can no longer block reads in a new session. `.claude/hooks/context-cache.py:89`
 - **Filename-only path match removed from `auto-slice` and `grep-first-read`** — `kp.name == p.name` falsely matched any two files sharing a basename regardless of directory; removed from both hooks, leaving only exact-path and suffix-path matching. `.claude/hooks/auto-slice.py:64`, `.claude/hooks/grep-first-read.py:98`

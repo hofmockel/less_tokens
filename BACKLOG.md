@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`_remove_gitignore_block` leaves orphan trailing blank** | Removes the blank line before the managed block but not any blank line after `_GI_END`; uninstall leaves an orphan blank line in `.gitignore`. `install.py:907` | open |
 | **`truncate_bash` falls back on original text when head+tail fits** | When `omitted_lines <= 0`, calls `truncate_chars(text, ceiling)` on the original full text instead of the assembled head+tail result; discards the error-preserving tail structure. `truncate-output.py:78` | open |
 | **`offset=0` treated as absent, blocks legitimate sliced Reads** | `inp.get("offset")` is falsy for `0`; an explicit `Read(offset=0, limit=N)` is treated as an unsliced whole-file read and incorrectly blocked by both hooks. `read-after-edit.py:69`, `read-guard.py:110` | open |
 | **`is_indexed()` ignores `INDEXED_ROOT_GLOBS`, hardcodes suffixes** | `_load_config` stores `INDEXED_ROOT_GLOBS` in `_config["root_globs"]` but `is_indexed()` hardcodes `.md`/`.py`/`.sql` for root files and never consults it; gate is out of sync with indexer. `search-first.py:78` | open |
