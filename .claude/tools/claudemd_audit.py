@@ -105,10 +105,9 @@ def _resolve(path: str):
     direct = BASE / path
     if direct.exists():
         return direct
-    if "/" not in path:
-        for hit in BASE.rglob(path):
-            if not any(part in _IGNORE_DIRS for part in hit.parts):
-                return hit
+    for hit in BASE.rglob(path):
+        if not any(part in _IGNORE_DIRS for part in hit.parts):
+            return hit
     return None
 
 

@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`_resolve()` can't find partial paths containing `/`** | For paths with `/`, only `BASE / path` is tried; `tools/search.py` resolves to `BASE/tools/search.py` (missing), falsely flagging a valid ref. `rglob` fallback is only used for bare filenames. `claudemd_audit.py:101` | open |
 | **`toolcost._recv()` reads one line, skips server notifications** | Reads exactly one stdout line; if the MCP server emits a notification before the `tools/list` response, `_recv` returns the notification and the caller gets 0 tools — silent under-count. `toolcost.py:97` | open |
 | **`compact-trigger` stale `last-size` silences trigger in new sessions** | `last-size` persists across sessions; after a large session the new-session transcript starts small but `size < last + hysteresis` holds true, preventing the nudge from ever firing. `compact-trigger.py:87` | open |
 | **`search.py` creates empty `index.db`, breaking subsequent `migrate()`** | `connect_index()` calls `sqlite3.connect(INDEX_DB)` which creates an empty db file; later `ensure_current_schema()` calls `migrate()` instead of `init()`, and `migrate()`'s `INSERT INTO schema_version` crashes because the table is absent. `search.py:108`, `db.py:128` | open |
