@@ -63,6 +63,9 @@ def _dir_is_writable(target_root: Path, rel: str) -> bool:
 # Relative path (within target_root) where we record installed version.
 _INSTALL_STATE_PATH = Path(".claude") / "state" / "install.json"
 
+# Must stay in sync with .claude/tools/db.py SCHEMA_VERSION.
+_INDEX_SCHEMA_VERSION = 2
+
 
 # ---------------------------------------------------------------------------
 # Version helpers
@@ -850,7 +853,7 @@ def _index_db_at_current_schema(target_root: Path) -> bool:
         import sqlite3
         with sqlite3.connect(str(db)) as c:
             row = c.execute("SELECT MAX(version) FROM schema_version").fetchone()
-            return bool(row and row[0])
+            return bool(row and row[0] == _INDEX_SCHEMA_VERSION)
     except sqlite3.Error:
         return False
 

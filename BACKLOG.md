@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`_index_db_at_current_schema` accepts v1 as current** | `bool(row and row[0])` is True for any schema version ≥ 1; a v1 index is treated as current and the v1→v2 endianness migration is skipped, silently corrupting search scores. `install.py:692` | open |
 | **Filename-only path match in `auto-slice` / `grep-first`** | `kp.name == p.name` matches any file sharing a basename regardless of directory, causing wrong line-range injection in `auto-slice.py` and false gate exemptions in `grep-first-read.py`. `auto-slice.py:64`, `grep-first-read.py:98` | open |
 | **Context-cache shares state across sessions when `transcript_path` is None** | `session_key = transcript_path or ""` is always `""` for sessions without a transcript path; a new session matches the old session key and sees stale "already read" cache entries. `context-cache.py:87` | open |
 | **`grep-first-read` hardcodes `.venv-tokens` path** | Line 178 hardcodes the venv path instead of reading `VENV_PY` from `search_config`; users with a custom venv location see a wrong python path in the gate error message. `grep-first-read.py:178` | open |
