@@ -107,7 +107,7 @@ def main() -> int:
     if payload.get("tool_name") != "Read":
         return 0
     inp = payload.get("tool_input", {})
-    if inp.get("offset"):  # a deliberate slice — allow
+    if inp.get("offset") is not None:  # a deliberate slice — allow
         return 0
     reason = check(inp.get("file_path", ""))
     if reason:

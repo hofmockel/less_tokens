@@ -65,7 +65,7 @@ def main() -> int:
         return 0
 
     inp = payload.get("tool_input", {})
-    if inp.get("offset"):  # deliberate slice — always allow
+    if inp.get("offset") is not None:  # deliberate slice — always allow
         return 0
 
     file_path = inp.get("file_path", "")

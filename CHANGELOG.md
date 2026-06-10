@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`offset=0` no longer treated as absent in `read-guard` and `read-after-edit`** — `inp.get("offset")` was falsy for `0`, causing `Read(offset=0, limit=N)` to be blocked as an unsliced whole-file read; changed to `is not None` check in both hooks. `.claude/hooks/read-guard.py:110`, `.claude/hooks/read-after-edit.py:68`
 - **`truncate_bash` now uses assembled head+tail when `omitted_lines<=0`** — was calling `truncate_chars(text, ceiling)` on the original text (with trailing newline) unconditionally; now assembles `"\n".join(kept_head + kept_tail)` and only truncates if over ceiling, matching the normal branch. `.claude/hooks/truncate-output.py:77`
 - **`_remove_gitignore_block` no longer leaves an orphan blank line after the managed block** — now also skips one blank line immediately following `_GI_END`, matching the existing behaviour for the preceding blank. `install.py:1090`
 - **`grep-first-read` gate message now uses `VENV_PY` from `search_config`** — was hardcoding `.claude/.venv-tokens/bin/python`; users with a custom venv location now see the correct interpreter path in the gate hint. `.claude/hooks/grep-first-read.py:179`

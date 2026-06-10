@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`offset=0` treated as absent, blocks legitimate sliced Reads** | `inp.get("offset")` is falsy for `0`; an explicit `Read(offset=0, limit=N)` is treated as an unsliced whole-file read and incorrectly blocked by both hooks. `read-after-edit.py:69`, `read-guard.py:110` | open |
 | **`is_indexed()` ignores `INDEXED_ROOT_GLOBS`, hardcodes suffixes** | `_load_config` stores `INDEXED_ROOT_GLOBS` in `_config["root_globs"]` but `is_indexed()` hardcodes `.md`/`.py`/`.sql` for root files and never consults it; gate is out of sync with indexer. `search-first.py:78` | open |
 | **`index-refresh.py` same hardcoded suffix heuristic** | Same root bug as above — `is_indexed()` hardcodes suffixes instead of consulting `INDEXED_ROOT_GLOBS`; triggers spurious re-embeds for unindexed root files. `index-refresh.py:90` | open |
 | **`duplication()` missing `embedding_model` filter** | Query fetches all rows regardless of model; after a model switch, mixed-dimension blobs cause `np.vstack` to fail with `ValueError`, silently disabling duplicate detection via the outer `except Exception → return None`. `claudemd_audit.py:180` | open |
