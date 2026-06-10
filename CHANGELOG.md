@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Filename-only path match removed from `auto-slice` and `grep-first-read`** — `kp.name == p.name` falsely matched any two files sharing a basename regardless of directory; removed from both hooks, leaving only exact-path and suffix-path matching. `.claude/hooks/auto-slice.py:64`, `.claude/hooks/grep-first-read.py:98`
 - **`savings_log` import failure no longer disables search-first gate** — separated `savings_log` import into its own try/except; a missing or broken `savings_log` now logs nothing but leaves the gate active. `.claude/hooks/search-first.py`
 - **`_index_db_at_current_schema` now rejects stale schema versions** — was `bool(row[0])` (truthy for any version ≥ 1); now compares against `_INDEX_SCHEMA_VERSION` so a v1 index triggers migration instead of being silently accepted. `install.py:844`
 - **`_extract_block` now captures full multi-line assignments** — added `end_lineno` parameter; `merge_search_config` passes `end_lineno` from AST so multi-line sets/dicts are injected complete instead of truncated to their opening line. `install.py:292`

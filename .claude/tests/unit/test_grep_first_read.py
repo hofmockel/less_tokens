@@ -85,14 +85,15 @@ def test_exempt_when_in_last_search(hook, tmp_path, monkeypatch):
     assert hook.check(str(p), offset=None) is None
 
 
-def test_exempt_last_search_match_by_name(hook, tmp_path, monkeypatch):
+def test_not_exempt_when_only_basename_matches(hook, tmp_path, monkeypatch):
+    # "tools/target.py" and tmp_path/target.py share a basename but are different files.
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
     p = _make_file(tmp_path, 200, name="target.py")
     ranges_file = tmp_path / "last-search.json"
     ranges_file.write_text(json.dumps({"tools/target.py": [[1, 10]]}))
     monkeypatch.setattr(hook, "RANGES_FILE", ranges_file)
     monkeypatch.setattr(hook, "WINDOW_SECONDS", 300)
-    assert hook.check(str(p), offset=None) is None
+    assert hook.check(str(p), offset=None) is not None
 
 
 def test_not_exempt_when_last_search_stale(hook, tmp_path, monkeypatch):

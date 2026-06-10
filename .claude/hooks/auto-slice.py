@@ -62,7 +62,7 @@ def _ranges_for(file_path: str) -> list[list[int]]:
     p = Path(file_path)
     for key, spans in data.items():
         kp = Path(key)
-        if kp == p or kp.name == p.name or str(p).endswith(str(kp)):
+        if kp == p or str(p).endswith(str(kp)):
             return spans or []
     return []
 

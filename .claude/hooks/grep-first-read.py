@@ -96,7 +96,7 @@ def _in_last_search(p: Path) -> bool:
         return False
     for key in data:
         kp = Path(key)
-        if kp == p or kp.name == p.name or str(p).endswith(str(kp)):
+        if kp == p or str(p).endswith(str(kp)):
             return True
     return False
 
