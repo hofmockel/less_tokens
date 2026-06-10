@@ -801,6 +801,7 @@ def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
         (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
         (".claude/schema", ".claude/schema", frozenset()),
         (".claude/hooks",  ".claude/hooks",  frozenset()),
+        (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset()),
     ]
     if caveman:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
@@ -821,7 +822,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
 
     foreign: list[str] = []
     for sub, dst_rel, excl in _install_specs(caveman):
-        if any(seg in sub for seg in ("hooks", "rules")):
+        if any(seg in sub for seg in ("hooks", "rules", "skills")):
             continue  # shared dirs — host files allowed
         dst_base = target_root / dst_rel
         if not dst_base.is_dir():
@@ -980,7 +981,8 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
             removed += 1
 
     # Prune now-empty directories we created.
-    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"):
+    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules",
+                ".claude/skills/claudemd", ".claude/skills"):
         d = target_root / sub
         if d.is_dir() and not any(d.iterdir()):
             print(f"  {'would remove' if dry else '-'} {sub}/ (empty)")
@@ -1209,6 +1211,9 @@ def main() -> int:
     changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
     changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
               target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
+    changes += copy_tree(SOURCE / ".claude" / "skills" / "claudemd",
+              target_root / ".claude" / "skills" / "claudemd",
+              target_root, force_tools, overwrite_modified, ".claude/skills/claudemd/", dry_run=dry)
     if args.caveman:
         changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
                   target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
