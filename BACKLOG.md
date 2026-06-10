@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`compact-trigger` stale `last-size` silences trigger in new sessions** | `last-size` persists across sessions; after a large session the new-session transcript starts small but `size < last + hysteresis` holds true, preventing the nudge from ever firing. `compact-trigger.py:87` | open |
 | **`search.py` creates empty `index.db`, breaking subsequent `migrate()`** | `connect_index()` calls `sqlite3.connect(INDEX_DB)` which creates an empty db file; later `ensure_current_schema()` calls `migrate()` instead of `init()`, and `migrate()`'s `INSERT INTO schema_version` crashes because the table is absent. `search.py:108`, `db.py:128` | open |
 | **`lean-ls` crashes on broken symlinks** | Broken symlink returns `is_file()=False` and is added to `dirs`; subsequent `iterdir()` raises `FileNotFoundError` which is not caught (only `PermissionError` is). `lean-ls.py:83` | open |
 | **`_locate_range` returns wrong range on duplicate first line** | When the last-line confirmation fails, immediately returns a fallback range for the wrong occurrence instead of `continue`-ing the loop to find the correct one. `search.py:219` | open |

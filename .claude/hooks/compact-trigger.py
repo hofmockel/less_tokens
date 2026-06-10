@@ -88,7 +88,7 @@ def main() -> int:
 
     last = read_last_size()
     hysteresis = MAX_SESSION_CHARS // 4
-    if last and size < last + hysteresis:
+    if last and last <= size < last + hysteresis:
         return 0
 
     write_last_size(size)
