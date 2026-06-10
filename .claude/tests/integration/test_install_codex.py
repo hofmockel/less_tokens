@@ -49,6 +49,16 @@ class TestCodexInstallDirStructure:
         )
         assert (tmp_path / ".less_tokens" / "schema").is_dir()
 
+    def test_less_tokens_hooks_created(self, tmp_path):
+        copy_tree(
+            REPO / "agents" / "common" / "hooks",
+            tmp_path / ".less_tokens" / "hooks",
+            tmp_path,
+            force=True, overwrite_modified=True, label=".less_tokens/hooks/",
+        )
+        assert (tmp_path / ".less_tokens" / "hooks" / "payload.py").exists()
+        assert (tmp_path / ".less_tokens" / "hooks" / "search_first.py").exists()
+
     def test_codex_specs_exclude_claude_hooks(self):
         specs = _install_specs(caveman=False, agents={"codex"})
         dest_dirs = [s[1] for s in specs]

@@ -53,7 +53,7 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 
 ## Codex support
 
-`--agent codex` (or `--agent both`) installs the shared core under `.less_tokens/` instead of (or alongside) `.claude/`. This lets the same vector search, symbol lookup, and noise-file guards work in [Codex](https://openai.com/index/openai-codex/) projects.
+`--agent codex` (or `--agent both`) installs a Codex-facing runtime under `.less_tokens/` and adapter hooks under `.codex/hooks/` when that directory is writable. The underlying index remains the shared project index at `.claude/index.db`, so Claude and Codex can search the same local corpus without maintaining two databases.
 
 ```bash
 python3 less_tokens/install.py --agent codex
@@ -66,10 +66,12 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 |---|---|
 | `.less_tokens/tools/` | Shared search/embeddings/symbols/guards |
 | `.less_tokens/schema/` | SQLite schema |
+| `.less_tokens/hooks/` | Shared hook support imported by Codex adapters |
 | `.less_tokens/state/` | Runtime state (separate from Claude's `.claude/state/`) |
 | `.codex/hooks/` | Codex adapter hooks (wired to `.codex/hooks.json` when writable) |
 | `AGENTS.md` | Token-discipline fragment appended via HTML comment sentinels |
 | `.less_tokens/skills/less-tokens/` | Fallback skill path when `.codex/` is not writable |
+| `.claude/index.db` | Shared vector index used by both agents |
 
 **Compatibility:**
 
@@ -86,19 +88,19 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 - Codex search-first is best-effort — interception depends on `.codex/hooks.json` being writable. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
-- Codex state lives in `.less_tokens/state/`; Claude state in `.claude/state/`. The two are completely independent.
-- Caveman output style (`--caveman`) applies only to Claude.
+- Codex state lives in `.less_tokens/state/`; Claude state in `.claude/state/`. The two runtime state directories are independent, while the vector index is shared at `.claude/index.db`.
+- Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 
 ---
 
 ## Configuration
 
-**Edit one file:** `.claude/tools/search_config.py`
+**Edit one file per installed runtime:** `.claude/tools/search_config.py` for Claude, `.less_tokens/tools/search_config.py` for Codex. In `--agent both` installs, keep both configs aligned for venv and indexed paths.
 
 The installer prints the exact line to paste in. At minimum, set your venv path and the source directories to index:
 
 ```python
-# .claude/tools/search_config.py
+# .claude/tools/search_config.py or .less_tokens/tools/search_config.py
 
 VENV_PY = _venv_python(".venv")               # change to your venv location
 INDEXED_SOURCE_DIRS = ("src/", "schema/")      # dirs whose .py and .sql files get indexed
@@ -137,6 +139,8 @@ Run this once after configuring, and again whenever you want a full refresh:
 .venv\Scripts\python .claude/tools/embeddings.py refresh
 ```
 
+For Codex-only workflows, use `.less_tokens/tools/embeddings.py` instead.
+
 > First run downloads the embedding model (~130 MB to `~/.cache/huggingface`). Subsequent runs are incremental and typically take under a second.
 
 ### Search
@@ -148,6 +152,8 @@ Run this once after configuring, and again whenever you want a full refresh:
 # Windows
 .venv\Scripts\python .claude/tools/search.py "your query"
 ```
+
+For Codex-only workflows, use `.less_tokens/tools/search.py` instead.
 
 **Examples:**
 

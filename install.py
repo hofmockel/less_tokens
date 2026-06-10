@@ -1,54 +1,32 @@
 #!/usr/bin/env python3
-"""less_tokens installer — two modes.
+"""less_tokens project installer.
 
-──────────────────────────────────────────────────────────────
-GLOBAL INSTALL  (one-time, wires hooks for all Claude projects)
-──────────────────────────────────────────────────────────────
+Clone this repo inside a host project, then run:
 
-    python3 path/to/less_tokens/install.py --global [options]
+    python3 less_tokens/install.py [options]
+    python3 less_tokens/install.py --agent codex
+    python3 less_tokens/install.py --agent both
 
-Wires hooks into ~/.claude/settings.json so they fire for every Claude Code
-project. Hooks are served directly from this source tree — nothing is copied
-system-wide. Venv is created here (--create-venv) or detected automatically.
+Default target is the parent directory of this clone. The installer copies the
+shared search/indexing tools, initializes the local SQLite index, and wires the
+selected agent adapters:
 
-    --global            enable global mode (required for this flow)
-    --create-venv       create .venv-tokens in the less_tokens source dir if
-                        no venv is found
+    --agent claude|codex|both
+                        Claude Code (default), Codex, or both integrations
+    --target PATH       install into PATH instead of the parent of this clone
     --venv PATH         use an existing venv instead of auto-detecting
+    --create-venv       create .claude/.venv-tokens if no venv is found
     --skip-deps         skip pip install of fastembed + numpy
-    --truncate          also wire tool-output truncation hook (Strategy 3)
-    --compact           also wire compact-trigger hook (Strategy 4)
-    --caveman           also wire caveman-reminder Stop hook (terse output)
-    --local             write settings.local.json instead of settings.json
-    --no-gitignore      skip the .gitignore block for generated artifacts
+    --no-build          skip the initial index build
+    --truncate          wire tool-output truncation hooks
+    --compact           wire session-size compaction hooks
+    --caveman           wire terse-output enforcement (Claude Stop hook;
+                        Codex concise-reminder hook)
+    --local             for Claude, write .claude/settings.local.json instead
+                        of .claude/settings.json
     --dry-run           preview without writing anything
-    --uninstall         unwire hooks from ~/.claude/settings.json
-
-──────────────────────────────────────────────────────────────
-PROJECT INSTALL  (per-project: config + index only, no hooks)
-──────────────────────────────────────────────────────────────
-
-    python3 path/to/less_tokens/install.py --target /path/to/project [options]
-
-Copies search_config.py into the project and builds a per-project vector
-index. Hooks are NOT wired here — they come from the global install above.
-Scripts (embeddings.py, db.py, etc.) are run from the less_tokens source tree
-so only search_config.py + index.db live in the target project.
-
-    --target PATH       project directory to set up (required / recommended)
-    --yes               bypass the suspicious-target check (/ or $HOME)
-    --venv PATH         venv to use (defaults to the global venv detected in
-                        the less_tokens source dir, then falls back to --target)
-    --create-venv       create .venv-tokens in the less_tokens source dir if
-                        no venv is found
-    --skip-deps         skip pip install of fastembed + numpy
-    --no-build          copy config but skip the index build (build later with
-                        python3 .claude/tools/embeddings.py refresh)
-    --no-gitignore      skip adding index.db / .claude/state/ to .gitignore
-    --dry-run           preview without writing anything
-    --uninstall         remove search_config.py from --target; use
-                        --purge-index to also delete index.db
-    --purge-index       with --uninstall, also delete index.db + WAL sidecars
+    --update            safe upgrade of generated hooks/tools
+    --uninstall         remove a previous deployment
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
@@ -927,6 +905,7 @@ def _install_specs(
     if "codex" in agents:
         specs.append((".claude/tools",  ".less_tokens/tools",  frozenset({"search_config.py"})))
         specs.append((".claude/schema", ".less_tokens/schema", frozenset()))
+        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset()))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
             specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
         skill_tgt = (
@@ -1171,7 +1150,8 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
         prune_dirs += [".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"]
     if "codex" in agents:
         prune_dirs += [".codex/hooks", ".codex", ".less_tokens/tools",
-                       ".less_tokens/schema", ".less_tokens/skills/less-tokens",
+                       ".less_tokens/schema", ".less_tokens/hooks",
+                       ".less_tokens/skills/less-tokens",
                        ".less_tokens/skills", ".less_tokens"]
     for sub in prune_dirs:
         d = target_root / sub
@@ -1225,7 +1205,7 @@ def main() -> int:
     ap.add_argument("--force-hooks", action="store_true",
                     help="overwrite .claude/hooks/ files that match the source")
     ap.add_argument("--force-tools", action="store_true",
-                    help="overwrite .claude/tools/ and .claude/schema/ files that match the source")
+                    help="overwrite generated tool/schema files that match the source")
     ap.add_argument("--force-config", action="store_true",
                     help="overwrite search_config.py if it matches the source")
     ap.add_argument("--overwrite-modified", action="store_true",
@@ -1236,13 +1216,13 @@ def main() -> int:
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
     ap.add_argument("--create-venv", action="store_true",
-                    help="if no venv is detected, create .venv-tokens and continue "
+                    help="if no venv is detected, create .claude/.venv-tokens and continue "
                          "(single-pass install instead of the create-then-rerun dance)")
     ap.add_argument("--no-build", action="store_true",
                     help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="copy .claude/rules/ and wire caveman-reminder Stop hook")
+                    help="wire terse-output enforcement hooks where supported")
     ap.add_argument("--truncate", action="store_true",
                     help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",
@@ -1259,7 +1239,7 @@ def main() -> int:
                          "Bash permissions, which can clobber the hooks block")
     ap.add_argument("--no-gitignore", action="store_true",
                     help="skip the default managed .gitignore block for generated artifacts "
-                         "(index.db, .claude/state/); useful if you commit them deliberately")
+                         "(index.db, state dirs); useful if you commit them deliberately")
     ap.add_argument("--update", action="store_true",
                     help="safe upgrade: re-copy hook and tool files (implies "
                          "--force-hooks --force-tools --overwrite-modified) "
@@ -1359,12 +1339,16 @@ def main() -> int:
     print(f"{tag}[1/5] Locating virtualenv...")
     venv_dir = args.venv or detect_venv(target_root)
     if venv_dir is None:
-        if args.create_venv and not dry:
-            try:
-                venv_dir = create_venv(target_root)
-            except (FileExistsError, subprocess.CalledProcessError) as e:
-                print(f"\n--create-venv failed: {e}", file=sys.stderr)
-                return 1
+        if args.create_venv:
+            if dry:
+                venv_dir = target_root / ".claude" / ".venv-tokens"
+                print(f"  [DRY RUN] would create venv: {venv_dir}")
+            else:
+                try:
+                    venv_dir = create_venv(target_root)
+                except (FileExistsError, subprocess.CalledProcessError) as e:
+                    print(f"\n--create-venv failed: {e}", file=sys.stderr)
+                    return 1
         else:
             print("\nNo venv detected at .claude/.venv-tokens, .venv-tokens, .venv, venv, env, or app/.venv.")
             print("Pass --venv PATH, --create-venv to make .venv-tokens here, "
@@ -1374,7 +1358,7 @@ def main() -> int:
             print("Then re-run the installer. (Nothing was written.)")
             return 1
     venv_py = venv_python(venv_dir)
-    if not venv_py.exists():
+    if not dry and not venv_py.exists():
         print(f"ERROR: venv python not found at {venv_py} (nothing written).",
               file=sys.stderr)
         return 1
@@ -1427,6 +1411,10 @@ def main() -> int:
         )
         changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".less_tokens" / "schema",
                   target_root, force_tools, overwrite_modified, ".less_tokens/schema/", dry_run=dry)
+        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
+                  target_root / ".less_tokens" / "hooks",
+                  target_root, force_tools, overwrite_modified,
+                  ".less_tokens/hooks/", dry_run=dry)
         codex_hooks_src = SOURCE / "agents" / "codex" / "hooks"
         if codex_hooks_src.exists() and _dir_is_writable(target_root, ".codex"):
             changes += copy_tree(codex_hooks_src, target_root / ".codex" / "hooks",
@@ -1461,6 +1449,21 @@ def main() -> int:
             print(f'  {"would patch" if dry else "~"} .claude/tools/search_config.py: '
                   f'INDEXED_SOURCE_DIRS -> {dirs_patched}')
             changes += 1
+        codex_cfg = target_root / ".less_tokens" / "tools" / "search_config.py"
+        if "codex" in agents:
+            codex_venv_py_patched = patch_venv_py(
+                codex_cfg, SOURCE / ".claude" / "tools" / "search_config.py",
+                target_root, venv_dir, dry_run=dry,
+            )
+            if codex_venv_py_patched is not None:
+                print(f'  {"would patch" if dry else "~"} .less_tokens/tools/search_config.py: '
+                      f'VENV_PY -> _venv_python("{codex_venv_py_patched}")')
+                changes += 1
+            codex_dirs_patched = patch_indexed_source_dirs(codex_cfg, target_root, dry_run=dry)
+            if codex_dirs_patched is not None:
+                print(f'  {"would patch" if dry else "~"} .less_tokens/tools/search_config.py: '
+                      f'INDEXED_SOURCE_DIRS -> {codex_dirs_patched}')
+                changes += 1
         if venv_py_patched is None and dry and not dst_cfg.exists():
             # Fresh dry-run install: config not copied, so patch_venv_py is a
             # no-op — still preview the value it would write.
@@ -1468,6 +1471,10 @@ def main() -> int:
             print(f'  would patch .claude/tools/search_config.py: '
                   f'VENV_PY -> _venv_python("{cfg}")')
             changes += 1
+            if "codex" in agents:
+                print(f'  would patch .less_tokens/tools/search_config.py: '
+                      f'VENV_PY -> _venv_python("{cfg}")')
+                changes += 1
     else:
         venv_py_patched = None
 
@@ -1566,26 +1573,35 @@ def main() -> int:
     print("\n" + "=" * 60)
     print("NEXT STEPS")
     print("=" * 60)
+    if agents == {"codex"}:
+        tool_dir = ".less_tokens/tools"
+        config_desc = ".less_tokens/tools/search_config.py"
+    elif agents == {"claude"}:
+        tool_dir = ".claude/tools"
+        config_desc = ".claude/tools/search_config.py"
+    else:
+        tool_dir = ".claude/tools"
+        config_desc = ".claude/tools/search_config.py and .less_tokens/tools/search_config.py"
     if venv_py_patched is not None:
-        print("\n1. Edit .claude/tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
+        print(f"\n1. Edit {config_desc} — update INDEXED_SOURCE_DIRS to list")
         print("   your source directories (the .py/.sql dirs). For markdown,")
         print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
         print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
         print("   VENV_PY is already set to the detected venv.")
         _maybe_suggest_recursive_globs(target_root)
     else:
-        print("\n1. Edit .claude/tools/search_config.py — set your venv and source dirs.")
+        print(f"\n1. Edit {config_desc} — set your venv and source dirs.")
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if args.no_build:
         print("\n2. Build the index:")
-        print(f"       {venv_py} .claude/tools/embeddings.py refresh")
+        print(f"       {venv_py} {tool_dir}/embeddings.py refresh")
         print("\n3. Test search:")
-        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
+        print(f"       {venv_py} {tool_dir}/search.py \"your query here\"")
     else:
         print("\n2. Test search:")
-        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
+        print(f"       {venv_py} {tool_dir}/search.py \"your query here\"")
     if args.caveman:
         step = 4 if args.no_build else 3
         if _caveman_in_claude_md(target_root):
@@ -1593,11 +1609,15 @@ def main() -> int:
         else:
             print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
             print("       cat .claude/rules/caveman.md >> CLAUDE.md")
-    print("\nNOTE: the search-first PreToolUse hook is now active. Any")
-    print("  already-running Claude session in this project will start")
-    print("  blocking Read on indexed files (root *.md, configured source dirs)")
-    print("  until a search runs within the gate window. Tune the window")
-    print("  via WINDOW_SECONDS in .claude/tools/search_config.py (default 300s).")
+    if "claude" in agents:
+        print("\nNOTE: the Claude search-first PreToolUse hook is now active. Any")
+        print("  already-running Claude session in this project will start")
+        print("  blocking Read on indexed files (root *.md, configured source dirs)")
+        print("  until a search runs within the gate window.")
+    if "codex" in agents:
+        print("\nNOTE: the Codex hooks are best-effort and now point at .less_tokens/.")
+        print("  AGENTS.md also has the token-discipline instructions for Codex.")
+    print(f"  Tune the gate via WINDOW_SECONDS in {config_desc} (default 300s).")
     print()
     return 0
 

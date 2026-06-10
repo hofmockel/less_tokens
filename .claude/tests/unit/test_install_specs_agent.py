@@ -48,6 +48,11 @@ class TestInstallSpecsAgentSelector:
         dest_dirs = [s[1] for s in specs]
         assert any(".less_tokens/schema" in d for d in dest_dirs)
 
+    def test_codex_only_includes_less_tokens_hooks(self):
+        specs = _install_specs(caveman=False, agents={"codex"})
+        dest_dirs = [s[1] for s in specs]
+        assert ".less_tokens/hooks" in dest_dirs
+
     def test_both_includes_claude_hooks(self):
         specs = _install_specs(caveman=False, agents={"claude", "codex"})
         dest_dirs = [s[1] for s in specs]

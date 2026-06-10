@@ -20,7 +20,9 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
+sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
 sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
+sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 from payload import normalize_codex  # noqa: E402

@@ -53,6 +53,7 @@ def search_was_recent(state_dir: Path, window_seconds: int) -> bool:
 def _symbol_exists(name: str, repo: Path) -> bool:
     try:
         import sys
+        sys.path.insert(0, str(repo / ".less_tokens" / "tools"))
         sys.path.insert(0, str(repo / ".claude" / "tools"))
         from symbols import has_symbol  # type: ignore[import]
         return has_symbol(name)
@@ -69,6 +70,7 @@ def check_search_first(
 ) -> tuple[int, str, str]:
     """Return (exit_code, stdout, stderr)."""
     tool = payload.tool_name
+    tool_prefix = config.get("tool_prefix", ".claude/tools")
 
     if tool == "Grep":
         pat = (payload.tool_input or {}).get("pattern", "")
@@ -77,7 +79,7 @@ def check_search_first(
             venv_py = config.get("venv_py", "python3")
             ctx = (
                 f"`{name}` is a defined symbol. For its definition, "
-                f"`/def {name}` ({venv_py} .claude/tools/symbols.py {name}) returns the exact "
+                f"`/def {name}` ({venv_py} {tool_prefix}/symbols.py {name}) returns the exact "
                 f"file:line + a Read(offset,limit) — cheaper than grepping. "
                 f"Grep is fine if you want usages."
             )
@@ -115,7 +117,7 @@ def check_search_first(
     msg = (
         f"Search-first rule: {rel} is indexed.\n"
         f"Run vector search before Read:\n"
-        f"  {venv_py} .claude/tools/search.py \"<your query>\"\n"
+        f"  {venv_py} {tool_prefix}/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
         f"{config.get('window_seconds', 300)}s."
     )

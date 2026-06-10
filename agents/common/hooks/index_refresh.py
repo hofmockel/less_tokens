@@ -33,7 +33,7 @@ def check_index_refresh(
     if not venv_py or not Path(str(venv_py)).exists():
         return 0, "", ""
 
-    embeddings_py = repo / ".claude" / "tools" / "embeddings.py"
+    embeddings_py = repo / config.get("tool_prefix", ".claude/tools") / "embeddings.py"
     if not embeddings_py.exists():
         return 0, "", ""
 

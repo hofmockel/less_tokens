@@ -45,7 +45,7 @@ python3 less_tokens/install.py --agent codex   # Codex
 python3 less_tokens/install.py --agent both    # both simultaneously
 ```
 
-After install, all artifacts land under `.claude/` to keep the project root clean:
+Claude artifacts land under `.claude/`; Codex support also installs a small `.less_tokens/` runtime plus `AGENTS.md` guidance:
 
 ```
 ~/myproject/
@@ -58,6 +58,13 @@ After install, all artifacts land under `.claude/` to keep the project root clea
 │   ├── skills/claudemd/     # /claudemd CLAUDE.md pruning skill
 │   ├── state/               # runtime state (last-search, savings log, …)
 │   └── tools/               # search.py, embeddings.py, db.py, stats.py, …
+├── .less_tokens/            # Codex tools/hooks/state when --agent codex|both
+│   ├── hooks/               # shared hook support used by Codex adapters
+│   ├── schema/
+│   ├── state/
+│   └── tools/
+├── .codex/hooks/            # Codex adapter hooks, when .codex is writable
+├── AGENTS.md                # Codex token-discipline block
 └── less_tokens/             # this clone — unchanged after install
 ```
 
