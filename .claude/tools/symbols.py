@@ -125,14 +125,32 @@ def _ensure_table(c) -> None:
 
 
 def refresh(full: bool = False) -> int:
+    if full:
+        files = list(_iter_py_files())
+    else:
+        try:
+            marker_mtime = _MARKER.stat().st_mtime
+        except OSError:
+            marker_mtime = 0.0
+        files = [
+            f for f in _iter_py_files()
+            if _get_mtime(f) > marker_mtime
+        ]
+
     rows: list[tuple[str, str, str, int, int]] = []
-    for f in _iter_py_files():
+    for f in files:
         rel = f.relative_to(BASE).as_posix()
         for name, kind, s, e in extract_symbols(f):
             rows.append((name, kind, rel, s, e))
+
     with connect_index() as c:
         _ensure_table(c)
-        c.execute("DELETE FROM symbols")
+        if full:
+            c.execute("DELETE FROM symbols")
+        else:
+            for f in files:
+                rel = f.relative_to(BASE).as_posix()
+                c.execute("DELETE FROM symbols WHERE source_path = ?", (rel,))
         c.executemany(
             "INSERT OR IGNORE INTO symbols "
             "(name, kind, source_path, start_line, end_line) VALUES (?,?,?,?,?)",
@@ -144,6 +162,13 @@ def refresh(full: bool = False) -> int:
     except OSError:
         pass
     return len(rows)
+
+
+def _get_mtime(f: Path) -> float:
+    try:
+        return f.stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def _newest_source_mtime() -> float:

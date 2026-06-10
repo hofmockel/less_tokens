@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`symbols.py refresh()` ignores `--full` flag** | `full` parameter is accepted and documented but never consulted inside the function; always performs a full DELETE+reinsert regardless. `symbols.py:127` | open |
 | **`caveman-reminder` counts unclosed code fence content as prose** | `_FENCE` regex requires a closing ` ``` `; an unclosed fence leaves code words in the prose word count, triggering false violation alerts. `caveman-reminder.py:67` | open |
 | **`db.py connect_index()` return type annotation wrong** | Annotated `-> sqlite3.Connection` but returns `_ClosingConn`; suppressed with `# type: ignore[return-value]`; callers using the return value directly (outside `with`) get `AttributeError`. `db.py:55` | open |
 | **`load_toolignore` keeps inline `#` comments as server names** | `"slack  # note"` is added verbatim to `ignored`; it never matches the settings key `"slack"`, so the server is never pruned. `mcp-prune.py:47` | open |
