@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`load_toolignore` keeps inline `#` comments as server names** | `"slack  # note"` is added verbatim to `ignored`; it never matches the settings key `"slack"`, so the server is never pruned. `mcp-prune.py:47` | open |
 | **`mcp-prune._BASE` targets less_tokens dir, not host project** | `_BASE = Path(__file__).resolve().parent.parent.parent` resolves to the less_tokens source tree; `.toolignore` and `settings.json` are always looked up in the wrong directory when run from a host project. `mcp-prune.py:36` | open |
 | **`total_tokens` undercounted due to per-row integer truncation** | `tok = sc // CHARS_PER_TOKEN` truncates per strategy; `sum(sc//4)` ≠ `sum(sc)//4`, so strategies saving fewer than 4 chars each contribute 0 tokens to the total. `stats.py:93` | open |
 | **`_strip_code` unclosed fence leaks code into prose word count** | `re.sub(r"```.*?```", …)` only removes balanced fences; an unclosed ` ``` ` leaves its content in the prose, inflating filler/word counts and producing false `TRIM` verdicts. `claudemd_audit.py:94` | open |

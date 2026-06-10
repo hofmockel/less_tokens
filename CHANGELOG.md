@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`load_toolignore` now strips inline `#` comments** — `"slack  # note"` previously added verbatim to the ignored set, never matching the settings key `"slack"`; fixed with `line.split("#")[0].strip()`. `mcp-prune.py:46`
 - **`connect_index()` return type annotation corrected to `_ClosingConn`** — was annotated `-> sqlite3.Connection` with a silenced `type: ignore`; callers using the return value directly (outside `with`) would get `AttributeError` since `_ClosingConn` has no `.execute` method. `db.py:55`
 - **`caveman-reminder` no longer counts unclosed code fence content as prose** — `_FENCE` regex now matches from ` ``` ` to either the next ` ``` ` or end-of-string (`\Z`), so an unclosed fence's content is stripped before filler and word-budget checks. `caveman-reminder.py:67`
 - **`symbols.py refresh()` now respects the `--full` flag** — `full=False` (default) performs an incremental refresh: only files modified since the marker are reprocessed and only their rows are replaced; `full=True` retains the previous full DELETE+reinsert behaviour. `symbols.py:127`
