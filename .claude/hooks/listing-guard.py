@@ -60,14 +60,22 @@ def _extract_path_after(cmd: str, keyword: str) -> str:
     return "."
 
 
+def _unquote(cmd: str) -> str:
+    """Remove contents of quoted strings (best-effort) before pattern matching."""
+    cmd = re.sub(r'"[^"]*"', '""', cmd)
+    cmd = re.sub(r"'[^']*'", "''", cmd)
+    return cmd
+
+
 def is_bare_listing(cmd: str) -> tuple[bool, str]:
     """Return (should_intercept, target_path)."""
     stripped = cmd.strip()
+    unquoted = _unquote(stripped)
 
     # ls -R / ls --recursive
-    if re.search(r'\bls\b', stripped) and (
-        re.search(r'-[a-zA-Z]*R\b', stripped)
-        or re.search(r'--recursive\b', stripped)
+    if re.search(r'\bls\b', unquoted) and (
+        re.search(r'-[a-zA-Z]*R\b', unquoted)
+        or re.search(r'--recursive\b', unquoted)
     ):
         tokens = stripped.split()
         path = "."
@@ -78,8 +86,9 @@ def is_bare_listing(cmd: str) -> tuple[bool, str]:
         return True, path
 
     # tree — intercept if no -L flag, or -L > 3
-    if re.match(r'\s*tree\b', stripped):
-        m = re.search(r'-L\s+(\d+)', stripped)
+    # Match tree as a command: at start or after shell operators (&& ; | &)
+    if re.search(r'(?:^|[;&|])\s*tree\b', unquoted):
+        m = re.search(r'-L\s+(\d+)', unquoted)
         if not m or int(m.group(1)) > 3:
             tokens = stripped.split()
             path = "."
@@ -90,13 +99,13 @@ def is_bare_listing(cmd: str) -> tuple[bool, str]:
             return True, path
 
     # find <path> — intercept if no meaningful filter
-    if re.match(r'\s*find\b', stripped):
+    if re.search(r'(?:^|[;&|])\s*find\b', unquoted):
         # Allow through if any selective predicate is present
         _ALLOW_RE = re.compile(
             r'-(name|iname|path|newer|mtime|ctime|atime|exec|regex|wholename|size)\b'
             r'|(-maxdepth\s+[0-2]\b)'
         )
-        if not _ALLOW_RE.search(stripped):
+        if not _ALLOW_RE.search(unquoted):
             path = _extract_path_after(stripped, "find")
             return True, path
 

@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`listing-guard` tree detection start-anchored, chained commands bypass** | `re.match(r'\s*tree\b', stripped)` fails for `echo foo && tree`; the ls guard uses `re.search` (anywhere), making detection inconsistent. `listing-guard.py:81` | open |
 | **`listing-guard` false-positive on `find . -type f`** | `-type` is absent from `_ALLOW_RE`; `find . -type f` (no other predicate) is intercepted as a bare dump and replaced with `lean-ls` output. `listing-guard.py:99` | open |
 | **`_resolve()` can't find partial paths containing `/`** | For paths with `/`, only `BASE / path` is tried; `tools/search.py` resolves to `BASE/tools/search.py` (missing), falsely flagging a valid ref. `rglob` fallback is only used for bare filenames. `claudemd_audit.py:101` | open |
 | **`toolcost._recv()` reads one line, skips server notifications** | Reads exactly one stdout line; if the MCP server emits a notification before the `tools/list` response, `_recv` returns the notification and the caller gets 0 tools — silent under-count. `toolcost.py:97` | open |

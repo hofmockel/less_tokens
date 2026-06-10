@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`listing-guard` tree detection changed from `re.match` to `re.search`** — chained commands like `echo foo && tree` or `cd /tmp; tree` now correctly trigger the guard; previously `re.match` only tested the start of the string. `listing-guard.py:81`
 - **`duplication()` now filters by `embedding_model`** — query in `claudemd_audit.py` adds `AND embedding_model = ?` so stale-model rows with incompatible vector dimensions are excluded; prevents `np.vstack` `ValueError` that silently disabled duplicate detection after a model switch. `claudemd_audit.py:180`
 - **`is_indexed()` in `index-refresh` now consults `INDEXED_ROOT_GLOBS` instead of hardcoded suffixes** — same fix as `search-first`: uses `fnmatch` against the imported glob tuple; added `INDEXED_ROOT_GLOBS` to the `search_config` import and fallback. `.claude/hooks/index-refresh.py:91`
 - **`is_indexed()` in `search-first` now consults `INDEXED_ROOT_GLOBS` instead of hardcoded suffixes** — `_config["root_globs"]` is now used with `fnmatch` for root-file gating, keeping the hook in sync with the indexer. `.claude/hooks/search-first.py:81`
