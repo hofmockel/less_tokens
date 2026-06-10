@@ -33,13 +33,13 @@ But it is also developed **and dogfooded here** — this repo runs its own hooks
 
 ```bash
 # Unit + integration (no fastembed needed — matches CI)
-pip install numpy pytest
-pytest .claude/tests/unit/ -v
-pytest .claude/tests/integration/ -v
+.claude/.venv-tokens/bin/python -m pip install numpy pytest
+.claude/.venv-tokens/bin/python -m pytest .claude/tests/unit/ -v
+.claude/.venv-tokens/bin/python -m pytest .claude/tests/integration/ -v
 # Single test
-pytest .claude/tests/unit/test_chunkers.py::<test_name> -v
+.claude/.venv-tokens/bin/python -m pytest .claude/tests/unit/test_chunkers.py::<test_name> -v
 # Perf (needs fastembed; marker-gated, ubuntu CI only)
-pytest .claude/tests/perf/ -v -m perf
+.claude/.venv-tokens/bin/python -m pytest .claude/tests/perf/ -v -m perf
 ```
 
 pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3.11/3.12 × 3 OS. Full install/verify walkthrough: `documentation.md`.

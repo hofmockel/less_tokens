@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`embeddings.py refresh` touches `index.db` on no-op** — when a refresh finds nothing to re-embed, it now calls `os.utime` on `index.db` to advance its mtime; prevents `search.py` from emitting a spurious stale warning after git operations that update file mtimes without changing content.
+- **`create_venv` bootstraps pip when missing** — after `python -m venv`, if `bin/pip` is absent (some macOS system Pythons skip it), `ensurepip --upgrade` is called automatically; `CLAUDE.md` test commands updated to use `.claude/.venv-tokens/bin/python -m pip/pytest` explicitly.
+
 ### Added
 - **Three-namespace architecture (`agents/`)** — shared hook logic extracted to `agents/common/hooks/` (`payload.py`, `search_first.py`, `index_refresh.py`, `truncate_output.py`, `compact_trigger.py`); Codex adapter hooks in `agents/codex/hooks/` (5 thin scripts: `index-refresh.py`, `search-first.py`, `truncate-output.py`, `compact-trigger.py`, `terse-reminder.py`); Codex install target `.less_tokens/` for agent-neutral shared core. `.codex/` receives wired hooks when writable. Three namespaces: `.claude/` (Claude), `.less_tokens/` (shared), `.codex/` (Codex).
 - **Agent-aware state (`active_state_dir()`)** — `search_config.py` gains `CLAUDE_STATE_DIR`, `CODEX_STATE_DIR`, `state_dir_for()`, `active_state_dir()`, `_STATE_AGENT_AWARE` sentinel. All 8 Claude hooks and `search.py` updated to call `active_state_dir()` instead of the static `STATE_DIR`. Codex hooks write state to `.less_tokens/state/`; Claude hooks continue to write to `.claude/state/`. Backward-compat alias `STATE_DIR = CLAUDE_STATE_DIR` preserved.
