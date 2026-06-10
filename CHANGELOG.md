@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`_locate_range` now finds the correct occurrence when first line is duplicated** — saves the fallback range but continues the loop; only returns the fallback after exhausting all candidates, so a later occurrence with a matching last line takes priority. `search.py:209`
 - **`lean-ls` no longer crashes on broken symlinks** — classification now uses `is_dir()` / `is_file()` explicitly; broken symlinks (both return False) are silently skipped instead of being treated as directories and causing `FileNotFoundError` on `iterdir()`. `lean-ls.py:83`
 - **`ensure_current_schema()` now calls `init()` when db file exists but has no schema** — checks `_current_version() == 0` after opening an existing file and routes to `init()` instead of `migrate()`, preventing `OperationalError: no such table: schema_version` when `connect_index()` created an empty file earlier in the session. `db.py:126`
 - **`compact-trigger` no longer silenced by stale `last-size` from a prior session** — hysteresis guard now requires `last <= size` before suppressing; a new session whose transcript is smaller than the persisted value always fires when it exceeds the threshold. `compact-trigger.py:91`

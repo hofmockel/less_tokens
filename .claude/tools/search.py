@@ -206,13 +206,15 @@ def _locate_range(file_text: str, chunk_text: str) -> tuple[int, int] | None:
     if not clines:
         return None
     first, last, n = clines[0], clines[-1], len(clines)
+    fallback: tuple[int, int] | None = None
     for i, ln in enumerate(flines):
         if ln == first:
             end_idx = i + n - 1
             if end_idx < len(flines) and flines[end_idx] == last:
                 return (i + 1, end_idx + 1)
-            return (i + 1, min(i + n, len(flines)))
-    return None
+            if fallback is None:
+                fallback = (i + 1, min(i + n, len(flines)))
+    return fallback
 
 
 def _write_last_search_ranges(results: list[dict]) -> None:
