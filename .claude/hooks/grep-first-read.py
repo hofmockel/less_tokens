@@ -61,12 +61,14 @@ try:
         GREP_FIRST_LINE_THRESHOLD,
         active_state_dir as _active_state_dir,
         WINDOW_SECONDS,
+        VENV_PY,
     )
 except Exception:
     GREP_FIRST_LINE_THRESHOLD = 150
     def _active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
     WINDOW_SECONDS = 300
+    VENV_PY = REPO / ".claude" / ".venv-tokens" / "bin" / "python"
 
 RANGES_FILE = _active_state_dir() / "last-search.json"
 
@@ -176,7 +178,7 @@ def check(file_path: str, offset: object) -> str | None:
     if n <= GREP_FIRST_LINE_THRESHOLD:
         return None
 
-    venv_py = str(REPO / ".claude" / ".venv-tokens" / "bin" / "python")
+    venv_py = str(VENV_PY)
     hint = _symbol_hint(p)
     return (
         f"Grep-first gate (S13): {p.name} is {n:,} lines "

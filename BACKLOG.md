@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`grep-first-read` hardcodes `.venv-tokens` path** | Line 178 hardcodes the venv path instead of reading `VENV_PY` from `search_config`; users with a custom venv location see a wrong python path in the gate error message. `grep-first-read.py:178` | open |
 | **`_remove_gitignore_block` leaves orphan trailing blank** | Removes the blank line before the managed block but not any blank line after `_GI_END`; uninstall leaves an orphan blank line in `.gitignore`. `install.py:907` | open |
 | **`truncate_bash` falls back on original text when head+tail fits** | When `omitted_lines <= 0`, calls `truncate_chars(text, ceiling)` on the original full text instead of the assembled head+tail result; discards the error-preserving tail structure. `truncate-output.py:78` | open |
 | **`offset=0` treated as absent, blocks legitimate sliced Reads** | `inp.get("offset")` is falsy for `0`; an explicit `Read(offset=0, limit=N)` is treated as an unsliced whole-file read and incorrectly blocked by both hooks. `read-after-edit.py:69`, `read-guard.py:110` | open |
