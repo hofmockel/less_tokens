@@ -101,9 +101,14 @@ def _recv(proc: subprocess.Popen, timeout: float) -> dict | None:  # type: ignor
     def _read() -> None:
         try:
             assert proc.stdout is not None
-            line = proc.stdout.readline()
-            if line:
-                result.append(json.loads(line.decode(errors="replace")))
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    return
+                msg = json.loads(line.decode(errors="replace"))
+                if "id" in msg:  # skip notifications (no id field)
+                    result.append(msg)
+                    return
         except Exception as e:
             exc.append(e)
 

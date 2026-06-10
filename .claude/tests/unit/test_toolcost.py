@@ -4,9 +4,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
 BASE = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(BASE / ".claude" / "tools"))
@@ -166,6 +164,50 @@ class TestRenderTable:
 # ---------------------------------------------------------------------------
 # mcp-prune: load_toolignore (same logic, test via module)
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# toolcost: _recv skips server notifications
+# ---------------------------------------------------------------------------
+
+class TestRecv:
+    def _make_proc(self, lines: list[bytes]):
+        """Return a mock Popen whose stdout yields the given lines."""
+        import io
+        from unittest.mock import MagicMock
+        proc = MagicMock()
+        proc.stdout = io.BytesIO(b"".join(line + b"\n" for line in lines))
+        return proc
+
+    def test_skips_notification_before_response(self):
+        """_recv must skip JSON-RPC notifications and return the real response."""
+        notification = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "notifications/message",
+            "params": {"level": "info", "data": "server ready"},
+        }).encode()
+        response = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {"tools": [{"name": "my_tool"}]},
+        }).encode()
+
+        proc = self._make_proc([notification, response])
+        result = toolcost._recv(proc, timeout=5.0)
+        assert result is not None
+        assert result.get("id") == 2
+        assert "result" in result
+
+    def test_single_response_no_notification(self):
+        """_recv returns normal response when no notification precedes it."""
+        response = json.dumps({
+            "jsonrpc": "2.0", "id": 1,
+            "result": {"protocolVersion": "2024-11-05", "capabilities": {}},
+        }).encode()
+        proc = self._make_proc([response])
+        result = toolcost._recv(proc, timeout=5.0)
+        assert result is not None
+        assert result.get("id") == 1
+
 
 class TestPruneLoadIgnore:
     def test_basic(self, tmp_path):
