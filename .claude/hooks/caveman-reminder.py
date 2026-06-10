@@ -64,7 +64,7 @@ VERBOSE_PATTERNS = [
 ]
 _PATTERN = re.compile("|".join(VERBOSE_PATTERNS), re.IGNORECASE)
 
-_FENCE = re.compile(r"```.*?```", re.DOTALL)
+_FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 _INLINE = re.compile(r"`[^`]*`")
 
 

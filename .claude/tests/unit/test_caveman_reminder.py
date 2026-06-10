@@ -56,3 +56,27 @@ def test_word_budget_flagged(hook):
 
 def test_missing_transcript_is_empty(hook):
     assert hook.last_assistant_text("/nonexistent/path.jsonl") == ""
+
+
+def test_unclosed_fence_not_counted_as_prose(hook):
+    """Filler inside an unclosed code fence must not trigger a violation.
+
+    Bug: _FENCE required a closing ```; unclosed fence left its content
+    in the prose word count, causing false filler and word-budget alerts.
+    """
+    # filler word inside an unclosed fence — should be stripped, not flagged
+    text = "Short note.\n```python\nI apologize for the error\n"
+    problems = hook.analyze(text)
+    assert problems == [], f"unclosed fence leaked into prose: {problems}"
+
+
+def test_unclosed_fence_words_not_counted(hook, monkeypatch):
+    """Words in an unclosed code fence must not count toward the word budget."""
+    monkeypatch.setattr(hook, "MAX_RESPONSE_WORDS", 5)
+    # 100 words inside an unclosed fence — should not exceed the 5-word budget
+    many_words = " ".join(["word"] * 100)
+    text = f"Ok.\n```\n{many_words}\n"
+    problems = hook.analyze(text)
+    assert not any("budget" in p for p in problems), (
+        f"unclosed fence words counted against prose budget: {problems}"
+    )
