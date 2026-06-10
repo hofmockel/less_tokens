@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
-from install import _install_specs, selected_agents
+from install import _install_specs, build_codex_hook_entries, launcher_cmd, selected_agents
 
 
 class TestSelectedAgents:
@@ -76,3 +77,19 @@ class TestInstallSpecsAgentSelector:
 
     def test_default_agents_matches_explicit_claude(self):
         assert _install_specs(caveman=False) == _install_specs(caveman=False, agents={"claude"})
+
+
+class TestLauncherCommands:
+    def test_codex_launcher_command_is_less_tokens_python(self, tmp_path):
+        assert launcher_cmd("codex", tmp_path) == ".less_tokens/bin/python"
+
+    def test_codex_hooks_use_launcher_not_raw_venv(self, tmp_path):
+        entries = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(truncate=True, compact=True, caveman=False),
+        )
+        commands = [cmd for _, _, cmd in entries]
+        assert commands
+        assert all(".less_tokens/bin/python" in cmd for cmd in commands)
+        assert all(".venv/bin/python" not in cmd for cmd in commands)

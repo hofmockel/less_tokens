@@ -51,6 +51,7 @@ Claude artifacts land under `.claude/`; Codex support also installs a small `.le
 ~/myproject/
 ├── .claude/
 │   ├── .venv-tokens/        # fastembed + numpy
+│   ├── bin/python           # venv-backed launcher for Claude commands
 │   ├── hooks/               # Claude Code hook scripts
 │   ├── index.db             # vector index
 │   ├── rules/               # output style rules (caveman.md) — --caveman only
@@ -60,6 +61,7 @@ Claude artifacts land under `.claude/`; Codex support also installs a small `.le
 │   └── tools/               # search.py, embeddings.py, db.py, stats.py, …
 ├── .less_tokens/            # Codex tools/hooks/state when --agent codex|both
 │   ├── hooks/               # shared hook support used by Codex adapters
+│   ├── bin/python           # venv-backed launcher for Codex commands
 │   ├── schema/
 │   ├── state/
 │   └── tools/

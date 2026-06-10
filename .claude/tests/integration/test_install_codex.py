@@ -15,8 +15,10 @@ from install import (
     copy_tree,
     handle_agents_md,
     handle_search_config,
+    launcher_rel,
     wire_codex_hooks_json,
     unwire_codex_hooks_json,
+    write_python_launcher,
 )
 
 FRAGMENT = REPO / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
@@ -58,6 +60,19 @@ class TestCodexInstallDirStructure:
         )
         assert (tmp_path / ".less_tokens" / "hooks" / "payload.py").exists()
         assert (tmp_path / ".less_tokens" / "hooks" / "search_first.py").exists()
+
+    def test_codex_python_launcher_created(self, tmp_path):
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("#!/bin/sh\n", encoding="utf-8")
+
+        changed = write_python_launcher(tmp_path, launcher_rel("codex"), venv_py)
+
+        launcher = tmp_path / ".less_tokens" / "bin" / "python"
+        assert changed == 2
+        assert launcher.exists()
+        assert ".venv/bin/python" in launcher.read_text(encoding="utf-8")
+        assert (tmp_path / ".less_tokens" / "bin" / "python.cmd").exists()
 
     def test_codex_specs_exclude_claude_hooks(self):
         specs = _install_specs(caveman=False, agents={"codex"})

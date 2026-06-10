@@ -37,7 +37,7 @@ try:
         VENV_PY,
     )
     config = {
-        "venv_py": VENV_PY,
+        "venv_py": REPO / ".less_tokens" / "bin" / "python",
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,

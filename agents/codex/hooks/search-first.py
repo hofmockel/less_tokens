@@ -45,7 +45,7 @@ try:
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,
         "window_seconds": WINDOW_SECONDS,
-        "venv_py": str(VENV_PY) if VENV_PY else "python3",
+        "venv_py": ".less_tokens/bin/python",
         "tool_prefix": ".less_tokens/tools",
     }
     state_dir = active_state_dir()

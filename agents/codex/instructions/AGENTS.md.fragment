@@ -4,19 +4,19 @@ Use targeted context. Prefer `rg`, `rg --files`, semantic search, and file slice
 
 Search before reading large indexed files:
 
-    python .less_tokens/tools/search.py "query"
+    .less_tokens/bin/python .less_tokens/tools/search.py "query"
 
 Symbol lookup (definition only, no embedding cost):
 
-    python .less_tokens/tools/symbols.py <SymbolName>
+    .less_tokens/bin/python .less_tokens/tools/symbols.py <SymbolName>
 
 Noise-file check before reading lockfiles, generated bundles, or large data files:
 
-    python .less_tokens/tools/read_guard.py path/to/file
+    .less_tokens/bin/python .less_tokens/tools/read_guard.py path/to/file
 
 AGENTS.md hygiene audit:
 
-    python .less_tokens/tools/agentsmd_audit.py
+    .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py
 
 Directory navigation — prefer `rg --files` over `find . -R` or `ls -R`.
 

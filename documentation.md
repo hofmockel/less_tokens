@@ -65,6 +65,7 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 | Path | Purpose |
 |---|---|
 | `.less_tokens/tools/` | Shared search/embeddings/symbols/guards |
+| `.less_tokens/bin/python` | Venv-backed Python launcher for Codex commands |
 | `.less_tokens/schema/` | SQLite schema |
 | `.less_tokens/hooks/` | Shared hook support imported by Codex adapters |
 | `.less_tokens/state/` | Runtime state (separate from Claude's `.claude/state/`) |
@@ -121,7 +122,7 @@ All variables:
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
-| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `python .claude/tools/stats.py --enable`) |
+| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `.claude/bin/python .claude/tools/stats.py --enable`) |
 
 ---
 
@@ -132,42 +133,34 @@ All variables:
 Run this once after configuring, and again whenever you want a full refresh:
 
 ```bash
-# macOS / Linux
-.venv/bin/python .claude/tools/embeddings.py refresh
-
-# Windows
-.venv\Scripts\python .claude/tools/embeddings.py refresh
+.claude/bin/python .claude/tools/embeddings.py refresh
 ```
 
-For Codex-only workflows, use `.less_tokens/tools/embeddings.py` instead.
+For Codex-only workflows, use `.less_tokens/bin/python .less_tokens/tools/embeddings.py refresh` instead.
 
 > First run downloads the embedding model (~130 MB to `~/.cache/huggingface`). Subsequent runs are incremental and typically take under a second.
 
 ### Search
 
 ```bash
-# macOS / Linux
-.venv/bin/python .claude/tools/search.py "your query"
-
-# Windows
-.venv\Scripts\python .claude/tools/search.py "your query"
+.claude/bin/python .claude/tools/search.py "your query"
 ```
 
-For Codex-only workflows, use `.less_tokens/tools/search.py` instead.
+For Codex-only workflows, use `.less_tokens/bin/python .less_tokens/tools/search.py` instead.
 
 **Examples:**
 
 ```bash
-.venv/bin/python .claude/tools/search.py "how are imports validated"
-.venv/bin/python .claude/tools/search.py "cash floor logic" --source-type code
-.venv/bin/python .claude/tools/search.py "deployment steps" -k 5 --json
+.claude/bin/python .claude/tools/search.py "how are imports validated"
+.claude/bin/python .claude/tools/search.py "cash floor logic" --source-type code
+.claude/bin/python .claude/tools/search.py "deployment steps" -k 5 --json
 ```
 
 ### Verify the index
 
 ```bash
-.venv/bin/python .claude/tools/embeddings.py health   # exits 1 if any source has no chunks
-.venv/bin/python .claude/tools/db.py verify           # prints row counts per source type
+.claude/bin/python .claude/tools/embeddings.py health   # exits 1 if any source has no chunks
+.claude/bin/python .claude/tools/db.py verify           # prints row counts per source type
 ```
 
 ### Token savings tracking
@@ -177,9 +170,9 @@ Track how many chars and tokens each strategy saves across a session.
 Tracking is **off by default**. Enable it with:
 
 ```bash
-python .claude/tools/stats.py --enable    # non-interactive
+.claude/bin/python .claude/tools/stats.py --enable    # non-interactive
 # or
-python .claude/tools/stats.py             # interactive prompt
+.claude/bin/python .claude/tools/stats.py             # interactive prompt
 ```
 
 Once enabled, each hook call appends one JSON record to `.claude/state/savings.jsonl`.
@@ -187,16 +180,16 @@ Once enabled, each hook call appends one JSON record to `.claude/state/savings.j
 **Commands:**
 
 ```bash
-python .claude/tools/stats.py              # show session table (last 8h)
-python .claude/tools/stats.py --all        # show all-time totals
-python .claude/tools/stats.py --report     # write .claude/state/savings-report.md and print table
-python .claude/tools/stats.py --disable    # turn tracking off
+.claude/bin/python .claude/tools/stats.py              # show session table (last 8h)
+.claude/bin/python .claude/tools/stats.py --all        # show all-time totals
+.claude/bin/python .claude/tools/stats.py --report     # write .claude/state/savings-report.md and print table
+.claude/bin/python .claude/tools/stats.py --disable    # turn tracking off
 ```
 
 Also accessible as:
 
 ```bash
-.venv/bin/python .claude/tools/embeddings.py savings
+.claude/bin/python .claude/tools/embeddings.py savings
 ```
 
 **Example output:**
@@ -241,8 +234,7 @@ Before and after example:
 
 Before reading any indexed file in full, run vector search first:
 
-    .venv/bin/python .claude/tools/search.py "QUERY"     # macOS/Linux
-    .venv\Scripts\python .claude/tools/search.py "QUERY"  # Windows
+    .claude/bin/python .claude/tools/search.py "QUERY"
 
 Indexed sources: [list your dirs here]
 
@@ -252,7 +244,7 @@ when you need to edit a file, or when the index is unavailable.
 
 ### 2. Add hooks to `.claude/settings.local.json`
 
-Replace `.venv/bin/python` with your actual venv python path (printed by the installer). On Windows use `.venv\Scripts\python`.
+The installer writes `.claude/bin/python` as a venv-backed launcher, so hook commands do not depend on system Python packages.
 
 ```json
 {
@@ -260,13 +252,13 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
     "PreToolUse": [
       {
         "matcher": "Read",
-        "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/search-first.py"}]
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/search-first.py"}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/index-refresh.py"}]
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/index-refresh.py"}]
       }
     ]
   }
@@ -278,7 +270,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 ```json
 {
   "matcher": ".*",
-  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/caveman-reminder.py"}]  // Stop event
+  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"}]  // Stop event
 }
 ```
 
@@ -287,7 +279,7 @@ Replace `.venv/bin/python` with your actual venv python path (printed by the ins
 ```json
 {
   "matcher": "Bash|Read|WebFetch",
-  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/truncate-output.py"}]
+  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/truncate-output.py"}]
 }
 ```
 
@@ -298,7 +290,7 @@ Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS`
 ```json
 {
   "matcher": ".*",
-  "hooks": [{"type": "command", "command": ".venv/bin/python .claude/hooks/compact-trigger.py"}]
+  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/compact-trigger.py"}]
 }
 ```
 
@@ -307,8 +299,8 @@ Tune in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_0
 ### 3. Optional: session-start preflight
 
 ```bash
-.venv/bin/python .claude/tools/embeddings.py refresh   # incremental, ~1s when nothing changed
-.venv/bin/python .claude/tools/embeddings.py health    # fail fast if index is stale
+.claude/bin/python .claude/tools/embeddings.py refresh   # incremental, ~1s when nothing changed
+.claude/bin/python .claude/tools/embeddings.py health    # fail fast if index is stale
 ```
 
 ---
@@ -353,12 +345,21 @@ less_tokens/
 <host-project>/
 ├── .claude/
 │   ├── .venv-tokens/          # isolated Python env for fastembed/numpy
+│   ├── bin/python             # venv-backed launcher for Claude commands
 │   ├── hooks/                 # hook scripts (wired in settings.json)
 │   ├── index.db               # SQLite vector index (regenerable)
 │   ├── rules/                 # caveman.md (if --caveman was passed)
 │   ├── schema/                # index.sql schema
 │   ├── state/                 # runtime state (last-search, logs)
 │   └── tools/                 # search_config.py, embeddings.py, search.py, …
+├── .less_tokens/              # Codex runtime when --agent codex|both
+│   ├── bin/python             # venv-backed launcher for Codex commands
+│   ├── hooks/                 # shared hook support for Codex adapters
+│   ├── schema/
+│   ├── state/
+│   └── tools/
+├── .codex/hooks/              # Codex adapters when .codex is writable
+├── AGENTS.md                  # Codex token-discipline block
 └── less_tokens/               # the clone; not touched after install
 ```
 
@@ -422,7 +423,7 @@ Items tracked for future documentation improvement.
 
 - **Wiring section shows separate JSON blocks** — users must manually merge hook entries; JSON merging is a common error source; should show one complete unified `settings.local.json` block
 - **`index-refresh.log` is never mentioned** — background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere; users can't diagnose silent refresh failures without reading source
-- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `<venv-python> .claude/tools/embeddings.py refresh`
+- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `.claude/bin/python .claude/tools/embeddings.py refresh`
 - **CONTRIBUTING.md verification step has no specifics** — should list concrete commands to run and what passing looks like
 - **`EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` not explained** — both exclude dirs but via different mechanisms; distinction trips up new users
 - **`WINDOW_SECONDS` not documented** — the 5-minute search-gate window is mentioned in passing; no explanation it's configurable in `.claude/tools/search_config.py`
@@ -506,11 +507,11 @@ python3 install.py --build
 # Override the target:
 python3 install.py --target /path/to/scratch --yes --build
 # Build the local index (requires fastembed)
-.claude/.venv-tokens/bin/python .claude/tools/embeddings.py refresh
+.claude/bin/python .claude/tools/embeddings.py refresh
 # Search
-.claude/.venv-tokens/bin/python .claude/tools/search.py "your query"
-.claude/.venv-tokens/bin/python .claude/tools/search.py "query" --source-type code -k 5 --json
+.claude/bin/python .claude/tools/search.py "your query"
+.claude/bin/python .claude/tools/search.py "query" --source-type code -k 5 --json
 # Index health
-.claude/.venv-tokens/bin/python .claude/tools/embeddings.py health
-.claude/.venv-tokens/bin/python .claude/tools/db.py verify
+.claude/bin/python .claude/tools/embeddings.py health
+.claude/bin/python .claude/tools/db.py verify
 ```
