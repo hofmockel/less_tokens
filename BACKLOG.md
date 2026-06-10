@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`total_tokens` undercounted due to per-row integer truncation** | `tok = sc // CHARS_PER_TOKEN` truncates per strategy; `sum(sc//4)` ≠ `sum(sc)//4`, so strategies saving fewer than 4 chars each contribute 0 tokens to the total. `stats.py:93` | open |
 | **`_strip_code` unclosed fence leaks code into prose word count** | `re.sub(r"```.*?```", …)` only removes balanced fences; an unclosed ` ``` ` leaves its content in the prose, inflating filler/word counts and producing false `TRIM` verdicts. `claudemd_audit.py:94` | open |
 | **`embed([])` crashes on empty section list, silently disabling dup check** | When CLAUDE.md has no headed sections `targets=[]`; `embed([])` produces a shape-`(0,)` array; `np.linalg.norm(axis=1)` raises `AxisError` caught by `except Exception → return None`, silently disabling duplicate detection. `claudemd_audit.py:196`, `embeddings.py:396` | open |
 

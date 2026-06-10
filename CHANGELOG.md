@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`stats.py` `total_tokens` now computed from `total_chars`, not sum of per-row truncated values** — `sum(sc//4)` ≠ `sum(sc)//4`; strategies saving fewer than 4 chars each contributed 0 tokens to the total. `stats.py:100`
 - **`mcp-prune._BASE` now resolves to host project root** — was always `Path(__file__).parent.parent.parent` (the less_tokens source tree); replaced with `_find_base()` that checks `cwd` for `.claude/tools/search_config.py` first, matching `db.py`'s approach. `mcp-prune.py:36`
 - **`load_toolignore` now strips inline `#` comments** — `"slack  # note"` previously added verbatim to the ignored set, never matching the settings key `"slack"`; fixed with `line.split("#")[0].strip()`. `mcp-prune.py:46`
 - **`connect_index()` return type annotation corrected to `_ClosingConn`** — was annotated `-> sqlite3.Connection` with a silenced `type: ignore`; callers using the return value directly (outside `with`) would get `AttributeError` since `_ClosingConn` has no `.execute` method. `db.py:55`
