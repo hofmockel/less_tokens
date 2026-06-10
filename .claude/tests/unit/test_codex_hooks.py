@@ -14,7 +14,11 @@ CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 
 _ENV = {
     **os.environ,
-    "PYTHONPATH": str(REPO / ".claude" / "tools"),
+    "PYTHONPATH": os.pathsep.join((
+        str(REPO / ".claude" / "tests"),
+        str(REPO / ".claude" / "tools"),
+        os.environ.get("PYTHONPATH", ""),
+    )),
     "LESS_TOKENS_REPO": str(REPO),
 }
 
@@ -98,6 +102,31 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout
+
+
+# ---------------------------------------------------------------------------
+# terse-reminder.py
+# ---------------------------------------------------------------------------
+
+class TestCodexTerseReminder:
+    def test_passes_concise_response(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "response": "Done. Tests pass.",
+        })
+        assert code == 0
+
+    def test_blocks_filler_response(self):
+        code, _, stderr = run_hook_with_env("terse-reminder.py", {
+            "response": "Certainly. Of course, I hope this helps.",
+        })
+        assert code == 2
+        assert "filler phrases detected" in stderr
+
+    def test_ignores_non_string_response(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "response": {"text": "Certainly. Of course."},
+        })
+        assert code == 0
 
 
 # ---------------------------------------------------------------------------
