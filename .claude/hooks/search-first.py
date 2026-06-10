@@ -7,6 +7,7 @@ install.py wires this into .claude/settings.json automatically.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import sys
 import os
@@ -78,7 +79,8 @@ def is_indexed(path: Path) -> bool:
         return False
 
     if "/" not in rel:
-        return rel.endswith((".md", ".py", ".sql"))
+        root_globs = _config.get("root_globs", ("*.md",))
+        return any(fnmatch.fnmatch(rel, g) for g in root_globs)
     if any(rel.startswith(d) for d in dirs):
         return rel.endswith((".py", ".sql"))
     return False
