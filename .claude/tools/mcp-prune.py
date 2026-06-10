@@ -33,7 +33,15 @@ import json
 import sys
 from pathlib import Path
 
-_BASE = Path(__file__).resolve().parent.parent.parent
+def _find_base() -> Path:
+    """Host project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor."""
+    cwd = Path.cwd().resolve()
+    if (cwd / ".claude" / "tools" / "search_config.py").exists():
+        return cwd
+    return Path(__file__).resolve().parent.parent.parent
+
+
+_BASE = _find_base()
 
 
 def load_toolignore(base: Path) -> set[str]:
