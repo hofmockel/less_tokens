@@ -83,21 +83,17 @@ class TestCap:
 
 class TestRecordEdit:
     def test_record_writes_path(self, ped, tmp_path, monkeypatch):
-        last_edit = tmp_path / "last-edit.json"
-        monkeypatch.setattr(ped, "LAST_EDIT_FILE", last_edit)
-        monkeypatch.setattr(ped, "STATE_DIR", tmp_path)
+        monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         ped._record_edit("/some/file.py")
-        data = json.loads(last_edit.read_text())
+        data = json.loads((tmp_path / "last-edit.json").read_text())
         assert "/some/file.py" in data
         assert isinstance(data["/some/file.py"], float)
 
     def test_record_accumulates_multiple_files(self, ped, tmp_path, monkeypatch):
-        last_edit = tmp_path / "last-edit.json"
-        monkeypatch.setattr(ped, "LAST_EDIT_FILE", last_edit)
-        monkeypatch.setattr(ped, "STATE_DIR", tmp_path)
+        monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         ped._record_edit("/a.py")
         ped._record_edit("/b.py")
-        data = json.loads(last_edit.read_text())
+        data = json.loads((tmp_path / "last-edit.json").read_text())
         assert "/a.py" in data
         assert "/b.py" in data
 
@@ -115,8 +111,7 @@ class TestPedMain:
 
     def test_edit_emits_diff(self, ped, tmp_path, monkeypatch, capsys):
         last_edit = tmp_path / "last-edit.json"
-        monkeypatch.setattr(ped, "LAST_EDIT_FILE", last_edit)
-        monkeypatch.setattr(ped, "STATE_DIR", tmp_path)
+        monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         payload = {
             "tool_name": "Edit",
             "tool_input": {
@@ -134,16 +129,14 @@ class TestPedMain:
         assert "+x = 2" in ctx
 
     def test_non_edit_write_noop(self, ped, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(ped, "LAST_EDIT_FILE", tmp_path / "le.json")
-        monkeypatch.setattr(ped, "STATE_DIR", tmp_path)
+        monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         payload = {"tool_name": "Read", "tool_input": {"file_path": "/tmp/x.py"}}
         rc = self._run(ped, payload, capsys)
         assert rc == 0
         assert capsys.readouterr().out.strip() == ""
 
     def test_edit_empty_strings_noop(self, ped, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(ped, "LAST_EDIT_FILE", tmp_path / "le.json")
-        monkeypatch.setattr(ped, "STATE_DIR", tmp_path)
+        monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         payload = {
             "tool_name": "Edit",
             "tool_input": {"file_path": "/tmp/f.py", "old_string": "", "new_string": ""},
@@ -174,12 +167,11 @@ class TestRaeMain:
     def _write_edits(self, rae, tmp_path, monkeypatch, entries: dict):
         last_edit = tmp_path / "last-edit.json"
         last_edit.write_text(json.dumps(entries))
-        monkeypatch.setattr(rae, "LAST_EDIT_FILE", last_edit)
+        monkeypatch.setattr(rae, "_active_state_dir", lambda: tmp_path)
         monkeypatch.setattr(rae, "LAST_EDIT_WINDOW_SECONDS", 120)
 
     def test_recent_edit_blocks(self, rae, tmp_path, monkeypatch):
         self._write_edits(rae, tmp_path, monkeypatch, {"/abs/foo.py": time.time()})
-        monkeypatch.setattr(rae, "STATE_DIR", tmp_path)
         # monkeypatch resolve so relative path matches
         import unittest.mock as mock
         with mock.patch("pathlib.Path.resolve", return_value=Path("/abs/foo.py")):
@@ -222,7 +214,7 @@ class TestRaeMain:
         assert rc == 0
 
     def test_no_state_file_allows(self, rae, tmp_path, monkeypatch):
-        monkeypatch.setattr(rae, "LAST_EDIT_FILE", tmp_path / "nonexistent.json")
+        monkeypatch.setattr(rae, "_active_state_dir", lambda: tmp_path / "no_state")
         rc, _ = self._run(rae, {
             "tool_name": "Read",
             "tool_input": {"file_path": "anything.py"},

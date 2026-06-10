@@ -76,7 +76,7 @@ class TestArgparseTracksIndex:
         """End-to-end: `--source-type legacy` is valid because it's in the
         index. Pre-fix, argparse `choices=SOURCE_TYPES` SystemExit(2)'d on it.
         """
-        monkeypatch.setattr(search, "STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(search, "active_state_dir", lambda: tmp_path / "state")
         monkeypatch.setattr(search, "search", lambda *a, **k: [])
         monkeypatch.setattr(
             sys, "argv", ["search.py", "q", "--source-type", "legacy"]

@@ -242,7 +242,7 @@ python .less_tokens/tools/symbols.py SomeSymbol
 
 ### Lazy Tool Discovery
 
-`gap.md` identifies Tool/MCP schema overhead as a large fixed cost. Codex already has deferred tool discovery through `tool_search` in this environment. That means the Claude-specific `mcp-prune` direction is less important here.
+Tool/MCP schema overhead is a large fixed cost. Codex already has deferred tool discovery through `tool_search` in this environment. That means the Claude-specific `mcp-prune` direction is less important here.
 
 Codex porting note: document this as a platform win, not a missing feature. A Codex adapter should avoid forcing every possible connector/tool into the context up front.
 

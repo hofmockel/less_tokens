@@ -72,7 +72,7 @@ def test_min_score_none_keeps_all(index_db):
 
 def test_argparse_accepts_min_score(index_db, tmp_path, monkeypatch):
     captured = {}
-    monkeypatch.setattr(search, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(search, "active_state_dir", lambda: tmp_path / "state")
     real = search.search
 
     def spy(*a, **k):

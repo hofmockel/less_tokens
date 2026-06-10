@@ -37,7 +37,7 @@ from search_config import (  # noqa: E402
     INDEXED_DOC_GLOBS,
     INDEXED_ROOT_GLOBS,
     INDEXED_SOURCE_DIRS,
-    STATE_DIR,
+    active_state_dir,
 )
 from savings_log import append as _log_savings  # noqa: E402
 
@@ -115,23 +115,18 @@ def _source_type_choices() -> list[str] | None:
     return [r[0] for r in rows] or None
 
 
-HISTORY_LOG = STATE_DIR / "search-history.log"
-
-
 def _log_history(query: str, results: list[dict]) -> None:
-    """Append one JSONL record so maintainers can audit what was searched.
-
-    Best-effort: an audit log must never break the search it records.
-    """
+    """Append one JSONL record so maintainers can audit what was searched."""
     try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        sd = active_state_dir()
+        sd.mkdir(parents=True, exist_ok=True)
         rec = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "query": query,
             "top_score": round(results[0]["score"], 6) if results else None,
             "results": len(results),
         }
-        with HISTORY_LOG.open("a", encoding="utf-8") as fh:
+        with (sd / "search-history.log").open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec) + "\n")
     except OSError:
         pass
@@ -239,8 +234,9 @@ def _write_last_search_ranges(results: list[dict]) -> None:
         if span:
             ranges.setdefault(path, []).append([span[0], span[1]])
     try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        (STATE_DIR / "last-search.json").write_text(
+        sd = active_state_dir()
+        sd.mkdir(parents=True, exist_ok=True)
+        (sd / "last-search.json").write_text(
             json.dumps(ranges), encoding="utf-8")
     except OSError:
         pass
@@ -269,8 +265,9 @@ def main() -> int:
         )
 
     # Touch state file so the search-first hook knows a search just ran.
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    (STATE_DIR / "last-search").write_text(args.query + "\n", encoding="utf-8")
+    sd = active_state_dir()
+    sd.mkdir(parents=True, exist_ok=True)
+    (sd / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
     # Resolve k: explicit -k wins; else AGENT_MODEL profile; else DEFAULT_K.
     prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))

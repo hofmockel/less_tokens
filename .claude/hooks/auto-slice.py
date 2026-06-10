@@ -42,12 +42,13 @@ REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 try:
-    from search_config import STATE_DIR, WINDOW_SECONDS
+    from search_config import active_state_dir, WINDOW_SECONDS
 except Exception:
-    STATE_DIR = REPO / ".claude" / "state"
+    def active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
     WINDOW_SECONDS = 300
 
-RANGES_FILE = STATE_DIR / "last-search.json"
+RANGES_FILE = active_state_dir() / "last-search.json"
 
 
 def _ranges_for(file_path: str) -> list[list[int]]:

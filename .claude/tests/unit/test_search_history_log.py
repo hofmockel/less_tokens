@@ -21,8 +21,7 @@ from tools import search  # noqa: E402
 @pytest.fixture()
 def state(tmp_path, monkeypatch):
     sd = tmp_path / "state"
-    monkeypatch.setattr(search, "STATE_DIR", sd)
-    monkeypatch.setattr(search, "HISTORY_LOG", sd / "search-history.log")
+    monkeypatch.setattr(search, "active_state_dir", lambda: sd)
     monkeypatch.setattr(search, "_log_savings", lambda *a, **k: None)
     return sd
 
@@ -65,10 +64,9 @@ def test_no_results_logs_null_score_and_appends(state, monkeypatch):
 
 
 def test_log_failure_is_swallowed(tmp_path, monkeypatch):
-    # STATE_DIR under a regular file → mkdir raises OSError; _log_history
-    # must absorb it (an audit log can't break the search it records).
+    # active_state_dir returning a path under a regular file → mkdir raises
+    # OSError; _log_history must absorb it.
     afile = tmp_path / "afile"
     afile.write_text("x")
-    monkeypatch.setattr(search, "STATE_DIR", afile / "sub")
-    monkeypatch.setattr(search, "HISTORY_LOG", afile / "sub" / "h.log")
+    monkeypatch.setattr(search, "active_state_dir", lambda: afile / "sub")
     search._log_history("q", [])  # must not raise

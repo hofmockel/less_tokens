@@ -43,7 +43,11 @@ except Exception:
     MAX_SESSION_CHARS = 500_000
     def _log_savings(_r: dict) -> None: pass  # noqa: E301
 
-STATE_FILE = REPO / ".claude" / "state" / "compact-trigger-last"
+try:
+    from search_config import active_state_dir as _active_state_dir
+    STATE_FILE = _active_state_dir() / "compact-trigger-last"
+except Exception:
+    STATE_FILE = REPO / ".claude" / "state" / "compact-trigger-last"
 
 
 def read_last_size() -> int:

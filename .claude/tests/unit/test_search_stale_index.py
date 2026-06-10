@@ -31,7 +31,7 @@ def index_db(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
     monkeypatch.setattr(_DB, "INDEX_DB", dbp)
-    monkeypatch.setattr(search, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(search, "active_state_dir", lambda: tmp_path / "state")
     monkeypatch.setattr(search, "search", lambda *a, **k: [])
     return dbp
 

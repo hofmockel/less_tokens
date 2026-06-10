@@ -110,7 +110,12 @@ def main() -> int:
     if VENV_PY is None or not VENV_PY.exists():
         return 0
 
-    log = REPO / ".claude" / "state" / "index-refresh.log"
+    try:
+        from search_config import active_state_dir as _asd
+        _state_dir = _asd()
+    except Exception:
+        _state_dir = REPO / ".claude" / "state"
+    log = _state_dir / "index-refresh.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("ab") as f:
         subprocess.Popen(

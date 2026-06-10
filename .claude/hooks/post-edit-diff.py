@@ -44,12 +44,11 @@ REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 try:
-    from search_config import MAX_DIFF_LINES, STATE_DIR
+    from search_config import MAX_DIFF_LINES, active_state_dir as _active_state_dir
 except Exception:
     MAX_DIFF_LINES = 60
-    STATE_DIR = REPO / ".claude" / "state"
-
-LAST_EDIT_FILE = STATE_DIR / "last-edit.json"
+    def _active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
 _CONTEXT = 2  # unified diff context lines
 
 
@@ -111,13 +110,15 @@ def _cap(diff_lines: list[str], max_lines: int) -> str:
 def _record_edit(file_path: str) -> None:
     """Append/update path→timestamp in last-edit.json."""
     try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        sd = _active_state_dir()
+        last_edit_file = sd / "last-edit.json"
+        sd.mkdir(parents=True, exist_ok=True)
         try:
-            data: dict = json.loads(LAST_EDIT_FILE.read_text())
+            data: dict = json.loads(last_edit_file.read_text())
         except Exception:
             data = {}
         data[str(Path(file_path).resolve())] = time.time()
-        LAST_EDIT_FILE.write_text(json.dumps(data))
+        last_edit_file.write_text(json.dumps(data))
     except Exception:
         pass
 
