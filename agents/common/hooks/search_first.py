@@ -5,7 +5,10 @@ import re
 import time
 from pathlib import Path
 
-from .payload import HookPayload
+try:
+    from .payload import HookPayload
+except ImportError:
+    from payload import HookPayload  # type: ignore[no-redef]
 
 
 def is_indexed(

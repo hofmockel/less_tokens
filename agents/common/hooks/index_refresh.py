@@ -5,8 +5,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .payload import HookPayload
-from .search_first import is_indexed
+try:
+    from .payload import HookPayload
+    from .search_first import is_indexed
+except ImportError:
+    from payload import HookPayload  # type: ignore[no-redef]
+    from search_first import is_indexed  # type: ignore[no-redef]
 
 
 def check_index_refresh(

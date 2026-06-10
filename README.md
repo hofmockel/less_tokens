@@ -5,6 +5,7 @@
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Claude Code](https://img.shields.io/badge/Claude-Code-orange)
+![Codex](https://img.shields.io/badge/Codex-supported-green)
 
 ---
 
@@ -39,7 +40,9 @@ Clone this repo *into* the project you want to install it on, then run the insta
 ```bash
 cd ~/myproject
 git clone https://github.com/<you>/less_tokens.git
-python3 less_tokens/install.py            # installs into ~/myproject
+python3 less_tokens/install.py            # Claude Code (default)
+python3 less_tokens/install.py --agent codex   # Codex
+python3 less_tokens/install.py --agent both    # both simultaneously
 ```
 
 After install, all artifacts land under `.claude/` to keep the project root clean:

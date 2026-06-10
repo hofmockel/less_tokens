@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import json
 
-from .payload import HookPayload
+try:
+    from .payload import HookPayload
+except ImportError:
+    from payload import HookPayload  # type: ignore[no-redef]
 
 
 def truncate_chars(text: str, ceiling: int) -> str:

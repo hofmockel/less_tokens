@@ -4,7 +4,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .payload import HookPayload
+try:
+    from .payload import HookPayload
+except ImportError:
+    from payload import HookPayload  # type: ignore[no-redef]
 
 
 def check_compact_trigger(
