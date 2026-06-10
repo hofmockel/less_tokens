@@ -194,6 +194,8 @@ def duplication(sections: list[dict]):
     M = np.vstack(mats).astype("float32")
     M /= (np.linalg.norm(M, axis=1, keepdims=True) + 1e-9)
     targets = [s for s in sections if s["level"]]
+    if not targets:
+        return {}
     try:
         Q = embed([s["body"] for s in targets], input_type="query")
     except Exception:

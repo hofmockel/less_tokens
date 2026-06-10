@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`claudemd_audit.duplication()` now returns `{}` when no headed sections exist** — `embed([])` produced a shape-`(0,)` array causing `AxisError` in `np.linalg.norm(axis=1)`, caught by `except Exception → return None` and silently disabling dup detection; added `if not targets: return {}` guard. `claudemd_audit.py:196`
 - **`claudemd_audit._strip_code` now strips unclosed code fences** — `re.sub(r"```.*?```")` left unclosed fences intact, leaking code into prose and inflating filler/word counts; changed to `r"```.*?(?:```|\Z)"` so an unclosed fence is stripped to end-of-string. `claudemd_audit.py:94`
 - **`stats.py` `total_tokens` now computed from `total_chars`, not sum of per-row truncated values** — `sum(sc//4)` ≠ `sum(sc)//4`; strategies saving fewer than 4 chars each contributed 0 tokens to the total. `stats.py:100`
 - **`mcp-prune._BASE` now resolves to host project root** — was always `Path(__file__).parent.parent.parent` (the less_tokens source tree); replaced with `_find_base()` that checks `cwd` for `.claude/tools/search_config.py` first, matching `db.py`'s approach. `mcp-prune.py:36`
