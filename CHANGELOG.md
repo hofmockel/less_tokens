@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`post-edit-diff` now diffs against the file's own git repo** — `_diff_write` previously used `cwd=REPO` (the less_tokens directory), so writes to host-project files showed as all-new rather than diffs against the tracked version; fixed by using `cwd=p.resolve().parent`. `post-edit-diff.py:77`
 - **`_locate_range` now finds the correct occurrence when first line is duplicated** — saves the fallback range but continues the loop; only returns the fallback after exhausting all candidates, so a later occurrence with a matching last line takes priority. `search.py:209`
 - **`lean-ls` no longer crashes on broken symlinks** — classification now uses `is_dir()` / `is_file()` explicitly; broken symlinks (both return False) are silently skipped instead of being treated as directories and causing `FileNotFoundError` on `iterdir()`. `lean-ls.py:83`
 - **`ensure_current_schema()` now calls `init()` when db file exists but has no schema** — checks `_current_version() == 0` after opening an existing file and routes to `init()` instead of `migrate()`, preventing `OperationalError: no such table: schema_version` when `connect_index()` created an empty file earlier in the session. `db.py:126`

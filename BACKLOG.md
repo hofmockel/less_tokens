@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`post-edit-diff` runs `git diff` in wrong repo for host-project files** | `cwd=REPO` is hardcoded to the less_tokens dir; writes to host-project files show as all-added new files rather than diffs against the actual tracked version. `post-edit-diff.py:78` | open |
 | **`symbols.py refresh()` ignores `--full` flag** | `full` parameter is accepted and documented but never consulted inside the function; always performs a full DELETE+reinsert regardless. `symbols.py:127` | open |
 | **`caveman-reminder` counts unclosed code fence content as prose** | `_FENCE` regex requires a closing ` ``` `; an unclosed fence leaves code words in the prose word count, triggering false violation alerts. `caveman-reminder.py:67` | open |
 | **`db.py connect_index()` return type annotation wrong** | Annotated `-> sqlite3.Connection` but returns `_ClosingConn`; suppressed with `# type: ignore[return-value]`; callers using the return value directly (outside `with`) get `AttributeError`. `db.py:55` | open |

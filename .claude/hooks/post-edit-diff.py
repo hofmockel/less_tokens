@@ -73,17 +73,17 @@ def _diff_write(file_path: str) -> list[str]:
     p = Path(file_path)
     try:
         result = subprocess.run(
-            ["git", "diff", "HEAD", "--", file_path],
-            capture_output=True, text=True, timeout=5, cwd=REPO,
+            ["git", "diff", "HEAD", "--", p.name],
+            capture_output=True, text=True, timeout=5, cwd=p.resolve().parent,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.splitlines(keepends=True)
         # Untracked or new file — show as +lines
         if p.exists():
             lines = p.read_text(errors="replace").splitlines(keepends=True)
-            added = [f"+{l}" for l in lines]
+            added = [f"+{line}" for line in lines]
             header = [
-                f"--- /dev/null\n",
+                "--- /dev/null\n",
                 f"+++ b/{p.name}\n",
                 f"@@ -0,0 +1,{len(lines)} @@\n",
             ]
