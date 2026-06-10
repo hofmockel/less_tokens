@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`is_indexed()` in `index-refresh` now consults `INDEXED_ROOT_GLOBS` instead of hardcoded suffixes** — same fix as `search-first`: uses `fnmatch` against the imported glob tuple; added `INDEXED_ROOT_GLOBS` to the `search_config` import and fallback. `.claude/hooks/index-refresh.py:91`
 - **`is_indexed()` in `search-first` now consults `INDEXED_ROOT_GLOBS` instead of hardcoded suffixes** — `_config["root_globs"]` is now used with `fnmatch` for root-file gating, keeping the hook in sync with the indexer. `.claude/hooks/search-first.py:81`
 - **`offset=0` no longer treated as absent in `read-guard` and `read-after-edit`** — `inp.get("offset")` was falsy for `0`, causing `Read(offset=0, limit=N)` to be blocked as an unsliced whole-file read; changed to `is not None` check in both hooks. `.claude/hooks/read-guard.py:110`, `.claude/hooks/read-after-edit.py:68`
 - **`truncate_bash` now uses assembled head+tail when `omitted_lines<=0`** — was calling `truncate_chars(text, ceiling)` on the original text (with trailing newline) unconditionally; now assembles `"\n".join(kept_head + kept_tail)` and only truncates if over ceiling, matching the normal branch. `.claude/hooks/truncate-output.py:77`

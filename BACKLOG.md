@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`index-refresh.py` same hardcoded suffix heuristic** | Same root bug as above — `is_indexed()` hardcodes suffixes instead of consulting `INDEXED_ROOT_GLOBS`; triggers spurious re-embeds for unindexed root files. `index-refresh.py:90` | open |
 | **`duplication()` missing `embedding_model` filter** | Query fetches all rows regardless of model; after a model switch, mixed-dimension blobs cause `np.vstack` to fail with `ValueError`, silently disabling duplicate detection via the outer `except Exception → return None`. `claudemd_audit.py:180` | open |
 | **`listing-guard` tree detection start-anchored, chained commands bypass** | `re.match(r'\s*tree\b', stripped)` fails for `echo foo && tree`; the ls guard uses `re.search` (anywhere), making detection inconsistent. `listing-guard.py:81` | open |
 | **`listing-guard` false-positive on `find . -type f`** | `-type` is absent from `_ALLOW_RE`; `find . -type f` (no other predicate) is intercepted as a bare dump and replaced with `lean-ls` output. `listing-guard.py:99` | open |

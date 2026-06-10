@@ -13,6 +13,7 @@ self-coalescing — last one wins.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import subprocess
@@ -46,12 +47,14 @@ try:
     from search_config import (  # noqa: E402
         EXCLUDED_DIR_NAMES,
         EXCLUDED_DIR_PREFIXES,
+        INDEXED_ROOT_GLOBS,
         INDEXED_SOURCE_DIRS as INDEXED_DIRS,
         VENV_PY,
     )
 except Exception:
     EXCLUDED_DIR_NAMES: set = set()
     EXCLUDED_DIR_PREFIXES: tuple = ()
+    INDEXED_ROOT_GLOBS: tuple = ("*.md",)  # type: ignore[assignment]
     INDEXED_DIRS: tuple = ()
     VENV_PY = None  # type: ignore[assignment]
 
@@ -87,7 +90,7 @@ def is_indexed(path: Path) -> bool:
         return False
 
     if "/" not in rel:
-        return rel.endswith((".md", ".py", ".sql"))
+        return any(fnmatch.fnmatch(rel, g) for g in INDEXED_ROOT_GLOBS)
     if any(rel.startswith(d) for d in INDEXED_DIRS):
         return rel.endswith((".py", ".sql"))
     return False
