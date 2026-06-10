@@ -172,6 +172,10 @@ def create_venv(target_root: Path) -> Path:
         )
     print(f"  Creating venv: {venv_dir}")
     subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
+    py = venv_python(venv_dir)
+    pip_bin = venv_dir / ("Scripts" if sys.platform == "win32" else "bin") / "pip"
+    if not pip_bin.exists():
+        subprocess.check_call([str(py), "-m", "ensurepip", "--upgrade"])
     return venv_dir
 
 

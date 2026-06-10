@@ -562,6 +562,14 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
             conn.execute(f"PRAGMA user_version = {VEC_FORMAT}")  # noqa: S608
 
         print(f"Done. embedded={embedded} deleted={deleted}")
+
+        if embedded == 0 and deleted == 0 and not incomplete:
+            # Nothing changed — touch index.db so search.py's mtime-based stale
+            # check doesn't fire until a source file actually changes again.
+            import os as _os
+            db_path = sys.modules[connect_index.__module__].INDEX_DB
+            _os.utime(db_path, None)
+
     return 0
 
 
