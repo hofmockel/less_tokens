@@ -289,13 +289,14 @@ def _top_level_assignments(text: str) -> dict[str, tuple[int, int]]:
     return result
 
 
-def _extract_block(lines: list[str], lineno: int) -> str:
+def _extract_block(lines: list[str], lineno: int, end_lineno: int | None = None) -> str:
     """Extract an assignment block, including any immediately-preceding comment lines."""
     idx = lineno - 1  # convert to 0-indexed
+    end_idx = (end_lineno if end_lineno is not None else lineno) - 1  # 0-indexed inclusive
     comment_start = idx
     while comment_start > 0 and lines[comment_start - 1].strip().startswith("#"):
         comment_start -= 1
-    return "\n".join(lines[comment_start:idx + 1])
+    return "\n".join(lines[comment_start:end_idx + 1])
 
 
 def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -> list[str]:
@@ -313,8 +314,8 @@ def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -
 
     src_lines = src_text.splitlines()
     missing = {
-        name: _extract_block(src_lines, lineno)
-        for name, (lineno, _) in src_vars.items()
+        name: _extract_block(src_lines, lineno, end_lineno)
+        for name, (lineno, end_lineno) in src_vars.items()
         if name not in dst_vars
     }
     if not missing:
@@ -656,6 +657,8 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
         ("PreToolUse",  "Read|Grep",      f"{py} .claude/hooks/context-cache.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/post-edit-diff.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
+        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/claudemd-budget.py"),
+        ("PostToolUse", "Bash",          f"{py} .claude/hooks/lean-output.py"),
         ("PreToolUse",  "Bash",          f"{py} .claude/hooks/listing-guard.py"),
     ]
     if getattr(args, "truncate", False):
@@ -1267,6 +1270,118 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def do_check(target_root: Path, args: argparse.Namespace) -> int:
+    """Verify a previous install is still valid. Prints [✓]/[✗] per check."""
+    import subprocess
+    agents = selected_agents(getattr(args, "agent", "claude"))
+    settings_name = "settings.local.json" if getattr(args, "local", False) else "settings.json"
+    ok = True
+
+    def _pass(msg: str) -> None:
+        print(f"  [✓] {msg}")
+
+    def _fail(msg: str) -> None:
+        nonlocal ok
+        ok = False
+        print(f"  [✗] {msg}")
+
+    print(f"Checking less_tokens install in {target_root} ({', '.join(sorted(agents))})\n")
+
+    # --- venv / interpreter ---
+    tools_dir = target_root / ".claude" / "tools"
+    config_path = tools_dir / "search_config.py"
+    venv_py: Path | None = None
+    if config_path.exists():
+        try:
+            import importlib.util, types
+            spec = importlib.util.spec_from_file_location("_sc_check", config_path)
+            assert spec and spec.loader
+            sc: types.ModuleType = types.ModuleType("_sc_check")
+            spec.loader.exec_module(sc)  # type: ignore[union-attr]
+            venv_py = Path(sc.VENV_PY)
+            if venv_py.exists():
+                _pass(f"VENV_PY resolves: {venv_py}")
+            else:
+                _fail(f"VENV_PY missing: {venv_py}  — re-run install.py or update search_config.py")
+        except Exception as exc:
+            _fail(f"Could not load search_config.py: {exc}")
+    else:
+        _fail(f".claude/tools/search_config.py missing — install not complete")
+
+    # fastembed importable
+    if venv_py and venv_py.exists():
+        r = subprocess.run([str(venv_py), "-c", "import fastembed"],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            _pass("fastembed importable in venv")
+        else:
+            _fail(f"fastembed not importable — run: {venv_py} -m pip install fastembed")
+
+    # --- index.db ---
+    index_db = target_root / ".claude" / "index.db"
+    if index_db.exists():
+        try:
+            import sqlite3
+            with sqlite3.connect(str(index_db)) as conn:
+                row = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()
+                count = row[0] if row else 0
+            if count > 0:
+                _pass(f"index.db present with {count} chunk(s)")
+            else:
+                _fail("index.db exists but has 0 chunks — run embeddings.py refresh")
+        except Exception as exc:
+            _fail(f"index.db unreadable: {exc}")
+    else:
+        _fail(".claude/index.db missing — run embeddings.py refresh")
+
+    # --- hook files ---
+    hooks_dir = target_root / ".claude" / "hooks"
+    if hooks_dir.is_dir():
+        hook_files = list(hooks_dir.glob("*.py"))
+        if hook_files:
+            _pass(f".claude/hooks/ present ({len(hook_files)} script(s))")
+        else:
+            _fail(".claude/hooks/ exists but contains no .py scripts")
+    else:
+        _fail(".claude/hooks/ missing — install not complete")
+
+    # --- settings wiring ---
+    if "claude" in agents:
+        settings_path = target_root / ".claude" / settings_name
+        if settings_path.exists():
+            try:
+                import json as _json
+                data = _json.loads(settings_path.read_text(encoding="utf-8"))
+                hooks = data.get("hooks", {})
+                wired = sum(len(v) for v in hooks.values()) if isinstance(hooks, dict) else 0
+                if wired > 0:
+                    _pass(f".claude/{settings_name} has {wired} hook entry/entries wired")
+                else:
+                    _fail(f".claude/{settings_name} has no hooks — re-run install.py")
+            except Exception as exc:
+                _fail(f"Could not parse .claude/{settings_name}: {exc}")
+        else:
+            _fail(f".claude/{settings_name} missing — re-run install.py")
+
+    # --- smoke query ---
+    if venv_py and venv_py.exists() and index_db.exists():
+        search_py = tools_dir / "search.py"
+        if search_py.exists():
+            r = subprocess.run([str(venv_py), str(search_py), "test"],
+                               capture_output=True, text=True, cwd=str(target_root))
+            if r.returncode == 0:
+                _pass("search.py smoke query succeeded")
+            else:
+                _fail(f"search.py smoke query failed: {r.stderr.strip()[:120]}")
+
+    print()
+    if ok:
+        print("All checks passed.")
+        return 0
+    print("One or more checks failed — see [✗] above.")
+    return 1
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1329,6 +1444,8 @@ def main() -> int:
                          "Incompatible with --force-config and --build.")
     ap.add_argument("--agent", choices=["claude", "codex", "both"], default="claude",
                     help="agent(s) to install for: claude (default), codex, or both")
+    ap.add_argument("--check", action="store_true",
+                    help="verify a previous install: venv, fastembed, index, hooks, settings")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
@@ -1391,6 +1508,9 @@ def main() -> int:
     # target resolution / the suspicious-target + source-self guards above.
     if args.uninstall:
         return do_uninstall(target_root, args)
+
+    if args.check:
+        return do_check(target_root, args)
 
     # Resolve source version (git short hash) once; used in header + state file.
     src_version = _source_git_hash()

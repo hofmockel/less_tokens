@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`_extract_block` truncates multi-line assignments** | `merge_search_config` stores `(lineno, end_lineno)` but passes only `lineno` to `_extract_block`; multi-line vars (sets, dicts) are injected as their opening line only — broken Python. `install.py:300` | open |
 | **`_index_db_at_current_schema` accepts v1 as current** | `bool(row and row[0])` is True for any schema version ≥ 1; a v1 index is treated as current and the v1→v2 endianness migration is skipped, silently corrupting search scores. `install.py:692` | open |
 | **Filename-only path match in `auto-slice` / `grep-first`** | `kp.name == p.name` matches any file sharing a basename regardless of directory, causing wrong line-range injection in `auto-slice.py` and false gate exemptions in `grep-first-read.py`. `auto-slice.py:64`, `grep-first-read.py:98` | open |
 | **Context-cache shares state across sessions when `transcript_path` is None** | `session_key = transcript_path or ""` is always `""` for sessions without a transcript path; a new session matches the old session key and sees stale "already read" cache entries. `context-cache.py:87` | open |
@@ -38,7 +37,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 | **`db.py connect_index()` return type annotation wrong** | Annotated `-> sqlite3.Connection` but returns `_ClosingConn`; suppressed with `# type: ignore[return-value]`; callers using the return value directly (outside `with`) get `AttributeError`. `db.py:55` | open |
 | **`load_toolignore` keeps inline `#` comments as server names** | `"slack  # note"` is added verbatim to `ignored`; it never matches the settings key `"slack"`, so the server is never pruned. `mcp-prune.py:47` | open |
 | **`mcp-prune._BASE` targets less_tokens dir, not host project** | `_BASE = Path(__file__).resolve().parent.parent.parent` resolves to the less_tokens source tree; `.toolignore` and `settings.json` are always looked up in the wrong directory when run from a host project. `mcp-prune.py:36` | open |
-| **`--global` documented in docstring but absent from argparse** | Module docstring at lines 8 and 14 describes `--global` as a required flag for global-install mode, but no `add_argument("--global", ...)` exists; `install.py --global` crashes with an unrecognised-argument error. `install.py:8` | open |
 | **`total_tokens` undercounted due to per-row integer truncation** | `tok = sc // CHARS_PER_TOKEN` truncates per strategy; `sum(sc//4)` ≠ `sum(sc)//4`, so strategies saving fewer than 4 chars each contribute 0 tokens to the total. `stats.py:93` | open |
 | **`_strip_code` unclosed fence leaks code into prose word count** | `re.sub(r"```.*?```", …)` only removes balanced fences; an unclosed ` ``` ` leaves its content in the prose, inflating filler/word counts and producing false `TRIM` verdicts. `claudemd_audit.py:94` | open |
 | **`embed([])` crashes on empty section list, silently disabling dup check** | When CLAUDE.md has no headed sections `targets=[]`; `embed([])` produces a shape-`(0,)` array; `np.linalg.norm(axis=1)` raises `AxisError` caught by `except Exception → return None`, silently disabling duplicate detection. `claudemd_audit.py:196`, `embeddings.py:396` | open |
@@ -51,14 +49,8 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-
-
-
 ### Medium Priority
 
-- **S12 — Structured tool-output parsers (skill)** *(tool)* — `.claude/skills/lean-output/` with parsers returning only signal: pytest → failing ids + assertion lines + counts; ruff/eslint → `file:line: code msg`; git → name-status + stat. PostToolUse on `Bash` auto-detects known tools and pipes through the parser before the result reaches context. Beats blind truncation (Strategy 3) — keeps the failing line, drops the noise. 60–95% on the noisiest, most-repeated outputs. (evaluate.md)
-
-- **G6 — Live token governor** *(meta)* — a running session-token estimate (transcript size, already read by `compact-trigger.py`) that tightens knobs as the budget depletes: smaller `MAX_TOOL_OUTPUT_CHARS`, lower search `k`, earlier compaction, stricter caveman. One PostToolUse governor writes a live tier to state that the other hooks consult. Multiplies the existing strategies rather than adding a new surface. Supersedes the post-hoc, opt-in `stats.py` as a *live* control.
 - **G9 — Always-loaded surfaces beyond CLAUDE.md** *(fixed)* — extend the claudemd approach: `claudemd_audit.py --rules` covers `.claude/rules/*`, and a `skilldesc_audit` flags bloated/overlapping skill descriptions (always-loaded, and they grow with the skill library) against a per-description word cap. Same budget + hook mechanism, wider scope.
 ### Low Priority
 
@@ -98,6 +90,20 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 ### High Priority
 
 - **Per-task exemptions** — allow CLAUDE.md to declare specific task types (e.g., user-facing copy, PR descriptions) that bypass caveman mode. Implement on the shipped caveman Stop hook (`caveman-reminder.py`) so its check honors the exemption list.
+
+---
+
+## Codex Agent
+
+### High Priority
+
+- **Wire `agentsmd-budget` PostToolUse hook for Codex** — `claudemd-budget.py` guards CLAUDE.md size for Claude but there is no counterpart for AGENTS.md under Codex. `agentsmd_audit.py` exists as a CLI tool but is never triggered automatically. Wire it as a PostToolUse on `Edit|Write` in `.codex/hooks.json` (and add it to `build_codex_hook_entries`) so AGENTS.md bloat is caught the same way CLAUDE.md bloat is caught for Claude.
+
+- **Add prose word-count ceiling to `terse-reminder`** — the Codex `terse-reminder.py` (agents/codex/hooks) only pattern-matches filler phrases; it has no configurable `MAX_RESPONSE_WORDS` ceiling. The Claude `caveman-reminder.py` Stop hook has this. Add the same word-budget check to `terse-reminder` using `CODEX_MAX_RESPONSE_WORDS` (or share `MAX_RESPONSE_WORDS`) from `search_config.py`. `agents/codex/hooks/terse-reminder.py`
+
+### Medium Priority
+
+- **Symbol-lookup hint in Codex search-first hook** — the Claude `search-first.py` adds a non-blocking hint when a `Grep` pattern matches a known symbol (`"<name> is a known symbol — use symbols.py for exact location"`). The Codex `search-first.py` (agents/codex/hooks) omits this. Add the same hint so Codex users get the same locate-by-symbol affordance. `agents/codex/hooks/search-first.py`
 
 ---
 
