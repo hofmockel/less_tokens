@@ -52,7 +52,7 @@ class _ClosingConn:
             self._c.close()
 
 
-def connect_index() -> sqlite3.Connection:
+def connect_index() -> _ClosingConn:
     c = sqlite3.connect(INDEX_DB)
     # DELETE journal mode: no -wal or -shm files. WAL created those files, and
     # on FUSE mounts (e.g. Cowork sandbox) SQLite's -shm cleanup while another
@@ -61,7 +61,7 @@ def connect_index() -> sqlite3.Connection:
     # WAL's concurrency advantage does not apply here.
     c.execute("PRAGMA journal_mode = DELETE")
     c.row_factory = sqlite3.Row
-    return _ClosingConn(c)  # type: ignore[return-value]
+    return _ClosingConn(c)
 
 
 def _current_version(c: sqlite3.Connection) -> int:
