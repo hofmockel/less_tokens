@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`lean-ls` crashes on broken symlinks** | Broken symlink returns `is_file()=False` and is added to `dirs`; subsequent `iterdir()` raises `FileNotFoundError` which is not caught (only `PermissionError` is). `lean-ls.py:83` | open |
 | **`_locate_range` returns wrong range on duplicate first line** | When the last-line confirmation fails, immediately returns a fallback range for the wrong occurrence instead of `continue`-ing the loop to find the correct one. `search.py:219` | open |
 | **`post-edit-diff` runs `git diff` in wrong repo for host-project files** | `cwd=REPO` is hardcoded to the less_tokens dir; writes to host-project files show as all-added new files rather than diffs against the actual tracked version. `post-edit-diff.py:78` | open |
 | **`symbols.py refresh()` ignores `--full` flag** | `full` parameter is accepted and documented but never consulted inside the function; always performs a full DELETE+reinsert regardless. `symbols.py:127` | open |
