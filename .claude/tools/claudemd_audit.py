@@ -91,7 +91,7 @@ def parse_sections(text: str) -> list[dict]:
 
 
 def _strip_code(body: str) -> str:
-    return re.sub(r"```.*?```", "", body, flags=re.DOTALL)
+    return re.sub(r"```.*?(?:```|\Z)", "", body, flags=re.DOTALL)
 
 
 
