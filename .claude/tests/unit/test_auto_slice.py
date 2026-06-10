@@ -67,7 +67,7 @@ def test_search_writes_ranges(tmp_path, monkeypatch):
     src = tmp_path / "m.py"
     src.write_text("\n".join(f"line{i}" for i in range(1, 21)))
     monkeypatch.setattr(search, "BASE", tmp_path)
-    monkeypatch.setattr(search, "STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(search, "active_state_dir", lambda: tmp_path / "state")
     search._write_last_search_ranges([{"source_path": "m.py", "text": "line5\nline6\nline7"}])
     data = json.loads((tmp_path / "state" / "last-search.json").read_text())
     assert data["m.py"] == [[5, 7]]

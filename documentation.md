@@ -44,9 +44,50 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 | `--venv PATH` | Point to a venv not in a standard location |
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
 | `--build` | Build the index immediately after install |
+| `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
 | `--caveman` | Also copy `.claude/rules/` (caveman output style) |
 | `--truncate` | Print next-steps wiring for the tool output truncation hook |
 | `--compact` | Print next-steps wiring for the conversation compaction trigger hook |
+
+---
+
+## Codex support
+
+`--agent codex` (or `--agent both`) installs the shared core under `.less_tokens/` instead of (or alongside) `.claude/`. This lets the same vector search, symbol lookup, and noise-file guards work in [Codex](https://openai.com/index/openai-codex/) projects.
+
+```bash
+python3 less_tokens/install.py --agent codex
+python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
+```
+
+**What gets installed:**
+
+| Path | Purpose |
+|---|---|
+| `.less_tokens/tools/` | Shared search/embeddings/symbols/guards |
+| `.less_tokens/schema/` | SQLite schema |
+| `.less_tokens/state/` | Runtime state (separate from Claude's `.claude/state/`) |
+| `.codex/hooks/` | Codex adapter hooks (wired to `.codex/hooks.json` when writable) |
+| `AGENTS.md` | Token-discipline fragment appended via HTML comment sentinels |
+| `.less_tokens/skills/less-tokens/` | Fallback skill path when `.codex/` is not writable |
+
+**Compatibility:**
+
+| Feature | Claude | Codex |
+|---|---|---|
+| Vector search + index | ✓ stable | ✓ stable |
+| Search-before-read | ✓ enforced via hook | best-effort (hook only if `.codex/hooks.json` is writable) |
+| Tool-output truncation | ✓ enforced via hook | best-effort |
+| Compaction trigger | ✓ enforced via hook | best-effort |
+| Symbol lookup | ✓ | ✓ |
+| AGENTS.md / CLAUDE.md pruning | ✓ | ✓ (`agentsmd_audit.py`) |
+
+**Known limitations:**
+
+- Codex search-first is best-effort — interception depends on `.codex/hooks.json` being writable. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
+- `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
+- Codex state lives in `.less_tokens/state/`; Claude state in `.claude/state/`. The two are completely independent.
+- Caveman output style (`--caveman`) applies only to Claude.
 
 ---
 

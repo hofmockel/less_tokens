@@ -109,7 +109,28 @@ MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 #   AGENT_MODEL = "claude-sonnet-4-6"
 AGENT_MODEL: str | None = None
 
-STATE_DIR: Path = CLAUDE_DIR / "state"
+LESS_TOKENS_DIR: Path = BASE / ".less_tokens"
+CLAUDE_STATE_DIR: Path = CLAUDE_DIR / "state"
+CODEX_STATE_DIR: Path = LESS_TOKENS_DIR / "state"
+STATE_DIR: Path = CLAUDE_STATE_DIR   # backward-compat alias — do not remove
+
+
+def state_dir_for(agent: str | None = None) -> Path:
+    if agent == "claude":
+        return CLAUDE_STATE_DIR
+    if agent == "codex":
+        return CODEX_STATE_DIR
+    return STATE_DIR
+
+
+def active_state_dir() -> Path:
+    explicit = os.environ.get("LESS_TOKENS_STATE_DIR")
+    if explicit:
+        return Path(explicit)
+    return state_dir_for(os.environ.get("LESS_TOKENS_AGENT"))
+
+
+_STATE_AGENT_AWARE: bool = True   # sentinel for installer merge check
 
 # Search-first hook gate: how long after a search Reads on indexed files are
 # allowed without re-searching. Increase for long edit sessions; decrease to

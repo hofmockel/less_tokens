@@ -49,9 +49,10 @@ REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 try:
-    from search_config import STATE_DIR, CONTEXT_CACHE_ENABLED, CONTEXT_CACHE_GREP_TTL
+    from search_config import active_state_dir as _active_state_dir, CONTEXT_CACHE_ENABLED, CONTEXT_CACHE_GREP_TTL
 except Exception:
-    STATE_DIR = REPO / ".claude" / "state"
+    def _active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
     CONTEXT_CACHE_ENABLED = True
     CONTEXT_CACHE_GREP_TTL = 300
 
@@ -60,7 +61,9 @@ try:
 except Exception:
     def _log(_r: dict) -> None: pass  # noqa: E301
 
-CACHE_FILE = STATE_DIR / "context-cache.json"
+
+def _cache_file() -> Path:
+    return _active_state_dir() / "context-cache.json"
 
 
 # ---------------------------------------------------------------------------
@@ -69,15 +72,16 @@ CACHE_FILE = STATE_DIR / "context-cache.json"
 
 def _load() -> dict:
     try:
-        return json.loads(CACHE_FILE.read_text())
+        return json.loads(_cache_file().read_text())
     except Exception:
         return {}
 
 
 def _save(state: dict) -> None:
     try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        CACHE_FILE.write_text(json.dumps(state))
+        cf = _cache_file()
+        cf.parent.mkdir(parents=True, exist_ok=True)
+        cf.write_text(json.dumps(state))
     except Exception:
         pass
 

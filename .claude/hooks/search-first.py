@@ -49,7 +49,7 @@ def _load_config() -> bool:
         _config["root_globs"] = search_config.INDEXED_ROOT_GLOBS
         _config["dirs"] = search_config.INDEXED_SOURCE_DIRS
         _config["venv_py"] = search_config.VENV_PY
-        _config["state_file"] = search_config.STATE_DIR / "last-search"
+        _config["state_file"] = search_config.active_state_dir() / "last-search"
         _config["window_seconds"] = search_config.WINDOW_SECONDS
         from savings_log import append as _log  # noqa: PLC0415
         _config["log"] = _log

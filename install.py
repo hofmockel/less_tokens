@@ -66,6 +66,21 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent
 
+
+def selected_agents(value: str) -> set[str]:
+    if value == "both":
+        return {"claude", "codex"}
+    return {value}
+
+
+def _dir_is_writable(target_root: Path, rel: str) -> bool:
+    d = target_root / rel
+    if d.is_dir():
+        return os.access(d, os.W_OK)
+    parent = d.parent
+    return parent.is_dir() and os.access(parent, os.W_OK)
+
+
 # Relative path (within target_root) where we record installed version.
 _INSTALL_STATE_PATH = Path(".claude") / "state" / "install.json"
 
@@ -564,7 +579,7 @@ def handle_search_config(
 # Settings.local.json — idempotent hook wiring
 # ---------------------------------------------------------------------------
 
-def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
+def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespace) -> list[tuple[str, str, str]]:
     """Return (event_type, matcher, command) tuples for all hooks to wire.
 
     The venv python path is rendered relative to target_root when possible
@@ -599,6 +614,33 @@ def _build_hook_entries(venv_py: Path, target_root: Path, args: argparse.Namespa
     if getattr(args, "caveman", False):
         entries.append(("Stop", "",
                          f"{py} .claude/hooks/caveman-reminder.py"))
+    return entries
+
+
+_build_hook_entries = build_claude_hook_entries  # backward compat
+
+
+def build_codex_hook_entries(
+    venv_py: Path,
+    target_root: Path,
+    args: argparse.Namespace,
+) -> list[tuple[str, str, str]]:
+    try:
+        py = str(venv_py.relative_to(target_root))
+    except ValueError:
+        py = str(venv_py)
+    prefix = f"LESS_TOKENS_AGENT=codex {py}"
+    entries: list[tuple[str, str, str]] = [
+        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
+    ]
+    if getattr(args, "truncate", False):
+        entries.append(("PostToolUse", "Bash|mcp__filesystem__.*",
+                         f"{prefix} .codex/hooks/truncate-output.py"))
+    if getattr(args, "compact", False):
+        entries.append(("PostToolUse", ".*", f"{prefix} .codex/hooks/compact-trigger.py"))
+    if getattr(args, "caveman", False):
+        entries.append(("PostToolUse", ".*", f"{prefix} .codex/hooks/terse-reminder.py"))
     return entries
 
 
@@ -642,6 +684,72 @@ def wire_settings(
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return added, already_present
+
+
+wire_claude_settings = wire_settings  # alias for agent-aware callers
+
+
+def wire_codex_hooks_json(
+    hooks_json_path: Path,
+    entries: list[tuple[str, str, str]],
+    dry_run: bool = False,
+) -> tuple[int, int]:
+    """Merge hook entries into .codex/hooks.json. Returns (added, already_present)."""
+    if hooks_json_path.exists():
+        try:
+            data: dict = json.loads(hooks_json_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    else:
+        data = {}
+
+    hooks: list = data.setdefault("hooks", [])
+    added = already_present = 0
+
+    for event_type, matcher, command in entries:
+        found = any(
+            h.get("command") == command and h.get("event") == event_type
+            for h in hooks
+        )
+        if found:
+            print(f"  + {event_type} {matcher!r} already wired (codex)")
+            already_present += 1
+        else:
+            hooks.append({"event": event_type, "matcher": matcher,
+                          "command": command})
+            print(f"  {'+ (would wire)' if dry_run else '+'} codex {event_type} {matcher!r}")
+            added += 1
+
+    if not dry_run and added:
+        hooks_json_path.parent.mkdir(parents=True, exist_ok=True)
+        hooks_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return added, already_present
+
+
+def unwire_codex_hooks_json(hooks_json_path: Path, source: Path, dry_run: bool) -> int:
+    """Strip less_tokens hook entries from .codex/hooks.json. Returns count removed."""
+    if not hooks_json_path.exists():
+        return 0
+    try:
+        data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0
+    hooks = data.get("hooks")
+    if not isinstance(hooks, list):
+        return 0
+    names = _our_hook_names(source, agents={"codex"})
+    keep = [h for h in hooks if not any(
+        f"hooks/{n}" in h.get("command", "") or f"hooks\\{n}" in h.get("command", "")
+        for n in names
+    )]
+    removed = len(hooks) - len(keep)
+    if removed:
+        print(f"  {'would unwire' if dry_run else '-'} .codex/hooks.json: "
+              f"{removed} less_tokens hook entr{'y' if removed == 1 else 'ies'}")
+        if not dry_run:
+            data["hooks"] = keep
+            hooks_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return removed
 
 
 # ---------------------------------------------------------------------------
@@ -796,18 +904,37 @@ def _iter_tree_files(src: Path, exclude: frozenset[str] = frozenset()):
 # Trees the installer deploys, as (source_subdir, dest_relpath, exclude).
 # Mirrors the copy calls in main(); search_config.py is excluded from the
 # tools tree because it is handled (and, on uninstall, preserved) separately.
-def _install_specs(caveman: bool) -> list[tuple[str, str, frozenset[str]]]:
-    specs = [
+def _install_specs(
+    caveman: bool,
+    agents: set[str] | None = None,
+    target_root: Path | None = None,
+) -> list[tuple[str, str, frozenset[str]]]:
+    if agents is None:
+        agents = {"claude"}
+    specs: list[tuple[str, str, frozenset[str]]] = [
         (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
         (".claude/schema", ".claude/schema", frozenset()),
-        (".claude/hooks",  ".claude/hooks",  frozenset()),
+        (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset()),
     ]
-    if caveman:
+    if "claude" in agents:
+        specs.append((".claude/hooks", ".claude/hooks", frozenset()))
+    if caveman and "claude" in agents:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
+    if "codex" in agents:
+        specs.append((".claude/tools",  ".less_tokens/tools",  frozenset({"search_config.py"})))
+        specs.append((".claude/schema", ".less_tokens/schema", frozenset()))
+        if target_root is not None and _dir_is_writable(target_root, ".codex"):
+            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
+        skill_tgt = (
+            ".agents/skills/less-tokens"
+            if target_root is not None and _dir_is_writable(target_root, ".agents")
+            else ".less_tokens/skills/less-tokens"
+        )
+        specs.append(("agents/codex/skills/less-tokens", skill_tgt, frozenset()))
     return specs
 
 
-def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
+def _foreign_files(source: Path, target_root: Path, caveman: bool, agents: set[str] | None = None) -> list[str]:
     """Host-owned files sitting in a tree we would merge into.
 
     Only runs on a fresh install (no install.json yet) — on re-install the
@@ -820,8 +947,8 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
         return []
 
     foreign: list[str] = []
-    for sub, dst_rel, excl in _install_specs(caveman):
-        if any(seg in sub for seg in ("hooks", "rules")):
+    for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
+        if any(seg in sub for seg in ("hooks", "rules", "skills")):
             continue  # shared dirs — host files allowed
         dst_base = target_root / dst_rel
         if not dst_base.is_dir():
@@ -841,12 +968,15 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool) -> list[str]:
     return foreign
 
 
-def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Path]:
+def _deployed_targets(source: Path, target_root: Path, caveman: bool, agents: set[str] | None = None) -> list[Path]:
     """Destination files less_tokens deploys (excludes user-owned search_config.py)."""
     out: list[Path] = []
-    for sub, dst_rel, excl in _install_specs(caveman):
+    for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
+        src_dir = source / sub
+        if not src_dir.exists():
+            continue
         base = target_root / dst_rel
-        for rel in _iter_tree_files(source / sub, excl):
+        for rel in _iter_tree_files(src_dir, excl):
             out.append(base / rel)
     return out
 
@@ -857,7 +987,7 @@ def _deployed_targets(source: Path, target_root: Path, caveman: bool) -> list[Pa
 
 _GI_START = "# >>> less_tokens (generated artifacts) >>>"
 _GI_END = "# <<< less_tokens <<<"
-_GI_PATHS = ["/.claude/index.db", "/.claude/index.db-wal", "/.claude/index.db-shm", "/.claude/state/"]
+_GI_PATHS = ["/.claude/index.db", "/.claude/index.db-wal", "/.claude/index.db-shm", "/.claude/state/", "/.less_tokens/state/"]
 
 
 def _gitignore_block() -> str:
@@ -918,8 +1048,17 @@ def _remove_gitignore_block(gi: Path, dry_run: bool) -> bool:
 # Uninstall
 # ---------------------------------------------------------------------------
 
-def _our_hook_names(source: Path) -> set[str]:
-    return {rel.name for rel in _iter_tree_files(source / ".claude" / "hooks")}
+def _our_hook_names(source: Path, agents: set[str] | None = None) -> set[str]:
+    if agents is None:
+        agents = {"claude"}
+    names = set[str]()
+    if "claude" in agents:
+        names |= {rel.name for rel in _iter_tree_files(source / ".claude" / "hooks")}
+    if "codex" in agents:
+        codex_hooks = source / "agents" / "codex" / "hooks"
+        if codex_hooks.exists():
+            names |= {rel.name for rel in _iter_tree_files(codex_hooks)}
+    return names
 
 
 def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
@@ -965,14 +1104,57 @@ def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
     return removed
 
 
+def handle_agents_md(fragment_path: Path, target_root: Path, dry_run: bool = False) -> int:
+    """Append or update a less_tokens fragment in target_root/AGENTS.md.
+
+    Uses HTML comment sentinels for idempotent management.
+    Returns 1 if fragment_path is missing, 0 otherwise.
+    """
+    if not fragment_path.exists():
+        print(f"  · AGENTS.md fragment not found at {fragment_path} — skipped",
+              file=sys.stderr)
+        return 1
+
+    fragment = fragment_path.read_text(encoding="utf-8").strip()
+    begin = "<!-- less_tokens: begin -->"
+    end = "<!-- less_tokens: end -->"
+    block = f"{begin}\n{fragment}\n{end}\n"
+
+    agents_md = target_root / "AGENTS.md"
+    existing = agents_md.read_text(encoding="utf-8") if agents_md.exists() else ""
+
+    if begin in existing:
+        # Replace existing block
+        import re as _re
+        updated = _re.sub(
+            rf"{_re.escape(begin)}.*?{_re.escape(end)}\n?",
+            block,
+            existing,
+            flags=_re.DOTALL,
+        )
+        if updated == existing:
+            print("  · AGENTS.md less_tokens block unchanged")
+            return 0
+        print(f"  {'would update' if dry_run else '~'} AGENTS.md (less_tokens block)")
+        if not dry_run:
+            agents_md.write_text(updated, encoding="utf-8")
+    else:
+        new_content = (existing.rstrip("\n") + "\n\n" + block) if existing else block
+        print(f"  {'would append' if dry_run else '+'} AGENTS.md (less_tokens block)")
+        if not dry_run:
+            agents_md.write_text(new_content, encoding="utf-8")
+    return 0
+
+
 def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     dry = args.dry_run
     tag = "[DRY RUN] " if dry else ""
-    print(f"{tag}Uninstalling less_tokens from {target_root}")
+    agents = selected_agents(getattr(args, "agent", "claude"))
+    print(f"{tag}Uninstalling less_tokens ({', '.join(sorted(agents))}) from {target_root}")
     print(f"Source: {SOURCE}\n")
 
     removed = 0
-    for f in _deployed_targets(SOURCE, target_root, caveman=True):
+    for f in _deployed_targets(SOURCE, target_root, caveman=True, agents=agents):
         if f.exists():
             print(f"  {'would remove' if dry else '-'} {f.relative_to(target_root)}")
             if not dry:
@@ -980,14 +1162,24 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
             removed += 1
 
     # Prune now-empty directories we created.
-    for sub in (".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"):
+    prune_dirs = [".claude/skills/claudemd", ".claude/skills"]
+    if "claude" in agents:
+        prune_dirs += [".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"]
+    if "codex" in agents:
+        prune_dirs += [".codex/hooks", ".codex", ".less_tokens/tools",
+                       ".less_tokens/schema", ".less_tokens/skills/less-tokens",
+                       ".less_tokens/skills", ".less_tokens"]
+    for sub in prune_dirs:
         d = target_root / sub
         if d.is_dir() and not any(d.iterdir()):
             print(f"  {'would remove' if dry else '-'} {sub}/ (empty)")
             if not dry:
                 d.rmdir()
 
-    unwire_settings(target_root / ".claude" / "settings.json", SOURCE, dry)
+    if "claude" in agents:
+        unwire_settings(target_root / ".claude" / "settings.json", SOURCE, dry)
+    if "codex" in agents:
+        unwire_codex_hooks_json(target_root / ".codex" / "hooks.json", SOURCE, dry)
     _remove_gitignore_block(target_root / ".gitignore", dry)
 
     if args.purge_index:
@@ -1069,11 +1261,14 @@ def main() -> int:
                          "--force-hooks --force-tools --overwrite-modified) "
                          "but never touch .claude/tools/search_config.py or index.db. "
                          "Incompatible with --force-config and --build.")
+    ap.add_argument("--agent", choices=["claude", "codex", "both"], default="claude",
+                    help="agent(s) to install for: claude (default), codex, or both")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
                     help="with --uninstall, also delete index.db and its WAL sidecars")
     args = ap.parse_args()
+    agents = selected_agents(args.agent)
 
     # --update is a safe-upgrade shortcut: re-copy hooks + tools, never
     # touch search_config.py or index.db. Forbid combinations that would
@@ -1181,7 +1376,7 @@ def main() -> int:
         return 1
     print(f"  Using venv: {venv_dir}")
 
-    foreign = _foreign_files(SOURCE, target_root, args.caveman)
+    foreign = _foreign_files(SOURCE, target_root, args.caveman, agents)
     if foreign and not args.allow_merge:
         print("\nERROR: the target already contains files that are not part of "
               "less_tokens:", file=sys.stderr)
@@ -1207,11 +1402,41 @@ def main() -> int:
             force_config, overwrite_modified, dry_run=dry,
         )
     changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
-    changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
-              target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
-    if args.caveman:
-        changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
-                  target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
+    changes += copy_tree(SOURCE / ".claude" / "skills" / "claudemd",
+              target_root / ".claude" / "skills" / "claudemd",
+              target_root, force_tools, overwrite_modified, ".claude/skills/claudemd/", dry_run=dry)
+    if "claude" in agents:
+        changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
+                  target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
+        if args.caveman:
+            changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
+                      target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
+    if "codex" in agents:
+        changes += copy_tree(SOURCE / ".claude" / "tools", target_root / ".less_tokens" / "tools",
+                  target_root, force_tools, overwrite_modified, ".less_tokens/tools/",
+                  exclude=frozenset({"search_config.py"}), dry_run=dry)
+        handle_search_config(
+            SOURCE / ".claude" / "tools" / "search_config.py",
+            target_root / ".less_tokens" / "tools" / "search_config.py",
+            target_root,
+            force_config, overwrite_modified, dry_run=dry,
+        )
+        changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".less_tokens" / "schema",
+                  target_root, force_tools, overwrite_modified, ".less_tokens/schema/", dry_run=dry)
+        codex_hooks_src = SOURCE / "agents" / "codex" / "hooks"
+        if codex_hooks_src.exists() and _dir_is_writable(target_root, ".codex"):
+            changes += copy_tree(codex_hooks_src, target_root / ".codex" / "hooks",
+                      target_root, force_hooks, overwrite_modified, ".codex/hooks/", dry_run=dry)
+        skill_tgt = (
+            target_root / ".agents" / "skills" / "less-tokens"
+            if _dir_is_writable(target_root, ".agents")
+            else target_root / ".less_tokens" / "skills" / "less-tokens"
+        )
+        codex_skill_src = SOURCE / "agents" / "codex" / "skills" / "less-tokens"
+        if codex_skill_src.exists():
+            changes += copy_tree(codex_skill_src, skill_tgt,
+                      target_root, force_tools, overwrite_modified,
+                      str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,
@@ -1284,12 +1509,28 @@ def main() -> int:
             and settings_path.read_text(encoding="utf-8").strip()):
         print(f"  Note: modifying committed .claude/{settings_name} "
               "(pass --local to write settings.local.json instead).")
-    print(f"\n{tag}[5/5] Wiring .claude/{settings_name}...")
-    entries = _build_hook_entries(venv_py, target_root, args)
-    added, present = wire_settings(settings_path, entries, dry_run=dry)
-    print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
-          f"{present} already present")
-    changes += added
+    print(f"\n{tag}[5/5] Wiring hooks...")
+    if "claude" in agents:
+        print(f"  → .claude/{settings_name}")
+        entries = build_claude_hook_entries(venv_py, target_root, args)
+        added, present = wire_settings(settings_path, entries, dry_run=dry)
+        print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
+              f"{present} already present")
+        changes += added
+    if "codex" in agents:
+        codex_hooks_json = target_root / ".codex" / "hooks.json"
+        if _dir_is_writable(target_root, ".codex"):
+            print(f"  → .codex/hooks.json")
+            codex_entries = build_codex_hook_entries(venv_py, target_root, args)
+            c_added, c_present = wire_codex_hooks_json(codex_hooks_json, codex_entries, dry_run=dry)
+            print(f"  {c_added} codex hook(s) {'would be ' if dry else ''}wired, "
+                  f"{c_present} already present")
+            changes += c_added
+        else:
+            print("  · .codex/ not writable — hooks.json skipped; "
+                  "AGENTS.md + skill installed")
+        fragment = SOURCE / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
+        handle_agents_md(fragment, target_root, dry_run=dry)
 
     # Keep generated artifacts out of the host git repo (opt-in via
     # --gitignore; otherwise just a one-time tip).

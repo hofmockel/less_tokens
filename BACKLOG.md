@@ -2,7 +2,7 @@
 
 Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) / [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol.
 
-Token-reduction strategies and their rationale live in [evaluate.md](evaluate.md); unaddressed attack surfaces are catalogued in [gap.md](gap.md). Items below are tagged with their source `(evaluate.md)` / `(gap.md)`.
+Token-reduction strategies and their rationale live in [evaluate.md](evaluate.md). Items below are tagged with their source `(evaluate.md)`.
 
 ---
 
@@ -47,7 +47,7 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 ## Token-Reduction Strategies
 
-Primary mission: fewer tokens. Ordered by impact × enforceability. Each item names the bucket it attacks: **input** (context read in), **output** (prose/code Claude writes), **tool** (tool-result dumps), **fixed** (paid every turn regardless of task), **meta** (multiplies the others). The **fixed** bucket is the biggest blind spot — barely touched beyond the just-shipped claudemd skill (see gap.md).
+Primary mission: fewer tokens. Ordered by impact × enforceability. Each item names the bucket it attacks: **input** (context read in), **output** (prose/code Claude writes), **tool** (tool-result dumps), **fixed** (paid every turn regardless of task), **meta** (multiplies the others). The **fixed** bucket is the biggest blind spot — barely touched beyond the just-shipped claudemd skill.
 
 ### High Priority
 
@@ -58,20 +58,14 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 - **S12 — Structured tool-output parsers (skill)** *(tool)* — `.claude/skills/lean-output/` with parsers returning only signal: pytest → failing ids + assertion lines + counts; ruff/eslint → `file:line: code msg`; git → name-status + stat. PostToolUse on `Bash` auto-detects known tools and pipes through the parser before the result reaches context. Beats blind truncation (Strategy 3) — keeps the failing line, drops the noise. 60–95% on the noisiest, most-repeated outputs. (evaluate.md)
 
-- **G6 — Live token governor** *(meta)* — a running session-token estimate (transcript size, already read by `compact-trigger.py`) that tightens knobs as the budget depletes: smaller `MAX_TOOL_OUTPUT_CHARS`, lower search `k`, earlier compaction, stricter caveman. One PostToolUse governor writes a live tier to state that the other hooks consult. Multiplies the existing strategies rather than adding a new surface. Supersedes the post-hoc, opt-in `stats.py` as a *live* control. (gap.md)
-
-- **G9 — Always-loaded surfaces beyond CLAUDE.md** *(fixed)* — extend the claudemd approach: `claudemd_audit.py --rules` covers `.claude/rules/*`, and a `skilldesc_audit` flags bloated/overlapping skill descriptions (always-loaded, and they grow with the skill library) against a per-description word cap. Same budget + hook mechanism, wider scope. (gap.md)
-
+- **G6 — Live token governor** *(meta)* — a running session-token estimate (transcript size, already read by `compact-trigger.py`) that tightens knobs as the budget depletes: smaller `MAX_TOOL_OUTPUT_CHARS`, lower search `k`, earlier compaction, stricter caveman. One PostToolUse governor writes a live tier to state that the other hooks consult. Multiplies the existing strategies rather than adding a new surface. Supersedes the post-hoc, opt-in `stats.py` as a *live* control.
+- **G9 — Always-loaded surfaces beyond CLAUDE.md** *(fixed)* — extend the claudemd approach: `claudemd_audit.py --rules` covers `.claude/rules/*`, and a `skilldesc_audit` flags bloated/overlapping skill descriptions (always-loaded, and they grow with the skill library) against a per-description word cap. Same budget + hook mechanism, wider scope.
 ### Low Priority
 
-- **G5 — WebFetch main-content extraction** *(tool)* — a readability-style extractor (strip nav/footer/script) applied PostToolUse on `WebFetch` before the result reaches context. Returns the article body, not the chrome; avoids truncation cutting the part that mattered. Extends the S12 parser approach to web results. (gap.md)
-
-- **G7 — Subagent context re-derivation** *(input)* — parent writes a compact context pack (relevant slices + search hits) to `STATE_DIR`; spawned agents read that instead of re-reading/re-searching the same files cold. Mostly a discipline + helper (a skill documenting "pass results, don't re-discover"); hard to hook-enforce. Spiky impact — large only when subagents are used heavily. (gap.md)
-
-- **G8 — Don't reprint files in output** *(output)* — Stop-hook check (extends the shipped `caveman-reminder.py` Stop hook): flag a response containing a large code block whose content closely matches an existing file (line-overlap against the named path) and nudge `"use Edit, don't reprint <file>."` Caveman governs prose, not pasted code. (gap.md)
-
-- **G10 — Search-result dedup** *(input)* — in `search.py`, drop a hit whose cosine to an already-selected hit exceeds a threshold and backfill the next distinct one, so overlapping/near-duplicate chunks aren't paid for twice per query. Pure post-processing on vectors already in hand; sharpens an existing strategy. (gap.md)
-
+- **G5 — WebFetch main-content extraction** *(tool)* — a readability-style extractor (strip nav/footer/script) applied PostToolUse on `WebFetch` before the result reaches context. Returns the article body, not the chrome; avoids truncation cutting the part that mattered. Extends the S12 parser approach to web results.
+- **G7 — Subagent context re-derivation** *(input)* — parent writes a compact context pack (relevant slices + search hits) to `STATE_DIR`; spawned agents read that instead of re-reading/re-searching the same files cold. Mostly a discipline + helper (a skill documenting "pass results, don't re-discover"); hard to hook-enforce. Spiky impact — large only when subagents are used heavily.
+- **G8 — Don't reprint files in output** *(output)* — Stop-hook check (extends the shipped `caveman-reminder.py` Stop hook): flag a response containing a large code block whose content closely matches an existing file (line-overlap against the named path) and nudge `"use Edit, don't reprint <file>."` Caveman governs prose, not pasted code.
+- **G10 — Search-result dedup** *(input)* — in `search.py`, drop a hit whose cosine to an already-selected hit exceeds a threshold and backfill the next distinct one, so overlapping/near-duplicate chunks aren't paid for twice per query. Pure post-processing on vectors already in hand; sharpens an existing strategy.
 - **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus by need via `.claude/rules/tier-matrix.md` + an `AGENT_TIER_HINTS: bool` flag. **Verdict (evaluate.md): low confidence.** No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% blended saving is unverified. Keep as an opt-in rule only; prefer the shipped caveman Stop hook for output-token savings. (evaluate.md)
 
 ---

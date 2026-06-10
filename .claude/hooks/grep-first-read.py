@@ -59,15 +59,16 @@ sys.path.insert(0, str(REPO / ".claude" / "tools"))
 try:
     from search_config import (
         GREP_FIRST_LINE_THRESHOLD,
-        STATE_DIR,
+        active_state_dir as _active_state_dir,
         WINDOW_SECONDS,
     )
 except Exception:
     GREP_FIRST_LINE_THRESHOLD = 150
-    STATE_DIR = REPO / ".claude" / "state"
+    def _active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
     WINDOW_SECONDS = 300
 
-RANGES_FILE = STATE_DIR / "last-search.json"
+RANGES_FILE = _active_state_dir() / "last-search.json"
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +128,7 @@ def _is_indexed(p: Path) -> bool:
 
 
 def _search_was_recent() -> bool:
-    state_file = STATE_DIR / "last-search"
+    state_file = _active_state_dir() / "last-search"
     try:
         return (time.time() - state_file.stat().st_mtime) < WINDOW_SECONDS
     except OSError:

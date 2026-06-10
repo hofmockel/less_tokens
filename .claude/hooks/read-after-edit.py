@@ -41,17 +41,16 @@ REPO = _resolve_repo()
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 try:
-    from search_config import LAST_EDIT_WINDOW_SECONDS, STATE_DIR
+    from search_config import LAST_EDIT_WINDOW_SECONDS, active_state_dir as _active_state_dir
 except Exception:
     LAST_EDIT_WINDOW_SECONDS = 120
-    STATE_DIR = REPO / ".claude" / "state"
-
-LAST_EDIT_FILE = STATE_DIR / "last-edit.json"
+    def _active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
 
 
 def _load_edits() -> dict[str, float]:
     try:
-        return json.loads(LAST_EDIT_FILE.read_text())
+        return json.loads((_active_state_dir() / "last-edit.json").read_text())
     except Exception:
         return {}
 
