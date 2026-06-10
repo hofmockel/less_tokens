@@ -51,12 +51,15 @@ def _load_config() -> bool:
         _config["venv_py"] = search_config.VENV_PY
         _config["state_file"] = search_config.active_state_dir() / "last-search"
         _config["window_seconds"] = search_config.WINDOW_SECONDS
-        from savings_log import append as _log  # noqa: PLC0415
-        _config["log"] = _log
-        return True
     except Exception as e:
         print(f"search-first: could not load search_config ({e}); gate disabled", file=sys.stderr)
         return False
+    try:
+        from savings_log import append as _log  # noqa: PLC0415
+        _config["log"] = _log
+    except Exception:
+        pass  # savings_log is optional; gate remains active without it
+    return True
 
 
 def is_indexed(path: Path) -> bool:

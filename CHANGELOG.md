@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`savings_log` import failure no longer disables search-first gate** — separated `savings_log` import into its own try/except; a missing or broken `savings_log` now logs nothing but leaves the gate active. `.claude/hooks/search-first.py`
 - **`_index_db_at_current_schema` now rejects stale schema versions** — was `bool(row[0])` (truthy for any version ≥ 1); now compares against `_INDEX_SCHEMA_VERSION` so a v1 index triggers migration instead of being silently accepted. `install.py:844`
 - **`_extract_block` now captures full multi-line assignments** — added `end_lineno` parameter; `merge_search_config` passes `end_lineno` from AST so multi-line sets/dicts are injected complete instead of truncated to their opening line. `install.py:292`
 - **Both agents now use venv-backed Python launchers instead of ambient `python3`** — installs generate `.claude/bin/python` and `.less_tokens/bin/python` (plus Windows `.cmd` siblings) that dispatch to the detected/created venv. Claude and Codex hook wiring, NEXT STEPS, docs, AGENTS.md, and Codex skill commands now use those launchers, so system Python can lack `numpy`/`fastembed` without breaking agent workflows. Added a shipped `.less_tokens/tools/read_guard.py` CLI for the Codex noise-file guard command and tests for launcher generation/wiring.

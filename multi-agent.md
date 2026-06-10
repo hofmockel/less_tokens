@@ -862,13 +862,9 @@ Implement in small PRs.
 
 ## Compatibility matrix
 
-Add this table to user-facing docs once Codex support lands:
-
 | less_tokens version | Claude support | Codex support | Notes |
 |---|---|---|---|
-| current | stable | manual/planned | Claude-only installer |
-| next minor | stable | experimental | `--agent codex` |
-| next major | stable | stable | shared adapter architecture |
+| current | stable | stable | `--agent codex\|both`; shared index, separate runtime state |
 
 ## Known limitations to document
 
