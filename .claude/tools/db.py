@@ -125,6 +125,9 @@ def ensure_current_schema() -> int:
     """
     if not INDEX_DB.exists():
         return init()
+    with connect_index() as c:
+        if _current_version(c) == 0:
+            return init()
     return migrate()
 
 

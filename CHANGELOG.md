@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`ensure_current_schema()` now calls `init()` when db file exists but has no schema** — checks `_current_version() == 0` after opening an existing file and routes to `init()` instead of `migrate()`, preventing `OperationalError: no such table: schema_version` when `connect_index()` created an empty file earlier in the session. `db.py:126`
 - **`compact-trigger` no longer silenced by stale `last-size` from a prior session** — hysteresis guard now requires `last <= size` before suppressing; a new session whose transcript is smaller than the persisted value always fires when it exceeds the threshold. `compact-trigger.py:91`
 - **`toolcost._recv()` now skips server notifications before returning the response** — `_read()` loops past JSON-RPC messages without an `id` field (server-sent notifications) instead of returning the first line unconditionally; prevents silent under-count of tools when a server emits a notification before the `tools/list` response. `toolcost.py:101`
 - **`_resolve()` now uses rglob fallback for partial paths containing `/`** — removed `if "/" not in path` guard so `tools/search.py` correctly resolves to `.claude/tools/search.py` instead of returning None. `claudemd_audit.py:101`
