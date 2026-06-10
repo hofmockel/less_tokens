@@ -172,13 +172,16 @@ def duplication(sections: list[dict]):
         from db import connect_index  # noqa: PLC0415
         from embeddings import DIM, embed, unpack_vectors  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
+        import search_config  # noqa: PLC0415
     except Exception:
         return None
     try:
         with connect_index() as c:
             rows = c.execute(
                 "SELECT source_path, source_key, embedding FROM documents "
-                "WHERE source_path NOT LIKE '%CLAUDE.md'"
+                "WHERE source_path NOT LIKE '%CLAUDE.md' "
+                "AND embedding_model = ?",
+                (search_config.EMBEDDING_MODEL,),
             ).fetchall()
     except Exception:
         return None
