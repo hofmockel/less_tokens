@@ -102,7 +102,7 @@ def is_bare_listing(cmd: str) -> tuple[bool, str]:
     if re.search(r'(?:^|[;&|])\s*find\b', unquoted):
         # Allow through if any selective predicate is present
         _ALLOW_RE = re.compile(
-            r'-(name|iname|path|newer|mtime|ctime|atime|exec|regex|wholename|size)\b'
+            r'-(name|iname|path|newer|mtime|ctime|atime|exec|regex|wholename|size|type)\b'
             r'|(-maxdepth\s+[0-2]\b)'
         )
         if not _ALLOW_RE.search(unquoted):
