@@ -26,9 +26,8 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **G9 — Always-loaded surfaces beyond CLAUDE.md** *(fixed)* — extend the claudemd approach: `claudemd_audit.py --rules` covers `.claude/rules/*`, and a `skilldesc_audit` flags bloated/overlapping skill descriptions (always-loaded, and they grow with the skill library) against a per-description word cap. Same budget + hook mechanism, wider scope.
 ### Low Priority
 
-- **G5 — WebFetch main-content extraction** *(tool)* — a readability-style extractor (strip nav/footer/script) applied PostToolUse on `WebFetch` before the result reaches context. Returns the article body, not the chrome; avoids truncation cutting the part that mattered. Extends the S12 parser approach to web results.
 - **G7 — Subagent context re-derivation** *(input)* — parent writes a compact context pack (relevant slices + search hits) to `STATE_DIR`; spawned agents read that instead of re-reading/re-searching the same files cold. Mostly a discipline + helper (a skill documenting "pass results, don't re-discover"); hard to hook-enforce. Spiky impact — large only when subagents are used heavily.
-- **G8 — Don't reprint files in output** *(output)* — Stop-hook check (extends the shipped `caveman-reminder.py` Stop hook): flag a response containing a large code block whose content closely matches an existing file (line-overlap against the named path) and nudge `"use Edit, don't reprint <file>."` Caveman governs prose, not pasted code.
+
 - **G10 — Search-result dedup** *(input)* — in `search.py`, drop a hit whose cosine to an already-selected hit exceeds a threshold and backfill the next distinct one, so overlapping/near-duplicate chunks aren't paid for twice per query. Pure post-processing on vectors already in hand; sharpens an existing strategy.
 - **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus by need via `.claude/rules/tier-matrix.md` + an `AGENT_TIER_HINTS: bool` flag. **Verdict (evaluate.md): low confidence.** No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% blended saving is unverified. Keep as an opt-in rule only; prefer the shipped caveman Stop hook for output-token savings. (evaluate.md)
 
@@ -39,10 +38,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 ### High Priority
 
 - **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
-
-### Medium Priority
-
-- **Implement graceful degradation** — explicit handlers in `.claude/tools/embeddings.py` and `.claude/tools/search.py` for each failure condition; each catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
 
 ---
 
@@ -56,10 +51,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 ---
 
 ## Hooks & Caveman Mode
-
-### High Priority
-
-- **Per-task exemptions** — allow CLAUDE.md to declare specific task types (e.g., user-facing copy, PR descriptions) that bypass caveman mode. Implement on the shipped caveman Stop hook (`caveman-reminder.py`) so its check honors the exemption list.
 
 ---
 
@@ -84,52 +75,3 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **Consider GitHub self-hosted runners for the perf job** — the `perf` CI job downloads the fastembed model (~130 MB `BAAI/bge-small-en-v1.5`) and relies on `actions/cache`; a cold cache miss adds wall-clock time and network variance to timing results. A self-hosted runner with the model pre-installed in `~/.cache/huggingface` would remove both and give stable CPU baselines. Trade-off: infra maintenance + runner registration; only worth it if perf run times become a bottleneck or variance produces false failures. (Demoted: not on the token-reduction mission.)
 
 ---
-
-## Removed (minimal impact — see evaluate.md)
-
-Cut deliberately; they touch the periphery, not tokens spent. Recorded here so they are not re-proposed.
-
-- **`search.py` interactive REPL** — exploratory-query DX, not token reduction.
-- **`embeddings.py` file-watcher mode** — duplicates the existing PostToolUse refresh hook; DX, not token reduction.
-- **Search quality metrics log** (`.claude/state/search.log`) — audit aid, saves no tokens.
-- **`search.py` query history log** (`.claude/state/search-history.log`) — audit aid, saves no tokens.
-
----
-
-## Bug-Hunt Protocol
-
-### Current state (post-round-4)
-
-- **Round 4** (7 surfaced; 6 real, 1 dismissed, 0 duplicate): silent ×3, ux ×2, cosmetic ×1. Overlap 0%. New files: `mcp-prune.py`, `stats.py`. Revisited: `install.py`, `claudemd_audit.py`, `embeddings.py`.
-- **Severity slide**: ✗ — median ux both rounds (no drop).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✓ — ~85% (22/26 files, ≥ 80%).
-
-**Verdict: keep hunting. 1 of 3 signals met; 4 files still unexplored (`claudemd-budget.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`). Overlap still 0% — surface not yet saturated.**
-
-### Previous state (post-round-3)
-
-- **Round 3** (8 bugs surfaced; 8 real, 0 dismissed, 0 duplicate): silent ×3, ux ×3, cosmetic ×2. Overlap 0%. New files: `compact-trigger.py`, `search.py`, `lean-ls.py`, `post-edit-diff.py`, `symbols.py`, `caveman-reminder.py`, `db.py`.
-- **Severity slide**: ✓ — median dropped from silent (R2) to ux (R3).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~77% (20/26 files, < 80%).
-
-**Verdict: keep hunting. 1 of 3 signals met; file coverage is 77% — one more round should push past 80% (6 files remain: `claudemd-budget.py`, `mcp-prune.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`, `stats.py`).**
-
-### Previous state (post-round-2)
-
-- **Round 2** (10 bugs surfaced; 10 real, 0 dismissed, 0 duplicate): silent ×7, ux ×3. Overlap 0%. New files: `truncate-output.py`, `read-after-edit.py`, `read-guard.py`, `search-first.py`, `index-refresh.py`, `claudemd_audit.py`, `listing-guard.py`, `toolcost.py`.
-- **Severity slide**: ✗ — median silent both rounds (no drop).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~50% (13/26 files, < 80%).
-
-**Verdict: keep hunting.**
-
-### Previous state (post-round-1)
-
-- **Round 1** (7 bugs surfaced; 7 real, 0 dismissed, 0 duplicate): silent ×5, ux ×2, cosmetic ×1. Overlap 0%. Files hit: `embeddings.py`, `install.py`, `auto-slice.py`, `grep-first-read.py`, `context-cache.py` (5 of ~26 source files).
-- **Severity slide**: ✗ — Round 1, no prior round to compare.
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~19% (5/26 files, < 80%).
-
-**Verdict: keep hunting.**

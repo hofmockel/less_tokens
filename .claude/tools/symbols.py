@@ -148,9 +148,10 @@ def refresh(full: bool = False) -> int:
         if full:
             c.execute("DELETE FROM symbols")
         else:
-            for f in files:
-                rel = f.relative_to(BASE).as_posix()
-                c.execute("DELETE FROM symbols WHERE source_path = ?", (rel,))
+            rels = [f.relative_to(BASE).as_posix() for f in files]
+            if rels:
+                placeholders = ",".join("?" * len(rels))
+                c.execute(f"DELETE FROM symbols WHERE source_path IN ({placeholders})", rels)
         c.executemany(
             "INSERT OR IGNORE INTO symbols "
             "(name, kind, source_path, start_line, end_line) VALUES (?,?,?,?,?)",
