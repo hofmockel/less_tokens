@@ -81,6 +81,18 @@ See [documentation.md](documentation.md) for full installation, configuration, u
 
 ---
 
+## Install via AI agent (easiest)
+
+Open Claude Code (or any agent with web access) in your project directory and paste:
+
+```
+install https://github.com/hofmockel/less_tokens/blob/main/README.md
+```
+
+Agent reads the README, clones the repo, and runs the installer. No manual steps.
+
+---
+
 ## Contributing
 
 Fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
