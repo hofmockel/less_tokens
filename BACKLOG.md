@@ -62,9 +62,19 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 - **Add prose word-count ceiling to `terse-reminder`** — the Codex `terse-reminder.py` (agents/codex/hooks) only pattern-matches filler phrases; it has no configurable `MAX_RESPONSE_WORDS` ceiling. The Claude `caveman-reminder.py` Stop hook has this. Add the same word-budget check to `terse-reminder` using `CODEX_MAX_RESPONSE_WORDS` (or share `MAX_RESPONSE_WORDS`) from `search_config.py`. `agents/codex/hooks/terse-reminder.py`
 
+- **`terse-reminder` filler threshold too permissive** — Codex fires only after 2+ filler hits (`MIN_FILLER_HITS = 2`, simple string match); Claude's `caveman-reminder.py` fires on any single regex match. Same config, different strictness. Drop `MIN_FILLER_HITS` to 1 and switch to the same compiled-regex patterns used by `caveman-reminder.py`. `agents/codex/hooks/terse-reminder.py`
+
 ### Medium Priority
 
 - **Symbol-lookup hint in Codex search-first hook** — the Claude `search-first.py` adds a non-blocking hint when a `Grep` pattern matches a known symbol (`"<name> is a known symbol — use symbols.py for exact location"`). The Codex `search-first.py` (agents/codex/hooks) omits this. Add the same hint so Codex users get the same locate-by-symbol affordance. `agents/codex/hooks/search-first.py`
+
+- **No `agentsmd` skill for Codex** — the `claudemd` skill guides manual pruning of CLAUDE.md bloat; there is no counterpart skill for AGENTS.md. `agentsmd_audit.py` exists as a CLI but is not surfaced as an invokable skill. Add `agents/codex/skills/agentsmd/SKILL.md` mirroring the `claudemd` skill structure. `agents/codex/skills/`
+
+- **No `stop_hook_active` guard in `terse-reminder`** — `caveman-reminder.py` checks `payload.get("stop_hook_active")` and bails to prevent an infinite re-prompt loop. `terse-reminder.py` has no such guard. Add the same check. `agents/codex/hooks/terse-reminder.py`
+
+### Low Priority
+
+- **No Codex port for `listing-guard` and `read-guard`** — both hooks are tool-agnostic (guard against reading noise files and large directory listings) but are only wired for Claude. Port to `agents/codex/hooks/` and add to `build_codex_hook_entries` in `install.py`.
 
 ---
 
