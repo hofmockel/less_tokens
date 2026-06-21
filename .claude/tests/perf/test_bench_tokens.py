@@ -1,12 +1,12 @@
 """Token performance benchmarks — measure reduction delivered by each strategy.
 
-Requires fastembed. Run with: pytest tests/perf/ -v -m perf
+Requires fastembed. Run with: pytest .claude/tests/perf/ -v -m perf
 
-The benchmark builds a search index from tests/fixtures/sample_project/,
+The benchmark builds a search index from .claude/tests/fixtures/sample_project/,
 runs 10 representative queries, and compares chars-in-results vs chars-in-source.
 Truncation and compaction trigger are tested against synthetic payloads.
 
-Results are written to tests/perf/latest.json for CI trend tracking.
+Results are written to .claude/tests/perf/latest.json for CI trend tracking.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
-FIXTURES = REPO / "tests" / "fixtures" / "sample_project"
+FIXTURES = REPO / ".claude" / "tests" / "fixtures" / "sample_project"
 PERF_DIR = Path(__file__).parent
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 sys.path.insert(0, str(REPO))
@@ -66,7 +66,7 @@ def indexed_project(tmp_path_factory):
 
     # Point db at a fresh index in the temp project
     index_path = project / "index.db"
-    schema_path = REPO / "schema" / "index.sql"
+    schema_path = REPO / ".claude" / "schema" / "index.sql"
 
     # Init DB
     conn_mod = importlib.import_module("tools.db")
@@ -257,7 +257,11 @@ class TestCompactionTrigger:
     def test_trigger_fires_at_threshold(self, tmp_path):
         transcript = tmp_path / "session.jsonl"
         transcript.write_text("x" * 600_000)
-        env = {**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")}
+        env = {
+            **os.environ,
+            "PYTHONPATH": str(REPO / ".claude" / "tools"),
+            "LESS_TOKENS_STATE_DIR": str(tmp_path / "state"),
+        }
         result = subprocess.run(
             [sys.executable, str(REPO / ".claude" / "hooks" / "compact-trigger.py")],
             input=json.dumps({"tool_name": "Bash", "transcript_path": str(transcript)}),
@@ -279,7 +283,11 @@ class TestCompactionTrigger:
     def test_trigger_silent_below_threshold(self, tmp_path):
         transcript = tmp_path / "session.jsonl"
         transcript.write_text("x" * 100_000)
-        env = {**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")}
+        env = {
+            **os.environ,
+            "PYTHONPATH": str(REPO / ".claude" / "tools"),
+            "LESS_TOKENS_STATE_DIR": str(tmp_path / "state"),
+        }
         result = subprocess.run(
             [sys.executable, str(REPO / ".claude" / "hooks" / "compact-trigger.py")],
             input=json.dumps({"tool_name": "Bash", "transcript_path": str(transcript)}),
