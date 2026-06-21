@@ -102,7 +102,7 @@ def check_search_first(
         excluded_prefixes=config.get("excluded_prefixes", ()),
         excluded_names=config.get("excluded_names"),
         indexed_dirs=config.get("dirs", ()),
-        root_globs=config.get("root_globs", ("*.md",)),
+        root_globs=config.get("root_globs", ("*.md", "*.py", "*.sql")),
     ):
         return 0, "", ""
 

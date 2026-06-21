@@ -87,7 +87,7 @@ def check_grep_first_read(
             excluded_prefixes=config.get("excluded_prefixes", ()),
             excluded_names=config.get("excluded_names"),
             indexed_dirs=config.get("dirs", ()),
-            root_globs=config.get("root_globs", ("*.md",)),
+            root_globs=config.get("root_globs", ("*.md", "*.py", "*.sql")),
         )
     )
     recent = recent_func() if recent_func else search_was_recent(state_dir, window)
