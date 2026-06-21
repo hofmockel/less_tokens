@@ -929,11 +929,73 @@ def _maybe_suggest_recursive_globs(target_root: Path) -> None:
         print('       Consider INDEXED_ROOT_GLOBS = ("**/*.md",) to index them all.')
 
 
+_CM_START = "<!-- less_tokens:caveman:begin -->"
+_CM_END = "<!-- less_tokens:caveman:end -->"
+
+
 def _caveman_in_claude_md(target_root: Path) -> bool:
     claude_md = target_root / "CLAUDE.md"
     if not claude_md.exists():
         return False
-    return "Caveman Mode" in claude_md.read_text(encoding="utf-8", errors="replace")
+    text = claude_md.read_text(encoding="utf-8", errors="replace")
+    return _CM_START in text or "Caveman Mode" in text
+
+
+def handle_caveman_claude_md(target_root: Path, dry_run: bool) -> int:
+    """Idempotently append the caveman block to target_root/CLAUDE.md. Returns change count."""
+    claude_md = target_root / "CLAUDE.md"
+    caveman_src = SOURCE / ".claude" / "rules" / "caveman.md"
+
+    if not caveman_src.exists():
+        print("  ! caveman.md source not found; skipping CLAUDE.md append", file=sys.stderr)
+        return 0
+
+    text = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
+    if _CM_START in text or "Caveman Mode" in text:
+        print("  + CLAUDE.md: caveman section already present")
+        return 0
+
+    caveman_body = caveman_src.read_text(encoding="utf-8")
+    block = f"\n{_CM_START}\n{caveman_body.rstrip()}\n{_CM_END}\n"
+
+    if not claude_md.exists():
+        new = f"# CLAUDE.md\n{block}"
+        verb = "would create" if dry_run else "~"
+        print(f"\n  {verb} CLAUDE.md (with caveman block)")
+    else:
+        sep = "" if text.endswith("\n") else "\n"
+        new = text + sep + block
+        verb = "would update" if dry_run else "~"
+        print(f"\n  {verb} CLAUDE.md (appended caveman block)")
+
+    if not dry_run:
+        claude_md.write_text(new, encoding="utf-8")
+    return 1
+
+
+def _remove_caveman_block(claude_md: Path, dry_run: bool) -> bool:
+    if not claude_md.exists():
+        return False
+    text = claude_md.read_text(encoding="utf-8")
+    if _CM_START not in text or _CM_END not in text:
+        return False
+    lines = text.splitlines(keepends=True)
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == _CM_START)
+    end = next(i for i, ln in enumerate(lines) if ln.strip() == _CM_END)
+    lead = start
+    if lead > 0 and lines[lead - 1].strip() == "":
+        lead -= 1
+    tail = end + 1
+    if tail < len(lines) and lines[tail].strip() == "":
+        tail += 1
+    new = "".join(lines[:lead] + lines[tail:])
+    print(f"  {'would remove' if dry_run else '-'} CLAUDE.md: managed caveman block")
+    if not dry_run:
+        if new.strip():
+            claude_md.write_text(new, encoding="utf-8")
+        else:
+            claude_md.unlink()
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -1256,6 +1318,7 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     if "codex" in agents:
         unwire_codex_hooks_json(target_root / ".codex" / "hooks.json", SOURCE, dry)
     _remove_gitignore_block(target_root / ".gitignore", dry)
+    _remove_caveman_block(target_root / "CLAUDE.md", dry)
 
     if args.purge_index:
         for n in ("index.db", "index.db-wal", "index.db-shm"):
@@ -1825,12 +1888,7 @@ def main() -> int:
         print("\n2. Test search:")
         print(f"       {run_py} {tool_dir}/search.py \"your query here\"")
     if args.caveman:
-        step = 4 if args.no_build else 3
-        if _caveman_in_claude_md(target_root):
-            print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
-        else:
-            print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
-            print("       cat .claude/rules/caveman.md >> CLAUDE.md")
+        handle_caveman_claude_md(target_root, args.dry_run)
     if "claude" in agents:
         print("\nNOTE: the Claude search-first PreToolUse hook is now active. Any")
         print("  already-running Claude session in this project will start")
