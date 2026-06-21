@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: turn a whole-file Read of a search hit into a slice (S9).
-
-After a search, `search.py` records each hit's matched line range in
-`STATE_DIR/last-search.json`. When Claude then Reads one of those files with no
-`offset`, this computes the slice and blocks with the exact targeted
-`Read(offset, limit)` — the model obeys a computed instruction instead of
-loading the whole file. Pass any `offset` (e.g. 1) to read the whole file anyway.
-
-Only fires when the file is in the last search's hits and that search is recent
-(within WINDOW_SECONDS). Otherwise passes.
-install.py wires this as PreToolUse on Read.
-"""
+"""PreToolUse hook: turn whole-file Reads of search hits into slices."""
 from __future__ import annotations
 
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 
@@ -39,10 +27,22 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+sys.path[:0] = [
+    str(REPO),
+    str(REPO / "agents" / "common" / "hooks"),
+    str(REPO / ".claude" / "hooks" / "common"),
+    str(REPO / ".claude" / "tools"),
+]
 
 try:
-    from search_config import active_state_dir, WINDOW_SECONDS
+    from agents.common.hooks.auto_slice import check_auto_slice, ranges_for as _ranges_for_common  # type: ignore[import]
+    from agents.common.hooks.payload import normalize_claude
+except Exception:
+    from auto_slice import check_auto_slice, ranges_for as _ranges_for_common  # type: ignore[no-redef]
+    from payload import normalize_claude  # type: ignore[no-redef]
+
+try:
+    from search_config import active_state_dir, WINDOW_SECONDS  # noqa: E402
 except Exception:
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
@@ -52,51 +52,28 @@ RANGES_FILE = active_state_dir() / "last-search.json"
 
 
 def _ranges_for(file_path: str) -> list[list[int]]:
-    """Matched line ranges for file_path from the last (recent) search."""
-    try:
-        if (time.time() - RANGES_FILE.stat().st_mtime) > WINDOW_SECONDS:
-            return []
-        data = json.loads(RANGES_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
-    p = Path(file_path)
-    for key, spans in data.items():
-        kp = Path(key)
-        if kp == p or str(p).endswith(str(kp)):
-            return spans or []
-    return []
+    return _ranges_for_common(file_path, ranges_file=RANGES_FILE, window_seconds=WINDOW_SECONDS)
 
 
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        raw = json.load(sys.stdin)
     except Exception:
         return 0
-    if payload.get("tool_name") != "Read":
-        return 0
-    inp = payload.get("tool_input", {})
-    if inp.get("offset"):  # deliberate slice / override — allow
-        return 0
-    fp = inp.get("file_path", "")
-    if not fp:
-        return 0
-    spans = _ranges_for(fp)
-    if not spans:
-        return 0
-
-    # Best hit is first (search results are score-ranked).
-    start, end = spans[0]
-    limit = max(1, end - start + 1)
-    extra = (f" (plus {len(spans) - 1} more matched range(s) in this file)"
-             if len(spans) > 1 else "")
-    print(
-        f"Auto-slice (S9): your last search matched {Path(fp).name} at lines "
-        f"{start}-{end}{extra}. Read only that slice:\n"
-        f"  Read(file_path={fp!r}, offset={start}, limit={limit})\n"
-        f"To read the whole file anyway, pass offset=1.",
-        file=sys.stderr,
+    code, stdout, stderr = check_auto_slice(
+        normalize_claude(raw),
+        state_dir=active_state_dir(),
+        window_seconds=WINDOW_SECONDS,
+        read_example="Read(file_path={file_path!r}, offset={start}, limit={limit})",
     )
-    return 2
+    stderr = stderr.replace("Auto-slice:", "Auto-slice (S9):").replace(
+        "pass an explicit offset.", "pass offset=1."
+    )
+    if stdout:
+        print(stdout)
+    if stderr:
+        print(stderr, file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":

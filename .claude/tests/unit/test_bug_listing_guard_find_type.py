@@ -9,10 +9,14 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_hook = Path(__file__).parent.parent.parent / "hooks" / "listing-guard.py"
-_spec = importlib.util.spec_from_file_location("listing_guard", _hook)
+_repo = Path(__file__).parent.parent.parent.parent
+_hook = _repo / ".claude" / "hooks" / "listing-guard.py"
+# Ensure common hooks are on path so the hook's own import resolves correctly.
+_common = str(_repo / "agents" / "common" / "hooks")
+if _common not in sys.path:
+    sys.path.insert(0, _common)
+_spec = importlib.util.spec_from_file_location("_listing_guard_hook", _hook)
 _mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
-sys.modules["listing_guard"] = _mod
 _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
 is_bare_listing = _mod.is_bare_listing
 

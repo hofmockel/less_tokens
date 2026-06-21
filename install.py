@@ -1045,6 +1045,7 @@ def _install_specs(
     ]
     if "claude" in agents:
         specs.append((".claude/hooks", ".claude/hooks", frozenset()))
+        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset()))
     if caveman and "claude" in agents:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
     if "codex" in agents:
@@ -1752,6 +1753,10 @@ def main() -> int:
     if "claude" in agents:
         changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
                   target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
+        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
+                  target_root / ".claude" / "hooks" / "common",
+                  target_root, force_tools, overwrite_modified,
+                  ".claude/hooks/common/", dry_run=dry)
         if args.caveman:
             changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
                       target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)

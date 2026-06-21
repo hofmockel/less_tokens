@@ -1,21 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: block verify re-Read of recently edited files.
-
-post-edit-diff.py (PostToolUse on Edit|Write) emits a diff and records the
-edited path + timestamp to STATE_DIR/last-edit.json.  This hook checks that
-record and blocks a whole-file Read of the same path within
-LAST_EDIT_WINDOW_SECONDS — the diff is already in context; re-reading burns
-tokens without adding information.
-
-A Read with an explicit offset (deliberate slice) is always allowed.
-install.py wires this as PreToolUse on Read alongside read-guard.py.
-"""
+"""PreToolUse hook: block verify re-Read of recently edited files."""
 from __future__ import annotations
 
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 
@@ -38,12 +27,25 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+sys.path[:0] = [
+    str(REPO),
+    str(REPO / "agents" / "common" / "hooks"),
+    str(REPO / ".claude" / "hooks" / "common"),
+    str(REPO / ".claude" / "tools"),
+]
 
 try:
-    from search_config import LAST_EDIT_WINDOW_SECONDS, active_state_dir as _active_state_dir
+    from agents.common.hooks.payload import normalize_claude  # type: ignore[import]
+    from agents.common.hooks.read_after_edit import check_read_after_edit
+except Exception:
+    from payload import normalize_claude  # type: ignore[no-redef]
+    from read_after_edit import check_read_after_edit  # type: ignore[no-redef]
+
+try:
+    from search_config import LAST_EDIT_WINDOW_SECONDS, active_state_dir as _active_state_dir  # noqa: E402
 except Exception:
     LAST_EDIT_WINDOW_SECONDS = 120
+
     def _active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
 
@@ -57,41 +59,22 @@ def _load_edits() -> dict[str, float]:
 
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        raw = json.load(sys.stdin)
     except Exception:
         return 0
-
-    if payload.get("tool_name") != "Read":
-        return 0
-
-    inp = payload.get("tool_input", {})
-    if inp.get("offset") is not None:  # deliberate slice — always allow
-        return 0
-
-    file_path = inp.get("file_path", "")
-    if not file_path:
-        return 0
-
-    edits = _load_edits()
-    if not edits:
-        return 0
-
-    abs_path = str(Path(file_path).resolve())
-    edit_ts = edits.get(abs_path)
-    if edit_ts is None:
-        return 0
-
-    age = time.time() - edit_ts
-    if age > LAST_EDIT_WINDOW_SECONDS:
-        return 0
-
-    label = Path(file_path).name
-    print(
-        f"read-after-edit: {label} was edited {age:.0f}s ago — diff already in context. "
-        f"Skip re-Read; use the diff or Read with offset+limit if you need a specific slice.",
-        file=sys.stderr,
+    code, stdout, stderr = check_read_after_edit(
+        normalize_claude(raw),
+        state_dir=_active_state_dir(),
+        window_seconds=LAST_EDIT_WINDOW_SECONDS,
     )
-    return 2
+    stderr = stderr.replace("whole-file reread", "re-Read").replace(
+        "read a targeted slice.", "Read with offset+limit if you need a specific slice."
+    )
+    if stdout:
+        print(stdout)
+    if stderr:
+        print(stderr, file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":

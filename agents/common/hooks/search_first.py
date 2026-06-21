@@ -1,6 +1,7 @@
 """Shared search-first gate logic — agent-neutral."""
 from __future__ import annotations
 
+import fnmatch
 import re
 import time
 from pathlib import Path
@@ -18,7 +19,7 @@ def is_indexed(
     excluded_prefixes: tuple[str, ...] = (),
     excluded_names: set[str] | None = None,
     indexed_dirs: tuple[str, ...] = (),
-    root_globs: tuple[str, ...] = ("*.md",),
+    root_globs: tuple[str, ...] = ("*.md", "*.py", "*.sql"),
 ) -> bool:
     try:
         rel = path.resolve().relative_to(repo).as_posix()
@@ -35,7 +36,7 @@ def is_indexed(
         return False
 
     if "/" not in rel:
-        return rel.endswith((".md", ".py", ".sql"))
+        return any(fnmatch.fnmatch(rel, g) for g in root_globs)
     if any(rel.startswith(d) for d in indexed_dirs):
         return rel.endswith((".py", ".sql"))
     return False

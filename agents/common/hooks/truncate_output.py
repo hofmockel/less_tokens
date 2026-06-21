@@ -26,7 +26,8 @@ def truncate_bash(text: str, head: int, tail: int, ceiling: int) -> str:
     kept_tail = lines[tail_start:]
     omitted_lines = tail_start - head
     if omitted_lines <= 0:
-        return truncate_chars(text, ceiling)
+        result = "\n".join(kept_head + kept_tail)
+        return truncate_chars(result, ceiling) if len(result) > ceiling else result
     result = (
         "\n".join(kept_head)
         + f"\n[... {omitted_lines:,} lines omitted ...]\n"

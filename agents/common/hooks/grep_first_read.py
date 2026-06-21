@@ -38,6 +38,17 @@ def _in_last_search(p: Path, *, ranges_file: Path, window_seconds: int) -> bool:
     return False
 
 
+def _symbol_hint(p: Path) -> str:
+    try:
+        from symbols import lookup  # type: ignore[import]
+        hits = lookup(p.stem)
+        if hits:
+            return f"  /def {p.stem}  ->  {hits[0]['file']}:{hits[0]['line']}\n"
+    except Exception:
+        pass
+    return ""
+
+
 def check_grep_first_read(
     payload: HookPayload,
     *,
@@ -61,17 +72,26 @@ def check_grep_first_read(
         return 0, "", ""
 
     window = int(config.get("window_seconds", 300))
-    if _in_last_search(p, ranges_file=state_dir / "last-search.json", window_seconds=window):
+    ranges_file = config.get("ranges_file", state_dir / "last-search.json")
+    if _in_last_search(p, ranges_file=Path(ranges_file), window_seconds=window):
         return 0, "", ""
 
-    if is_indexed(
-        p,
-        repo,
-        excluded_prefixes=config.get("excluded_prefixes", ()),
-        excluded_names=config.get("excluded_names"),
-        indexed_dirs=config.get("dirs", ()),
-        root_globs=config.get("root_globs", ("*.md",)),
-    ) and not search_was_recent(state_dir, window):
+    indexed_func = config.get("is_indexed")
+    recent_func = config.get("search_was_recent")
+    indexed = (
+        indexed_func(p)
+        if indexed_func
+        else is_indexed(
+            p,
+            repo,
+            excluded_prefixes=config.get("excluded_prefixes", ()),
+            excluded_names=config.get("excluded_names"),
+            indexed_dirs=config.get("dirs", ()),
+            root_globs=config.get("root_globs", ("*.md",)),
+        )
+    )
+    recent = recent_func() if recent_func else search_was_recent(state_dir, window)
+    if indexed and not recent:
         return 0, "", ""
 
     lines = _count_lines(p)
@@ -84,10 +104,12 @@ def check_grep_first_read(
         "read_example",
         "Read(file_path={file_path!r}, offset=<line>, limit=<n>)",
     )
+    hint = _symbol_hint(p)
     msg = (
         f"Grep-first gate: {p.name} is {lines:,} lines (threshold {threshold}). "
         "Locate the target before reading the whole file.\n\n"
         "Options:\n"
+        f"{hint}"
         f"  {venv_py} {tool_prefix}/symbols.py <name>    # exact file:line for symbols\n"
         f"  {venv_py} {tool_prefix}/search.py \"<query>\"  # semantic search for concepts\n\n"
         f"Then: {read_example.format(file_path=str(p), start='<line>', limit='<n>')}\n"

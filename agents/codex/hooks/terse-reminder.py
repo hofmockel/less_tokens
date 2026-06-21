@@ -1,23 +1,11 @@
 #!/usr/bin/env python3
-"""Codex PostToolUse hook: nudge for concise responses (Codex-appropriate caveman equivalent)."""
+"""Codex PostToolUse hook: nudge for concise responses."""
 from __future__ import annotations
 
 import json
 import os
 import sys
 from pathlib import Path
-
-_FILLER_PHRASES = [
-    "certainly", "of course", "i'd be happy to", "great question",
-    "i apologize", "i'm sorry", "absolutely", "no problem",
-    "as an ai", "as a language model",
-    "i hope this helps", "feel free to",
-    "please note that", "it's worth noting",
-    "in conclusion", "to summarize",
-]
-
-MIN_FILLER_HITS = 2
-MAX_RESPONSE_WORDS = 600
 
 
 def _resolve_repo() -> Path:
@@ -32,17 +20,24 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+sys.path[:0] = [
+    str(REPO / "agents" / "common" / "hooks"),
+    str(REPO / ".less_tokens" / "hooks"),
+    str(REPO / ".less_tokens" / "tools"),
+    str(REPO / ".claude" / "tools"),
+]
+
+from response_budget import analyze  # noqa: E402
+
+MAX_RESPONSE_WORDS = 600
 
 try:
-    from search_config import active_state_dir, CAVEMAN_ENFORCE, MAX_RESPONSE_WORDS as _MRW  # noqa: E402
+    from search_config import CAVEMAN_ENFORCE, MAX_RESPONSE_WORDS as _MRW  # noqa: E402
     MAX_RESPONSE_WORDS = _MRW
-    state_dir = active_state_dir()
     if not CAVEMAN_ENFORCE:
         sys.exit(0)
 except Exception:
-    state_dir = REPO / ".less_tokens" / "state"
+    pass
 
 
 def main() -> int:
@@ -50,25 +45,19 @@ def main() -> int:
         payload = json.loads(sys.stdin.read())
     except Exception:
         return 0
-
+    if payload.get("stop_hook_active"):
+        return 0
     response = payload.get("response", "") or ""
     if not isinstance(response, str):
         return 0
-
-    lower = response.lower()
-    hits = [p for p in _FILLER_PHRASES if p in lower]
-    words = len(response.split())
-
-    violations = []
-    if len(hits) >= MIN_FILLER_HITS:
-        violations.append(f"filler phrases detected: {', '.join(hits[:3])}")
-    if MAX_RESPONSE_WORDS and words > MAX_RESPONSE_WORDS:
-        violations.append(f"response too long ({words} words, limit {MAX_RESPONSE_WORDS})")
-
+    violations = analyze(response, max_response_words=MAX_RESPONSE_WORDS, min_filler_hits=1)
     if not violations:
         return 0
-
-    msg = "Response budget exceeded. Keep response concise. No filler. " + " | ".join(violations)
+    normalized = [
+        v.replace("filler: ", "filler phrases detected: ", 1)
+        for v in violations
+    ]
+    msg = "Response budget exceeded. Keep response concise. No filler. " + " | ".join(normalized)
     print(msg, file=sys.stderr)
     return 2
 

@@ -33,6 +33,7 @@ try:
         active_state_dir,
         EXCLUDED_DIR_NAMES,
         EXCLUDED_DIR_PREFIXES,
+        INDEXED_ROOT_GLOBS,
         INDEXED_SOURCE_DIRS,
         VENV_PY,
     )
@@ -41,6 +42,7 @@ try:
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,
+        "root_globs": INDEXED_ROOT_GLOBS,
         "tool_prefix": ".less_tokens/tools",
     }
     state_dir = active_state_dir()
