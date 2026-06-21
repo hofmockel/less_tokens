@@ -3,7 +3,7 @@
 
 Sources (everything indexable):
   - All files matching INDEXED_ROOT_GLOBS in repo root (default: *.md)
-  - All *.py and *.sql under INDEXED_SOURCE_DIRS (default: tools/, app/, schema/)
+  - All *.py, *.sql, and *.js/jsx/ts/tsx under INDEXED_SOURCE_DIRS (default: tools/, app/, schema/)
 
 Embedding: local fastembed BAAI/bge-small-en-v1.5 (384 dim). Self-contained;
 model downloads to ~/.cache/huggingface on first run (~130MB).
@@ -165,6 +165,61 @@ def _split_oversized(
 
 
 # ----- chunking -------------------------------------------------------------
+
+_JS_DECL = re.compile(
+    r"^(?:export\s+(?:default\s+)?)?"
+    r"(?:"
+    r"(?:async\s+)?function\s*\*?\s*(\w+)"  # named function / generator
+    r"|class\s+(\w+)"                        # class
+    r"|(?:const|let|var)\s+(\w+)\s*="       # const/let/var assignment
+    r"|(?:interface|enum)\s+(\w+)"           # TS interface / enum
+    r"|type\s+(\w+)\s*="                     # TS type alias
+    r")"
+)
+_JS_EXPORT_DEFAULT = re.compile(
+    r"^export\s+default\s+(?:async\s+)?(?:function|class)\b"
+)
+
+
+def chunk_js(path: Path) -> list[tuple[str, str]]:
+    """One chunk per top-level function/class/const in JS/TS files."""
+    src = path.read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+
+    starts: list[tuple[str, int]] = []
+    for i, line in enumerate(lines):
+        m = _JS_DECL.match(line)
+        if m:
+            name = next((g for g in m.groups() if g), None) or "default"
+            starts.append((name, i))
+        elif _JS_EXPORT_DEFAULT.match(line):
+            starts.append(("default", i))
+
+    if not starts:
+        stripped = src.strip()
+        return [("__file__", stripped)] if stripped else []
+
+    out: list[tuple[str, str]] = []
+    for i, (name, start) in enumerate(starts):
+        end = starts[i + 1][1] if i + 1 < len(starts) else len(lines)
+        body = "\n".join(lines[start:end]).strip()
+        if body:
+            out.append((name, body))
+
+    literal_keys = {k for k, _ in out}
+    deduped: list[tuple[str, str]] = []
+    emitted: set[str] = set()
+    for k, body in out:
+        key = k
+        if key in emitted:
+            n = 2
+            while f"{k}_{n}" in literal_keys or f"{k}_{n}" in emitted:
+                n += 1
+            key = f"{k}_{n}"
+        emitted.add(key)
+        deduped.append((key, body))
+    return _split_oversized(deduped, search_config.MAX_CHUNK_CHARS)
+
 
 def chunk_markdown(path: Path) -> list[tuple[str, str]]:
     """Split a markdown file by H1/H2/H3 headings."""
@@ -417,6 +472,26 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             continue
         rel = sq.relative_to(BASE).as_posix()
         for k, t in chunk_sql(sq):
+            out.append(("code", rel, k, t))
+
+    # JS/TS from indexed subdirs
+    js_paths: list[Path] = []
+    for dir_str in INDEXED_SOURCE_DIRS:
+        d = BASE / dir_str.rstrip("/")
+        if not d.exists():
+            continue
+        try:
+            for ext in ("*.js", "*.jsx", "*.ts", "*.tsx"):
+                js_paths.extend(d.rglob(ext))
+        except OSError as e:
+            incomplete = True
+            print(f"  WARN: skipping unreadable JS/TS dir {dir_str} — {e}",
+                  file=sys.stderr)
+    for js in sorted(set(js_paths)):
+        if _excluded(js):
+            continue
+        rel = js.relative_to(BASE).as_posix()
+        for k, t in chunk_js(js):
             out.append(("code", rel, k, t))
 
     return out, incomplete
