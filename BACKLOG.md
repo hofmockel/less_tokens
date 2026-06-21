@@ -43,8 +43,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **Wire the claudemd-budget hook** — `install.py` should deploy `.claude/hooks/claudemd-budget.py` and wire it as PostToolUse on `Edit|Write` in the host settings file, alongside the existing hooks. (Skill + tool + hook already built; installer wiring is the remaining step.)
-
 ---
 
 ## Hooks & Caveman Mode
