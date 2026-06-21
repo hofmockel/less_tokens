@@ -155,6 +155,12 @@ TRACK_SAVINGS = False   # set True via: python .claude/tools/stats.py
 CLAUDE_MD_TOKEN_BUDGET: int = 1200
 CLAUDE_MD_OVERFLOW_DOC: str = "documentation.md"
 
+# --- AGENTS.md budget (agentsmd-budget Codex hook) ---
+# Mirrors the CLAUDE.md budget above. AGENTS.md is always-loaded by Codex.
+# Set 0 to disable.
+AGENTS_MD_TOKEN_BUDGET: int = 1200
+AGENTS_MD_OVERFLOW_DOC: str = "documentation.md"
+
 # --- Caveman output enforcement (Stop hook: caveman-reminder.py) ---
 # Checks the last assistant turn (not tool output) for filler phrases and an
 # over-long prose body. Code fences are exempt. Set False to disable.

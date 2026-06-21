@@ -689,6 +689,7 @@ def build_codex_hook_entries(
     entries: list[tuple[str, str, str]] = [
         ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
+        ("PostToolUse", "Edit|Write",             f"{prefix} .codex/hooks/agentsmd-budget.py"),
     ]
     if getattr(args, "truncate", False):
         entries.append(("PostToolUse", "Bash|mcp__filesystem__.*",

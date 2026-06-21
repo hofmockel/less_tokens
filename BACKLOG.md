@@ -53,8 +53,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **Wire `agentsmd-budget` PostToolUse hook for Codex** — `claudemd-budget.py` guards CLAUDE.md size for Claude but there is no counterpart for AGENTS.md under Codex. `agentsmd_audit.py` exists as a CLI tool but is never triggered automatically. Wire it as a PostToolUse on `Edit|Write` in `.codex/hooks.json` (and add it to `build_codex_hook_entries`) so AGENTS.md bloat is caught the same way CLAUDE.md bloat is caught for Claude.
-
 - **Add prose word-count ceiling to `terse-reminder`** — the Codex `terse-reminder.py` (agents/codex/hooks) only pattern-matches filler phrases; it has no configurable `MAX_RESPONSE_WORDS` ceiling. The Claude `caveman-reminder.py` Stop hook has this. Add the same word-budget check to `terse-reminder` using `CODEX_MAX_RESPONSE_WORDS` (or share `MAX_RESPONSE_WORDS`) from `search_config.py`. `agents/codex/hooks/terse-reminder.py`
 
 - **`terse-reminder` filler threshold too permissive** — Codex fires only after 2+ filler hits (`MIN_FILLER_HITS = 2`, simple string match); Claude's `caveman-reminder.py` fires on any single regex match. Same config, different strictness. Drop `MIN_FILLER_HITS` to 1 and switch to the same compiled-regex patterns used by `caveman-reminder.py`. `agents/codex/hooks/terse-reminder.py`
