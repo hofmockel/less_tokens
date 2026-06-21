@@ -61,13 +61,13 @@ Claude artifacts land under `.claude/`; Codex support also installs a small `.le
 │   ├── skills/claudemd/     # /claudemd CLAUDE.md pruning skill
 │   ├── state/               # runtime state (last-search, savings log, …)
 │   └── tools/               # search.py, embeddings.py, db.py, stats.py, …
-├── .less_tokens/            # Codex tools/hooks/state when --agent codex|both
+├── .less_tokens/            # Codex shims/hooks/state when --agent codex|both
 │   ├── hooks/               # shared hook support used by Codex adapters
 │   ├── bin/python           # venv-backed launcher for Codex commands
 │   ├── schema/
 │   ├── skills/less-tokens/  # fallback Codex skill path
 │   ├── state/
-│   └── tools/
+│   └── tools/               # shims into .claude/tools/
 ├── .codex/hooks/            # Codex adapter hooks, when .codex is writable
 ├── .codex/hooks.json        # Codex hook wiring, when .codex is writable
 ├── AGENTS.md                # Codex token-discipline block

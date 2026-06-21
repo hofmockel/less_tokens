@@ -64,7 +64,7 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 | Path | Purpose |
 |---|---|
-| `.less_tokens/tools/` | Shared search/embeddings/symbols/guards |
+| `.less_tokens/tools/` | Codex command shims that run the single `.claude/tools/` implementation |
 | `.less_tokens/bin/python` | Venv-backed Python launcher for Codex commands |
 | `.less_tokens/schema/` | SQLite schema |
 | `.less_tokens/hooks/` | Shared hook support imported by Codex adapters |
@@ -112,12 +112,12 @@ The harness is deterministic and fixture-based; it is useful for trend tracking,
 
 ## Configuration
 
-**Edit one file per installed runtime:** `.claude/tools/search_config.py` for Claude, `.less_tokens/tools/search_config.py` for Codex. In `--agent both` installs, keep both configs aligned for venv and indexed paths.
+**Edit one config file:** `.claude/tools/search_config.py`. Codex commands under `.less_tokens/tools/` are compatibility shims that import and run the same `.claude/tools/` code, so `.less_tokens/tools/search_config.py` is not a separate source of truth.
 
 The installer prints the exact line to paste in. At minimum, set your venv path and the source directories to index:
 
 ```python
-# .claude/tools/search_config.py or .less_tokens/tools/search_config.py
+# .claude/tools/search_config.py
 
 VENV_PY = _venv_python(".venv")               # change to your venv location
 INDEXED_SOURCE_DIRS = ("src/", "schema/")      # dirs whose .py and .sql files get indexed
@@ -154,7 +154,7 @@ Run this once after configuring, and again whenever you want a full refresh:
 .claude/bin/python .claude/tools/embeddings.py refresh
 ```
 
-For Codex-only workflows, use `.less_tokens/bin/python .less_tokens/tools/embeddings.py refresh` instead.
+For Codex-only workflows, `.less_tokens/bin/python .less_tokens/tools/embeddings.py refresh` remains supported as a shimmed command path.
 
 > First run downloads the embedding model (~130 MB to `~/.cache/huggingface`). Subsequent runs are incremental and typically take under a second.
 
@@ -164,7 +164,7 @@ For Codex-only workflows, use `.less_tokens/bin/python .less_tokens/tools/embedd
 .claude/bin/python .claude/tools/search.py "your query"
 ```
 
-For Codex-only workflows, use `.less_tokens/bin/python .less_tokens/tools/search.py` instead.
+For Codex-only workflows, `.less_tokens/bin/python .less_tokens/tools/search.py` remains supported as a shimmed command path.
 
 **Examples:**
 
@@ -375,7 +375,7 @@ less_tokens/
 │   ├── hooks/                 # shared hook support for Codex adapters
 │   ├── schema/
 │   ├── state/
-│   └── tools/
+│   └── tools/                 # compatibility shims into .claude/tools/
 ├── .codex/hooks/              # Codex adapters when .codex is writable
 ├── AGENTS.md                  # Codex token-discipline block
 └── less_tokens/               # the clone; not touched after install
@@ -484,6 +484,7 @@ agents/
 - `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
 - `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
 - `.claude/tools/symbols.py` — exact symbol index for Python and JS/TS; `symbols.py <name>` (and the `/def` command) returns a definition's exact `file:line` + a `Read(offset,limit)`, no grep dump. Self-creating `symbols` table; refreshes when sources change
+- `.less_tokens/tools/*.py` — generated Codex compatibility shims; these keep existing Codex command paths working while `.claude/tools/` remains the single implementation and config source.
 - `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
 
 **Claude Code hook layer (`.claude/hooks/`)**

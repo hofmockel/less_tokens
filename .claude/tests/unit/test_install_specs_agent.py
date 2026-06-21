@@ -39,10 +39,10 @@ class TestInstallSpecsAgentSelector:
         dest_dirs = [s[1] for s in specs]
         assert ".claude/hooks" not in dest_dirs
 
-    def test_codex_only_includes_less_tokens_tools(self):
+    def test_codex_only_does_not_copy_less_tokens_tools(self):
         specs = _install_specs(caveman=False, agents={"codex"})
         dest_dirs = [s[1] for s in specs]
-        assert any(".less_tokens/tools" in d for d in dest_dirs)
+        assert not any(".less_tokens/tools" in d for d in dest_dirs)
 
     def test_codex_only_includes_less_tokens_schema(self):
         specs = _install_specs(caveman=False, agents={"codex"})

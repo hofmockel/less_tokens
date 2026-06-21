@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from install import build_codex_hook_entries, do_check
+from install import _CODEX_TOOL_SHIM_MARKER, build_codex_hook_entries, do_check
 
 
 def _args(**kwargs) -> argparse.Namespace:
@@ -58,7 +58,7 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
 
     codex_tools = root / ".less_tokens" / "tools"
     codex_tools.mkdir(parents=True)
-    (codex_tools / "search_config.py").write_text("_STATE_AGENT_AWARE = True\n")
+    (codex_tools / "search_config.py").write_text(f"{_CODEX_TOOL_SHIM_MARKER}\n")
 
     codex_hooks = root / ".codex" / "hooks"
     codex_hooks.mkdir(parents=True)

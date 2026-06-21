@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import importlib.util
+import subprocess
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -21,6 +23,7 @@ from install import (
     launcher_rel,
     wire_codex_hooks_json,
     unwire_codex_hooks_json,
+    write_codex_tool_shims,
     write_python_launcher,
 )
 
@@ -32,18 +35,19 @@ FRAGMENT = REPO / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
 # ---------------------------------------------------------------------------
 
 class TestCodexInstallDirStructure:
-    def test_less_tokens_tools_created(self, tmp_path):
-        copy_tree(
+    def test_less_tokens_tools_shims_created(self, tmp_path):
+        changed = write_codex_tool_shims(
             REPO / ".claude" / "tools",
-            tmp_path / ".less_tokens" / "tools",
             tmp_path,
-            force=True, overwrite_modified=True, label=".less_tokens/tools/",
-            exclude=frozenset({"search_config.py"}),
+            force=True,
+            overwrite_modified=True,
         )
         tools_dir = tmp_path / ".less_tokens" / "tools"
+        assert changed > 0
         assert tools_dir.is_dir()
         assert (tools_dir / "search.py").exists()
         assert (tools_dir / "embeddings.py").exists()
+        assert "Codex compatibility shim" in (tools_dir / "search.py").read_text()
 
     def test_less_tokens_schema_created(self, tmp_path):
         copy_tree(
@@ -90,25 +94,44 @@ class TestCodexInstallDirStructure:
         dest_dirs = [s[1] for s in specs]
         assert ".claude/hooks" not in dest_dirs
 
-    def test_search_config_written_to_less_tokens(self, tmp_path):
-        handle_search_config(
-            REPO / ".claude" / "tools" / "search_config.py",
-            tmp_path / ".less_tokens" / "tools" / "search_config.py",
-            tmp_path,
-            False, False,
-        )
+    def test_search_config_shim_written_to_less_tokens(self, tmp_path):
+        write_codex_tool_shims(REPO / ".claude" / "tools", tmp_path, force=True, overwrite_modified=True)
         config_text = (tmp_path / ".less_tokens" / "tools" / "search_config.py").read_text()
-        assert "active_state_dir" in config_text
+        assert "Codex compatibility shim" in config_text
+        assert 'LESS_TOKENS_AGENT", "codex"' in config_text
 
-    def test_search_config_has_agent_aware_sentinel(self, tmp_path):
+    def test_search_config_source_of_truth_stays_claude_tools(self, tmp_path):
         handle_search_config(
             REPO / ".claude" / "tools" / "search_config.py",
-            tmp_path / ".less_tokens" / "tools" / "search_config.py",
+            tmp_path / ".claude" / "tools" / "search_config.py",
             tmp_path,
             False, False,
         )
-        config_text = (tmp_path / ".less_tokens" / "tools" / "search_config.py").read_text()
-        assert "_STATE_AGENT_AWARE" in config_text
+        assert not (tmp_path / ".less_tokens" / "tools" / "search_config.py").exists()
+        assert "_STATE_AGENT_AWARE" in (tmp_path / ".claude" / "tools" / "search_config.py").read_text()
+
+    def test_generated_tool_shim_imports_and_executes_real_tool(self, tmp_path):
+        real_tools = tmp_path / ".claude" / "tools"
+        real_tools.mkdir(parents=True)
+        (real_tools / "demo.py").write_text(
+            "import os\n"
+            "VALUE = os.environ.get('LESS_TOKENS_AGENT')\n"
+            "if __name__ == '__main__':\n"
+            "    print(VALUE)\n"
+        )
+
+        write_codex_tool_shims(real_tools, tmp_path, force=True, overwrite_modified=True)
+        shim = tmp_path / ".less_tokens" / "tools" / "demo.py"
+
+        spec = importlib.util.spec_from_file_location("_demo_shim", shim)
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert mod.VALUE == "codex"
+
+        result = subprocess.run([sys.executable, str(shim)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert result.stdout.strip() == "codex"
 
 
 # ---------------------------------------------------------------------------

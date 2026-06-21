@@ -2,8 +2,8 @@
 
 Date: 21 Jun 2026
 
-Codex support uses the same local search/index tools as Claude, copied under
-`.less_tokens/`, plus thin adapters under `.codex/hooks/`. Enforcement remains
+Codex support uses the same local search/index tools as Claude through
+`.less_tokens/tools/` compatibility shims, plus thin adapters under `.codex/hooks/`. Enforcement remains
 best-effort because it depends on `.codex/hooks.json` being writable and on the
 Codex runtime emitting the expected hook events.
 
@@ -11,7 +11,7 @@ Codex runtime emitting the expected hook events.
 
 | Path | Purpose |
 |---|---|
-| `.less_tokens/tools/` | Shared search, embeddings, symbols, parsers, audits |
+| `.less_tokens/tools/` | Compatibility shims into the single `.claude/tools/` implementation |
 | `.less_tokens/schema/` | SQLite schema copied from Claude runtime |
 | `.less_tokens/hooks/` | Agent-neutral hook logic |
 | `.less_tokens/bin/python` | Launcher pointing at the configured venv |
