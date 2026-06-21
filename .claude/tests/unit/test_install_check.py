@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from install import do_check
+from install import build_codex_hook_entries, do_check
 
 
 def _args(**kwargs) -> argparse.Namespace:
@@ -48,6 +48,36 @@ def _minimal_install(tmp_path: Path, venv_py: Path | None = None) -> Path:
     return tmp_path
 
 
+def _minimal_codex_install(tmp_path: Path) -> Path:
+    root = _minimal_install(tmp_path)
+    venv_py = root / "fake_venv" / "bin" / "python"
+
+    launcher = root / ".less_tokens" / "bin" / "python"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text("#!/bin/sh\n")
+
+    codex_tools = root / ".less_tokens" / "tools"
+    codex_tools.mkdir(parents=True)
+    (codex_tools / "search_config.py").write_text("_STATE_AGENT_AWARE = True\n")
+
+    codex_hooks = root / ".codex" / "hooks"
+    codex_hooks.mkdir(parents=True)
+    entries = build_codex_hook_entries(venv_py, root, _args(agent="codex"))
+    for _, _, cmd in entries:
+        (codex_hooks / Path(cmd.split()[-1]).name).touch()
+    (root / ".codex" / "hooks.json").write_text(json.dumps({
+        "hooks": [
+            {"event": ev, "matcher": matcher, "command": cmd}
+            for ev, matcher, cmd in entries
+        ]
+    }))
+
+    (root / "AGENTS.md").write_text(
+        "<!-- less_tokens: begin -->\n## Token Discipline\n<!-- less_tokens: end -->\n"
+    )
+    return root
+
+
 class TestDoCheckAllPass:
     def test_returns_0_on_valid_install(self, tmp_path, capsys):
         root = _minimal_install(tmp_path)
@@ -58,6 +88,17 @@ class TestDoCheckAllPass:
         out = capsys.readouterr().out
         assert "[✗]" not in out
         assert "All checks passed" in out
+
+    def test_returns_0_on_valid_codex_install(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "[✗]" not in out
+        assert ".codex/hooks.json has all" in out
+        assert "AGENTS.md contains managed less_tokens block" in out
 
 
 class TestDoCheckVenvMissing:

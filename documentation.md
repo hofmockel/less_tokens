@@ -46,8 +46,8 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 | `--build` | Build the index immediately after install |
 | `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
 | `--caveman` | Also copy `.claude/rules/` (caveman output style) |
-| `--truncate` | Print next-steps wiring for the tool output truncation hook |
-| `--compact` | Print next-steps wiring for the conversation compaction trigger hook |
+| `--truncate` | Wire the tool output truncation hook |
+| `--compact` | Wire the conversation compaction trigger hook |
 
 ---
 
@@ -79,18 +79,34 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 | Feature | Claude | Codex |
 |---|---|---|
 | Vector search + index | ✓ stable | ✓ stable |
-| Search-before-read | ✓ enforced via hook | best-effort (hook only if `.codex/hooks.json` is writable) |
-| Tool-output truncation | ✓ enforced via hook | best-effort |
-| Compaction trigger | ✓ enforced via hook | best-effort |
-| Symbol lookup | ✓ | ✓ |
+| Search-before-read | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Auto-sliced reads | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Noise-file and large-read guards | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Context-cache reread guard | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Post-edit diff and reread block | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Recursive listing guard | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Structured Bash output parsers | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
+| Tool-output truncation | ✓ optional hook | best-effort optional hook |
+| Compaction trigger | ✓ optional hook | best-effort optional hook |
+| Symbol lookup | ✓ Python + JS/TS | ✓ Python + JS/TS |
 | AGENTS.md / CLAUDE.md pruning | ✓ | ✓ (`agentsmd_audit.py`) |
 
 **Known limitations:**
 
-- Codex search-first is best-effort — interception depends on `.codex/hooks.json` being writable. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
+- Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
 - Codex state lives in `.less_tokens/state/`; Claude state in `.claude/state/`. The two runtime state directories are independent, while the vector index is shared at `.claude/index.db`.
 - Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
+
+See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix, including which strategies are wired by default and which remain optional.
+
+For repeatable savings checks, run:
+
+```bash
+.claude/bin/python .claude/tools/eval_sessions.py --report .claude/state/session-eval.md
+```
+
+The harness is deterministic and fixture-based; it is useful for trend tracking, not a substitute for live Claude/Codex usage data.
 
 ---
 
@@ -123,6 +139,8 @@ All variables:
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
 | `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `.claude/bin/python .claude/tools/stats.py --enable`) |
+
+`INDEXED_SOURCE_DIRS` also feeds JS/TS indexing for `.js`, `.jsx`, `.ts`, and `.tsx` files.
 
 ---
 
@@ -441,7 +459,7 @@ Items tracked for future documentation improvement.
 
 _Moved from CLAUDE.md to keep that file lean. Indexed — reachable by search._
 
-All source lives under `.claude/`:
+The source tree has a Claude runtime, a Codex adapter layer, and shared hook logic:
 
 ```
 .claude/
@@ -452,16 +470,20 @@ All source lives under `.claude/`:
   schema/          ← SQL schema deployed to host projects
   tests/           ← Unit, integration, and perf test suites
   commands/        ← /build-index, /search, /def slash commands
+agents/
+  common/hooks/    ← agent-neutral hook checks used by adapters
+  codex/hooks/     ← thin Codex hook adapters
+  codex/skills/    ← Codex skills
 ```
 
 ### Layer split
 
 **Agent-agnostic core (`.claude/tools/` and `.claude/schema/`)**
 - `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold
-- `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
+- `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements, JS/TS declarations), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
 - `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
 - `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
-- `.claude/tools/symbols.py` — AST-only symbol index; `symbols.py <name>` (and the `/def` command) returns a definition's exact `file:line` + a `Read(offset,limit)`, no grep dump. Self-creating `symbols` table; refreshes when sources change
+- `.claude/tools/symbols.py` — exact symbol index for Python and JS/TS; `symbols.py <name>` (and the `/def` command) returns a definition's exact `file:line` + a `Read(offset,limit)`, no grep dump. Self-creating `symbols` table; refreshes when sources change
 - `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
 
 **Claude Code hook layer (`.claude/hooks/`)**
@@ -474,6 +496,12 @@ All source lives under `.claude/`:
 - `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; 25% hysteresis via `.claude/state/compact-trigger-last`
 - `.claude/hooks/caveman-reminder.py` — Stop hook; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
 - `.claude/hooks/claudemd-budget.py` — PostToolUse on `Edit|Write`; blocks when CLAUDE.md exceeds `CLAUDE_MD_TOKEN_BUDGET` or gains a stale ref
+
+**Codex hook layer (`agents/codex/hooks/`)**
+- Thin adapters normalize Codex payloads, call shared checks where available, and write state under `.less_tokens/state/`.
+- Default adapters cover search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks.
+- Optional adapters cover truncation, compaction, and terse-output reminders when their install flags are enabled.
+- See [codex-hook-coverage.md](codex-hook-coverage.md) for event matchers and known limits.
 
 **Rules (`.claude/rules/`)**
 - `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
@@ -493,8 +521,9 @@ Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.p
 | File type | Strategy | Key unit |
 |---|---|---|
 | `.py` | `chunk_python` — AST parse | top-level `def`/`class`/`UPPER_CASE` |
+| `.js`/`.jsx`/`.ts`/`.tsx` | `chunk_js` — declaration scan | functions/classes/consts/interfaces/enums/types |
 | `.md` | `chunk_markdown` — regex H1/H2/H3 | heading sections |
-| `CHANGELOG.md` | `chunk_changelog` — `## YYYY-MM-DD` headers | **Note:** Keep a Changelog format (`## [v] - date`) won't match; falls back to `chunk_markdown` (known bug) |
+| `CHANGELOG.md` | `chunk_changelog` — version/date headers | Keep a Changelog and date headers |
 | `.sql` | `chunk_sql` — split on `;\n` | CREATE TABLE/VIEW/INDEX name |
 
 ### End-to-end verification

@@ -1,5 +1,7 @@
 # evaluate.md — Code-over-Reasoning Strategies
 
+Status update, 21 Jun 2026: the core S8-S13 implementation described below has landed for Claude, and Codex now has parity-oriented adapters for the high-value read/output guards. `symbols.py` covers Python plus JS/TS definitions; Codex installs wire read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks when `.codex/hooks.json` is writable. Remaining work is tracked in `BACKLOG.md`.
+
 Goal: cut tokens. Prefer deterministic code over Claude reasoning. Prefer skills over prompt text. Hooks enforce — a rule nobody enforces gets ignored.
 
 Read BACKLOG.md first. Backlog already holds S6 (Tiered Effort) and S7 (Grep-before-Read). This doc adds S8–S13 plus verdicts on the two backlog proposals. Minimal-impact ideas cut on purpose (see bottom).

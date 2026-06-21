@@ -17,7 +17,7 @@ Returns the top matching chunks by semantic similarity. Run this before a whole-
 
     .less_tokens/bin/python .less_tokens/tools/symbols.py SymbolName
 
-Returns exact `file:line` for a function, class, or variable definition. Cheaper than grep for definitions.
+Returns exact `file:line` for Python and JS/TS functions, classes, constants, and types. Cheaper than grep for definitions.
 
 ### Noise-file guard
 

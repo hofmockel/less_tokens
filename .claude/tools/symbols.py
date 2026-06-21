@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -58,7 +59,23 @@ def _upper_names(node: ast.AST) -> list[str]:
     return []
 
 
-def extract_symbols(path: Path) -> list[tuple[str, str, int, int]]:
+_JS_DECL = re.compile(
+    r"^(?:export\s+(?:default\s+)?)?"
+    r"(?:"
+    r"(?:async\s+)?function\s*\*?\s*(\w+)"
+    r"|class\s+(\w+)"
+    r"|(?:const|let|var)\s+(\w+)\s*="
+    r"|interface\s+(\w+)"
+    r"|enum\s+(\w+)"
+    r"|type\s+(\w+)\s*="
+    r")"
+)
+_JS_EXPORT_DEFAULT = re.compile(
+    r"^export\s+default\s+(?:async\s+)?(?:function|class)\b"
+)
+
+
+def extract_py_symbols(path: Path) -> list[tuple[str, str, int, int]]:
     """Return (name, kind, start_line, end_line) for top-level definitions.
 
     Lines are 1-based (ready for Read offset). Mirrors chunk_python selection.
@@ -93,6 +110,53 @@ def extract_symbols(path: Path) -> list[tuple[str, str, int, int]]:
     return out
 
 
+def extract_js_symbols(path: Path) -> list[tuple[str, str, int, int]]:
+    """Return top-level JS/TS symbols aligned with embeddings.chunk_js()."""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+    starts: list[tuple[str, str, int]] = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        m = _JS_DECL.match(stripped)
+        if m:
+            groups = m.groups()
+            name = next((g for g in groups if g), None)
+            if not name:
+                continue
+            if groups[0]:
+                kind = "func"
+            elif groups[1]:
+                kind = "class"
+            elif groups[2]:
+                kind = "const"
+            elif groups[3]:
+                kind = "interface"
+            elif groups[4]:
+                kind = "enum"
+            else:
+                kind = "type"
+            starts.append((name, kind, i + 1))
+        elif _JS_EXPORT_DEFAULT.match(stripped):
+            starts.append(("default", "default", i + 1))
+
+    out: list[tuple[str, str, int, int]] = []
+    for idx, (name, kind, start) in enumerate(starts):
+        end = starts[idx + 1][2] - 1 if idx + 1 < len(starts) else len(lines)
+        out.append((name, kind, start, max(start, end)))
+    return out
+
+
+def extract_symbols(path: Path) -> list[tuple[str, str, int, int]]:
+    if path.suffix == ".py":
+        return extract_py_symbols(path)
+    if path.suffix in {".js", ".jsx", ".ts", ".tsx"}:
+        return extract_js_symbols(path)
+    return []
+
+
 def _excluded(rel: str) -> bool:
     parts = set(Path(rel).parts)
     if parts & EXCLUDED_NAMES:
@@ -114,6 +178,23 @@ def _iter_py_files() -> Iterator[Path]:
                 yield f
 
 
+def _iter_js_files() -> Iterator[Path]:
+    for d in INDEXED_SOURCE_DIRS:
+        root = BASE / d.rstrip("/")
+        if not root.exists():
+            continue
+        for ext in ("*.js", "*.jsx", "*.ts", "*.tsx"):
+            for f in root.rglob(ext):
+                rel = f.relative_to(BASE).as_posix()
+                if not _excluded(rel):
+                    yield f
+
+
+def _iter_symbol_files() -> Iterator[Path]:
+    yield from _iter_py_files()
+    yield from _iter_js_files()
+
+
 def _ensure_table(c) -> None:
     c.execute(
         "CREATE TABLE IF NOT EXISTS symbols ("
@@ -126,14 +207,14 @@ def _ensure_table(c) -> None:
 
 def refresh(full: bool = False) -> int:
     if full:
-        files = list(_iter_py_files())
+        files = list(_iter_symbol_files())
     else:
         try:
             marker_mtime = _MARKER.stat().st_mtime
         except OSError:
             marker_mtime = 0.0
         files = [
-            f for f in _iter_py_files()
+            f for f in _iter_symbol_files()
             if _get_mtime(f) > marker_mtime
         ]
 
@@ -174,7 +255,7 @@ def _get_mtime(f: Path) -> float:
 
 def _newest_source_mtime() -> float:
     newest = 0.0
-    for f in _iter_py_files():
+    for f in _iter_symbol_files():
         try:
             newest = max(newest, f.stat().st_mtime)
         except OSError:

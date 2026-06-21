@@ -1,6 +1,6 @@
 # less_tokens
 
-**Cut Claude's token usage with drop-in strategies: semantic search over your codebase, enforced terse output, tool result truncation, proactive session compaction, and CLAUDE.md pruning.**
+**Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -11,17 +11,19 @@
 
 ## What it does
 
-Claude's token waste comes from several sources: reading entire files when only a few lines are relevant, verbose responses full of filler, tool results that dump thousands of characters into context, conversation history that compounds turn after turn, and an ever-growing CLAUDE.md that is loaded on every turn. `less_tokens` attacks all of them.
+Agent token waste comes from several sources: reading entire files when only a few lines are relevant, rereading files already in context, dumping recursive directory listings or test output, verbose responses full of filler, conversation history that compounds turn after turn, and ever-growing `CLAUDE.md` / `AGENTS.md` files that are loaded on every turn. `less_tokens` attacks all of them.
 
 | Strategy | How | Savings | Flag |
 |---|---|---|---|
-| **Vector search** | Pre-embeds your source files; Claude searches before reading | 5–10× fewer input tokens | always on |
-| **Caveman mode** | CLAUDE.md instruction that enforces terse, primitive output | 30–60% fewer output tokens | `--caveman` |
-| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch results | 40–80% fewer tool-output tokens | `--truncate` |
+| **Vector search + symbols** | Pre-embeds source files; exact `/def` lookup for Python and JS/TS symbols | 5–10× fewer input tokens | always on |
+| **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
+| **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars | always on |
+| **Caveman / terse mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens | `--caveman` |
+| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | `--truncate` |
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | `--compact` |
-| **CLAUDE.md pruning** | `/claudemd` skill audits and shrinks your CLAUDE.md to only always-loaded content | eliminates per-turn always-loaded tax | always on |
+| **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-All strategies are opt-in and independent — use any combination. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+Core search/read guards are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 ```
 Without less_tokens:           With less_tokens:
@@ -29,7 +31,7 @@ Read(large_file.py)            search.py "validate imports"
 → 5,000 tokens                 → 3 chunks × ~150 tokens = 450 tokens
 ```
 
-Files are chunked by structure (functions, headings, SQL statements), embedded locally using [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5), and stored in a local SQLite database. No data leaves your machine.
+Files are chunked by structure (functions, headings, SQL statements, JS/TS declarations), embedded locally using [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5), and stored in a local SQLite database. No data leaves your machine.
 
 ---
 
@@ -63,9 +65,11 @@ Claude artifacts land under `.claude/`; Codex support also installs a small `.le
 │   ├── hooks/               # shared hook support used by Codex adapters
 │   ├── bin/python           # venv-backed launcher for Codex commands
 │   ├── schema/
+│   ├── skills/less-tokens/  # fallback Codex skill path
 │   ├── state/
 │   └── tools/
 ├── .codex/hooks/            # Codex adapter hooks, when .codex is writable
+├── .codex/hooks.json        # Codex hook wiring, when .codex is writable
 ├── AGENTS.md                # Codex token-discipline block
 └── less_tokens/             # this clone — unchanged after install
 ```
@@ -77,7 +81,7 @@ cd ~/myproject/less_tokens && git pull
 python3 install.py --update                # safe re-copy of hooks + tools
 ```
 
-See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions.
+See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions. See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix.
 
 ---
 

@@ -51,6 +51,38 @@ def test_extract_line_ranges_are_1_based(tmp_path):
     assert s == 6 and e >= s  # def on line 6
 
 
+def test_extract_js_ts_symbols(tmp_path):
+    f = tmp_path / "component.ts"
+    f.write_text("""\
+export interface Props {
+  name: string
+}
+
+export type Mode = "a" | "b"
+
+export const Widget = () => {
+  return null
+}
+
+export class Store {
+}
+
+async function loadThing() {
+}
+
+enum Flavor {
+  One
+}
+""")
+    got = {(n, k) for n, k, _, _ in symbols.extract_symbols(f)}
+    assert ("Props", "interface") in got
+    assert ("Mode", "type") in got
+    assert ("Widget", "const") in got
+    assert ("Store", "class") in got
+    assert ("loadThing", "func") in got
+    assert ("Flavor", "enum") in got
+
+
 def test_syntax_error_returns_empty(tmp_path):
     f = tmp_path / "bad.py"
     f.write_text("def (:\n")
@@ -71,6 +103,23 @@ def test_refresh_and_lookup_roundtrip(tmp_path, monkeypatch):
     assert hits and hits[0]["source_path"].endswith("sample.py")
     assert symbols.has_symbol("TopClass") is True
     assert symbols.has_symbol("nope_nope") is False
+
+
+def test_refresh_and_lookup_js_ts_roundtrip(tmp_path, monkeypatch):
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    src = src_dir / "component.ts"
+    src.write_text("export const Widget = () => null\n")
+    monkeypatch.setattr(symbols, "_iter_py_files", lambda: iter(()))
+    monkeypatch.setattr(symbols, "_iter_js_files", lambda: iter([src]))
+    monkeypatch.setattr(symbols, "BASE", tmp_path)
+    monkeypatch.setattr(db, "INDEX_DB", tmp_path / "index.db")
+    monkeypatch.setattr(symbols, "_MARKER", tmp_path / "marker")
+
+    n = symbols.refresh(full=True)
+    assert n == 1
+    hits = symbols.lookup("Widget")
+    assert hits and hits[0]["source_path"] == "src/component.ts"
 
 
 def test_refresh_full_flag_skips_unchanged_files(tmp_path, monkeypatch):

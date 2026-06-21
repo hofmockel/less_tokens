@@ -22,6 +22,33 @@ def _cmds(tmp_path, **kwargs):
 
 
 class TestBuildClaudeHookEntries:
+    def test_core_hook_set_does_not_regress(self, tmp_path):
+        entries = _cmds(tmp_path)
+        commands = [cmd for _, _, cmd in entries]
+        assert len(entries) == 12
+        for name in [
+            "search-first.py",
+            "read-guard.py",
+            "auto-slice.py",
+            "grep-first-read.py",
+            "read-after-edit.py",
+            "context-cache.py",
+            "post-edit-diff.py",
+            "index-refresh.py",
+            "claudemd-budget.py",
+            "lean-output.py",
+            "listing-guard.py",
+        ]:
+            assert any(name in cmd for cmd in commands), f"{name} missing from Claude hooks"
+
+    def test_optional_hook_set_does_not_regress(self, tmp_path):
+        entries = _cmds(tmp_path, truncate=True, compact=True, caveman=True)
+        commands = [cmd for _, _, cmd in entries]
+        assert len(entries) == 15
+        assert any("truncate-output.py" in cmd for cmd in commands)
+        assert any("compact-trigger.py" in cmd for cmd in commands)
+        assert any("caveman-reminder.py" in cmd for cmd in commands)
+
     def test_claudemd_budget_wired_as_post_tool_use(self, tmp_path):
         entries = _cmds(tmp_path)
         hooks = [(ev, m) for ev, m, cmd in entries if "claudemd-budget.py" in cmd]

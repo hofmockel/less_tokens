@@ -687,8 +687,16 @@ def build_codex_hook_entries(
     py = launcher_cmd("codex", target_root)
     prefix = f"LESS_TOKENS_AGENT=codex {py}"
     entries: list[tuple[str, str, str]] = [
-        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-guard.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/auto-slice.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/grep-first-read.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-after-edit.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/context-cache.py"),
+        ("PreToolUse",  "Bash",                   f"{prefix} .codex/hooks/listing-guard.py"),
+        ("PostToolUse", "Bash",                   f"{prefix} .codex/hooks/lean-output.py"),
+        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/post-edit-diff.py"),
+        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
         ("PostToolUse", "Edit|Write",             f"{prefix} .codex/hooks/agentsmd-budget.py"),
     ]
     if getattr(args, "truncate", False):
@@ -1393,7 +1401,13 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         try:
             import sqlite3
             with sqlite3.connect(str(index_db)) as conn:
-                row = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()
+                tables = {
+                    r[0] for r in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                }
+                table = "documents" if "documents" in tables else "chunks"
+                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # noqa: S608
                 count = row[0] if row else 0
             if count > 0:
                 _pass(f"index.db present with {count} chunk(s)")
@@ -1432,6 +1446,76 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                 _fail(f"Could not parse .claude/{settings_name}: {exc}")
         else:
             _fail(f".claude/{settings_name} missing — re-run install.py")
+
+    if "codex" in agents:
+        codex_launcher = target_root / ".less_tokens" / "bin" / (
+            "python.exe" if sys.platform == "win32" else "python"
+        )
+        if codex_launcher.exists():
+            _pass(f".less_tokens/bin/python present: {codex_launcher}")
+        else:
+            _fail(".less_tokens/bin/python missing — re-run install.py --agent codex")
+
+        codex_config = target_root / ".less_tokens" / "tools" / "search_config.py"
+        if codex_config.exists():
+            try:
+                txt = codex_config.read_text(encoding="utf-8")
+                if "_STATE_AGENT_AWARE" in txt:
+                    _pass(".less_tokens/tools/search_config.py present and agent-aware")
+                else:
+                    _fail(".less_tokens/tools/search_config.py exists but is not agent-aware — re-run install.py --update")
+            except OSError as exc:
+                _fail(f"Could not read .less_tokens/tools/search_config.py: {exc}")
+        else:
+            _fail(".less_tokens/tools/search_config.py missing — re-run install.py --agent codex")
+
+        codex_hooks_dir = target_root / ".codex" / "hooks"
+        if codex_hooks_dir.is_dir():
+            scripts = list(codex_hooks_dir.glob("*.py"))
+            if scripts:
+                _pass(f".codex/hooks/ present ({len(scripts)} script(s))")
+            else:
+                _fail(".codex/hooks/ exists but contains no .py scripts")
+        else:
+            _fail(".codex/hooks/ missing — Codex hooks are advisory only")
+
+        hooks_json = target_root / ".codex" / "hooks.json"
+        if hooks_json.exists():
+            try:
+                import json as _json
+                data = _json.loads(hooks_json.read_text(encoding="utf-8"))
+                hooks = data.get("hooks", [])
+                if not isinstance(hooks, list):
+                    _fail(".codex/hooks.json has unexpected format")
+                else:
+                    expected = build_codex_hook_entries(venv_py or Path("python"), target_root, args)
+                    missing = [
+                        (ev, matcher, cmd)
+                        for ev, matcher, cmd in expected
+                        if not any(h.get("event") == ev and h.get("command") == cmd for h in hooks)
+                    ]
+                    if missing:
+                        names = ", ".join(Path(cmd.split()[-1]).name for _, _, cmd in missing[:5])
+                        _fail(f".codex/hooks.json missing {len(missing)} less_tokens hook(s): {names}")
+                    else:
+                        _pass(f".codex/hooks.json has all {len(expected)} expected less_tokens hook(s)")
+            except Exception as exc:
+                _fail(f"Could not parse .codex/hooks.json: {exc}")
+        else:
+            _fail(".codex/hooks.json missing — Codex hooks are not wired")
+
+        agents_md = target_root / "AGENTS.md"
+        if agents_md.exists():
+            try:
+                content = agents_md.read_text(encoding="utf-8")
+                if "<!-- less_tokens: begin -->" in content and "Token Discipline" in content:
+                    _pass("AGENTS.md contains managed less_tokens block")
+                else:
+                    _fail("AGENTS.md exists but lacks managed less_tokens block")
+            except OSError as exc:
+                _fail(f"Could not read AGENTS.md: {exc}")
+        else:
+            _fail("AGENTS.md missing — Codex guidance not installed")
 
     # --- smoke query ---
     if venv_py and venv_py.exists() and index_db.exists():
