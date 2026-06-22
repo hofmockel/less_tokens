@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .adapters import BudgetInput, normalize_budget_input
+from .advice import advice_for_mode, format_advice
 from .candidates import ContextCandidate
 from .config import BudgetConfig, load_budget_config
 from .decisions import BudgetDecision
@@ -18,8 +19,10 @@ __all__ = [
     "BudgetSignals",
     "ContextCandidate",
     "append_event",
+    "advice_for_mode",
     "build_budget_signals",
     "evaluate_budget_input",
+    "format_advice",
     "load_budget_config",
     "load_events",
     "normalize_budget_input",

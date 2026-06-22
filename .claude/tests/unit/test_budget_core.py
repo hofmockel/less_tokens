@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,6 +17,8 @@ from agents.common.budget import (  # noqa: E402
     score_candidates,
     select_candidates,
 )
+from agents.common.budget.advice import advice_for_mode, format_advice  # noqa: E402
+from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
 from agents.common.budget.estimator import estimate_tokens  # noqa: E402
@@ -141,3 +145,47 @@ def test_recent_edit_path_increases_relevance(tmp_path):
     scored = score_candidates([candidate], query="verify recent edit", signals=signals)[0]
     assert scored.relevance_score > 0
     assert "recent path" in scored.reason
+
+
+def test_advice_is_capped_and_mode_gated():
+    decision = BudgetDecision(
+        action="replace",
+        category="retrieved_context",
+        candidate_id="file:big.py",
+        estimated_tokens_before=5000,
+        estimated_tokens_after=100,
+        budget_limit=3000,
+        replacement="Read only " + ("specific lines " * 80),
+    )
+    assert advice_for_mode([decision], mode="observe") is None
+    advice = advice_for_mode([decision], mode="advise")
+    assert advice is not None
+    assert len(advice) <= 600
+    assert "saves ~4,900 tokens" in advice
+
+
+def test_budget_doctor_smoke(tmp_path):
+    cfg_dir = tmp_path / ".less_tokens" / "config"
+    state_dir = tmp_path / ".less_tokens" / "state"
+    cfg_dir.mkdir(parents=True)
+    state_dir.mkdir(parents=True)
+    (cfg_dir / "budget.json").write_text(json.dumps({"mode": "advise"}), encoding="utf-8")
+    (state_dir / "events.jsonl").write_text(json.dumps({
+        "version": 2,
+        "decision": "replace",
+        "category": "retrieved_context",
+        "budget_used_after": 1000,
+        "budget_limit": 2000,
+    }) + "\n", encoding="utf-8")
+    tool = Path(__file__).parent.parent.parent.parent / ".less_tokens" / "tools" / "budget_doctor.py"
+    result = subprocess.run(
+        [sys.executable, str(tool), "--limit", "5"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)},
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert "Mode: advise" in result.stdout
+    assert "retrieved_context: 50%" in result.stdout

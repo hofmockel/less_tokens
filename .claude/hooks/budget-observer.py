@@ -29,13 +29,20 @@ sys.path[:0] = [
 
 from budget_observer import observe_budget_payload  # noqa: E402
 
+try:
+    from agents.common.budget.advice import claude_hook_output  # noqa: E402
+except Exception:
+    from budget.advice import claude_hook_output  # type: ignore[no-redef]  # noqa: E402
+
 
 def main() -> int:
     try:
         raw = json.loads(sys.stdin.read() or "{}")
     except Exception:
         return 0
-    observe_budget_payload(raw, repo=REPO, agent="claude")
+    advice = observe_budget_payload(raw, repo=REPO, agent="claude")
+    if advice:
+        print(claude_hook_output(advice))
     return 0
 
 
