@@ -24,6 +24,7 @@ from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals, grep_cache_key  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
 from agents.common.budget.estimator import estimate_tokens  # noqa: E402
+from agents.common.budget.events import append_event, event_from_decision  # noqa: E402
 from agents.common.budget.summarizer import summarize_tool_output  # noqa: E402
 
 
@@ -94,6 +95,64 @@ def test_evaluate_budget_input_writes_v2_event(tmp_path):
     assert events[0]["version"] == 2
     assert events[0]["agent"] == "claude"
     assert events[0]["phase"] == "pre_read"
+
+
+def test_event_append_writes_when_lock_fails(tmp_path, monkeypatch):
+    decision = BudgetDecision(
+        action="allow",
+        category="retrieved_context",
+        candidate_id="file:ok.py",
+        estimated_tokens_before=10,
+        estimated_tokens_after=10,
+        budget_limit=100,
+    )
+
+    from agents.common.budget import events as budget_events
+
+    def fail_lock(*_args):
+        raise OSError("lock unavailable")
+
+    monkeypatch.setattr(budget_events.os, "lockf", fail_lock, raising=False)
+    append_event(tmp_path, event_from_decision(
+        decision,
+        agent="claude",
+        session_id="s1",
+        run_id="r1",
+        phase="pre_read",
+        tool_name="Read",
+        mode="observe",
+    ))
+
+    events = load_events(tmp_path)
+    assert len(events) == 1
+    assert events[0]["candidate_id"] == "file:ok.py"
+
+
+def test_budget_engine_failure_logs_event_and_fails_open(tmp_path, monkeypatch):
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(tmp_path / "README.md")},
+        "session_id": "s1",
+        "run_id": "r1",
+    }
+    (tmp_path / "README.md").write_text("# hello\n", encoding="utf-8")
+    budget_input = normalize_budget_input(payload, agent="claude")
+
+    from agents.common.budget import policy as budget_policy
+
+    def fail_score(*_args, **_kwargs):
+        raise RuntimeError("score exploded")
+
+    monkeypatch.setattr(budget_policy, "score_candidates", fail_score)
+    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+
+    assert decisions == []
+    events = load_events(tmp_path)
+    assert len(events) == 1
+    assert events[0]["candidate_id"] == "error:budget"
+    assert events[0]["decision"] == "allow"
+    assert "score exploded" in str(events[0]["error"])
 
 
 def test_search_range_boosts_file_and_produces_exact_replacement(tmp_path):

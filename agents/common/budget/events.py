@@ -84,16 +84,27 @@ def events_path(root: Path) -> Path:
 
 def append_event(root: Path, event: BudgetEvent) -> None:
     path = events_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(asdict(event), sort_keys=True) + "\n"
-    with path.open("a", encoding="utf-8") as f:
-        try:
-            if hasattr(os, "lockf"):
-                os.lockf(f.fileno(), os.F_LOCK, 0)
-            f.write(line)
-        finally:
-            if hasattr(os, "lockf"):
-                os.lockf(f.fileno(), os.F_ULOCK, 0)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            locked = False
+            try:
+                if hasattr(os, "lockf"):
+                    os.lockf(f.fileno(), os.F_LOCK, 0)
+                    locked = True
+            except OSError:
+                locked = False
+            try:
+                f.write(line)
+            finally:
+                if locked and hasattr(os, "lockf"):
+                    try:
+                        os.lockf(f.fileno(), os.F_ULOCK, 0)
+                    except OSError:
+                        pass
+    except OSError:
+        pass
 
 
 def append_failure_event(
