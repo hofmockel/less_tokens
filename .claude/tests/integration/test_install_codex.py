@@ -181,8 +181,9 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 11
+        assert len(entries) == 13
         assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
+        assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)
         assert any("read-guard.py" in cmd for cmd in commands)
         assert any("auto-slice.py" in cmd for cmd in commands)

@@ -25,8 +25,9 @@ class TestBuildClaudeHookEntries:
     def test_core_hook_set_does_not_regress(self, tmp_path):
         entries = _cmds(tmp_path)
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 12
+        assert len(entries) == 14
         for name in [
+            "budget-observer.py",
             "search-first.py",
             "read-guard.py",
             "auto-slice.py",
@@ -44,7 +45,7 @@ class TestBuildClaudeHookEntries:
     def test_optional_hook_set_does_not_regress(self, tmp_path):
         entries = _cmds(tmp_path, truncate=True, compact=True, caveman=True)
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 15
+        assert len(entries) == 17
         assert any("truncate-output.py" in cmd for cmd in commands)
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("caveman-reminder.py" in cmd for cmd in commands)

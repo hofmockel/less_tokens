@@ -738,6 +738,8 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
     """
     py = launcher_cmd("claude", target_root)
     entries: list[tuple[str, str, str]] = [
+        ("PreToolUse",  "Read|Grep|Glob|Bash", f"{py} .claude/hooks/budget-observer.py"),
+        ("PostToolUse", "Read|Bash|Edit|Write", f"{py} .claude/hooks/budget-observer.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Grep",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),
@@ -774,6 +776,8 @@ def build_codex_hook_entries(
     py = launcher_cmd("codex", target_root)
     prefix = f"LESS_TOKENS_AGENT=codex {py}"
     entries: list[tuple[str, str, str]] = [
+        ("PreToolUse",  "mcp__filesystem__.*|Bash", f"{prefix} .codex/hooks/budget-observer.py"),
+        ("PostToolUse", "Bash|mcp__filesystem__.*|apply_patch|Edit|Write", f"{prefix} .codex/hooks/budget-observer.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-guard.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/auto-slice.py"),
@@ -1126,6 +1130,9 @@ def _install_specs(
     if agents is None:
         agents = {"claude"}
     specs: list[tuple[str, str, frozenset[str]]] = [
+        (".less_tokens/config", ".less_tokens/config", frozenset()),
+        (".less_tokens/tools", ".less_tokens/tools", frozenset()),
+        ("agents/common/budget", ".less_tokens/hooks/budget", frozenset()),
         (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
         (".claude/schema", ".claude/schema", frozenset()),
         (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset()),
@@ -1833,6 +1840,12 @@ def main() -> int:
     # Step 2: Copy files
     # ------------------------------------------------------------------
     print(f"\n{tag}[2/5] Copying files...")
+    changes += copy_tree(SOURCE / ".less_tokens" / "config", target_root / ".less_tokens" / "config",
+              target_root, force_tools, overwrite_modified, ".less_tokens/config/", dry_run=dry)
+    changes += copy_tree(SOURCE / ".less_tokens" / "tools", target_root / ".less_tokens" / "tools",
+              target_root, force_tools, overwrite_modified, ".less_tokens/tools/", dry_run=dry)
+    changes += copy_tree(SOURCE / "agents" / "common" / "budget", target_root / ".less_tokens" / "hooks" / "budget",
+              target_root, force_tools, overwrite_modified, ".less_tokens/hooks/budget/", dry_run=dry)
     changes += copy_tree(SOURCE / ".claude" / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
               ".claude/tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     if args.update and (target_root / ".claude" / "tools" / "search_config.py").exists():

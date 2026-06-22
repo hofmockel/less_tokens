@@ -23,7 +23,7 @@ def _resolve_repo() -> Path:
 
 REPO = _resolve_repo()
 TOOLS = REPO / ".less_tokens" / "tools"
-if not TOOLS.exists():
+if not (TOOLS / "parse.py").exists():
     TOOLS = REPO / ".claude" / "tools"
 
 

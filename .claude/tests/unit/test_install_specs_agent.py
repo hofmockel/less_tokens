@@ -29,20 +29,22 @@ class TestInstallSpecsAgentSelector:
         dest_dirs = [s[1] for s in specs]
         assert ".claude/hooks" in dest_dirs
 
-    def test_claude_only_no_less_tokens_entries(self):
+    def test_claude_only_includes_shared_control_plane(self):
         specs = _install_specs(caveman=False, agents={"claude"})
         dest_dirs = [s[1] for s in specs]
-        assert not any(".less_tokens" in d for d in dest_dirs)
+        assert ".less_tokens/config" in dest_dirs
+        assert ".less_tokens/tools" in dest_dirs
+        assert ".less_tokens/hooks/budget" in dest_dirs
 
     def test_codex_only_no_claude_hooks(self):
         specs = _install_specs(caveman=False, agents={"codex"})
         dest_dirs = [s[1] for s in specs]
         assert ".claude/hooks" not in dest_dirs
 
-    def test_codex_only_does_not_copy_less_tokens_tools(self):
+    def test_codex_only_includes_shared_tools(self):
         specs = _install_specs(caveman=False, agents={"codex"})
         dest_dirs = [s[1] for s in specs]
-        assert not any(".less_tokens/tools" in d for d in dest_dirs)
+        assert ".less_tokens/tools" in dest_dirs
 
     def test_codex_only_includes_less_tokens_schema(self):
         specs = _install_specs(caveman=False, agents={"codex"})
