@@ -1213,6 +1213,37 @@ def _deployed_targets(source: Path, target_root: Path, caveman: bool, agents: se
     return out
 
 
+_SHARED_CONTROL_PLANE_PREFIXES = (
+    ".less_tokens/config/",
+    ".less_tokens/tools/",
+    ".less_tokens/hooks/budget/",
+)
+
+
+def _is_shared_control_plane_target(path: Path, target_root: Path) -> bool:
+    try:
+        rel = path.relative_to(target_root).as_posix()
+    except ValueError:
+        return False
+    return any(rel.startswith(prefix) for prefix in _SHARED_CONTROL_PLANE_PREFIXES)
+
+
+def _other_agent_still_installed(target_root: Path, agents: set[str]) -> bool:
+    if agents == {"claude"}:
+        return (
+            (target_root / ".codex" / "hooks.json").exists()
+            or (target_root / "AGENTS.md").exists()
+            or (target_root / ".less_tokens" / "skills").exists()
+        )
+    if agents == {"codex"}:
+        return (
+            (target_root / ".claude" / "settings.json").exists()
+            or (target_root / ".claude" / "settings.local.json").exists()
+            or (target_root / ".claude" / "hooks").exists()
+        )
+    return False
+
+
 # ---------------------------------------------------------------------------
 # .gitignore management (keep generated artifacts out of the host repo)
 # ---------------------------------------------------------------------------
@@ -1389,7 +1420,12 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     print(f"Source: {SOURCE}\n")
 
     removed = 0
+    preserve_shared = _other_agent_still_installed(target_root, agents)
     for f in _deployed_targets(SOURCE, target_root, caveman=True, agents=agents):
+        if preserve_shared and _is_shared_control_plane_target(f, target_root):
+            if f.exists():
+                print(f"  · {f.relative_to(target_root)} preserved (shared with remaining agent)")
+            continue
         if f.exists():
             print(f"  {'would remove' if dry else '-'} {f.relative_to(target_root)}")
             if not dry:
@@ -1411,10 +1447,15 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
 
     # Prune now-empty directories we created.
     prune_dirs = [".claude/skills/claudemd", ".claude/skills", ".claude/bin"]
+    if not preserve_shared:
+        prune_dirs += [
+            ".less_tokens/hooks/budget", ".less_tokens/config", ".less_tokens/tools",
+            ".less_tokens/hooks", ".less_tokens",
+        ]
     if "claude" in agents:
         prune_dirs += [".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"]
     if "codex" in agents:
-        prune_dirs += [".codex/hooks", ".codex", ".less_tokens/tools",
+        prune_dirs += [".codex/hooks", ".codex",
                        ".less_tokens/schema", ".less_tokens/hooks",
                        ".less_tokens/bin",
                        ".less_tokens/skills/less-tokens",
@@ -1532,6 +1573,33 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             _fail(".claude/hooks/ exists but contains no .py scripts")
     else:
         _fail(".claude/hooks/ missing — install not complete")
+
+    # --- shared budget control plane ---
+    budget_config = target_root / ".less_tokens" / "config" / "budget.json"
+    if budget_config.exists():
+        try:
+            data = json.loads(budget_config.read_text(encoding="utf-8"))
+            if data.get("version") == 2 and "categories" in data:
+                _pass(".less_tokens/config/budget.json present (v2)")
+            else:
+                _fail(".less_tokens/config/budget.json has unexpected format")
+        except Exception as exc:
+            _fail(f"Could not parse .less_tokens/config/budget.json: {exc}")
+    else:
+        _fail(".less_tokens/config/budget.json missing — budget control plane incomplete")
+
+    budget_pkg = target_root / ".less_tokens" / "hooks" / "budget" / "__init__.py"
+    if budget_pkg.exists():
+        _pass(".less_tokens/hooks/budget package present")
+    else:
+        _fail(".less_tokens/hooks/budget package missing — re-run install.py --update")
+
+    for tool_name in ("budget_report.py", "budget_doctor.py"):
+        tool_path = target_root / ".less_tokens" / "tools" / tool_name
+        if tool_path.exists():
+            _pass(f".less_tokens/tools/{tool_name} present")
+        else:
+            _fail(f".less_tokens/tools/{tool_name} missing — re-run install.py --update")
 
     # --- settings wiring ---
     if "claude" in agents:

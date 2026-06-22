@@ -45,6 +45,22 @@ def _minimal_install(tmp_path: Path, venv_py: Path | None = None) -> Path:
         "hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "python hook.py"}]}]}
     }))
 
+    budget_config = tmp_path / ".less_tokens" / "config"
+    budget_config.mkdir(parents=True)
+    (budget_config / "budget.json").write_text(json.dumps({
+        "version": 2,
+        "categories": {"session_summary": 3000},
+    }))
+
+    budget_pkg = tmp_path / ".less_tokens" / "hooks" / "budget"
+    budget_pkg.mkdir(parents=True)
+    (budget_pkg / "__init__.py").write_text("")
+
+    budget_tools = tmp_path / ".less_tokens" / "tools"
+    budget_tools.mkdir(parents=True)
+    (budget_tools / "budget_report.py").write_text("#!/usr/bin/env python3\n")
+    (budget_tools / "budget_doctor.py").write_text("#!/usr/bin/env python3\n")
+
     return tmp_path
 
 
@@ -57,7 +73,7 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     launcher.write_text("#!/bin/sh\n")
 
     codex_tools = root / ".less_tokens" / "tools"
-    codex_tools.mkdir(parents=True)
+    codex_tools.mkdir(parents=True, exist_ok=True)
     (codex_tools / "search_config.py").write_text(f"{_CODEX_TOOL_SHIM_MARKER}\n")
 
     codex_hooks = root / ".codex" / "hooks"
@@ -99,6 +115,36 @@ class TestDoCheckAllPass:
         assert "[✗]" not in out
         assert ".codex/hooks.json has all" in out
         assert "AGENTS.md contains managed less_tokens block" in out
+        assert ".less_tokens/config/budget.json present" in out
+
+
+class TestDoCheckBudgetControlPlane:
+    def test_fails_when_budget_config_absent(self, tmp_path, capsys):
+        root = _minimal_install(tmp_path)
+        (root / ".less_tokens" / "config" / "budget.json").unlink()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args())
+        assert rc == 1
+        assert "budget.json missing" in capsys.readouterr().out
+
+    def test_fails_when_budget_package_absent(self, tmp_path, capsys):
+        root = _minimal_install(tmp_path)
+        (root / ".less_tokens" / "hooks" / "budget" / "__init__.py").unlink()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args())
+        assert rc == 1
+        assert "budget package missing" in capsys.readouterr().out
+
+    def test_fails_when_budget_doctor_absent(self, tmp_path, capsys):
+        root = _minimal_install(tmp_path)
+        (root / ".less_tokens" / "tools" / "budget_doctor.py").unlink()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args())
+        assert rc == 1
+        assert "budget_doctor.py missing" in capsys.readouterr().out
 
 
 class TestDoCheckVenvMissing:
