@@ -184,6 +184,33 @@ def test_enforce_mode_blocks_actionable_decision():
     assert outcome.message and "Read a targeted slice" in outcome.message
 
 
+def test_budget_modes_progress_from_observe_to_strict():
+    decision = BudgetDecision(
+        action="replace",
+        category="retrieved_context",
+        candidate_id="file:huge.py",
+        estimated_tokens_before=6000,
+        estimated_tokens_after=200,
+        budget_limit=3000,
+        replacement="Read only the relevant lines from huge.py.",
+    )
+
+    observe = outcome_for_mode([decision], mode="observe")
+    advise = outcome_for_mode([decision], mode="advise")
+    enforce = outcome_for_mode([decision], mode="enforce")
+    strict = outcome_for_mode([decision], mode="strict")
+
+    assert observe.exit_code == 0
+    assert observe.message is None
+    assert advise.exit_code == 0
+    assert advise.stream == "stdout"
+    assert advise.message and "less_tokens budget" in advise.message
+    assert enforce.exit_code == 2
+    assert enforce.stream == "stderr"
+    assert strict.exit_code == 2
+    assert strict.message == enforce.message
+
+
 def test_budget_doctor_smoke(tmp_path):
     cfg_dir = tmp_path / ".less_tokens" / "config"
     state_dir = tmp_path / ".less_tokens" / "state"

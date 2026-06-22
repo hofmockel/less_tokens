@@ -53,7 +53,7 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 
 ## Codex support
 
-`--agent codex` (or `--agent both`) installs a Codex-facing runtime under `.less_tokens/` and adapter hooks under `.codex/hooks/` when that directory is writable. The underlying index remains the shared project index at `.claude/index.db`, so Claude and Codex can search the same local corpus without maintaining two databases.
+`--agent codex` (or `--agent both`) installs Codex adapter hooks under `.codex/hooks/` when that directory is writable. `.less_tokens/` is the shared product runtime: it holds the budget control-plane config, budget engine, telemetry state, report tools, and Codex command shims. The underlying index remains the shared project index at `.claude/index.db`, so Claude and Codex can search the same local corpus without maintaining two databases.
 
 ```bash
 python3 less_tokens/install.py --agent codex
@@ -64,11 +64,15 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 | Path | Purpose |
 |---|---|
+| `.less_tokens/config/budget.json` | Shared budget-control config for Claude and Codex |
+| `.less_tokens/hooks/budget/` | Shared budget engine used by both agent adapters |
 | `.less_tokens/tools/` | Codex command shims that run the single `.claude/tools/` implementation |
+| `.less_tokens/tools/budget_report.py` | v2 budget telemetry report |
+| `.less_tokens/tools/budget_doctor.py` | config and recent-pressure diagnosis |
 | `.less_tokens/bin/python` | Venv-backed Python launcher for Codex commands |
 | `.less_tokens/schema/` | SQLite schema |
 | `.less_tokens/hooks/` | Shared hook support imported by Codex adapters |
-| `.less_tokens/state/` | Runtime state (separate from Claude's `.claude/state/`) |
+| `.less_tokens/state/` | Shared budget telemetry plus Codex runtime state |
 | `.codex/hooks/` | Codex adapter hooks (wired to `.codex/hooks.json` when writable) |
 | `AGENTS.md` | Token-discipline fragment appended via HTML comment sentinels |
 | `.less_tokens/skills/less-tokens/` | Fallback skill path when `.codex/` is not writable |
@@ -95,7 +99,7 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
-- Codex state lives in `.less_tokens/state/`; Claude state in `.claude/state/`. The two runtime state directories are independent, while the vector index is shared at `.claude/index.db`.
+- Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
 - Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 
 See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix, including which strategies are wired by default and which remain optional.
@@ -112,7 +116,7 @@ The harness is deterministic and fixture-based; it is useful for trend tracking,
 
 ## Configuration
 
-**Edit one config file:** `.claude/tools/search_config.py`. Codex commands under `.less_tokens/tools/` are compatibility shims that import and run the same `.claude/tools/` code, so `.less_tokens/tools/search_config.py` is not a separate source of truth.
+Search and indexing are configured in `.claude/tools/search_config.py`. Budget behavior is configured separately in `.less_tokens/config/budget.json`. Codex commands under `.less_tokens/tools/` are compatibility shims that import and run the same `.claude/tools/` search code, so `.less_tokens/tools/search_config.py` is not a separate source of truth.
 
 The installer prints the exact line to paste in. At minimum, set your venv path and the source directories to index:
 
@@ -141,6 +145,37 @@ All variables:
 | `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `.claude/bin/python .claude/tools/stats.py --enable`) |
 
 `INDEXED_SOURCE_DIRS` also feeds JS/TS indexing for `.js`, `.jsx`, `.ts`, and `.tsx` files.
+
+### Budget control plane
+
+The budget control plane scores proposed context before it enters the agent transcript. It can replace broad reads with targeted slices, summarize oversized tool output, defer low-value context, block repeated reads/searches, and trigger pressure-based compaction snapshots.
+
+Configure it in `.less_tokens/config/budget.json`:
+
+| Mode | Behavior |
+|---|---|
+| `observe` | Record v2 telemetry only; never changes hook behavior |
+| `advise` | Record telemetry and print concise suggestions |
+| `enforce` | Block actionable waste when a replacement or bypass path exists |
+| `strict` | Enforce plus block oversized unscored context |
+
+The default mode is `observe`. Events are appended to `.less_tokens/state/events.jsonl`; compact per-agent session snapshots are written beside it, such as `.less_tokens/state/claude-session.json` and `.less_tokens/state/codex-session.json`.
+
+Inspect budget behavior with:
+
+```bash
+.claude/bin/python .less_tokens/tools/budget_report.py
+.claude/bin/python .less_tokens/tools/budget_doctor.py
+```
+
+For Codex-only installs, the same tools can be run through the Codex launcher:
+
+```bash
+.less_tokens/bin/python .less_tokens/tools/budget_report.py
+.less_tokens/bin/python .less_tokens/tools/budget_doctor.py
+```
+
+Use the escape hatch only when the agent truly needs the broad context: set `less_tokens_bypass: true`, set `tool_input.less_tokens_bypass: true`, or include `less_tokens: allow` / `less_tokens: bypass` in string input.
 
 ---
 
@@ -370,12 +405,14 @@ less_tokens/
 │   ├── schema/                # index.sql schema
 │   ├── state/                 # runtime state (last-search, logs)
 │   └── tools/                 # search_config.py, embeddings.py, search.py, …
-├── .less_tokens/              # Codex runtime when --agent codex|both
+├── .less_tokens/              # shared budget control plane + Codex runtime
 │   ├── bin/python             # venv-backed launcher for Codex commands
+│   ├── config/budget.json     # observe/advise/enforce/strict budget config
+│   ├── hooks/budget/          # shared budget engine
 │   ├── hooks/                 # shared hook support for Codex adapters
 │   ├── schema/
-│   ├── state/
-│   └── tools/                 # compatibility shims into .claude/tools/
+│   ├── state/                 # events.jsonl and per-agent session state
+│   └── tools/                 # budget tools plus compatibility shims
 ├── .codex/hooks/              # Codex adapters when .codex is writable
 ├── AGENTS.md                  # Codex token-discipline block
 └── less_tokens/               # the clone; not touched after install
@@ -486,6 +523,13 @@ agents/
 - `.claude/tools/symbols.py` — exact symbol index for Python and JS/TS; `symbols.py <name>` (and the `/def` command) returns a definition's exact `file:line` + a `Read(offset,limit)`, no grep dump. Self-creating `symbols` table; refreshes when sources change
 - `.less_tokens/tools/*.py` — generated Codex compatibility shims; these keep existing Codex command paths working while `.claude/tools/` remains the single implementation and config source.
 - `.claude/schema/index.sql` — `documents` table with `(source_path, source_key)` unique constraint; `embedding_model` column exists per row for planned multi-model support
+
+**Budget control plane (`.less_tokens/`)**
+- `.less_tokens/config/budget.json` — mode, total context budget, category limits, hard caps, and per-agent overrides
+- `.less_tokens/hooks/budget/` — shared budget package: candidate normalization, relevance scoring, selection, advice/enforcement outcomes, compaction snapshots, and event logging
+- `.less_tokens/state/events.jsonl` — v2 telemetry for considered, selected, rejected, transformed, and compacted context
+- `.less_tokens/tools/budget_report.py` — savings, omissions, transformations, quality-risk, and compaction report
+- `.less_tokens/tools/budget_doctor.py` — current config and recent pressure diagnosis
 
 **Claude Code hook layer (`.claude/hooks/`)**
 - All hooks read a JSON payload from stdin and exit `0` (pass) or `2` (block/replace)

@@ -1,6 +1,6 @@
 # less_tokens
 
-**Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
+**Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, a budget-native context control plane, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -15,6 +15,7 @@ Agent token waste comes from several sources: reading entire files when only a f
 
 | Strategy | How | Savings | Flag |
 |---|---|---|---|
+| **Budget control plane** | Scores, replaces, defers, or blocks context before it enters the agent transcript; writes v2 telemetry and reports | avoids irrelevant context before it is paid for | always on |
 | **Vector search + symbols** | Pre-embeds source files; exact `/def` lookup for Python and JS/TS symbols | 5–10× fewer input tokens | always on |
 | **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
 | **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars | always on |
@@ -23,7 +24,7 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | `--compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-Core search/read guards are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+Core search/read guards and the budget control plane are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 ```
 Without less_tokens:           With less_tokens:
@@ -47,7 +48,7 @@ python3 less_tokens/install.py --agent codex   # Codex
 python3 less_tokens/install.py --agent both    # both simultaneously
 ```
 
-Claude artifacts land under `.claude/`; Codex support also installs a small `.less_tokens/` runtime plus `AGENTS.md` guidance:
+Claude artifacts land under `.claude/`; the shared budget control plane lands under `.less_tokens/`; Codex support also installs adapter hooks plus `AGENTS.md` guidance:
 
 ```
 ~/myproject/
@@ -61,13 +62,15 @@ Claude artifacts land under `.claude/`; Codex support also installs a small `.le
 │   ├── skills/claudemd/     # /claudemd CLAUDE.md pruning skill
 │   ├── state/               # runtime state (last-search, savings log, …)
 │   └── tools/               # search.py, embeddings.py, db.py, stats.py, …
-├── .less_tokens/            # Codex shims/hooks/state when --agent codex|both
+├── .less_tokens/            # shared budget control plane + Codex runtime
+│   ├── config/budget.json   # observe, advise, enforce, or strict mode
+│   ├── hooks/budget/        # shared budget engine used by both agents
 │   ├── hooks/               # shared hook support used by Codex adapters
 │   ├── bin/python           # venv-backed launcher for Codex commands
 │   ├── schema/
 │   ├── skills/less-tokens/  # fallback Codex skill path
-│   ├── state/
-│   └── tools/               # shims into .claude/tools/
+│   ├── state/               # events.jsonl plus per-agent session state
+│   └── tools/               # budget_report.py, budget_doctor.py, Codex shims
 ├── .codex/hooks/            # Codex adapter hooks, when .codex is writable
 ├── .codex/hooks.json        # Codex hook wiring, when .codex is writable
 ├── AGENTS.md                # Codex token-discipline block
@@ -82,6 +85,13 @@ python3 install.py --update                # safe re-copy of hooks + tools
 ```
 
 See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions. See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix.
+
+Budget behavior is controlled by `.less_tokens/config/budget.json`. Modes are `observe` (record only), `advise` (print concise suggestions), `enforce` (block actionable waste with a replacement or bypass), and `strict` (also blocks oversized unscored context). Inspect recent decisions with:
+
+```bash
+.claude/bin/python .less_tokens/tools/budget_report.py
+.claude/bin/python .less_tokens/tools/budget_doctor.py
+```
 
 ---
 
