@@ -7,14 +7,23 @@ from pathlib import Path
 from .candidates import ContextCandidate
 from .config import BudgetConfig
 from .decisions import BudgetDecision
+from .signals import BudgetSignals, first_search_range, path_matches
 
 
 def _tokens(text: str) -> set[str]:
     return {t.lower() for t in re.findall(r"[A-Za-z0-9_./-]+", text) if len(t) > 2}
 
 
-def score_candidate(candidate: ContextCandidate, *, query: str = "", recent_paths: set[str] | None = None) -> ContextCandidate:
+def score_candidate(
+    candidate: ContextCandidate,
+    *,
+    query: str = "",
+    recent_paths: set[str] | None = None,
+    signals: BudgetSignals | None = None,
+) -> ContextCandidate:
     recent_paths = recent_paths or set()
+    if signals:
+        recent_paths = recent_paths | signals.recent_paths
     haystack = " ".join(
         str(part)
         for part in (candidate.path, candidate.candidate_id, candidate.text[:4000])
@@ -31,8 +40,13 @@ def score_candidate(candidate: ContextCandidate, *, query: str = "", recent_path
         explicit = 1.0
     elif candidate.path and Path(candidate.path).name in query:
         explicit = 0.75
+    if signals and path_matches(candidate.path, signals.explicit_references):
+        explicit = max(explicit, 1.0)
+    search_span = first_search_range(candidate.path, signals) if signals else None
+    if search_span:
+        explicit = max(explicit, 0.75)
 
-    recency = 1.0 if candidate.path and candidate.path in recent_paths else 0.0
+    recency = 1.0 if candidate.path and path_matches(candidate.path, recent_paths) else 0.0
     structural = 0.0
     if candidate.path:
         name = Path(candidate.path).name
@@ -42,7 +56,11 @@ def score_candidate(candidate: ContextCandidate, *, query: str = "", recent_path
             structural = 0.65
 
     failure = 1.0 if re.search(r"(Traceback|AssertionError|failed|error:)", candidate.text, re.I) else 0.0
+    if signals and (path_matches(candidate.path, signals.stack_trace_paths) or path_matches(candidate.path, signals.failure_paths)):
+        failure = 1.0
     semantic = float(candidate.metadata.get("semantic_similarity", 0.0) or 0.0)
+    if search_span:
+        semantic = max(semantic, 0.85)
 
     score = (
         explicit * 0.25
@@ -59,6 +77,8 @@ def score_candidate(candidate: ContextCandidate, *, query: str = "", recent_path
         reasons.append("lexical match")
     if recency:
         reasons.append("recent path")
+    if semantic:
+        reasons.append("search hit")
     if structural:
         reasons.append("structural file")
     if failure:
@@ -72,11 +92,16 @@ def score_candidates(
     *,
     query: str = "",
     recent_paths: set[str] | None = None,
+    signals: BudgetSignals | None = None,
 ) -> list[ContextCandidate]:
-    return [score_candidate(c, query=query, recent_paths=recent_paths) for c in candidates]
+    return [score_candidate(c, query=query, recent_paths=recent_paths, signals=signals) for c in candidates]
 
 
-def _replacement_for(candidate: ContextCandidate, config: BudgetConfig) -> str | None:
+def _replacement_for(candidate: ContextCandidate, config: BudgetConfig, signals: BudgetSignals | None = None) -> str | None:
+    span = first_search_range(candidate.path, signals) if signals else None
+    if span and candidate.path:
+        limit = max(1, span.end - span.start + 1)
+        return f"Read only lines {span.start}-{span.end} from {candidate.path} with offset {span.start} and limit {limit}."
     if candidate.candidate_type == "file" and candidate.path:
         limit = max(40, min(200, int(config.hard_caps.get("full_file_read", 3000) / 12)))
         return f"Read a targeted slice from {candidate.path} with limit {limit}."
@@ -87,7 +112,7 @@ def _replacement_for(candidate: ContextCandidate, config: BudgetConfig) -> str |
     return candidate.replacement
 
 
-def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig) -> list[BudgetDecision]:
+def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, *, signals: BudgetSignals | None = None) -> list[BudgetDecision]:
     scored = sorted(
         (c.with_estimate() for c in candidates),
         key=lambda c: (c.relevance_score / max(c.estimated_tokens, 1), c.relevance_score),
@@ -102,7 +127,7 @@ def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig) 
             "single_tool_output" if candidate.candidate_type == "tool_output" else "full_file_read",
             category_limit,
         )
-        replacement = _replacement_for(candidate, config)
+        replacement = _replacement_for(candidate, config, signals)
 
         if candidate.relevance_score < config.relevance_threshold:
             action = "defer" if config.mode in {"observe", "advise"} else "block"

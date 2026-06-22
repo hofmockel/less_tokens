@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .candidates import ContextCandidate
 from .estimator import estimate_size_tokens, estimate_tokens
+from .signals import extract_failure_paths, extract_path_references
 
 
 @dataclass(frozen=True)
@@ -65,53 +66,67 @@ def _run_id(payload: dict) -> str:
     return str(payload.get("run_id") or os.environ.get("LESS_TOKENS_RUN_ID") or uuid.uuid4().hex[:12])
 
 
-def _candidate_from_payload(payload: dict, *, phase: str, tool_name: str) -> ContextCandidate | None:
+def _path_candidate(path: str, *, candidate_type: str = "file_ref", text: str = "") -> ContextCandidate:
+    return ContextCandidate(
+        candidate_id=f"{candidate_type}:{path}",
+        category="retrieved_context",
+        candidate_type=candidate_type,
+        path=path,
+        text=text,
+    )
+
+
+def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> list[ContextCandidate]:
     inp = _payload_tool_input(payload)
     output = _payload_output(payload)
     if phase == "pre_read":
         file_path = str(inp.get("file_path") or inp.get("path") or "")
         if not file_path:
-            return None
+            return []
         p = Path(file_path)
         size = 0
         try:
             size = p.stat().st_size
         except OSError:
             pass
-        return ContextCandidate(
+        return [ContextCandidate(
             candidate_id=f"file:{file_path}",
             category="retrieved_context",
             candidate_type="file",
             path=file_path,
             estimated_tokens=estimate_size_tokens(size),
             metadata={"size_chars": size, "offset": inp.get("offset"), "limit": inp.get("limit")},
-        )
+        )]
     if phase == "pre_search":
         pattern = str(inp.get("pattern") or inp.get("query") or inp.get("path") or "")
-        return ContextCandidate(
+        return [ContextCandidate(
             candidate_id=f"search:{tool_name}:{pattern}",
             category="retrieved_context",
             candidate_type="search",
             text=pattern,
             estimated_tokens=estimate_tokens(pattern),
-        )
+        )]
     if phase == "post_edit":
         path = str(inp.get("file_path") or inp.get("path") or "")
-        return ContextCandidate(
+        return [ContextCandidate(
             candidate_id=f"diff:{path or tool_name}",
             category="diffs",
             candidate_type="diff",
             text=output,
-        )
+            path=path or None,
+        )]
     if output:
-        return ContextCandidate(
+        candidates = [ContextCandidate(
             candidate_id=f"tool_output:{tool_name}",
             category="tool_output",
             candidate_type="tool_output",
             text=output,
             content_type="logs",
-        )
-    return None
+        )]
+        for path in sorted(extract_failure_paths(output) or extract_path_references(output)):
+            candidates.append(_path_candidate(path, text=output[:1200]))
+        return candidates
+    return []
 
 
 def normalize_budget_input(payload: dict, *, agent: str | None = None) -> BudgetInput:
@@ -120,7 +135,7 @@ def normalize_budget_input(payload: dict, *, agent: str | None = None) -> Budget
     phase = _phase(payload)
     inp = _payload_tool_input(payload)
     query = " ".join(str(v) for v in inp.values() if isinstance(v, (str, int, float)))
-    candidate = _candidate_from_payload(payload, phase=phase, tool_name=tool_name)
+    candidates = _candidates_from_payload(payload, phase=phase, tool_name=tool_name)
     return BudgetInput(
         agent=resolved_agent,
         phase=phase,
@@ -128,5 +143,5 @@ def normalize_budget_input(payload: dict, *, agent: str | None = None) -> Budget
         session_id=_session_id(payload),
         run_id=_run_id(payload),
         query=query,
-        candidates=[candidate] if candidate else [],
+        candidates=candidates,
     )

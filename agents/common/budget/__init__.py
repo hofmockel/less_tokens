@@ -8,14 +8,17 @@ from .decisions import BudgetDecision
 from .events import BudgetEvent, append_event, load_events
 from .gate import score_candidates, select_candidates
 from .policy import evaluate_budget_input
+from .signals import BudgetSignals, build_budget_signals
 
 __all__ = [
     "BudgetConfig",
     "BudgetDecision",
     "BudgetEvent",
     "BudgetInput",
+    "BudgetSignals",
     "ContextCandidate",
     "append_event",
+    "build_budget_signals",
     "evaluate_budget_input",
     "load_budget_config",
     "load_events",

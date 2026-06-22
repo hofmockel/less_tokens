@@ -739,7 +739,7 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
     py = launcher_cmd("claude", target_root)
     entries: list[tuple[str, str, str]] = [
         ("PreToolUse",  "Read|Grep|Glob|Bash", f"{py} .claude/hooks/budget-observer.py"),
-        ("PostToolUse", "Read|Bash|Edit|Write", f"{py} .claude/hooks/budget-observer.py"),
+        ("PostToolUse", "Read|Grep|Glob|Bash|Edit|Write", f"{py} .claude/hooks/budget-observer.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Grep",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),

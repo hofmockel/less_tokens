@@ -7,6 +7,7 @@ from .adapters import BudgetInput
 from .config import BudgetConfig
 from .events import append_event, append_failure_event, event_from_decision
 from .gate import score_candidates, select_candidates
+from .signals import build_budget_signals
 from .state import touch_session
 
 
@@ -19,8 +20,10 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
             session_id=budget_input.session_id,
             run_id=budget_input.run_id,
         )
-        scored = score_candidates(budget_input.candidates, query=budget_input.query)
-        decisions = select_candidates(scored, config)
+        signal_text = "\n".join(candidate.text for candidate in budget_input.candidates if candidate.text)
+        signals = build_budget_signals(root, query=budget_input.query, text=signal_text)
+        scored = score_candidates(budget_input.candidates, query=budget_input.query, signals=signals)
+        decisions = select_candidates(scored, config, signals=signals)
         for decision in decisions:
             append_event(root, event_from_decision(
                 decision,

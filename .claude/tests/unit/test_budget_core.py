@@ -15,6 +15,7 @@ from agents.common.budget import (  # noqa: E402
     score_candidates,
     select_candidates,
 )
+from agents.common.budget.signals import build_budget_signals  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
 from agents.common.budget.estimator import estimate_tokens  # noqa: E402
 
@@ -86,3 +87,57 @@ def test_evaluate_budget_input_writes_v2_event(tmp_path):
     assert events[0]["version"] == 2
     assert events[0]["agent"] == "claude"
     assert events[0]["phase"] == "pre_read"
+
+
+def test_search_range_boosts_file_and_produces_exact_replacement(tmp_path):
+    state = tmp_path / ".less_tokens" / "state"
+    state.mkdir(parents=True)
+    (state / "last-search.json").write_text(json.dumps({"agents/common/budget/gate.py": [[12, 20]]}), encoding="utf-8")
+    cfg = load_budget_config(tmp_path)
+    candidate = ContextCandidate(
+        candidate_id="file:agents/common/budget/gate.py",
+        category="retrieved_context",
+        candidate_type="file",
+        path="agents/common/budget/gate.py",
+        text="x" * 20000,
+    )
+    signals = build_budget_signals(tmp_path, query="budget gate")
+    scored = score_candidates([candidate], query="budget gate", signals=signals)
+    assert scored[0].relevance_score >= cfg.relevance_threshold
+    decision = select_candidates(scored, cfg, signals=signals)[0]
+    assert decision.action == "replace"
+    assert "lines 12-20" in (decision.replacement or "")
+
+
+def test_failing_test_path_gets_high_relevance(tmp_path):
+    output = "FAILED tests/test_budget_core.py::test_gate - AssertionError\nE assert 1 == 2\n"
+    payload = {
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "pytest"},
+        "tool_response": output,
+    }
+    budget_input = normalize_budget_input(payload, agent="codex")
+    signals = build_budget_signals(tmp_path, query="pytest", text=output)
+    scored = score_candidates(budget_input.candidates, query=budget_input.query, signals=signals)
+    by_path = {candidate.path: candidate for candidate in scored if candidate.path}
+    assert by_path["tests/test_budget_core.py"].relevance_score >= 0.35
+    assert "failure output" in by_path["tests/test_budget_core.py"].reason
+
+
+def test_recent_edit_path_increases_relevance(tmp_path):
+    edited = tmp_path / "app.py"
+    state = tmp_path / ".less_tokens" / "state"
+    state.mkdir(parents=True)
+    (state / "last-edit.json").write_text(json.dumps({str(edited.resolve()): __import__("time").time()}), encoding="utf-8")
+    candidate = ContextCandidate(
+        candidate_id=f"file:{edited}",
+        category="retrieved_context",
+        candidate_type="file",
+        path=str(edited),
+        text="def changed(): pass",
+    )
+    signals = build_budget_signals(tmp_path, query="verify recent edit")
+    scored = score_candidates([candidate], query="verify recent edit", signals=signals)[0]
+    assert scored.relevance_score > 0
+    assert "recent path" in scored.reason

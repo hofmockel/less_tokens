@@ -56,6 +56,11 @@ class TestBuildClaudeHookEntries:
         assert hooks, "claudemd-budget.py not in hook entries"
         assert hooks[0] == ("PostToolUse", "Edit|Write")
 
+    def test_budget_observer_sees_post_search_outputs(self, tmp_path):
+        entries = _cmds(tmp_path)
+        hooks = [(ev, m) for ev, m, cmd in entries if "budget-observer.py" in cmd]
+        assert ("PostToolUse", "Read|Grep|Glob|Bash|Edit|Write") in hooks
+
     def test_index_refresh_wired(self, tmp_path):
         entries = _cmds(tmp_path)
         assert any("index-refresh.py" in cmd for _, _, cmd in entries)
