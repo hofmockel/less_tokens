@@ -3,17 +3,24 @@
 Date: 21 Jun 2026
 
 Codex support uses the same local search/index tools as Claude through
-`.less_tokens/tools/` compatibility shims, plus thin adapters under `.codex/hooks/`. Enforcement remains
-best-effort because it depends on `.codex/hooks.json` being writable and on the
-Codex runtime emitting the expected hook events.
+`.less_tokens/tools/` compatibility shims, plus thin adapters under `.codex/hooks/`.
+The shared budget control plane also lives under `.less_tokens/` and records v2
+telemetry for Claude and Codex. Enforcement remains best-effort because it
+depends on `.codex/hooks.json` being writable and on the Codex runtime emitting
+the expected hook events.
 
 ## Installed runtime
 
 | Path | Purpose |
 |---|---|
+| `.less_tokens/config/budget.json` | Shared budget-control mode, category budgets, hard caps, and agent overrides |
 | `.less_tokens/tools/` | Compatibility shims into the single `.claude/tools/` implementation |
+| `.less_tokens/tools/budget_report.py` | v2 telemetry report for selected, rejected, transformed, and compacted context |
+| `.less_tokens/tools/budget_doctor.py` | Budget config and recent-pressure diagnosis |
 | `.less_tokens/schema/` | SQLite schema copied from Claude runtime |
+| `.less_tokens/hooks/budget/` | Shared budget engine used by Claude and Codex observers |
 | `.less_tokens/hooks/` | Agent-neutral hook logic |
+| `.less_tokens/state/events.jsonl` | Shared append-only budget telemetry |
 | `.less_tokens/bin/python` | Launcher pointing at the configured venv |
 | `.codex/hooks/` | Codex-specific hook adapters |
 | `AGENTS.md` | Always-loaded token-discipline block |
@@ -22,6 +29,8 @@ Codex runtime emitting the expected hook events.
 
 | Strategy | Codex event | Matcher | Adapter | Shared logic |
 |---|---|---|---|---|
+| Budget control plane | `PreToolUse` | `mcp__filesystem__.*|Bash` | `.codex/hooks/budget-observer.py` | `agents/common/budget/` |
+| Budget telemetry for outputs/edits | `PostToolUse` | `Bash|mcp__filesystem__.*|apply_patch|Edit|Write` | `.codex/hooks/budget-observer.py` | `agents/common/budget/` |
 | Search before read | `PreToolUse` | `mcp__filesystem__.*` | `.codex/hooks/search-first.py` | `agents/common/hooks/search_first.py` |
 | Noisy-file read guard | `PreToolUse` | `mcp__filesystem__.*` | `.codex/hooks/read-guard.py` | `agents/common/hooks/read_guard.py` |
 | Auto-slice after search | `PreToolUse` | `mcp__filesystem__.*` | `.codex/hooks/auto-slice.py` | `agents/common/hooks/auto_slice.py` |
@@ -49,6 +58,7 @@ Codex runtime emitting the expected hook events.
 - Native Codex read/edit tools with different event names need explicit mapping.
 - `apply_patch` payloads do not always expose touched files, so post-edit diff and index refresh fall back to conservative behavior.
 - Terse-response enforcement is reminder-style for Codex; Claude has a stronger Stop hook.
+- Budget modes are shared with Claude: `observe` records only, `advise` prints short suggestions, `enforce` blocks actionable waste with replacements, and `strict` also blocks oversized unscored context. Codex enforcement still depends on hook delivery.
 
 ## Verify
 
@@ -64,6 +74,8 @@ Then inspect:
 cat .codex/hooks.json
 .less_tokens/bin/python .less_tokens/tools/search.py "query"
 .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py
+.less_tokens/bin/python .less_tokens/tools/budget_report.py
+.less_tokens/bin/python .less_tokens/tools/budget_doctor.py
 ```
 
 If `.codex/hooks.json` is missing or not writable, Codex still gets the
