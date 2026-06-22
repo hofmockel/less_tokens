@@ -33,7 +33,8 @@ import json
 import sys
 from pathlib import Path
 
-_BASE = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from db import BASE as _BASE  # noqa: E402
 
 
 def load_toolignore(base: Path) -> set[str]:
@@ -43,8 +44,8 @@ def load_toolignore(base: Path) -> set[str]:
         if not p.exists():
             continue
         for line in p.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#"):
+            line = line.split("#")[0].strip()
+            if line:
                 ignored.add(line)
     return ignored
 
@@ -105,7 +106,7 @@ def main() -> int:
         return 0
 
     if not removed:
-        print(f"Nothing to remove (no overlap with .toolignore).")
+        print("Nothing to remove (no overlap with .toolignore).")
         return 0
 
     output = json.dumps(pruned, indent=2) + "\n"

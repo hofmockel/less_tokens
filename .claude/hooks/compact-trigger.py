@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: nudge Claude to /compact when session transcript grows large.
-
-Exits 2 with a reminder when transcript_path exceeds MAX_SESSION_CHARS.
-Hysteresis: only re-fires after another MAX_SESSION_CHARS // 4 of growth.
-Tune threshold in search_config.py. Set to 0 to disable.
-install.py wires this into .claude/settings.local.json automatically.
-"""
+"""PostToolUse hook: nudge to compact when transcript grows large."""
 from __future__ import annotations
 
 import json
@@ -13,16 +7,15 @@ import os
 import sys
 from pathlib import Path
 
+
 def _resolve_repo() -> Path:
     if os.environ.get("LESS_TOKENS_REPO"):
         return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    # Per-project install: walk up from __file__
     curr = Path(__file__).resolve().parent
     for _ in range(4):
         if (curr / "CLAUDE.md").exists() or (curr / ".git").exists():
             return curr
         curr = curr.parent
-    # Global install fallback: hooks live outside the project tree, so walk up from cwd
     curr = Path.cwd().resolve()
     for _ in range(10):
         if (curr / ".git").exists() or (curr / "CLAUDE.md").exists():
@@ -34,69 +27,51 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+sys.path[:0] = [
+    str(REPO),
+    str(REPO / "agents" / "common" / "hooks"),
+    str(REPO / ".claude" / "hooks" / "common"),
+    str(REPO / ".claude" / "tools"),
+]
 
 try:
-    from search_config import MAX_SESSION_CHARS
-    from savings_log import append as _log_savings
+    from agents.common.hooks.compact_trigger import check_compact_trigger  # type: ignore[import]
+    from agents.common.hooks.payload import normalize_claude
+except Exception:
+    from compact_trigger import check_compact_trigger  # type: ignore[no-redef]
+    from payload import normalize_claude  # type: ignore[no-redef]
+
+try:
+    from search_config import MAX_SESSION_CHARS, active_state_dir  # noqa: E402
 except Exception:
     MAX_SESSION_CHARS = 500_000
-    def _log_savings(_r: dict) -> None: pass  # noqa: E301
 
-try:
-    from search_config import active_state_dir as _active_state_dir
-    STATE_FILE = _active_state_dir() / "compact-trigger-last"
-except Exception:
-    STATE_FILE = REPO / ".claude" / "state" / "compact-trigger-last"
+    def active_state_dir() -> Path:  # type: ignore[misc]
+        return REPO / ".claude" / "state"
 
-
-def read_last_size() -> int:
-    try:
-        return int(STATE_FILE.read_text().strip())
-    except Exception:
-        return 0
-
-
-def write_last_size(size: int) -> None:
-    try:
-        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        STATE_FILE.write_text(str(size))
-    except Exception:
-        pass
+STATE_FILE = active_state_dir() / "compact-trigger-last"
 
 
 def main() -> int:
-    if MAX_SESSION_CHARS == 0:
-        return 0
-
     try:
-        payload = json.load(sys.stdin)
+        raw = json.load(sys.stdin)
     except Exception:
         return 0
-
-    transcript_path = payload.get("transcript_path")
-    if not transcript_path:
-        return 0
-
-    try:
-        size = os.path.getsize(transcript_path)
-    except OSError:
-        return 0
-
-    if size <= MAX_SESSION_CHARS:
-        return 0
-
-    last = read_last_size()
-    hysteresis = MAX_SESSION_CHARS // 4
-    if last and size < last + hysteresis:
-        return 0
-
-    write_last_size(size)
-    _log_savings({"strategy": "compaction", "transcript_chars": size, "saved_chars": 0})
-    print(f"Session transcript is now {size:,} chars (threshold {MAX_SESSION_CHARS:,}). "
-          f"Run /compact before the next tool call to reclaim context budget.",
-          file=sys.stderr)
-    return 2
+    code, stdout, stderr = check_compact_trigger(
+        normalize_claude(raw),
+        state_dir=active_state_dir(),
+        max_session_chars=MAX_SESSION_CHARS,
+        state_file=STATE_FILE,
+        message=(
+            "Transcript is {size:,} chars (threshold {threshold:,}). "
+            "Run /compact or start a fresh Claude session before more work."
+        ),
+    )
+    if stdout:
+        print(stdout)
+    if stderr:
+        print(stderr, file=sys.stderr)
+    return code
 
 
 if __name__ == "__main__":

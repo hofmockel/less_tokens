@@ -13,7 +13,9 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 from agents.common.hooks.payload import HookPayload, normalize_claude, normalize_codex
-from agents.common.hooks.search_first import is_indexed, search_was_recent
+import agents.common.hooks.search_first as search_first_mod
+from agents.common.hooks.index_refresh import check_index_refresh
+from agents.common.hooks.search_first import check_search_first, is_indexed, search_was_recent
 from agents.common.hooks.truncate_output import check_truncate_output
 from agents.common.hooks.compact_trigger import check_compact_trigger
 
@@ -167,6 +169,171 @@ class TestSearchWasRecent:
         old = time.time() - 400
         os.utime(f, (old, old))
         assert not search_was_recent(tmp_path, 300)
+
+
+# ---------------------------------------------------------------------------
+# check_search_first
+# ---------------------------------------------------------------------------
+
+def _search_payload(tool: str, tool_input: dict | None = None) -> HookPayload:
+    return HookPayload(agent="claude", tool_name=tool, tool_input=tool_input or {},
+                       tool_output="", transcript_path=None, touched_files=())
+
+
+class TestCheckSearchFirst:
+    def test_passes_non_read_tool(self, tmp_path):
+        code, stdout, stderr = check_search_first(
+            _search_payload("Bash"),
+            repo=tmp_path,
+            state_dir=tmp_path,
+            config={},
+        )
+        assert (code, stdout, stderr) == (0, "", "")
+
+    def test_passes_read_without_file_path(self, tmp_path):
+        code, _, _ = check_search_first(
+            _search_payload("Read"),
+            repo=tmp_path,
+            state_dir=tmp_path,
+            config={},
+        )
+        assert code == 0
+
+    def test_blocks_indexed_read_without_recent_search(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text("docs")
+        code, _, stderr = check_search_first(
+            _search_payload("Read", {"file_path": str(readme)}),
+            repo=tmp_path,
+            state_dir=tmp_path,
+            config={"venv_py": "python", "tool_prefix": ".less_tokens/tools"},
+        )
+        assert code == 2
+        assert "Search-first rule: README.md is indexed" in stderr
+        assert ".less_tokens/tools/search.py" in stderr
+
+    def test_grep_symbol_adds_context(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(search_first_mod, "_symbol_exists", lambda name, repo: True)
+        code, stdout, stderr = check_search_first(
+            _search_payload("Grep", {"pattern": "SomeSymbol"}),
+            repo=tmp_path,
+            state_dir=tmp_path,
+            config={"venv_py": "python", "tool_prefix": ".less_tokens/tools"},
+        )
+        assert code == 0
+        assert "SomeSymbol" in stdout
+        assert "additionalContext" in stdout
+        assert stderr == ""
+
+    def test_grep_non_symbol_pattern_passes(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(search_first_mod, "_symbol_exists", lambda name, repo: True)
+        code, stdout, stderr = check_search_first(
+            _search_payload("Grep", {"pattern": "some-symbol"}),
+            repo=tmp_path,
+            state_dir=tmp_path,
+            config={},
+        )
+        assert (code, stdout, stderr) == (0, "", "")
+
+
+# ---------------------------------------------------------------------------
+# check_index_refresh
+# ---------------------------------------------------------------------------
+
+class TestCheckIndexRefresh:
+    def test_passes_unrelated_tool(self, tmp_path):
+        code, stdout, stderr = check_index_refresh(
+            _search_payload("Bash"),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={},
+        )
+        assert (code, stdout, stderr) == (0, "", "")
+
+    def test_skips_when_venv_missing(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text("docs")
+        code, _, _ = check_index_refresh(
+            _search_payload("Edit", {"file_path": str(readme)}),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": tmp_path / "missing-python"},
+        )
+        assert code == 0
+        assert not (tmp_path / "state" / "index-refresh.log").exists()
+
+    def test_skips_unindexed_edit(self, tmp_path):
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".claude" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+        nested = tmp_path / "src" / "module.py"
+        nested.parent.mkdir()
+        nested.write_text("print('not indexed by default')")
+
+        check_index_refresh(
+            _search_payload("Edit", {"file_path": str(nested)}),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py},
+        )
+
+        assert not (tmp_path / "state" / "index-refresh.log").exists()
+
+    def test_fires_refresh_for_indexed_edit(self, tmp_path, monkeypatch):
+        calls = []
+
+        class DummyPopen:
+            def __init__(self, args, **kwargs):
+                calls.append((args, kwargs))
+
+        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".claude" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+        readme = tmp_path / "README.md"
+        readme.write_text("docs")
+
+        code, stdout, stderr = check_index_refresh(
+            _search_payload("Edit", {"file_path": str(readme)}),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py},
+        )
+
+        assert (code, stdout, stderr) == (0, "", "")
+        assert calls
+        assert calls[0][0][:2] == [str(venv_py), str(tools / "embeddings.py")]
+        assert (tmp_path / "state" / "index-refresh.log").exists()
+
+    def test_apply_patch_fires_without_file_path(self, tmp_path, monkeypatch):
+        calls = []
+
+        class DummyPopen:
+            def __init__(self, args, **kwargs):
+                calls.append(args)
+
+        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".less_tokens" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+
+        check_index_refresh(
+            _search_payload("apply_patch"),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py, "tool_prefix": ".less_tokens/tools"},
+        )
+
+        assert calls == [[str(venv_py), str(tools / "embeddings.py"), "refresh"]]
 
 
 # ---------------------------------------------------------------------------

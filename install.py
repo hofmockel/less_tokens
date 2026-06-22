@@ -1,54 +1,32 @@
 #!/usr/bin/env python3
-"""less_tokens installer — two modes.
+"""less_tokens project installer.
 
-──────────────────────────────────────────────────────────────
-GLOBAL INSTALL  (one-time, wires hooks for all Claude projects)
-──────────────────────────────────────────────────────────────
+Clone this repo inside a host project, then run:
 
-    python3 path/to/less_tokens/install.py --global [options]
+    python3 less_tokens/install.py [options]
+    python3 less_tokens/install.py --agent codex
+    python3 less_tokens/install.py --agent both
 
-Wires hooks into ~/.claude/settings.json so they fire for every Claude Code
-project. Hooks are served directly from this source tree — nothing is copied
-system-wide. Venv is created here (--create-venv) or detected automatically.
+Default target is the parent directory of this clone. The installer copies the
+shared search/indexing tools, initializes the local SQLite index, and wires the
+selected agent adapters:
 
-    --global            enable global mode (required for this flow)
-    --create-venv       create .venv-tokens in the less_tokens source dir if
-                        no venv is found
+    --agent claude|codex|both
+                        Claude Code (default), Codex, or both integrations
+    --target PATH       install into PATH instead of the parent of this clone
     --venv PATH         use an existing venv instead of auto-detecting
+    --create-venv       create .claude/.venv-tokens if no venv is found
     --skip-deps         skip pip install of fastembed + numpy
-    --truncate          also wire tool-output truncation hook (Strategy 3)
-    --compact           also wire compact-trigger hook (Strategy 4)
-    --caveman           also wire caveman-reminder Stop hook (terse output)
-    --local             write settings.local.json instead of settings.json
-    --no-gitignore      skip the .gitignore block for generated artifacts
+    --no-build          skip the initial index build
+    --truncate          wire tool-output truncation hooks
+    --compact           wire session-size compaction hooks
+    --caveman           wire terse-output enforcement (Claude Stop hook;
+                        Codex concise-reminder hook)
+    --local             for Claude, write .claude/settings.local.json instead
+                        of .claude/settings.json
     --dry-run           preview without writing anything
-    --uninstall         unwire hooks from ~/.claude/settings.json
-
-──────────────────────────────────────────────────────────────
-PROJECT INSTALL  (per-project: config + index only, no hooks)
-──────────────────────────────────────────────────────────────
-
-    python3 path/to/less_tokens/install.py --target /path/to/project [options]
-
-Copies search_config.py into the project and builds a per-project vector
-index. Hooks are NOT wired here — they come from the global install above.
-Scripts (embeddings.py, db.py, etc.) are run from the less_tokens source tree
-so only search_config.py + index.db live in the target project.
-
-    --target PATH       project directory to set up (required / recommended)
-    --yes               bypass the suspicious-target check (/ or $HOME)
-    --venv PATH         venv to use (defaults to the global venv detected in
-                        the less_tokens source dir, then falls back to --target)
-    --create-venv       create .venv-tokens in the less_tokens source dir if
-                        no venv is found
-    --skip-deps         skip pip install of fastembed + numpy
-    --no-build          copy config but skip the index build (build later with
-                        python3 .claude/tools/embeddings.py refresh)
-    --no-gitignore      skip adding index.db / .claude/state/ to .gitignore
-    --dry-run           preview without writing anything
-    --uninstall         remove search_config.py from --target; use
-                        --purge-index to also delete index.db
-    --purge-index       with --uninstall, also delete index.db + WAL sidecars
+    --update            safe upgrade of generated hooks/tools
+    --uninstall         remove a previous deployment
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
 """
@@ -59,6 +37,7 @@ import ast
 import difflib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -83,6 +62,9 @@ def _dir_is_writable(target_root: Path, rel: str) -> bool:
 
 # Relative path (within target_root) where we record installed version.
 _INSTALL_STATE_PATH = Path(".claude") / "state" / "install.json"
+
+# Must stay in sync with .claude/tools/db.py SCHEMA_VERSION.
+_INDEX_SCHEMA_VERSION = 2
 
 
 # ---------------------------------------------------------------------------
@@ -310,13 +292,14 @@ def _top_level_assignments(text: str) -> dict[str, tuple[int, int]]:
     return result
 
 
-def _extract_block(lines: list[str], lineno: int) -> str:
+def _extract_block(lines: list[str], lineno: int, end_lineno: int | None = None) -> str:
     """Extract an assignment block, including any immediately-preceding comment lines."""
     idx = lineno - 1  # convert to 0-indexed
+    end_idx = (end_lineno if end_lineno is not None else lineno) - 1  # 0-indexed inclusive
     comment_start = idx
     while comment_start > 0 and lines[comment_start - 1].strip().startswith("#"):
         comment_start -= 1
-    return "\n".join(lines[comment_start:idx + 1])
+    return "\n".join(lines[comment_start:end_idx + 1])
 
 
 def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -> list[str]:
@@ -334,8 +317,8 @@ def merge_search_config(src_file: Path, dst_file: Path, dry_run: bool = False) -
 
     src_lines = src_text.splitlines()
     missing = {
-        name: _extract_block(src_lines, lineno)
-        for name, (lineno, _) in src_vars.items()
+        name: _extract_block(src_lines, lineno, end_lineno)
+        for name, (lineno, end_lineno) in src_vars.items()
         if name not in dst_vars
     }
     if not missing:
@@ -389,6 +372,166 @@ def _venv_python_call(path_str: str) -> str:
     For ordinary paths it is byte-identical to the old `"{path}"` form.
     """
     return f"_venv_python({json.dumps(path_str)})"
+
+
+def _rel_or_abs(path: Path, target_root: Path) -> str:
+    try:
+        return path.relative_to(target_root).as_posix()
+    except ValueError:
+        return str(path).replace("\\", "/")
+
+
+def launcher_rel(agent: str) -> Path:
+    if agent == "codex":
+        return Path(".less_tokens") / "bin" / "python"
+    return Path(".claude") / "bin" / "python"
+
+
+def launcher_cmd(agent: str, target_root: Path) -> str:
+    rel = launcher_rel(agent)
+    if sys.platform == "win32":
+        rel = rel.with_suffix(".cmd")
+    return rel.as_posix()
+
+
+def write_python_launcher(
+    target_root: Path,
+    rel: Path,
+    venv_py: Path,
+    dry_run: bool = False,
+) -> int:
+    """Write a tiny venv-backed launcher plus Windows .cmd sibling."""
+    launcher = target_root / rel
+    cmd_launcher = launcher.with_suffix(".cmd")
+    venv_str = _rel_or_abs(venv_py, target_root)
+
+    if Path(venv_str).is_absolute():
+        shell_target = shlex.quote(venv_str)
+    else:
+        shell_target = '"$SCRIPT_DIR/../../' + venv_str.replace('"', '\\"') + '"'
+    shell_text = (
+        "#!/bin/sh\n"
+        "# Generated by less_tokens. Runs the install-selected venv Python.\n"
+        'SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
+        f'exec {shell_target} "$@"\n'
+    )
+    venv_cmd = venv_str.replace("/", "\\")
+    cmd_text = (
+        "@echo off\r\n"
+        "REM Generated by less_tokens. Runs the install-selected venv Python.\r\n"
+        f'"%~dp0\\..\\..\\{venv_cmd}" %*\r\n'
+        if not Path(venv_str).is_absolute()
+        else (
+            "@echo off\r\n"
+            "REM Generated by less_tokens. Runs the install-selected venv Python.\r\n"
+            f'"{str(venv_py)}" %*\r\n'
+        )
+    )
+
+    changes = 0
+    for path, text, executable in (
+        (launcher, shell_text, True),
+        (cmd_launcher, cmd_text, False),
+    ):
+        rel_path = path.relative_to(target_root)
+        if path.exists() and path.read_text(encoding="utf-8", errors="replace") == text:
+            print(f"  + {rel_path} (launcher already current)")
+            continue
+        print(f"  {'would write' if dry_run else '~'} {rel_path}")
+        changes += 1
+        if not dry_run:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8", newline="")
+            if executable:
+                path.chmod(0o755)
+    return changes
+
+
+_CODEX_TOOL_SHIM_MARKER = "# Generated by less_tokens. Codex compatibility shim."
+
+
+def _codex_tool_shim_text(tool_name: str) -> str:
+    return f'''#!/usr/bin/env python3
+{_CODEX_TOOL_SHIM_MARKER}
+from __future__ import annotations
+
+import os
+import runpy
+import sys
+from pathlib import Path
+
+os.environ.setdefault("LESS_TOKENS_AGENT", "codex")
+BASE = Path(__file__).resolve().parents[2]
+REAL = BASE / ".claude" / "tools" / {tool_name!r}
+if not REAL.exists():
+    raise SystemExit(f"less_tokens shim target missing: {{REAL}}")
+sys.path.insert(0, str(REAL.parent))
+
+if __name__ == "__main__":
+    runpy.run_path(str(REAL), run_name="__main__")
+else:
+    _data = runpy.run_path(str(REAL), run_name=f"_less_tokens_real_{{REAL.stem}}")
+    for _key, _value in _data.items():
+        if _key not in {{"__name__", "__file__", "__cached__", "__loader__", "__package__", "__spec__"}}:
+            globals()[_key] = _value
+'''
+
+
+def _is_codex_tool_shim(text: str) -> bool:
+    return _CODEX_TOOL_SHIM_MARKER in text
+
+
+def write_codex_tool_shims(
+    source_tools: Path,
+    target_root: Path,
+    force: bool,
+    overwrite_modified: bool,
+    dry_run: bool = False,
+) -> int:
+    """Generate .less_tokens/tools/*.py shims to the single .claude/tools source.
+
+    Existing non-shim files are treated like copy_tree targets: skipped unless
+    force is set, and protected unless overwrite_modified is also set.
+    """
+    dst = target_root / ".less_tokens" / "tools"
+    copied = skipped = modified_skipped = 0
+    if not dry_run:
+        dst.mkdir(parents=True, exist_ok=True)
+    for srcfile in sorted(source_tools.glob("*.py")):
+        target = dst / srcfile.name
+        text = _codex_tool_shim_text(srcfile.name)
+        rel = target.relative_to(target_root)
+        if target.exists():
+            old = target.read_text(encoding="utf-8", errors="replace")
+            if old == text:
+                skipped += 1
+                continue
+            if not force:
+                print(f"  ! skip (exists): {rel}")
+                skipped += 1
+                continue
+            if not _is_codex_tool_shim(old) and not overwrite_modified:
+                summary = _diff_summary(text, old)
+                print(f"  ! {rel}  ({summary}) — differs from generated shim; "
+                      "add --overwrite-modified to replace")
+                modified_skipped += 1
+                continue
+            if not dry_run:
+                target.write_text(text, encoding="utf-8")
+                target.chmod(0o755)
+            verb = "would overwrite" if dry_run else "overwritten"
+            print(f"  ↺ {rel}  ({verb} with shim)")
+            copied += 1
+        else:
+            if not dry_run:
+                target.write_text(text, encoding="utf-8")
+                target.chmod(0o755)
+            prefix = "+ (would create)" if dry_run else "+"
+            print(f"  {prefix} {rel}")
+            copied += 1
+    print(f"  .less_tokens/tools/: {copied} shim(s), {skipped + modified_skipped} skipped"
+          + (f" ({modified_skipped} modified)" if modified_skipped else ""))
+    return copied
 
 
 def patch_venv_py(
@@ -593,11 +736,10 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
     idempotency check in wire_settings() would see two commands as
     different and add duplicate entries.
     """
-    try:
-        py = str(venv_py.relative_to(target_root))
-    except ValueError:
-        py = str(venv_py)
+    py = launcher_cmd("claude", target_root)
     entries: list[tuple[str, str, str]] = [
+        ("PreToolUse",  "Read|Grep|Glob|Bash", f"{py} .claude/hooks/budget-observer.py"),
+        ("PostToolUse", "Read|Grep|Glob|Bash|Edit|Write", f"{py} .claude/hooks/budget-observer.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Grep",          f"{py} .claude/hooks/search-first.py"),
         ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),
@@ -607,6 +749,8 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
         ("PreToolUse",  "Read|Grep",      f"{py} .claude/hooks/context-cache.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/post-edit-diff.py"),
         ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
+        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/claudemd-budget.py"),
+        ("PostToolUse", "Bash",          f"{py} .claude/hooks/lean-output.py"),
         ("PreToolUse",  "Bash",          f"{py} .claude/hooks/listing-guard.py"),
     ]
     if getattr(args, "truncate", False):
@@ -629,14 +773,22 @@ def build_codex_hook_entries(
     target_root: Path,
     args: argparse.Namespace,
 ) -> list[tuple[str, str, str]]:
-    try:
-        py = str(venv_py.relative_to(target_root))
-    except ValueError:
-        py = str(venv_py)
+    py = launcher_cmd("codex", target_root)
     prefix = f"LESS_TOKENS_AGENT=codex {py}"
     entries: list[tuple[str, str, str]] = [
-        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
+        ("PreToolUse",  "mcp__filesystem__.*|Bash", f"{prefix} .codex/hooks/budget-observer.py"),
+        ("PostToolUse", "Bash|mcp__filesystem__.*|apply_patch|Edit|Write", f"{prefix} .codex/hooks/budget-observer.py"),
         ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-guard.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/auto-slice.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/grep-first-read.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-after-edit.py"),
+        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/context-cache.py"),
+        ("PreToolUse",  "Bash",                   f"{prefix} .codex/hooks/listing-guard.py"),
+        ("PostToolUse", "Bash",                   f"{prefix} .codex/hooks/lean-output.py"),
+        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/post-edit-diff.py"),
+        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
+        ("PostToolUse", "Edit|Write",             f"{prefix} .codex/hooks/agentsmd-budget.py"),
     ]
     if getattr(args, "truncate", False):
         entries.append(("PostToolUse", "Bash|mcp__filesystem__.*",
@@ -801,7 +953,7 @@ def _index_db_at_current_schema(target_root: Path) -> bool:
         import sqlite3
         with sqlite3.connect(str(db)) as c:
             row = c.execute("SELECT MAX(version) FROM schema_version").fetchone()
-            return bool(row and row[0])
+            return bool(row and row[0] == _INDEX_SCHEMA_VERSION)
     except sqlite3.Error:
         return False
 
@@ -877,11 +1029,73 @@ def _maybe_suggest_recursive_globs(target_root: Path) -> None:
         print('       Consider INDEXED_ROOT_GLOBS = ("**/*.md",) to index them all.')
 
 
+_CM_START = "<!-- less_tokens:caveman:begin -->"
+_CM_END = "<!-- less_tokens:caveman:end -->"
+
+
 def _caveman_in_claude_md(target_root: Path) -> bool:
     claude_md = target_root / "CLAUDE.md"
     if not claude_md.exists():
         return False
-    return "Caveman Mode" in claude_md.read_text(encoding="utf-8", errors="replace")
+    text = claude_md.read_text(encoding="utf-8", errors="replace")
+    return _CM_START in text or "Caveman Mode" in text
+
+
+def handle_caveman_claude_md(target_root: Path, dry_run: bool) -> int:
+    """Idempotently append the caveman block to target_root/CLAUDE.md. Returns change count."""
+    claude_md = target_root / "CLAUDE.md"
+    caveman_src = SOURCE / ".claude" / "rules" / "caveman.md"
+
+    if not caveman_src.exists():
+        print("  ! caveman.md source not found; skipping CLAUDE.md append", file=sys.stderr)
+        return 0
+
+    text = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
+    if _CM_START in text or "Caveman Mode" in text:
+        print("  + CLAUDE.md: caveman section already present")
+        return 0
+
+    caveman_body = caveman_src.read_text(encoding="utf-8")
+    block = f"\n{_CM_START}\n{caveman_body.rstrip()}\n{_CM_END}\n"
+
+    if not claude_md.exists():
+        new = f"# CLAUDE.md\n{block}"
+        verb = "would create" if dry_run else "~"
+        print(f"\n  {verb} CLAUDE.md (with caveman block)")
+    else:
+        sep = "" if text.endswith("\n") else "\n"
+        new = text + sep + block
+        verb = "would update" if dry_run else "~"
+        print(f"\n  {verb} CLAUDE.md (appended caveman block)")
+
+    if not dry_run:
+        claude_md.write_text(new, encoding="utf-8")
+    return 1
+
+
+def _remove_caveman_block(claude_md: Path, dry_run: bool) -> bool:
+    if not claude_md.exists():
+        return False
+    text = claude_md.read_text(encoding="utf-8")
+    if _CM_START not in text or _CM_END not in text:
+        return False
+    lines = text.splitlines(keepends=True)
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == _CM_START)
+    end = next(i for i, ln in enumerate(lines) if ln.strip() == _CM_END)
+    lead = start
+    if lead > 0 and lines[lead - 1].strip() == "":
+        lead -= 1
+    tail = end + 1
+    if tail < len(lines) and lines[tail].strip() == "":
+        tail += 1
+    new = "".join(lines[:lead] + lines[tail:])
+    print(f"  {'would remove' if dry_run else '-'} CLAUDE.md: managed caveman block")
+    if not dry_run:
+        if new.strip():
+            claude_md.write_text(new, encoding="utf-8")
+        else:
+            claude_md.unlink()
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -916,25 +1130,35 @@ def _install_specs(
     if agents is None:
         agents = {"claude"}
     specs: list[tuple[str, str, frozenset[str]]] = [
+        (".less_tokens/config", ".less_tokens/config", frozenset()),
+        (".less_tokens/tools", ".less_tokens/tools", frozenset()),
+        ("agents/common/budget", ".less_tokens/hooks/budget", frozenset()),
         (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
         (".claude/schema", ".claude/schema", frozenset()),
         (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset()),
     ]
     if "claude" in agents:
         specs.append((".claude/hooks", ".claude/hooks", frozenset()))
+        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset()))
     if caveman and "claude" in agents:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
     if "codex" in agents:
-        specs.append((".claude/tools",  ".less_tokens/tools",  frozenset({"search_config.py"})))
         specs.append((".claude/schema", ".less_tokens/schema", frozenset()))
+        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset()))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
             specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
-        skill_tgt = (
-            ".agents/skills/less-tokens"
+        skill_root = (
+            ".agents/skills"
             if target_root is not None and _dir_is_writable(target_root, ".agents")
-            else ".less_tokens/skills/less-tokens"
+            else ".less_tokens/skills"
         )
-        specs.append(("agents/codex/skills/less-tokens", skill_tgt, frozenset()))
+        for skill_dir in sorted((SOURCE / "agents" / "codex" / "skills").iterdir()):
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                specs.append((
+                    f"agents/codex/skills/{skill_dir.name}",
+                    f"{skill_root}/{skill_dir.name}",
+                    frozenset(),
+                ))
     return specs
 
 
@@ -975,6 +1199,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool, agents: set[s
 def _deployed_targets(source: Path, target_root: Path, caveman: bool, agents: set[str] | None = None) -> list[Path]:
     """Destination files less_tokens deploys (excludes user-owned search_config.py)."""
     out: list[Path] = []
+    selected = agents if agents is not None else {"claude"}
     for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
         src_dir = source / sub
         if not src_dir.exists():
@@ -982,6 +1207,9 @@ def _deployed_targets(source: Path, target_root: Path, caveman: bool, agents: se
         base = target_root / dst_rel
         for rel in _iter_tree_files(src_dir, excl):
             out.append(base / rel)
+    if "codex" in selected:
+        for srcfile in sorted((source / ".claude" / "tools").glob("*.py")):
+            out.append(target_root / ".less_tokens" / "tools" / srcfile.name)
     return out
 
 
@@ -1034,11 +1262,14 @@ def _remove_gitignore_block(gi: Path, dry_run: bool) -> bool:
     lines = text.splitlines(keepends=True)
     start = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_START)
     end = next(i for i, ln in enumerate(lines) if ln.strip() == _GI_END)
-    # Drop the block and one immediately-preceding blank separator line.
+    # Drop the block, one immediately-preceding blank, and one immediately-following blank.
     lead = start
     if lead > 0 and lines[lead - 1].strip() == "":
         lead -= 1
-    new = "".join(lines[:lead] + lines[end + 1:])
+    tail = end + 1
+    if tail < len(lines) and lines[tail].strip() == "":
+        tail += 1
+    new = "".join(lines[:lead] + lines[tail:])
     print(f"  {'would remove' if dry_run else '-'} .gitignore: managed less_tokens block")
     if not dry_run:
         if new.strip():
@@ -1165,13 +1396,28 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
                 f.unlink()
             removed += 1
 
+    launcher_agents: set[str] = set()
+    if "claude" in agents or agents == {"codex"}:
+        launcher_agents.add("claude")
+    if "codex" in agents:
+        launcher_agents.add("codex")
+    for agent in launcher_agents:
+        for p in (target_root / launcher_rel(agent), (target_root / launcher_rel(agent)).with_suffix(".cmd")):
+            if p.exists():
+                print(f"  {'would remove' if dry else '-'} {p.relative_to(target_root)}")
+                if not dry:
+                    p.unlink()
+                removed += 1
+
     # Prune now-empty directories we created.
-    prune_dirs = [".claude/skills/claudemd", ".claude/skills"]
+    prune_dirs = [".claude/skills/claudemd", ".claude/skills", ".claude/bin"]
     if "claude" in agents:
         prune_dirs += [".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"]
     if "codex" in agents:
         prune_dirs += [".codex/hooks", ".codex", ".less_tokens/tools",
-                       ".less_tokens/schema", ".less_tokens/skills/less-tokens",
+                       ".less_tokens/schema", ".less_tokens/hooks",
+                       ".less_tokens/bin",
+                       ".less_tokens/skills/less-tokens",
                        ".less_tokens/skills", ".less_tokens"]
     for sub in prune_dirs:
         d = target_root / sub
@@ -1185,6 +1431,7 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     if "codex" in agents:
         unwire_codex_hooks_json(target_root / ".codex" / "hooks.json", SOURCE, dry)
     _remove_gitignore_block(target_root / ".gitignore", dry)
+    _remove_caveman_block(target_root / "CLAUDE.md", dry)
 
     if args.purge_index:
         for n in ("index.db", "index.db-wal", "index.db-shm"):
@@ -1203,6 +1450,196 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
     print(f"\n{tag}Done — {removed} file(s) "
           f"{'would be removed' if dry else 'removed'}.")
     return 0
+
+
+def do_check(target_root: Path, args: argparse.Namespace) -> int:
+    """Verify a previous install is still valid. Prints [✓]/[✗] per check."""
+    import subprocess
+    agents = selected_agents(getattr(args, "agent", "claude"))
+    settings_name = "settings.local.json" if getattr(args, "local", False) else "settings.json"
+    ok = True
+
+    def _pass(msg: str) -> None:
+        print(f"  [✓] {msg}")
+
+    def _fail(msg: str) -> None:
+        nonlocal ok
+        ok = False
+        print(f"  [✗] {msg}")
+
+    print(f"Checking less_tokens install in {target_root} ({', '.join(sorted(agents))})\n")
+
+    # --- venv / interpreter ---
+    tools_dir = target_root / ".claude" / "tools"
+    config_path = tools_dir / "search_config.py"
+    venv_py: Path | None = None
+    if config_path.exists():
+        try:
+            import importlib.util, types
+            spec = importlib.util.spec_from_file_location("_sc_check", config_path)
+            assert spec and spec.loader
+            sc: types.ModuleType = types.ModuleType("_sc_check")
+            spec.loader.exec_module(sc)  # type: ignore[union-attr]
+            venv_py = Path(sc.VENV_PY)
+            if venv_py.exists():
+                _pass(f"VENV_PY resolves: {venv_py}")
+            else:
+                _fail(f"VENV_PY missing: {venv_py}  — re-run install.py or update search_config.py")
+        except Exception as exc:
+            _fail(f"Could not load search_config.py: {exc}")
+    else:
+        _fail(f".claude/tools/search_config.py missing — install not complete")
+
+    # fastembed importable
+    if venv_py and venv_py.exists():
+        r = subprocess.run([str(venv_py), "-c", "import fastembed"],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            _pass("fastembed importable in venv")
+        else:
+            _fail(f"fastembed not importable — run: {venv_py} -m pip install fastembed")
+
+    # --- index.db ---
+    index_db = target_root / ".claude" / "index.db"
+    if index_db.exists():
+        try:
+            import sqlite3
+            with sqlite3.connect(str(index_db)) as conn:
+                tables = {
+                    r[0] for r in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                }
+                table = "documents" if "documents" in tables else "chunks"
+                row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()  # noqa: S608
+                count = row[0] if row else 0
+            if count > 0:
+                _pass(f"index.db present with {count} chunk(s)")
+            else:
+                _fail("index.db exists but has 0 chunks — run embeddings.py refresh")
+        except Exception as exc:
+            _fail(f"index.db unreadable: {exc}")
+    else:
+        _fail(".claude/index.db missing — run embeddings.py refresh")
+
+    # --- hook files ---
+    hooks_dir = target_root / ".claude" / "hooks"
+    if hooks_dir.is_dir():
+        hook_files = list(hooks_dir.glob("*.py"))
+        if hook_files:
+            _pass(f".claude/hooks/ present ({len(hook_files)} script(s))")
+        else:
+            _fail(".claude/hooks/ exists but contains no .py scripts")
+    else:
+        _fail(".claude/hooks/ missing — install not complete")
+
+    # --- settings wiring ---
+    if "claude" in agents:
+        settings_path = target_root / ".claude" / settings_name
+        if settings_path.exists():
+            try:
+                import json as _json
+                data = _json.loads(settings_path.read_text(encoding="utf-8"))
+                hooks = data.get("hooks", {})
+                wired = sum(len(v) for v in hooks.values()) if isinstance(hooks, dict) else 0
+                if wired > 0:
+                    _pass(f".claude/{settings_name} has {wired} hook entry/entries wired")
+                else:
+                    _fail(f".claude/{settings_name} has no hooks — re-run install.py")
+            except Exception as exc:
+                _fail(f"Could not parse .claude/{settings_name}: {exc}")
+        else:
+            _fail(f".claude/{settings_name} missing — re-run install.py")
+
+    if "codex" in agents:
+        codex_launcher = target_root / ".less_tokens" / "bin" / (
+            "python.exe" if sys.platform == "win32" else "python"
+        )
+        if codex_launcher.exists():
+            _pass(f".less_tokens/bin/python present: {codex_launcher}")
+        else:
+            _fail(".less_tokens/bin/python missing — re-run install.py --agent codex")
+
+        codex_config = target_root / ".less_tokens" / "tools" / "search_config.py"
+        if codex_config.exists():
+            try:
+                txt = codex_config.read_text(encoding="utf-8")
+                if _is_codex_tool_shim(txt):
+                    _pass(".less_tokens/tools/search_config.py shim points to .claude/tools/search_config.py")
+                elif "_STATE_AGENT_AWARE" in txt:
+                    _fail(".less_tokens/tools/search_config.py is a legacy copied config — re-run install.py --update")
+                else:
+                    _fail(".less_tokens/tools/search_config.py exists but is not agent-aware — re-run install.py --update")
+            except OSError as exc:
+                _fail(f"Could not read .less_tokens/tools/search_config.py: {exc}")
+        else:
+            _fail(".less_tokens/tools/search_config.py missing — re-run install.py --agent codex")
+
+        codex_hooks_dir = target_root / ".codex" / "hooks"
+        if codex_hooks_dir.is_dir():
+            scripts = list(codex_hooks_dir.glob("*.py"))
+            if scripts:
+                _pass(f".codex/hooks/ present ({len(scripts)} script(s))")
+            else:
+                _fail(".codex/hooks/ exists but contains no .py scripts")
+        else:
+            _fail(".codex/hooks/ missing — Codex hooks are advisory only")
+
+        hooks_json = target_root / ".codex" / "hooks.json"
+        if hooks_json.exists():
+            try:
+                import json as _json
+                data = _json.loads(hooks_json.read_text(encoding="utf-8"))
+                hooks = data.get("hooks", [])
+                if not isinstance(hooks, list):
+                    _fail(".codex/hooks.json has unexpected format")
+                else:
+                    expected = build_codex_hook_entries(venv_py or Path("python"), target_root, args)
+                    missing = [
+                        (ev, matcher, cmd)
+                        for ev, matcher, cmd in expected
+                        if not any(h.get("event") == ev and h.get("command") == cmd for h in hooks)
+                    ]
+                    if missing:
+                        names = ", ".join(Path(cmd.split()[-1]).name for _, _, cmd in missing[:5])
+                        _fail(f".codex/hooks.json missing {len(missing)} less_tokens hook(s): {names}")
+                    else:
+                        _pass(f".codex/hooks.json has all {len(expected)} expected less_tokens hook(s)")
+            except Exception as exc:
+                _fail(f"Could not parse .codex/hooks.json: {exc}")
+        else:
+            _fail(".codex/hooks.json missing — Codex hooks are not wired")
+
+        agents_md = target_root / "AGENTS.md"
+        if agents_md.exists():
+            try:
+                content = agents_md.read_text(encoding="utf-8")
+                if "<!-- less_tokens: begin -->" in content and "Token Discipline" in content:
+                    _pass("AGENTS.md contains managed less_tokens block")
+                else:
+                    _fail("AGENTS.md exists but lacks managed less_tokens block")
+            except OSError as exc:
+                _fail(f"Could not read AGENTS.md: {exc}")
+        else:
+            _fail("AGENTS.md missing — Codex guidance not installed")
+
+    # --- smoke query ---
+    if venv_py and venv_py.exists() and index_db.exists():
+        search_py = tools_dir / "search.py"
+        if search_py.exists():
+            r = subprocess.run([str(venv_py), str(search_py), "test"],
+                               capture_output=True, text=True, cwd=str(target_root))
+            if r.returncode == 0:
+                _pass("search.py smoke query succeeded")
+            else:
+                _fail(f"search.py smoke query failed: {r.stderr.strip()[:120]}")
+
+    print()
+    if ok:
+        print("All checks passed.")
+        return 0
+    print("One or more checks failed — see [✗] above.")
+    return 1
 
 
 # ---------------------------------------------------------------------------
@@ -1225,7 +1662,7 @@ def main() -> int:
     ap.add_argument("--force-hooks", action="store_true",
                     help="overwrite .claude/hooks/ files that match the source")
     ap.add_argument("--force-tools", action="store_true",
-                    help="overwrite .claude/tools/ and .claude/schema/ files that match the source")
+                    help="overwrite generated tool/schema files that match the source")
     ap.add_argument("--force-config", action="store_true",
                     help="overwrite search_config.py if it matches the source")
     ap.add_argument("--overwrite-modified", action="store_true",
@@ -1236,13 +1673,13 @@ def main() -> int:
     ap.add_argument("--skip-deps", action="store_true",
                     help="skip pip install step")
     ap.add_argument("--create-venv", action="store_true",
-                    help="if no venv is detected, create .venv-tokens and continue "
+                    help="if no venv is detected, create .claude/.venv-tokens and continue "
                          "(single-pass install instead of the create-then-rerun dance)")
     ap.add_argument("--no-build", action="store_true",
                     help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="copy .claude/rules/ and wire caveman-reminder Stop hook")
+                    help="wire terse-output enforcement hooks where supported")
     ap.add_argument("--truncate", action="store_true",
                     help="wire tool output truncation hook (Strategy 3)")
     ap.add_argument("--compact", action="store_true",
@@ -1259,7 +1696,7 @@ def main() -> int:
                          "Bash permissions, which can clobber the hooks block")
     ap.add_argument("--no-gitignore", action="store_true",
                     help="skip the default managed .gitignore block for generated artifacts "
-                         "(index.db, .claude/state/); useful if you commit them deliberately")
+                         "(index.db, state dirs); useful if you commit them deliberately")
     ap.add_argument("--update", action="store_true",
                     help="safe upgrade: re-copy hook and tool files (implies "
                          "--force-hooks --force-tools --overwrite-modified) "
@@ -1267,6 +1704,8 @@ def main() -> int:
                          "Incompatible with --force-config and --build.")
     ap.add_argument("--agent", choices=["claude", "codex", "both"], default="claude",
                     help="agent(s) to install for: claude (default), codex, or both")
+    ap.add_argument("--check", action="store_true",
+                    help="verify a previous install: venv, fastembed, index, hooks, settings")
     ap.add_argument("--uninstall", action="store_true",
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
@@ -1330,6 +1769,9 @@ def main() -> int:
     if args.uninstall:
         return do_uninstall(target_root, args)
 
+    if args.check:
+        return do_check(target_root, args)
+
     # Resolve source version (git short hash) once; used in header + state file.
     src_version = _source_git_hash()
     prev_state = _read_install_state(target_root)
@@ -1359,12 +1801,16 @@ def main() -> int:
     print(f"{tag}[1/5] Locating virtualenv...")
     venv_dir = args.venv or detect_venv(target_root)
     if venv_dir is None:
-        if args.create_venv and not dry:
-            try:
-                venv_dir = create_venv(target_root)
-            except (FileExistsError, subprocess.CalledProcessError) as e:
-                print(f"\n--create-venv failed: {e}", file=sys.stderr)
-                return 1
+        if args.create_venv:
+            if dry:
+                venv_dir = target_root / ".claude" / ".venv-tokens"
+                print(f"  [DRY RUN] would create venv: {venv_dir}")
+            else:
+                try:
+                    venv_dir = create_venv(target_root)
+                except (FileExistsError, subprocess.CalledProcessError) as e:
+                    print(f"\n--create-venv failed: {e}", file=sys.stderr)
+                    return 1
         else:
             print("\nNo venv detected at .claude/.venv-tokens, .venv-tokens, .venv, venv, env, or app/.venv.")
             print("Pass --venv PATH, --create-venv to make .venv-tokens here, "
@@ -1374,7 +1820,7 @@ def main() -> int:
             print("Then re-run the installer. (Nothing was written.)")
             return 1
     venv_py = venv_python(venv_dir)
-    if not venv_py.exists():
+    if not dry and not venv_py.exists():
         print(f"ERROR: venv python not found at {venv_py} (nothing written).",
               file=sys.stderr)
         return 1
@@ -1394,6 +1840,12 @@ def main() -> int:
     # Step 2: Copy files
     # ------------------------------------------------------------------
     print(f"\n{tag}[2/5] Copying files...")
+    changes += copy_tree(SOURCE / ".less_tokens" / "config", target_root / ".less_tokens" / "config",
+              target_root, force_tools, overwrite_modified, ".less_tokens/config/", dry_run=dry)
+    changes += copy_tree(SOURCE / ".less_tokens" / "tools", target_root / ".less_tokens" / "tools",
+              target_root, force_tools, overwrite_modified, ".less_tokens/tools/", dry_run=dry)
+    changes += copy_tree(SOURCE / "agents" / "common" / "budget", target_root / ".less_tokens" / "hooks" / "budget",
+              target_root, force_tools, overwrite_modified, ".less_tokens/hooks/budget/", dry_run=dry)
     changes += copy_tree(SOURCE / ".claude" / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
               ".claude/tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
     if args.update and (target_root / ".claude" / "tools" / "search_config.py").exists():
@@ -1412,35 +1864,45 @@ def main() -> int:
     if "claude" in agents:
         changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
                   target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
+        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
+                  target_root / ".claude" / "hooks" / "common",
+                  target_root, force_tools, overwrite_modified,
+                  ".claude/hooks/common/", dry_run=dry)
         if args.caveman:
             changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
                       target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
     if "codex" in agents:
-        changes += copy_tree(SOURCE / ".claude" / "tools", target_root / ".less_tokens" / "tools",
-                  target_root, force_tools, overwrite_modified, ".less_tokens/tools/",
-                  exclude=frozenset({"search_config.py"}), dry_run=dry)
-        handle_search_config(
-            SOURCE / ".claude" / "tools" / "search_config.py",
-            target_root / ".less_tokens" / "tools" / "search_config.py",
+        changes += write_codex_tool_shims(
+            SOURCE / ".claude" / "tools",
             target_root,
-            force_config, overwrite_modified, dry_run=dry,
+            force_tools,
+            overwrite_modified,
+            dry_run=dry,
         )
         changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".less_tokens" / "schema",
                   target_root, force_tools, overwrite_modified, ".less_tokens/schema/", dry_run=dry)
+        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
+                  target_root / ".less_tokens" / "hooks",
+                  target_root, force_tools, overwrite_modified,
+                  ".less_tokens/hooks/", dry_run=dry)
         codex_hooks_src = SOURCE / "agents" / "codex" / "hooks"
         if codex_hooks_src.exists() and _dir_is_writable(target_root, ".codex"):
             changes += copy_tree(codex_hooks_src, target_root / ".codex" / "hooks",
                       target_root, force_hooks, overwrite_modified, ".codex/hooks/", dry_run=dry)
-        skill_tgt = (
-            target_root / ".agents" / "skills" / "less-tokens"
+        skill_root = (
+            target_root / ".agents" / "skills"
             if _dir_is_writable(target_root, ".agents")
-            else target_root / ".less_tokens" / "skills" / "less-tokens"
+            else target_root / ".less_tokens" / "skills"
         )
-        codex_skill_src = SOURCE / "agents" / "codex" / "skills" / "less-tokens"
-        if codex_skill_src.exists():
-            changes += copy_tree(codex_skill_src, skill_tgt,
-                      target_root, force_tools, overwrite_modified,
-                      str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
+        codex_skills_src = SOURCE / "agents" / "codex" / "skills"
+        if codex_skills_src.exists():
+            for codex_skill_src in sorted(codex_skills_src.iterdir()):
+                if not codex_skill_src.is_dir() or not (codex_skill_src / "SKILL.md").exists():
+                    continue
+                skill_tgt = skill_root / codex_skill_src.name
+                changes += copy_tree(codex_skill_src, skill_tgt,
+                          target_root, force_tools, overwrite_modified,
+                          str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,
@@ -1468,8 +1930,21 @@ def main() -> int:
             print(f'  would patch .claude/tools/search_config.py: '
                   f'VENV_PY -> _venv_python("{cfg}")')
             changes += 1
+            if "codex" in agents:
+                print("  .less_tokens/tools/search_config.py would be generated as a shim")
     else:
         venv_py_patched = None
+
+    # Stable agent-facing Python launchers. Hooks, skills, and docs use these
+    # instead of ambient python3 so package imports always come from the
+    # detected/created venv.
+    changes += write_python_launcher(
+        target_root, launcher_rel("claude"), venv_py, dry_run=dry,
+    )
+    if "codex" in agents:
+        changes += write_python_launcher(
+            target_root, launcher_rel("codex"), venv_py, dry_run=dry,
+        )
 
     # ------------------------------------------------------------------
     # Step 3: Install deps
@@ -1566,38 +2041,49 @@ def main() -> int:
     print("\n" + "=" * 60)
     print("NEXT STEPS")
     print("=" * 60)
+    if agents == {"codex"}:
+        tool_dir = ".less_tokens/tools"
+        config_desc = ".claude/tools/search_config.py"
+        run_py = launcher_cmd("codex", target_root)
+    elif agents == {"claude"}:
+        tool_dir = ".claude/tools"
+        config_desc = ".claude/tools/search_config.py"
+        run_py = launcher_cmd("claude", target_root)
+    else:
+        tool_dir = ".claude/tools"
+        config_desc = ".claude/tools/search_config.py"
+        run_py = launcher_cmd("claude", target_root)
     if venv_py_patched is not None:
-        print("\n1. Edit .claude/tools/search_config.py — update INDEXED_SOURCE_DIRS to list")
+        print(f"\n1. Edit {config_desc} — update INDEXED_SOURCE_DIRS to list")
         print("   your source directories (the .py/.sql dirs). For markdown,")
         print("   tune INDEXED_ROOT_GLOBS (default '*.md' is root-only; use")
         print("   'docs/**/*.md' or '**/*.md' for doc-heavy repos).")
         print("   VENV_PY is already set to the detected venv.")
         _maybe_suggest_recursive_globs(target_root)
     else:
-        print("\n1. Edit .claude/tools/search_config.py — set your venv and source dirs.")
+        print(f"\n1. Edit {config_desc} — set your venv and source dirs.")
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
     if args.no_build:
         print("\n2. Build the index:")
-        print(f"       {venv_py} .claude/tools/embeddings.py refresh")
+        print(f"       {run_py} {tool_dir}/embeddings.py refresh")
         print("\n3. Test search:")
-        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
+        print(f"       {run_py} {tool_dir}/search.py \"your query here\"")
     else:
         print("\n2. Test search:")
-        print(f"       {venv_py} .claude/tools/search.py \"your query here\"")
+        print(f"       {run_py} {tool_dir}/search.py \"your query here\"")
     if args.caveman:
-        step = 4 if args.no_build else 3
-        if _caveman_in_claude_md(target_root):
-            print(f"\n{step}. Caveman section already present in CLAUDE.md — skipping.")
-        else:
-            print(f"\n{step}. Append caveman mode to your CLAUDE.md:")
-            print("       cat .claude/rules/caveman.md >> CLAUDE.md")
-    print("\nNOTE: the search-first PreToolUse hook is now active. Any")
-    print("  already-running Claude session in this project will start")
-    print("  blocking Read on indexed files (root *.md, configured source dirs)")
-    print("  until a search runs within the gate window. Tune the window")
-    print("  via WINDOW_SECONDS in .claude/tools/search_config.py (default 300s).")
+        handle_caveman_claude_md(target_root, args.dry_run)
+    if "claude" in agents:
+        print("\nNOTE: the Claude search-first PreToolUse hook is now active. Any")
+        print("  already-running Claude session in this project will start")
+        print("  blocking Read on indexed files (root *.md, configured source dirs)")
+        print("  until a search runs within the gate window.")
+    if "codex" in agents:
+        print("\nNOTE: the Codex hooks are best-effort and now use .less_tokens/ compatibility shims.")
+        print("  AGENTS.md also has the token-discipline instructions for Codex.")
+    print(f"  Tune the gate via WINDOW_SECONDS in {config_desc} (default 300s).")
     print()
     return 0
 

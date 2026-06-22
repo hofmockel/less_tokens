@@ -87,6 +87,13 @@ EMBEDDING_DIM: int = 384
 # hashes, so the next refresh re-embeds all Python sources. Default off.
 CHUNK_INCLUDE_MODULE_CONTEXT: bool = False
 
+# Hard ceiling on chunk body size in characters. Chunks exceeding this limit
+# are split at paragraph/line boundaries into numbered sub-chunks (key, key_2,
+# key_3, …). Smaller chunks → tighter search hits; larger → more context per
+# hit. Tune for your model's context window. Set 0 to disable.
+# Rough guide: 2000 chars ≈ 500 tokens (prose) or 650 tokens (dense code).
+MAX_CHUNK_CHARS: int = 2000
+
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
@@ -147,6 +154,12 @@ TRACK_SAVINGS = False   # set True via: python .claude/tools/stats.py
 # overflow doc (which IS indexed) so it stays discoverable by search.
 CLAUDE_MD_TOKEN_BUDGET: int = 1200
 CLAUDE_MD_OVERFLOW_DOC: str = "documentation.md"
+
+# --- AGENTS.md budget (agentsmd-budget Codex hook) ---
+# Mirrors the CLAUDE.md budget above. AGENTS.md is always-loaded by Codex.
+# Set 0 to disable.
+AGENTS_MD_TOKEN_BUDGET: int = 1200
+AGENTS_MD_OVERFLOW_DOC: str = "documentation.md"
 
 # --- Caveman output enforcement (Stop hook: caveman-reminder.py) ---
 # Checks the last assistant turn (not tool output) for filler phrases and an

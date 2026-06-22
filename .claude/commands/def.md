@@ -1,4 +1,4 @@
-Locate a symbol's definition by exact `file:line` — cheaper than grepping.
+Locate a Python or JS/TS symbol's definition by exact `file:line` — cheaper than grepping.
 
 ```bash
 .claude/.venv-tokens/bin/python .claude/tools/symbols.py "$ARGUMENTS"

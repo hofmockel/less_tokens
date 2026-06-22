@@ -80,7 +80,11 @@ def _walk(
     for e in entries:
         if _skip_dir(e.name) or _is_gitignored(e.name, gitignore):
             continue
-        (files if e.is_file() else dirs).append(e)
+        if e.is_dir():
+            dirs.append(e)
+        elif e.is_file():
+            files.append(e)
+        # broken symlinks: is_dir()=False and is_file()=False — skip
 
     shown = files[:max_per_dir]
     hidden = len(files) - len(shown)

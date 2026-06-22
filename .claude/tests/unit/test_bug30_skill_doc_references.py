@@ -10,6 +10,7 @@ from pathlib import Path
 from tests.conftest import REPO_ROOT
 
 SKILL = REPO_ROOT / ".claude" / "skills" / "bug-hunt" / "SKILL.md"
+PROTOCOL = REPO_ROOT / "agents" / "common" / "bug-hunt-protocol.md"
 
 
 def test_skill_md_does_not_reference_aiportfolio_path():
@@ -22,7 +23,7 @@ def test_skill_md_does_not_reference_aiportfolio_path():
 
 def test_skill_md_coverage_list_references_less_tokens_files():
     """The high-yield file list must name actual less_tokens source files."""
-    text = SKILL.read_text()
+    text = PROTOCOL.read_text()
     # Key less_tokens files that should appear in the coverage list.
     assert "embeddings.py" in text
     assert "search.py" in text

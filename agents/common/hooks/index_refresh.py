@@ -13,6 +13,15 @@ except ImportError:
     from search_first import is_indexed  # type: ignore[no-redef]
 
 
+def _detach_kwargs(platform: str) -> dict:
+    if platform == "win32":
+        return {
+            "creationflags": getattr(subprocess, "DETACHED_PROCESS", 8)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
+        }
+    return {"start_new_session": True}
+
+
 def check_index_refresh(
     payload: HookPayload,
     *,
@@ -33,7 +42,7 @@ def check_index_refresh(
     if not venv_py or not Path(str(venv_py)).exists():
         return 0, "", ""
 
-    embeddings_py = repo / ".claude" / "tools" / "embeddings.py"
+    embeddings_py = repo / config.get("tool_prefix", ".claude/tools") / "embeddings.py"
     if not embeddings_py.exists():
         return 0, "", ""
 
@@ -47,18 +56,14 @@ def check_index_refresh(
             excluded_prefixes=config.get("excluded_prefixes", ()),
             excluded_names=config.get("excluded_names"),
             indexed_dirs=config.get("dirs", ()),
+            root_globs=config.get("root_globs", ("*.md", "*.py", "*.sql")),
         ):
             return 0, "", ""
 
     log = state_dir / "index-refresh.log"
     log.parent.mkdir(parents=True, exist_ok=True)
 
-    kwargs: dict = (
-        {"creationflags": getattr(subprocess, "DETACHED_PROCESS", 8) |
-                          getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)}
-        if sys.platform == "win32"
-        else {"start_new_session": True}
-    )
+    kwargs = _detach_kwargs(sys.platform)
     with log.open("ab") as fh:
         subprocess.Popen(
             [str(venv_py), str(embeddings_py), "refresh"],

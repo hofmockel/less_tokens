@@ -3,7 +3,7 @@
 
 Sources (everything indexable):
   - All files matching INDEXED_ROOT_GLOBS in repo root (default: *.md)
-  - All *.py and *.sql under INDEXED_SOURCE_DIRS (default: tools/, app/, schema/)
+  - All *.py, *.sql, and *.js/jsx/ts/tsx under INDEXED_SOURCE_DIRS (default: tools/, app/, schema/)
 
 Embedding: local fastembed BAAI/bge-small-en-v1.5 (384 dim). Self-contained;
 model downloads to ~/.cache/huggingface on first run (~130MB).
@@ -127,7 +127,99 @@ def _sha256(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+# ----- chunking helpers -----------------------------------------------------
+
+def _split_at_boundary(text: str, max_chars: int) -> list[str]:
+    """Split text into pieces ≤ max_chars at paragraph, then line boundaries."""
+    if len(text) <= max_chars:
+        return [text]
+    parts: list[str] = []
+    remaining = text
+    while len(remaining) > max_chars:
+        cut = remaining.rfind("\n\n", 0, max_chars + 1)
+        if cut <= 0:
+            cut = remaining.rfind("\n", 0, max_chars + 1)
+        if cut <= 0:
+            cut = max_chars
+        parts.append(remaining[:cut].strip())
+        remaining = remaining[cut:].strip()
+    if remaining:
+        parts.append(remaining)
+    return [p for p in parts if p]
+
+
+def _split_oversized(
+    chunks: list[tuple[str, str]], max_chars: int
+) -> list[tuple[str, str]]:
+    """Split any chunk whose body exceeds max_chars into numbered sub-chunks."""
+    if max_chars <= 0:
+        return chunks
+    out: list[tuple[str, str]] = []
+    for key, body in chunks:
+        if len(body) <= max_chars:
+            out.append((key, body))
+            continue
+        for i, part in enumerate(_split_at_boundary(body, max_chars)):
+            out.append((key if i == 0 else f"{key}_{i + 1}", part))
+    return out
+
+
 # ----- chunking -------------------------------------------------------------
+
+_JS_DECL = re.compile(
+    r"^(?:export\s+(?:default\s+)?)?"
+    r"(?:"
+    r"(?:async\s+)?function\s*\*?\s*(\w+)"  # named function / generator
+    r"|class\s+(\w+)"                        # class
+    r"|(?:const|let|var)\s+(\w+)\s*="       # const/let/var assignment
+    r"|(?:interface|enum)\s+(\w+)"           # TS interface / enum
+    r"|type\s+(\w+)\s*="                     # TS type alias
+    r")"
+)
+_JS_EXPORT_DEFAULT = re.compile(
+    r"^export\s+default\s+(?:async\s+)?(?:function|class)\b"
+)
+
+
+def chunk_js(path: Path) -> list[tuple[str, str]]:
+    """One chunk per top-level function/class/const in JS/TS files."""
+    src = path.read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+
+    starts: list[tuple[str, int]] = []
+    for i, line in enumerate(lines):
+        m = _JS_DECL.match(line)
+        if m:
+            name = next((g for g in m.groups() if g), None) or "default"
+            starts.append((name, i))
+        elif _JS_EXPORT_DEFAULT.match(line):
+            starts.append(("default", i))
+
+    if not starts:
+        stripped = src.strip()
+        return [("__file__", stripped)] if stripped else []
+
+    out: list[tuple[str, str]] = []
+    for i, (name, start) in enumerate(starts):
+        end = starts[i + 1][1] if i + 1 < len(starts) else len(lines)
+        body = "\n".join(lines[start:end]).strip()
+        if body:
+            out.append((name, body))
+
+    literal_keys = {k for k, _ in out}
+    deduped: list[tuple[str, str]] = []
+    emitted: set[str] = set()
+    for k, body in out:
+        key = k
+        if key in emitted:
+            n = 2
+            while f"{k}_{n}" in literal_keys or f"{k}_{n}" in emitted:
+                n += 1
+            key = f"{k}_{n}"
+        emitted.add(key)
+        deduped.append((key, body))
+    return _split_oversized(deduped, search_config.MAX_CHUNK_CHARS)
+
 
 def chunk_markdown(path: Path) -> list[tuple[str, str]]:
     """Split a markdown file by H1/H2/H3 headings."""
@@ -165,7 +257,7 @@ def chunk_markdown(path: Path) -> list[tuple[str, str]]:
             key = f"{k}_{n}"
         emitted.add(key)
         out.append((key, body))
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_python(path: Path) -> list[tuple[str, str]]:
@@ -235,7 +327,7 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
             key = f"{k}_{n}"
         emitted.add(key)
         deduped.append((key, body))
-    return deduped
+    return _split_oversized(deduped, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_sql(path: Path) -> list[tuple[str, str]]:
@@ -282,7 +374,7 @@ def chunk_sql(path: Path) -> list[tuple[str, str]]:
         )
         key = m.group(1) if m else f"stmt:{_sha256(b)[:8]}"
         out.append((key, b))
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 def chunk_changelog(path: Path) -> list[tuple[str, str]]:
@@ -304,7 +396,7 @@ def chunk_changelog(path: Path) -> list[tuple[str, str]]:
         out.append((head.lstrip("#").strip(), (head + "\n" + body).strip()))
     if not out:
         return chunk_markdown(path)
-    return out
+    return _split_oversized(out, search_config.MAX_CHUNK_CHARS)
 
 
 # ----- source enumeration ---------------------------------------------------
@@ -380,6 +472,26 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             continue
         rel = sq.relative_to(BASE).as_posix()
         for k, t in chunk_sql(sq):
+            out.append(("code", rel, k, t))
+
+    # JS/TS from indexed subdirs
+    js_paths: list[Path] = []
+    for dir_str in INDEXED_SOURCE_DIRS:
+        d = BASE / dir_str.rstrip("/")
+        if not d.exists():
+            continue
+        try:
+            for ext in ("*.js", "*.jsx", "*.ts", "*.tsx"):
+                js_paths.extend(d.rglob(ext))
+        except OSError as e:
+            incomplete = True
+            print(f"  WARN: skipping unreadable JS/TS dir {dir_str} — {e}",
+                  file=sys.stderr)
+    for js in sorted(set(js_paths)):
+        if _excluded(js):
+            continue
+        rel = js.relative_to(BASE).as_posix()
+        for k, t in chunk_js(js):
             out.append(("code", rel, k, t))
 
     return out, incomplete

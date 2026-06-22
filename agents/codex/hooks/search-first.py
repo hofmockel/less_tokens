@@ -23,7 +23,9 @@ def _resolve_repo() -> Path:
 
 
 REPO = _resolve_repo()
+sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
 sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
+sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 from payload import normalize_codex  # noqa: E402
@@ -34,6 +36,7 @@ try:
         active_state_dir,
         EXCLUDED_DIR_NAMES,
         EXCLUDED_DIR_PREFIXES,
+        INDEXED_ROOT_GLOBS,
         INDEXED_SOURCE_DIRS,
         WINDOW_SECONDS,
         VENV_PY,
@@ -42,8 +45,10 @@ try:
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,
+        "root_globs": INDEXED_ROOT_GLOBS,
         "window_seconds": WINDOW_SECONDS,
-        "venv_py": str(VENV_PY) if VENV_PY else "python3",
+        "venv_py": ".less_tokens/bin/python",
+        "tool_prefix": ".less_tokens/tools",
     }
     state_dir = active_state_dir()
 except Exception:

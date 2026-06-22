@@ -1,6 +1,7 @@
 """Shared search-first gate logic — agent-neutral."""
 from __future__ import annotations
 
+import fnmatch
 import re
 import time
 from pathlib import Path
@@ -18,7 +19,7 @@ def is_indexed(
     excluded_prefixes: tuple[str, ...] = (),
     excluded_names: set[str] | None = None,
     indexed_dirs: tuple[str, ...] = (),
-    root_globs: tuple[str, ...] = ("*.md",),
+    root_globs: tuple[str, ...] = ("*.md", "*.py", "*.sql"),
 ) -> bool:
     try:
         rel = path.resolve().relative_to(repo).as_posix()
@@ -35,7 +36,7 @@ def is_indexed(
         return False
 
     if "/" not in rel:
-        return rel.endswith((".md", ".py", ".sql"))
+        return any(fnmatch.fnmatch(rel, g) for g in root_globs)
     if any(rel.startswith(d) for d in indexed_dirs):
         return rel.endswith((".py", ".sql"))
     return False
@@ -53,6 +54,7 @@ def search_was_recent(state_dir: Path, window_seconds: int) -> bool:
 def _symbol_exists(name: str, repo: Path) -> bool:
     try:
         import sys
+        sys.path.insert(0, str(repo / ".less_tokens" / "tools"))
         sys.path.insert(0, str(repo / ".claude" / "tools"))
         from symbols import has_symbol  # type: ignore[import]
         return has_symbol(name)
@@ -69,6 +71,7 @@ def check_search_first(
 ) -> tuple[int, str, str]:
     """Return (exit_code, stdout, stderr)."""
     tool = payload.tool_name
+    tool_prefix = config.get("tool_prefix", ".claude/tools")
 
     if tool == "Grep":
         pat = (payload.tool_input or {}).get("pattern", "")
@@ -77,7 +80,7 @@ def check_search_first(
             venv_py = config.get("venv_py", "python3")
             ctx = (
                 f"`{name}` is a defined symbol. For its definition, "
-                f"`/def {name}` ({venv_py} .claude/tools/symbols.py {name}) returns the exact "
+                f"`/def {name}` ({venv_py} {tool_prefix}/symbols.py {name}) returns the exact "
                 f"file:line + a Read(offset,limit) — cheaper than grepping. "
                 f"Grep is fine if you want usages."
             )
@@ -99,7 +102,7 @@ def check_search_first(
         excluded_prefixes=config.get("excluded_prefixes", ()),
         excluded_names=config.get("excluded_names"),
         indexed_dirs=config.get("dirs", ()),
-        root_globs=config.get("root_globs", ("*.md",)),
+        root_globs=config.get("root_globs", ("*.md", "*.py", "*.sql")),
     ):
         return 0, "", ""
 
@@ -115,7 +118,7 @@ def check_search_first(
     msg = (
         f"Search-first rule: {rel} is indexed.\n"
         f"Run vector search before Read:\n"
-        f"  {venv_py} .claude/tools/search.py \"<your query>\"\n"
+        f"  {venv_py} {tool_prefix}/search.py \"<your query>\"\n"
         f"After a search, Reads on indexed files are allowed for "
         f"{config.get('window_seconds', 300)}s."
     )

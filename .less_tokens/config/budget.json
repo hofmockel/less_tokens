@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "mode": "observe",
+  "token_estimator": "chars_div_4",
+  "total_context_tokens": 24000,
+  "reserved_response_tokens": 4000,
+  "relevance_threshold": 0.35,
+  "replacement_required_for_blocks": true,
+  "categories": {
+    "instructions": 3000,
+    "current_request": 2000,
+    "session_summary": 3000,
+    "retrieved_context": 10000,
+    "tool_output": 4000,
+    "diffs": 3000,
+    "agent_state": 2000
+  },
+  "hard_caps": {
+    "full_file_read": 3000,
+    "single_tool_output": 2500,
+    "directory_listing": 1000,
+    "unscored_context": 1200
+  },
+  "agent_overrides": {
+    "claude": {},
+    "codex": {}
+  }
+}

@@ -85,14 +85,15 @@ def test_exempt_when_in_last_search(hook, tmp_path, monkeypatch):
     assert hook.check(str(p), offset=None) is None
 
 
-def test_exempt_last_search_match_by_name(hook, tmp_path, monkeypatch):
+def test_not_exempt_when_only_basename_matches(hook, tmp_path, monkeypatch):
+    # "tools/target.py" and tmp_path/target.py share a basename but are different files.
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
     p = _make_file(tmp_path, 200, name="target.py")
     ranges_file = tmp_path / "last-search.json"
     ranges_file.write_text(json.dumps({"tools/target.py": [[1, 10]]}))
     monkeypatch.setattr(hook, "RANGES_FILE", ranges_file)
     monkeypatch.setattr(hook, "WINDOW_SECONDS", 300)
-    assert hook.check(str(p), offset=None) is None
+    assert hook.check(str(p), offset=None) is not None
 
 
 def test_not_exempt_when_last_search_stale(hook, tmp_path, monkeypatch):
@@ -168,3 +169,26 @@ def test_main_pass_with_offset(hook, monkeypatch, tmp_path):
     p = _make_file(tmp_path, 200)
     code = _run_main(hook, {"tool_name": "Read", "tool_input": {"file_path": str(p), "offset": 50}}, monkeypatch)
     assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# Gate message must use VENV_PY from search_config, not a hardcoded path
+# ---------------------------------------------------------------------------
+
+def test_gate_message_uses_venv_py(hook, tmp_path, monkeypatch):
+    """check() must embed str(VENV_PY) in the hint — not a hardcoded
+    '.venv-tokens' path — so users with a custom venv see the right command."""
+    custom_venv = Path("/custom/venv/bin/python")
+    monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "VENV_PY", custom_venv)
+    monkeypatch.setattr(hook, "_is_indexed", lambda p: False)
+    ranges_file = tmp_path / "last-search.json"
+    ranges_file.write_text("{}")
+    monkeypatch.setattr(hook, "RANGES_FILE", ranges_file)
+    monkeypatch.setattr(hook, "WINDOW_SECONDS", 300)
+    p = _make_file(tmp_path, 200)
+    msg = hook.check(str(p), offset=None)
+    assert msg is not None
+    assert str(custom_venv) in msg, (
+        f"gate message should contain custom VENV_PY path {custom_venv!r}, got:\n{msg}"
+    )

@@ -91,7 +91,7 @@ def parse_sections(text: str) -> list[dict]:
 
 
 def _strip_code(body: str) -> str:
-    return re.sub(r"```.*?```", "", body, flags=re.DOTALL)
+    return re.sub(r"```.*?(?:```|\Z)", "", body, flags=re.DOTALL)
 
 
 
@@ -105,10 +105,9 @@ def _resolve(path: str):
     direct = BASE / path
     if direct.exists():
         return direct
-    if "/" not in path:
-        for hit in BASE.rglob(path):
-            if not any(part in _IGNORE_DIRS for part in hit.parts):
-                return hit
+    for hit in BASE.rglob(path):
+        if not any(part in _IGNORE_DIRS for part in hit.parts):
+            return hit
     return None
 
 
@@ -172,13 +171,16 @@ def duplication(sections: list[dict]):
         from db import connect_index  # noqa: PLC0415
         from embeddings import DIM, embed, unpack_vectors  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
+        import search_config  # noqa: PLC0415
     except Exception:
         return None
     try:
         with connect_index() as c:
             rows = c.execute(
                 "SELECT source_path, source_key, embedding FROM documents "
-                "WHERE source_path NOT LIKE '%CLAUDE.md'"
+                "WHERE source_path NOT LIKE '%CLAUDE.md' "
+                "AND embedding_model = ?",
+                (search_config.EMBEDDING_MODEL,),
             ).fetchall()
     except Exception:
         return None
@@ -192,6 +194,8 @@ def duplication(sections: list[dict]):
     M = np.vstack(mats).astype("float32")
     M /= (np.linalg.norm(M, axis=1, keepdims=True) + 1e-9)
     targets = [s for s in sections if s["level"]]
+    if not targets:
+        return {}
     try:
         Q = embed([s["body"] for s in targets], input_type="query")
     except Exception:

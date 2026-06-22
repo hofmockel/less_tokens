@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -9,6 +10,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 FIXTURES = Path(__file__).parent / "fixtures" / "sample_project"
+
+if "coverage" in sys.modules:
+    os.environ.setdefault("COVERAGE_PROCESS_START", str(REPO_ROOT / ".coveragerc"))
 
 
 @pytest.fixture(scope="session")

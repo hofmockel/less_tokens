@@ -29,10 +29,10 @@ class TestBothModeSpecs:
         dest_dirs = [s[1] for s in specs]
         assert ".claude/hooks" in dest_dirs
 
-    def test_includes_less_tokens_tools(self):
+    def test_includes_shared_less_tokens_tools(self):
         specs = _install_specs(caveman=False, agents={"claude", "codex"})
         dest_dirs = [s[1] for s in specs]
-        assert any(".less_tokens/tools" in d for d in dest_dirs)
+        assert ".less_tokens/tools" in dest_dirs
 
     def test_includes_less_tokens_schema(self):
         specs = _install_specs(caveman=False, agents={"claude", "codex"})

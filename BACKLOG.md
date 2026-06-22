@@ -12,36 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| **`_extract_block` truncates multi-line assignments** | `merge_search_config` stores `(lineno, end_lineno)` but passes only `lineno` to `_extract_block`; multi-line vars (sets, dicts) are injected as their opening line only — broken Python. `install.py:300` | open |
-| **`_index_db_at_current_schema` accepts v1 as current** | `bool(row and row[0])` is True for any schema version ≥ 1; a v1 index is treated as current and the v1→v2 endianness migration is skipped, silently corrupting search scores. `install.py:692` | open |
-| **Filename-only path match in `auto-slice` / `grep-first`** | `kp.name == p.name` matches any file sharing a basename regardless of directory, causing wrong line-range injection in `auto-slice.py` and false gate exemptions in `grep-first-read.py`. `auto-slice.py:64`, `grep-first-read.py:98` | open |
-| **Context-cache shares state across sessions when `transcript_path` is None** | `session_key = transcript_path or ""` is always `""` for sessions without a transcript path; a new session matches the old session key and sees stale "already read" cache entries. `context-cache.py:87` | open |
-| **`grep-first-read` hardcodes `.venv-tokens` path** | Line 178 hardcodes the venv path instead of reading `VENV_PY` from `search_config`; users with a custom venv location see a wrong python path in the gate error message. `grep-first-read.py:178` | open |
-| **`_remove_gitignore_block` leaves orphan trailing blank** | Removes the blank line before the managed block but not any blank line after `_GI_END`; uninstall leaves an orphan blank line in `.gitignore`. `install.py:907` | open |
-| **`truncate_bash` falls back on original text when head+tail fits** | When `omitted_lines <= 0`, calls `truncate_chars(text, ceiling)` on the original full text instead of the assembled head+tail result; discards the error-preserving tail structure. `truncate-output.py:78` | open |
-| **`offset=0` treated as absent, blocks legitimate sliced Reads** | `inp.get("offset")` is falsy for `0`; an explicit `Read(offset=0, limit=N)` is treated as an unsliced whole-file read and incorrectly blocked by both hooks. `read-after-edit.py:69`, `read-guard.py:110` | open |
-| **`savings_log` import failure silently kills search-first gate** | `from savings_log import append` is inside the same try-block as `search_config`; any unrelated import error prints "could not load search_config" and disables the entire gate. `search-first.py:54` | open |
-| **`is_indexed()` ignores `INDEXED_ROOT_GLOBS`, hardcodes suffixes** | `_load_config` stores `INDEXED_ROOT_GLOBS` in `_config["root_globs"]` but `is_indexed()` hardcodes `.md`/`.py`/`.sql` for root files and never consults it; gate is out of sync with indexer. `search-first.py:78` | open |
-| **`index-refresh.py` same hardcoded suffix heuristic** | Same root bug as above — `is_indexed()` hardcodes suffixes instead of consulting `INDEXED_ROOT_GLOBS`; triggers spurious re-embeds for unindexed root files. `index-refresh.py:90` | open |
-| **`duplication()` missing `embedding_model` filter** | Query fetches all rows regardless of model; after a model switch, mixed-dimension blobs cause `np.vstack` to fail with `ValueError`, silently disabling duplicate detection via the outer `except Exception → return None`. `claudemd_audit.py:180` | open |
-| **`listing-guard` tree detection start-anchored, chained commands bypass** | `re.match(r'\s*tree\b', stripped)` fails for `echo foo && tree`; the ls guard uses `re.search` (anywhere), making detection inconsistent. `listing-guard.py:81` | open |
-| **`listing-guard` false-positive on `find . -type f`** | `-type` is absent from `_ALLOW_RE`; `find . -type f` (no other predicate) is intercepted as a bare dump and replaced with `lean-ls` output. `listing-guard.py:99` | open |
-| **`_resolve()` can't find partial paths containing `/`** | For paths with `/`, only `BASE / path` is tried; `tools/search.py` resolves to `BASE/tools/search.py` (missing), falsely flagging a valid ref. `rglob` fallback is only used for bare filenames. `claudemd_audit.py:101` | open |
-| **`toolcost._recv()` reads one line, skips server notifications** | Reads exactly one stdout line; if the MCP server emits a notification before the `tools/list` response, `_recv` returns the notification and the caller gets 0 tools — silent under-count. `toolcost.py:97` | open |
-| **`compact-trigger` stale `last-size` silences trigger in new sessions** | `last-size` persists across sessions; after a large session the new-session transcript starts small but `size < last + hysteresis` holds true, preventing the nudge from ever firing. `compact-trigger.py:87` | open |
-| **`search.py` creates empty `index.db`, breaking subsequent `migrate()`** | `connect_index()` calls `sqlite3.connect(INDEX_DB)` which creates an empty db file; later `ensure_current_schema()` calls `migrate()` instead of `init()`, and `migrate()`'s `INSERT INTO schema_version` crashes because the table is absent. `search.py:108`, `db.py:128` | open |
-| **`lean-ls` crashes on broken symlinks** | Broken symlink returns `is_file()=False` and is added to `dirs`; subsequent `iterdir()` raises `FileNotFoundError` which is not caught (only `PermissionError` is). `lean-ls.py:83` | open |
-| **`_locate_range` returns wrong range on duplicate first line** | When the last-line confirmation fails, immediately returns a fallback range for the wrong occurrence instead of `continue`-ing the loop to find the correct one. `search.py:219` | open |
-| **`post-edit-diff` runs `git diff` in wrong repo for host-project files** | `cwd=REPO` is hardcoded to the less_tokens dir; writes to host-project files show as all-added new files rather than diffs against the actual tracked version. `post-edit-diff.py:78` | open |
-| **`symbols.py refresh()` ignores `--full` flag** | `full` parameter is accepted and documented but never consulted inside the function; always performs a full DELETE+reinsert regardless. `symbols.py:127` | open |
-| **`caveman-reminder` counts unclosed code fence content as prose** | `_FENCE` regex requires a closing ` ``` `; an unclosed fence leaves code words in the prose word count, triggering false violation alerts. `caveman-reminder.py:67` | open |
-| **`db.py connect_index()` return type annotation wrong** | Annotated `-> sqlite3.Connection` but returns `_ClosingConn`; suppressed with `# type: ignore[return-value]`; callers using the return value directly (outside `with`) get `AttributeError`. `db.py:55` | open |
-| **`load_toolignore` keeps inline `#` comments as server names** | `"slack  # note"` is added verbatim to `ignored`; it never matches the settings key `"slack"`, so the server is never pruned. `mcp-prune.py:47` | open |
-| **`mcp-prune._BASE` targets less_tokens dir, not host project** | `_BASE = Path(__file__).resolve().parent.parent.parent` resolves to the less_tokens source tree; `.toolignore` and `settings.json` are always looked up in the wrong directory when run from a host project. `mcp-prune.py:36` | open |
-| **`--global` documented in docstring but absent from argparse** | Module docstring at lines 8 and 14 describes `--global` as a required flag for global-install mode, but no `add_argument("--global", ...)` exists; `install.py --global` crashes with an unrecognised-argument error. `install.py:8` | open |
-| **`total_tokens` undercounted due to per-row integer truncation** | `tok = sc // CHARS_PER_TOKEN` truncates per strategy; `sum(sc//4)` ≠ `sum(sc)//4`, so strategies saving fewer than 4 chars each contribute 0 tokens to the total. `stats.py:93` | open |
-| **`_strip_code` unclosed fence leaks code into prose word count** | `re.sub(r"```.*?```", …)` only removes balanced fences; an unclosed ` ``` ` leaves its content in the prose, inflating filler/word counts and producing false `TRIM` verdicts. `claudemd_audit.py:94` | open |
-| **`embed([])` crashes on empty section list, silently disabling dup check** | When CLAUDE.md has no headed sections `targets=[]`; `embed([])` produces a shape-`(0,)` array; `np.linalg.norm(axis=1)` raises `AxisError` caught by `except Exception → return None`, silently disabling duplicate detection. `claudemd_audit.py:196`, `embeddings.py:396` | open |
 
 ---
 
@@ -51,20 +21,13 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-
-
-
 ### Medium Priority
 
-- **S12 — Structured tool-output parsers (skill)** *(tool)* — `.claude/skills/lean-output/` with parsers returning only signal: pytest → failing ids + assertion lines + counts; ruff/eslint → `file:line: code msg`; git → name-status + stat. PostToolUse on `Bash` auto-detects known tools and pipes through the parser before the result reaches context. Beats blind truncation (Strategy 3) — keeps the failing line, drops the noise. 60–95% on the noisiest, most-repeated outputs. (evaluate.md)
-
-- **G6 — Live token governor** *(meta)* — a running session-token estimate (transcript size, already read by `compact-trigger.py`) that tightens knobs as the budget depletes: smaller `MAX_TOOL_OUTPUT_CHARS`, lower search `k`, earlier compaction, stricter caveman. One PostToolUse governor writes a live tier to state that the other hooks consult. Multiplies the existing strategies rather than adding a new surface. Supersedes the post-hoc, opt-in `stats.py` as a *live* control.
 - **G9 — Always-loaded surfaces beyond CLAUDE.md** *(fixed)* — extend the claudemd approach: `claudemd_audit.py --rules` covers `.claude/rules/*`, and a `skilldesc_audit` flags bloated/overlapping skill descriptions (always-loaded, and they grow with the skill library) against a per-description word cap. Same budget + hook mechanism, wider scope.
 ### Low Priority
 
-- **G5 — WebFetch main-content extraction** *(tool)* — a readability-style extractor (strip nav/footer/script) applied PostToolUse on `WebFetch` before the result reaches context. Returns the article body, not the chrome; avoids truncation cutting the part that mattered. Extends the S12 parser approach to web results.
 - **G7 — Subagent context re-derivation** *(input)* — parent writes a compact context pack (relevant slices + search hits) to `STATE_DIR`; spawned agents read that instead of re-reading/re-searching the same files cold. Mostly a discipline + helper (a skill documenting "pass results, don't re-discover"); hard to hook-enforce. Spiky impact — large only when subagents are used heavily.
-- **G8 — Don't reprint files in output** *(output)* — Stop-hook check (extends the shipped `caveman-reminder.py` Stop hook): flag a response containing a large code block whose content closely matches an existing file (line-overlap against the named path) and nudge `"use Edit, don't reprint <file>."` Caveman governs prose, not pasted code.
+
 - **G10 — Search-result dedup** *(input)* — in `search.py`, drop a hit whose cosine to an already-selected hit exceeds a threshold and backfill the next distinct one, so overlapping/near-duplicate chunks aren't paid for twice per query. Pure post-processing on vectors already in hand; sharpens an existing strategy.
 - **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus by need via `.claude/rules/tier-matrix.md` + an `AGENT_TIER_HINTS: bool` flag. **Verdict (evaluate.md): low confidence.** No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% blended saving is unverified. Keep as an opt-in rule only; prefer the shipped caveman Stop hook for output-token savings. (evaluate.md)
 
@@ -74,30 +37,25 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **Configurable chunk size** — expose `MAX_CHUNK_CHARS` in `.claude/tools/search_config.py` so users can tune for their Claude model's context window
-- **TypeScript / JavaScript chunking** — add a `chunk_js` strategy (function-level, like `chunk_python`) for projects with `.ts` / `.js` source
-
-### Medium Priority
-
-- **Implement graceful degradation** — explicit handlers in `.claude/tools/embeddings.py` and `.claude/tools/search.py` for each failure condition; each catches the failure, emits a structured warning to stderr, and continues rather than propagating an exception.
-
 ---
 
 ## Installer
 
 ### High Priority
 
-- **`install.py --check`** — verify that a previous install is still valid: venv exists, fastembed is installed, `index.db` is present and has ≥1 row, `VENV_PY` resolves to a real interpreter, `.claude/hooks/*.py` exist and are executable, hooks are wired in `.claude/settings.json` (the file the installer actually writes — `install.py:1004`), and a `.claude/tools/search.py "test"` smoke query returns without error. Print `[✓]`/`[✗]` per check and exit non-zero with a specific message for each failure.
-- **Auto-append caveman prompt to a resolved `CLAUDE.md` target** — `--caveman` copies `.claude/rules/` and wires the reminder hook, but appending the prompt to `CLAUDE.md` is left as a printed `cat .claude/rules/caveman.md >> CLAUDE.md` next-step (`install.py:1069-1070`). The reminder hook nags for terse output from the first turn even though the style spec it references is not yet in context. `_caveman_in_claude_md()` (`install.py:566`) already detects the duplicate — extend it to perform an idempotent append using guarded block markers (like the `.gitignore` block). Also resolve the ambiguous target: in a clone-into-host layout there are two `CLAUDE.md` files (host root vs `less_tokens/CLAUDE.md`), and `cat >>` against a missing host root file silently creates one containing only the caveman section with no `# CLAUDE.md` header. The installer should name the absolute target path and create a minimal valid `CLAUDE.md` (standard header) when absent. (`install.py:566`, `install.py:1064-1070`)
-- **Wire the claudemd-budget hook** — `install.py` should deploy `.claude/hooks/claudemd-budget.py` and wire it as PostToolUse on `Edit|Write` in the host settings file, alongside the existing hooks. (Skill + tool + hook already built; installer wiring is the remaining step.)
-
 ---
 
 ## Hooks & Caveman Mode
 
+---
+
+## Codex Agent
+
 ### High Priority
 
-- **Per-task exemptions** — allow CLAUDE.md to declare specific task types (e.g., user-facing copy, PR descriptions) that bypass caveman mode. Implement on the shipped caveman Stop hook (`caveman-reminder.py`) so its check honors the exemption list.
+### Medium Priority
+
+### Low Priority
 
 ---
 
@@ -108,52 +66,3 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **Consider GitHub self-hosted runners for the perf job** — the `perf` CI job downloads the fastembed model (~130 MB `BAAI/bge-small-en-v1.5`) and relies on `actions/cache`; a cold cache miss adds wall-clock time and network variance to timing results. A self-hosted runner with the model pre-installed in `~/.cache/huggingface` would remove both and give stable CPU baselines. Trade-off: infra maintenance + runner registration; only worth it if perf run times become a bottleneck or variance produces false failures. (Demoted: not on the token-reduction mission.)
 
 ---
-
-## Removed (minimal impact — see evaluate.md)
-
-Cut deliberately; they touch the periphery, not tokens spent. Recorded here so they are not re-proposed.
-
-- **`search.py` interactive REPL** — exploratory-query DX, not token reduction.
-- **`embeddings.py` file-watcher mode** — duplicates the existing PostToolUse refresh hook; DX, not token reduction.
-- **Search quality metrics log** (`.claude/state/search.log`) — audit aid, saves no tokens.
-- **`search.py` query history log** (`.claude/state/search-history.log`) — audit aid, saves no tokens.
-
----
-
-## Bug-Hunt Protocol
-
-### Current state (post-round-4)
-
-- **Round 4** (7 surfaced; 6 real, 1 dismissed, 0 duplicate): silent ×3, ux ×2, cosmetic ×1. Overlap 0%. New files: `mcp-prune.py`, `stats.py`. Revisited: `install.py`, `claudemd_audit.py`, `embeddings.py`.
-- **Severity slide**: ✗ — median ux both rounds (no drop).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✓ — ~85% (22/26 files, ≥ 80%).
-
-**Verdict: keep hunting. 1 of 3 signals met; 4 files still unexplored (`claudemd-budget.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`). Overlap still 0% — surface not yet saturated.**
-
-### Previous state (post-round-3)
-
-- **Round 3** (8 bugs surfaced; 8 real, 0 dismissed, 0 duplicate): silent ×3, ux ×3, cosmetic ×2. Overlap 0%. New files: `compact-trigger.py`, `search.py`, `lean-ls.py`, `post-edit-diff.py`, `symbols.py`, `caveman-reminder.py`, `db.py`.
-- **Severity slide**: ✓ — median dropped from silent (R2) to ux (R3).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~77% (20/26 files, < 80%).
-
-**Verdict: keep hunting. 1 of 3 signals met; file coverage is 77% — one more round should push past 80% (6 files remain: `claudemd-budget.py`, `mcp-prune.py`, `model_profiles.py`, `savings_log.py`, `search_config.py`, `stats.py`).**
-
-### Previous state (post-round-2)
-
-- **Round 2** (10 bugs surfaced; 10 real, 0 dismissed, 0 duplicate): silent ×7, ux ×3. Overlap 0%. New files: `truncate-output.py`, `read-after-edit.py`, `read-guard.py`, `search-first.py`, `index-refresh.py`, `claudemd_audit.py`, `listing-guard.py`, `toolcost.py`.
-- **Severity slide**: ✗ — median silent both rounds (no drop).
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~50% (13/26 files, < 80%).
-
-**Verdict: keep hunting.**
-
-### Previous state (post-round-1)
-
-- **Round 1** (7 bugs surfaced; 7 real, 0 dismissed, 0 duplicate): silent ×5, ux ×2, cosmetic ×1. Overlap 0%. Files hit: `embeddings.py`, `install.py`, `auto-slice.py`, `grep-first-read.py`, `context-cache.py` (5 of ~26 source files).
-- **Severity slide**: ✗ — Round 1, no prior round to compare.
-- **Overlap rate**: ✗ — 0% (< 60%).
-- **File coverage**: ✗ — ~19% (5/26 files, < 80%).
-
-**Verdict: keep hunting.**

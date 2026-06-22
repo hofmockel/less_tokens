@@ -85,19 +85,19 @@ def _summarize(records: list[dict]) -> dict:
 
 def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
     data = _summarize(records)
-    total_chars = total_tokens = 0
+    total_chars = 0
     body_rows = []
     for key, lbl in _STRATEGY_LABELS.items():
         d = data[key]
         sc = d["saved_chars"]
-        tok = sc // CHARS_PER_TOKEN if sc else 0
         total_chars += sc
-        total_tokens += tok
         sc_str = f"{sc:,}" if sc else "—"
+        tok = sc // CHARS_PER_TOKEN if sc else 0
         tok_str = f"{tok:,}" if tok else "—"
         body_rows.append(
             f"| {lbl:<22} | {d['events']:>6} | {sc_str:>12} | {tok_str:>14} |"
         )
+    total_tokens = total_chars // CHARS_PER_TOKEN
     sep = f"|{'-'*24}|{'-'*8}|{'-'*14}|{'-'*16}|"
     return [
         f"## {heading}",

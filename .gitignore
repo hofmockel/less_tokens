@@ -10,6 +10,7 @@ __pycache__/
 venv/
 env/
 app/.venv/
+--upgrade/
 .fuse_hidden*
 index.db-wal
 index.db-shm

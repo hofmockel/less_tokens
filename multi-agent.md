@@ -853,38 +853,36 @@ Implement in small PRs.
 - Add `--agent codex` and `--agent both` integration tests.
 - Verify that a Codex install with no `.codex/` write access still produces a functional MVP (tools + skill + AGENTS.md).
 
+Status: implemented for the core Codex adapter set, including search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks.
+
 ### PR 6: docs and release notes
 
 - Update `README.md` and `documentation.md`.
 - Add changelog entry.
 - Document compatibility matrix.
-- Document known limitations of Codex search-first enforcement.
+- Document known limitations of Codex hook enforcement.
 
 ## Compatibility matrix
 
-Add this table to user-facing docs once Codex support lands:
-
 | less_tokens version | Claude support | Codex support | Notes |
 |---|---|---|---|
-| current | stable | manual/planned | Claude-only installer |
-| next minor | stable | experimental | `--agent codex` |
-| next major | stable | stable | shared adapter architecture |
+| current | stable | stable | `--agent codex\|both`; shared index, separate runtime state |
 
 ## Known limitations to document
 
-### Search-first enforcement differs by agent
+### Hook enforcement differs by agent
 
-Claude's current path can block direct `Read` tool calls. Codex search-first should be treated as a best-effort guardrail unless the active Codex runtime exposes every relevant read path to hooks.
+Claude's current path can block direct `Read` tool calls. Codex now has a broader hook set, but it should still be treated as a best-effort guardrail unless the active Codex runtime exposes every relevant read, edit, search, and Bash path to hooks.
 
 The Codex path should not claim sandbox-like enforcement. It should say:
 
-> Search-first is enforced where hook-visible tool calls expose file paths or commands. It remains backed by `AGENTS.md` and the `less-tokens` skill for cases hooks cannot intercept.
+> Token-reduction hooks are enforced where hook-visible tool calls expose file paths or commands. The system remains backed by `AGENTS.md` and the `less-tokens` skill for cases hooks cannot intercept.
 
 ### Codex hook and skill installation is environment-dependent
 
 Field testing confirmed that `.codex/skills` is not writable in all Codex environments and `.agents/skills/` may also be unavailable. The installer must probe before writing. The `.less_tokens/skills/` fallback is always safe because `less_tokens` already owns that directory.
 
-If `.codex/hooks.json` does not exist and cannot be created, Codex hook behavior is unavailable for that install. The MVP still works: search, symbols, guards, and AGENTS.md audit all run as explicit script calls without any hook wiring.
+If `.codex/hooks.json` does not exist and cannot be created, Codex hook behavior is unavailable for that install. The MVP still works: search, symbols, read guards, and AGENTS.md audit all run as explicit script calls without any hook wiring.
 
 ### Lazy tool discovery reduces MCP pruning priority
 
@@ -934,5 +932,5 @@ The multi-agent work is complete when all of the following are true:
 - Installer tests cover Claude, Codex, and both modes.
 - Installer probes writability before installing to `.codex/` or `.agents/` paths.
 - Codex skill falls back to `.less_tokens/skills/less-tokens/SKILL.md` when preferred targets are unavailable.
-- Documentation clearly states Codex search-first enforcement is best-effort.
+- Documentation clearly states Codex hook enforcement is best-effort.
 - Documentation notes that `.codex/hooks.json` and `.agents/skills/` are optional, not guaranteed.

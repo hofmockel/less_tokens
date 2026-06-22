@@ -1,0 +1,14 @@
+---
+name: bug-hunt
+description: Run a structured bug hunt using the shared protocol. Use when asked to find bugs, run a hunt round, or apply the stop rule.
+---
+
+# Bug-Hunt Protocol
+
+Full protocol lives in the shared canonical source:
+
+**[agents/common/bug-hunt-protocol.md](../../common/bug-hunt-protocol.md)**
+
+Read that file for the severity rubric, three signals, stop rule, and agent prompt template.
+
+Hunt log: `.claude/skills/bug-hunt/bughuntlog.md`

@@ -16,6 +16,7 @@ def check_compact_trigger(
     state_dir: Path,
     max_session_chars: int,
     message: str,
+    state_file: Path | None = None,
 ) -> tuple[int, str, str]:
     """Return (exit_code, stdout, stderr)."""
     if max_session_chars == 0:
@@ -33,14 +34,14 @@ def check_compact_trigger(
     if size <= max_session_chars:
         return 0, "", ""
 
-    state_file = state_dir / "compact-trigger-last"
+    state_file = state_file or state_dir / "compact-trigger-last"
     try:
         last = int(state_file.read_text().strip())
     except Exception:
         last = 0
 
     hysteresis = max_session_chars // 4
-    if last and size < last + hysteresis:
+    if last and last <= size < last + hysteresis:
         return 0, "", ""
 
     try:

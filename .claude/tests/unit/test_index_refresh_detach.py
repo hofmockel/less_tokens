@@ -1,4 +1,4 @@
-"""Regression: index-refresh.py must detach the background refresh per-platform.
+"""Regression: index-refresh must detach the background refresh per-platform.
 
 `subprocess.Popen(..., start_new_session=True)` is POSIX-only. On Windows the
 kwarg is silently ignored, so the spawned `embeddings.py refresh` child stays
@@ -7,29 +7,26 @@ fire-and-forget intent of the hook.
 
 The fix branches on `sys.platform`: POSIX keeps `start_new_session=True`;
 Windows passes `creationflags=DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP`
-instead. These tests pin both kwarg shapes and assert `main()` actually
+instead. These tests pin both kwarg shapes and assert `check_index_refresh`
 forwards the platform-correct kwargs into `Popen`.
 """
 from __future__ import annotations
 
-import io
-import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from tests.conftest import REPO_ROOT, load_hook
+import agents.common.hooks.index_refresh as index_refresh_mod
+from agents.common.hooks.payload import normalize_claude
 
 _DETACHED = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
 
 
 @pytest.fixture()
-def index_refresh(tmp_path):
-    mod = load_hook(REPO_ROOT / ".claude" / "hooks" / "index-refresh.py")
-    mod.REPO = tmp_path
-    return mod
+def index_refresh():
+    return index_refresh_mod
 
 
 class TestDetachKwargs:
@@ -47,7 +44,7 @@ class TestDetachKwargs:
 
 
 class TestMainForwardsDetach:
-    def _drive(self, mod, monkeypatch, platform):
+    def _drive(self, mod, monkeypatch, platform, tmp_path):
         captured: dict = {}
 
         def fake_popen(*args, **kwargs):
@@ -57,24 +54,35 @@ class TestMainForwardsDetach:
 
         monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
         monkeypatch.setattr(mod.sys, "platform", platform)
-        monkeypatch.setattr(mod, "is_indexed", lambda _p: True)
-        monkeypatch.setattr(mod, "VENV_PY", Path(sys.executable))
-        payload = json.dumps(
-            {
-                "tool_name": "Write",
-                "tool_input": {"file_path": str(mod.REPO / ".claude" / "tools" / "x.py")},
-            }
+        monkeypatch.setattr(mod, "is_indexed", lambda *_a, **_kw: True)
+
+        tools_dir = tmp_path / ".claude" / "tools"
+        tools_dir.mkdir(parents=True)
+        (tools_dir / "embeddings.py").touch()
+        state_dir = tmp_path / ".claude" / "state"
+        state_dir.mkdir(parents=True)
+
+        payload = normalize_claude({
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(tools_dir / "x.py")},
+        })
+        config = {
+            "venv_py": Path(sys.executable),
+            "tool_prefix": ".claude/tools",
+            "root_globs": ("*.md", "*.py", "*.sql"),
+        }
+        code, _, _ = mod.check_index_refresh(
+            payload, repo=tmp_path, state_dir=state_dir, config=config
         )
-        monkeypatch.setattr(mod.sys, "stdin", io.StringIO(payload))
-        assert mod.main() == 0
+        assert code == 0
         return captured
 
-    def test_windows_main_passes_creationflags(self, index_refresh, monkeypatch):
-        captured = self._drive(index_refresh, monkeypatch, "win32")
+    def test_windows_main_passes_creationflags(self, index_refresh, monkeypatch, tmp_path):
+        captured = self._drive(index_refresh, monkeypatch, "win32", tmp_path)
         assert "start_new_session" not in captured["kwargs"]
         assert captured["kwargs"]["creationflags"] & _DETACHED == _DETACHED
 
-    def test_posix_main_passes_start_new_session(self, index_refresh, monkeypatch):
-        captured = self._drive(index_refresh, monkeypatch, "linux")
+    def test_posix_main_passes_start_new_session(self, index_refresh, monkeypatch, tmp_path):
+        captured = self._drive(index_refresh, monkeypatch, "linux", tmp_path)
         assert captured["kwargs"].get("start_new_session") is True
         assert "creationflags" not in captured["kwargs"]

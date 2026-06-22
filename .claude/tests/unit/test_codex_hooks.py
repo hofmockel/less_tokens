@@ -14,7 +14,11 @@ CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 
 _ENV = {
     **os.environ,
-    "PYTHONPATH": str(REPO / ".claude" / "tools"),
+    "PYTHONPATH": os.pathsep.join((
+        str(REPO / ".claude" / "tests"),
+        str(REPO / ".claude" / "tools"),
+        os.environ.get("PYTHONPATH", ""),
+    )),
     "LESS_TOKENS_REPO": str(REPO),
 }
 
@@ -101,6 +105,45 @@ class TestCodexTruncateOutput:
 
 
 # ---------------------------------------------------------------------------
+# terse-reminder.py
+# ---------------------------------------------------------------------------
+
+class TestCodexTerseReminder:
+    def test_passes_concise_response(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "response": "Done. Tests pass.",
+        })
+        assert code == 0
+
+    def test_blocks_filler_response(self):
+        code, _, stderr = run_hook_with_env("terse-reminder.py", {
+            "response": "Certainly. Of course, I hope this helps.",
+        })
+        assert code == 2
+        assert "filler phrases detected" in stderr
+
+    def test_blocks_single_filler_response(self):
+        code, _, stderr = run_hook_with_env("terse-reminder.py", {
+            "response": "Certainly.",
+        })
+        assert code == 2
+        assert "filler phrases detected" in stderr
+
+    def test_ignores_non_string_response(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "response": {"text": "Certainly. Of course."},
+        })
+        assert code == 0
+
+    def test_stop_hook_active_guard_exits_zero(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "stop_hook_active": True,
+            "response": "Certainly.",
+        })
+        assert code == 0
+
+
+# ---------------------------------------------------------------------------
 # compact-trigger.py
 # ---------------------------------------------------------------------------
 
@@ -158,6 +201,166 @@ class TestCodexSearchFirst:
             "tool_response": "",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# read-guard.py
+# ---------------------------------------------------------------------------
+
+class TestCodexReadGuard:
+    def test_blocks_lockfile_filesystem_read(self, tmp_path):
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, stderr = run_hook_with_env("read-guard.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(p)},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "Read-guard" in stderr
+
+    def test_allows_sliced_lockfile_read(self, tmp_path):
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, _ = run_hook_with_env("read-guard.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(p), "offset": 1},
+            "tool_response": "",
+        })
+        assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# auto-slice.py
+# ---------------------------------------------------------------------------
+
+class TestCodexAutoSlice:
+    def test_blocks_read_with_recent_search_range(self, tmp_path):
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        (state_dir / "last-search.json").write_text(json.dumps({"src/app.py": [[5, 9]]}))
+        code, _, stderr = run_hook_with_env("auto-slice.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": "/repo/src/app.py"},
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 2
+        assert "Auto-slice" in stderr
+        assert "offset=5" in stderr or "offset=5" in stderr.replace(" ", "")
+
+
+# ---------------------------------------------------------------------------
+# grep-first-read.py
+# ---------------------------------------------------------------------------
+
+class TestCodexGrepFirstRead:
+    def test_blocks_large_nonindexed_file(self, tmp_path):
+        p = tmp_path / "large.txt"
+        p.write_text("\n".join(str(i) for i in range(250)))
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        code, _, stderr = run_hook_with_env("grep-first-read.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(p)},
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 2
+        assert "Grep-first" in stderr
+
+    def test_allows_sliced_large_file(self, tmp_path):
+        p = tmp_path / "large.txt"
+        p.write_text("\n".join(str(i) for i in range(250)))
+        code, _, _ = run_hook_with_env("grep-first-read.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(p), "offset": 10},
+            "tool_response": "",
+        })
+        assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# post-edit-diff.py / read-after-edit.py
+# ---------------------------------------------------------------------------
+
+class TestCodexPostEditAndReadAfterEdit:
+    def test_post_edit_records_last_edit(self, tmp_path):
+        state_dir = tmp_path / "state"
+        target = tmp_path / "app.py"
+        target.write_text("new")
+        code, stdout, _ = run_hook_with_env("post-edit-diff.py", {
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": str(target),
+                "old_string": "old\n",
+                "new_string": "new\n",
+            },
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 0
+        assert "post-edit-diff" in stdout
+        data = json.loads((state_dir / "last-edit.json").read_text())
+        assert str(target.resolve()) in data
+
+    def test_read_after_edit_blocks_recent_reread(self, tmp_path):
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        target = tmp_path / "app.py"
+        target.write_text("new")
+        (state_dir / "last-edit.json").write_text(json.dumps({str(target.resolve()): __import__("time").time()}))
+        code, _, stderr = run_hook_with_env("read-after-edit.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(target)},
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 2
+        assert "read-after-edit" in stderr
+
+
+# ---------------------------------------------------------------------------
+# listing-guard.py / lean-output.py / context-cache.py
+# ---------------------------------------------------------------------------
+
+class TestCodexBashAndCacheAdapters:
+    def test_listing_guard_blocks_recursive_ls(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls -R ."},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "listing-guard" in stdout
+
+    def test_lean_output_parses_pytest_failure(self):
+        raw = (
+            "\n".join(f"noise line {i}" for i in range(40))
+            + "\nFAILED tests/test_x.py::test_y - AssertionError\n"
+            + "E   assert 1 == 2\n"
+            + "=== 1 failed in 0.01s ===\n"
+        )
+        code, stdout, _ = run_hook_with_env("lean-output.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest"},
+            "tool_response": raw,
+        })
+        assert code == 0
+        assert "lean-output:pytest" in stdout
+        assert "FAILED tests/test_x.py::test_y" in stdout
+
+    def test_context_cache_blocks_repeat_read(self, tmp_path):
+        state_dir = tmp_path / "state"
+        target = tmp_path / "app.py"
+        target.write_text("print(1)\n")
+        payload = {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(target)},
+            "tool_response": "",
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        code1, _, _ = run_hook_with_env("context-cache.py", payload, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code2, _, stderr2 = run_hook_with_env("context-cache.py", payload, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code1 == 0
+        assert code2 == 2
+        assert "context-cache" in stderr2
 
     def test_filesystem_read_of_indexed_file_is_checked(self, tmp_path):
         """mcp__filesystem__read_file on an indexed file with no recent search is blocked."""

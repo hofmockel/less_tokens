@@ -100,7 +100,8 @@ class TestRecordEdit:
 
 class TestPedMain:
     def _run(self, ped, payload: dict, capsys) -> int:
-        import io, sys as _sys
+        import io
+        import sys as _sys
         old_stdin = _sys.stdin
         _sys.stdin = io.StringIO(json.dumps(payload))
         try:
@@ -110,7 +111,6 @@ class TestPedMain:
         return rc
 
     def test_edit_emits_diff(self, ped, tmp_path, monkeypatch, capsys):
-        last_edit = tmp_path / "last-edit.json"
         monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         payload = {
             "tool_name": "Edit",
@@ -152,7 +152,8 @@ class TestPedMain:
 
 class TestRaeMain:
     def _run(self, rae, payload: dict) -> tuple[int, str]:
-        import io, sys as _sys
+        import io
+        import sys as _sys
         old_stdin, old_stderr = _sys.stdin, _sys.stderr
         _sys.stdin = io.StringIO(json.dumps(payload))
         err_buf = io.StringIO()
@@ -225,3 +226,45 @@ class TestRaeMain:
         self._write_edits(rae, tmp_path, monkeypatch, {"/abs/foo.py": time.time()})
         rc, _ = self._run(rae, {"tool_name": "Bash", "tool_input": {"command": "ls"}})
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# post-edit-diff: _diff_write uses file's repo, not less_tokens REPO
+# ---------------------------------------------------------------------------
+
+class TestDiffWriteHostRepo:
+    """Regression: _diff_write must run git diff in the file's own repo."""
+
+    def test_diff_uses_files_repo(self, ped, tmp_path):
+        """_diff_write should show a proper diff against the file's git history,
+        not treat the file as untracked because git ran in the wrong repo."""
+        import subprocess
+
+        # Set up a temp git repo with one committed file
+        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            check=True, capture_output=True, cwd=tmp_path,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            check=True, capture_output=True, cwd=tmp_path,
+        )
+        target = tmp_path / "target.py"
+        target.write_text("original = 1\n")
+        subprocess.run(["git", "add", "target.py"], check=True, capture_output=True, cwd=tmp_path)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            check=True, capture_output=True, cwd=tmp_path,
+        )
+
+        # Modify without committing (working-tree change)
+        target.write_text("modified = 2\n")
+
+        diff_lines = ped._diff_write(str(target))
+        diff_text = "".join(diff_lines)
+
+        # Must show removal of original line, not just all-new (untracked) output
+        assert "-original = 1" in diff_text, (
+            f"Expected proper diff against committed version; got:\n{diff_text}"
+        )
