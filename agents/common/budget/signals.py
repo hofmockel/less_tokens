@@ -28,6 +28,8 @@ class BudgetSignals:
     search_ranges: dict[str, list[SearchRange]] = field(default_factory=dict)
     recent_paths: set[str] = field(default_factory=set)
     failure_paths: set[str] = field(default_factory=set)
+    repeated_read_keys: set[str] = field(default_factory=set)
+    repeated_search_keys: set[str] = field(default_factory=set)
 
 
 def normalize_path(value: str) -> str:
@@ -108,16 +110,46 @@ def _load_search_ranges(root: Path, *, max_age_seconds: int = 600) -> dict[str, 
     return ranges
 
 
+def _load_context_cache(root: Path, *, max_age_seconds: int = 600) -> tuple[set[str], set[str]]:
+    now = time.time()
+    reads: set[str] = set()
+    searches: set[str] = set()
+    for state_dir in _state_dirs(root):
+        path = state_dir / "context-cache.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        for key, entry in dict(data.get("reads") or {}).items():
+            try:
+                if now - float(entry.get("ts", 0)) <= max_age_seconds:
+                    reads.add(str(key))
+            except (AttributeError, TypeError, ValueError):
+                continue
+        for key, entry in dict(data.get("greps") or {}).items():
+            try:
+                if now - float(entry.get("ts", 0)) <= max_age_seconds:
+                    searches.add(str(key))
+            except (AttributeError, TypeError, ValueError):
+                continue
+    return reads, searches
+
+
 def build_budget_signals(root: Path, *, query: str = "", text: str = "") -> BudgetSignals:
     explicit = extract_path_references(query)
     output_paths = extract_path_references(text)
     failure_paths = extract_failure_paths(text)
+    repeated_reads, repeated_searches = _load_context_cache(root)
     return BudgetSignals(
         explicit_references=explicit | output_paths,
         stack_trace_paths=failure_paths,
         search_ranges=_load_search_ranges(root),
         recent_paths=_load_recent_paths(root),
         failure_paths=failure_paths,
+        repeated_read_keys=repeated_reads,
+        repeated_search_keys=repeated_searches,
     )
 
 
@@ -129,3 +161,13 @@ def first_search_range(candidate_path: str | None, signals: BudgetSignals) -> Se
         if path == key or path.endswith(key) or key.endswith(path):
             return ranges[0] if ranges else None
     return None
+
+
+def read_cache_key(file_path: str, offset: object = None, limit: object = None) -> str:
+    offset_part = offset if offset is not None else None
+    limit_part = limit if limit is not None else None
+    return f"{file_path}::{offset_part}::{limit_part}"
+
+
+def grep_cache_key(pattern: str = "", path: str = "", glob: str = "", type_: str = "", query: str = "") -> str:
+    return ":::".join(str(v or "") for v in (pattern, path, glob, type_, query))

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .candidates import ContextCandidate
 from .estimator import estimate_size_tokens, estimate_tokens
-from .signals import extract_failure_paths, extract_path_references
+from .signals import extract_failure_paths, extract_path_references, grep_cache_key, read_cache_key
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,16 @@ def _path_candidate(path: str, *, candidate_type: str = "file_ref", text: str = 
 def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> list[ContextCandidate]:
     inp = _payload_tool_input(payload)
     output = _payload_output(payload)
+    if phase == "pre_tool" and tool_name == "Bash":
+        command = str(inp.get("command") or "")
+        if _is_broad_listing(command):
+            return [ContextCandidate(
+                candidate_id=f"directory_listing:{command[:80]}",
+                category="tool_output",
+                candidate_type="directory_listing",
+                text=command,
+                metadata={"command": command},
+            )]
     if phase == "pre_read":
         file_path = str(inp.get("file_path") or inp.get("path") or "")
         if not file_path:
@@ -95,7 +105,12 @@ def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> li
             candidate_type="file",
             path=file_path,
             estimated_tokens=estimate_size_tokens(size),
-            metadata={"size_chars": size, "offset": inp.get("offset"), "limit": inp.get("limit")},
+            metadata={
+                "size_chars": size,
+                "offset": inp.get("offset"),
+                "limit": inp.get("limit"),
+                "read_key": read_cache_key(file_path, inp.get("offset"), inp.get("limit")),
+            },
         )]
     if phase == "pre_search":
         pattern = str(inp.get("pattern") or inp.get("query") or inp.get("path") or "")
@@ -105,6 +120,13 @@ def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> li
             candidate_type="search",
             text=pattern,
             estimated_tokens=estimate_tokens(pattern),
+            metadata={"search_key": grep_cache_key(
+                pattern=str(inp.get("pattern") or ""),
+                path=str(inp.get("path") or ""),
+                glob=str(inp.get("glob") or ""),
+                type_=str(inp.get("type") or ""),
+                query=str(inp.get("query") or ""),
+            )},
         )]
     if phase == "post_edit":
         path = str(inp.get("file_path") or inp.get("path") or "")
@@ -127,6 +149,20 @@ def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> li
             candidates.append(_path_candidate(path, text=output[:1200]))
         return candidates
     return []
+
+
+def _is_broad_listing(command: str) -> bool:
+    stripped = command.strip()
+    if not stripped:
+        return False
+    return (
+        stripped in {"find .", "tree"}
+        or stripped.startswith("find . ")
+        or stripped.startswith("tree ")
+        or "ls -R" in stripped
+        or "ls -laR" in stripped
+        or "ls -alR" in stripped
+    )
 
 
 def normalize_budget_input(payload: dict, *, agent: str | None = None) -> BudgetInput:

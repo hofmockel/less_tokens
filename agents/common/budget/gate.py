@@ -108,8 +108,25 @@ def _replacement_for(candidate: ContextCandidate, config: BudgetConfig, signals:
     if candidate.candidate_type == "tool_output":
         return "Keep commands, paths, stack traces, assertions, and summarize repetitive output."
     if candidate.candidate_type == "directory_listing":
-        return "Use a narrower glob or list one relevant subdirectory."
+        return "Use a narrower glob, `find <dir> -maxdepth 2`, or list one relevant subdirectory."
     return candidate.replacement
+
+
+def _forced_decision(candidate: ContextCandidate, config: BudgetConfig, signals: BudgetSignals | None) -> tuple[str, int, str, str | None] | None:
+    replacement = _replacement_for(candidate, config, signals)
+    if signals and candidate.metadata.get("read_key") in signals.repeated_read_keys:
+        return "block", 0, "repeated unchanged read already in context", replacement or "Skip this read; unchanged content is already in context."
+    if signals and candidate.metadata.get("search_key") in signals.repeated_search_keys:
+        return "block", 0, "repeated search already in context", "Skip this search; recent results are already in context."
+    if candidate.candidate_type == "directory_listing":
+        return "block", 0, "broad directory listing would produce low-value output", replacement
+    if (
+        config.mode == "strict"
+        and candidate.relevance_score <= 0
+        and candidate.estimated_tokens > config.hard_caps.get("unscored_context", 1200)
+    ):
+        return "block", 0, "unscored context exceeds hard cap", replacement or "Search or narrow the request before adding this context."
+    return None
 
 
 def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, *, signals: BudgetSignals | None = None) -> list[BudgetDecision]:
@@ -128,8 +145,11 @@ def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, 
             category_limit,
         )
         replacement = _replacement_for(candidate, config, signals)
+        forced = _forced_decision(candidate, config, signals)
 
-        if candidate.relevance_score < config.relevance_threshold:
+        if forced:
+            action, after, reason, replacement = forced
+        elif candidate.relevance_score < config.relevance_threshold:
             action = "defer" if config.mode in {"observe", "advise"} else "block"
             after = 0
             reason = candidate.reason or "below relevance threshold"

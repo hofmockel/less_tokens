@@ -19,7 +19,7 @@ from agents.common.budget import (  # noqa: E402
 )
 from agents.common.budget.advice import advice_for_mode, enforcement_decision, format_advice, outcome_for_mode  # noqa: E402
 from agents.common.budget.decisions import BudgetDecision  # noqa: E402
-from agents.common.budget.signals import build_budget_signals  # noqa: E402
+from agents.common.budget.signals import build_budget_signals, grep_cache_key  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
 from agents.common.budget.estimator import estimate_tokens  # noqa: E402
 
@@ -206,3 +206,84 @@ def test_budget_doctor_smoke(tmp_path):
     assert result.returncode == 0
     assert "Mode: advise" in result.stdout
     assert "retrieved_context: 50%" in result.stdout
+
+
+def test_repeated_read_blocks_in_enforce_mode(tmp_path):
+    target = tmp_path / "big.py"
+    target.write_text("x" * 20000, encoding="utf-8")
+    state = tmp_path / ".less_tokens" / "state"
+    state.mkdir(parents=True)
+    key = f"{target}::None::None"
+    (state / "context-cache.json").write_text(json.dumps({
+        "reads": {key: {"ts": __import__("time").time()}},
+        "greps": {},
+    }), encoding="utf-8")
+    (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(target)},
+    }, agent="claude")
+    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    assert decisions[0].action == "block"
+    assert "repeated unchanged read" in decisions[0].reason
+
+
+def test_repeated_search_blocks_in_enforce_mode(tmp_path):
+    state = tmp_path / ".less_tokens" / "state"
+    state.mkdir(parents=True)
+    (state / "context-cache.json").write_text(json.dumps({
+        "reads": {},
+        "greps": {grep_cache_key(pattern="needle"): {"ts": __import__("time").time()}},
+    }), encoding="utf-8")
+    (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Grep",
+        "tool_input": {"pattern": "needle"},
+    }, agent="claude")
+    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    assert decisions[0].action == "block"
+    assert "repeated search" in decisions[0].reason
+
+
+def test_broad_directory_listing_blocks_in_enforce_mode(tmp_path):
+    (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "find ."},
+    }, agent="codex")
+    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    assert decisions[0].action == "block"
+    assert "directory listing" in decisions[0].reason
+    assert "narrower glob" in (decisions[0].replacement or "")
+
+
+def test_strict_blocks_oversized_unscored_context(tmp_path):
+    cfg = load_budget_config(tmp_path)
+    cfg = type(cfg)(
+        version=cfg.version,
+        mode="strict",
+        token_estimator=cfg.token_estimator,
+        total_context_tokens=cfg.total_context_tokens,
+        reserved_response_tokens=cfg.reserved_response_tokens,
+        relevance_threshold=cfg.relevance_threshold,
+        replacement_required_for_blocks=cfg.replacement_required_for_blocks,
+        categories=cfg.categories,
+        hard_caps={**cfg.hard_caps, "unscored_context": 10},
+        agent_overrides=cfg.agent_overrides,
+    )
+    candidate = ContextCandidate(
+        candidate_id="tool_output:unknown",
+        category="tool_output",
+        candidate_type="tool_output",
+        text="x" * 1000,
+        relevance_score=0,
+    )
+    decision = select_candidates([candidate], cfg)[0]
+    assert decision.action == "block"
+    assert "unscored context" in decision.reason
