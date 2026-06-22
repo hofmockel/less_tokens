@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from agents.common.budget import (  # noqa: E402
     ContextCandidate,
+    build_compaction_snapshot,
     evaluate_budget_input,
     load_budget_config,
     load_events,
@@ -17,6 +18,7 @@ from agents.common.budget import (  # noqa: E402
     score_candidates,
     select_candidates,
 )
+from agents.common.budget.compaction import should_compact  # noqa: E402
 from agents.common.budget.advice import advice_for_mode, enforcement_decision, format_advice, outcome_for_mode  # noqa: E402
 from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals, grep_cache_key  # noqa: E402
@@ -322,3 +324,44 @@ def test_oversized_tool_output_replacement_contains_summary(tmp_path):
     assert tool_decision.estimated_tokens_after < tool_decision.estimated_tokens_before
     assert tool_decision.replacement and "$ pytest" in tool_decision.replacement
     assert "FAILED tests/test_x.py::test_y" in tool_decision.replacement
+
+
+def test_compaction_snapshot_fits_session_summary_budget(tmp_path):
+    cfg = load_budget_config(tmp_path)
+    cfg = type(cfg)(
+        version=cfg.version,
+        mode=cfg.mode,
+        token_estimator=cfg.token_estimator,
+        total_context_tokens=cfg.total_context_tokens,
+        reserved_response_tokens=cfg.reserved_response_tokens,
+        relevance_threshold=cfg.relevance_threshold,
+        replacement_required_for_blocks=cfg.replacement_required_for_blocks,
+        categories={**cfg.categories, "session_summary": 80},
+        hard_caps=cfg.hard_caps,
+        agent_overrides=cfg.agent_overrides,
+    )
+    state = {
+        "active_files": [f"file_{idx}.py" for idx in range(100)],
+        "decisions_made": [f"decision {idx}: " + "x" * 80 for idx in range(100)],
+        "commands_run": [f"pytest tests/test_{idx}.py" for idx in range(100)],
+    }
+    summary = build_compaction_snapshot(state, cfg)
+    assert summary["estimated_tokens"] <= summary["budget_limit"]
+    assert "active_files" in summary
+
+
+def test_policy_refreshes_compaction_snapshot_on_pressure(tmp_path):
+    target = tmp_path / "big.py"
+    target.write_text("x" * 20000, encoding="utf-8")
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(target)},
+        "session_id": "s1",
+        "run_id": "r1",
+    }, agent="claude")
+    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    assert should_compact(decisions)
+    session = json.loads((tmp_path / ".less_tokens" / "state" / "claude-session.json").read_text(encoding="utf-8"))
+    assert str(target) in session["active_files"]
+    assert session["compact_summary"]["budget_limit"] == 3000

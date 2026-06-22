@@ -4,6 +4,7 @@ from __future__ import annotations
 from .adapters import BudgetInput, normalize_budget_input
 from .advice import HookBudgetOutcome, advice_for_mode, format_advice, outcome_for_mode
 from .candidates import ContextCandidate
+from .compaction import build_compaction_snapshot, refresh_compaction_snapshot, should_compact
 from .config import BudgetConfig, load_budget_config
 from .decisions import BudgetDecision
 from .events import BudgetEvent, append_event, load_events
@@ -22,12 +23,15 @@ __all__ = [
     "append_event",
     "advice_for_mode",
     "build_budget_signals",
+    "build_compaction_snapshot",
     "evaluate_budget_input",
     "format_advice",
     "outcome_for_mode",
     "load_budget_config",
     "load_events",
     "normalize_budget_input",
+    "refresh_compaction_snapshot",
     "score_candidates",
     "select_candidates",
+    "should_compact",
 ]

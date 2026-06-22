@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .adapters import BudgetInput
+from .compaction import record_session_activity, refresh_compaction_snapshot, should_compact
 from .config import BudgetConfig
 from .events import append_event, append_failure_event, event_from_decision
 from .gate import score_candidates, select_candidates
@@ -24,6 +25,9 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
         signals = build_budget_signals(root, query=budget_input.query, text=signal_text)
         scored = score_candidates(budget_input.candidates, query=budget_input.query, signals=signals)
         decisions = select_candidates(scored, config, signals=signals)
+        record_session_activity(root, budget_input, decisions)
+        if should_compact(decisions):
+            refresh_compaction_snapshot(root, budget_input.agent, config)
         for decision in decisions:
             append_event(root, event_from_decision(
                 decision,
