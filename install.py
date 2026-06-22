@@ -1140,12 +1140,18 @@ def _install_specs(
         specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset()))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
             specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
-        skill_tgt = (
-            ".agents/skills/less-tokens"
+        skill_root = (
+            ".agents/skills"
             if target_root is not None and _dir_is_writable(target_root, ".agents")
-            else ".less_tokens/skills/less-tokens"
+            else ".less_tokens/skills"
         )
-        specs.append(("agents/codex/skills/less-tokens", skill_tgt, frozenset()))
+        for skill_dir in sorted((SOURCE / "agents" / "codex" / "skills").iterdir()):
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                specs.append((
+                    f"agents/codex/skills/{skill_dir.name}",
+                    f"{skill_root}/{skill_dir.name}",
+                    frozenset(),
+                ))
     return specs
 
 
@@ -1870,16 +1876,20 @@ def main() -> int:
         if codex_hooks_src.exists() and _dir_is_writable(target_root, ".codex"):
             changes += copy_tree(codex_hooks_src, target_root / ".codex" / "hooks",
                       target_root, force_hooks, overwrite_modified, ".codex/hooks/", dry_run=dry)
-        skill_tgt = (
-            target_root / ".agents" / "skills" / "less-tokens"
+        skill_root = (
+            target_root / ".agents" / "skills"
             if _dir_is_writable(target_root, ".agents")
-            else target_root / ".less_tokens" / "skills" / "less-tokens"
+            else target_root / ".less_tokens" / "skills"
         )
-        codex_skill_src = SOURCE / "agents" / "codex" / "skills" / "less-tokens"
-        if codex_skill_src.exists():
-            changes += copy_tree(codex_skill_src, skill_tgt,
-                      target_root, force_tools, overwrite_modified,
-                      str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
+        codex_skills_src = SOURCE / "agents" / "codex" / "skills"
+        if codex_skills_src.exists():
+            for codex_skill_src in sorted(codex_skills_src.iterdir()):
+                if not codex_skill_src.is_dir() or not (codex_skill_src / "SKILL.md").exists():
+                    continue
+                skill_tgt = skill_root / codex_skill_src.name
+                changes += copy_tree(codex_skill_src, skill_tgt,
+                          target_root, force_tools, overwrite_modified,
+                          str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,

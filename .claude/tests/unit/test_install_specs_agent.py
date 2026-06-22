@@ -54,6 +54,20 @@ class TestInstallSpecsAgentSelector:
         dest_dirs = [s[1] for s in specs]
         assert ".less_tokens/hooks" in dest_dirs
 
+    def test_codex_only_includes_agentsmd_skill(self):
+        specs = _install_specs(caveman=False, agents={"codex"})
+        dest_dirs = [s[1] for s in specs]
+        assert ".less_tokens/skills/agentsmd" in dest_dirs
+
+    def test_codex_only_includes_all_codex_skills(self):
+        specs = _install_specs(caveman=False, agents={"codex"})
+        dest_dirs = {s[1] for s in specs}
+        skill_names = {
+            p.name for p in (REPO / "agents" / "codex" / "skills").iterdir()
+            if p.is_dir() and (p / "SKILL.md").exists()
+        }
+        assert {f".less_tokens/skills/{name}" for name in skill_names} <= dest_dirs
+
     def test_both_includes_claude_hooks(self):
         specs = _install_specs(caveman=False, agents={"claude", "codex"})
         dest_dirs = [s[1] for s in specs]

@@ -135,6 +135,13 @@ class TestCodexTerseReminder:
         })
         assert code == 0
 
+    def test_stop_hook_active_guard_exits_zero(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "stop_hook_active": True,
+            "response": "Certainly.",
+        })
+        assert code == 0
+
 
 # ---------------------------------------------------------------------------
 # compact-trigger.py

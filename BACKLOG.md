@@ -55,10 +55,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### Medium Priority
 
-- **No `agentsmd` skill for Codex** — the `claudemd` skill guides manual pruning of CLAUDE.md bloat; there is no counterpart skill for AGENTS.md. `agentsmd_audit.py` exists as a CLI but is not surfaced as an invokable skill. Add `agents/codex/skills/agentsmd/SKILL.md` mirroring the `claudemd` skill structure. `agents/codex/skills/`
-
-- **No `stop_hook_active` guard in `terse-reminder`** — `caveman-reminder.py` checks `payload.get("stop_hook_active")` and bails to prevent an infinite re-prompt loop. `terse-reminder.py` has no such guard. Add the same check. `agents/codex/hooks/terse-reminder.py`
-
 ### Low Priority
 
 ---
