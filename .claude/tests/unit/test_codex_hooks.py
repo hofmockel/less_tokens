@@ -122,6 +122,13 @@ class TestCodexTerseReminder:
         assert code == 2
         assert "filler phrases detected" in stderr
 
+    def test_blocks_single_filler_response(self):
+        code, _, stderr = run_hook_with_env("terse-reminder.py", {
+            "response": "Certainly.",
+        })
+        assert code == 2
+        assert "filler phrases detected" in stderr
+
     def test_ignores_non_string_response(self):
         code, _, _ = run_hook_with_env("terse-reminder.py", {
             "response": {"text": "Certainly. Of course."},

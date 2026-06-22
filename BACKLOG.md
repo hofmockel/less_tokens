@@ -53,8 +53,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **`terse-reminder` filler threshold too permissive** — Codex fires only after 2+ filler hits (`MIN_FILLER_HITS = 2`, simple string match); Claude's `caveman-reminder.py` fires on any single regex match. Same config, different strictness. Drop `MIN_FILLER_HITS` to 1 and switch to the same compiled-regex patterns used by `caveman-reminder.py`. `agents/codex/hooks/terse-reminder.py`
-
 ### Medium Priority
 
 - **No `agentsmd` skill for Codex** — the `claudemd` skill guides manual pruning of CLAUDE.md bloat; there is no counterpart skill for AGENTS.md. `agentsmd_audit.py` exists as a CLI but is not surfaced as an invokable skill. Add `agents/codex/skills/agentsmd/SKILL.md` mirroring the `claudemd` skill structure. `agents/codex/skills/`
