@@ -7,7 +7,9 @@ from pathlib import Path
 from .candidates import ContextCandidate
 from .config import BudgetConfig
 from .decisions import BudgetDecision
+from .estimator import estimate_tokens
 from .signals import BudgetSignals, first_search_range, path_matches
+from .summarizer import summarize_tool_output
 
 
 def _tokens(text: str) -> set[str]:
@@ -106,7 +108,12 @@ def _replacement_for(candidate: ContextCandidate, config: BudgetConfig, signals:
         limit = max(40, min(200, int(config.hard_caps.get("full_file_read", 3000) / 12)))
         return f"Read a targeted slice from {candidate.path} with limit {limit}."
     if candidate.candidate_type == "tool_output":
-        return "Keep commands, paths, stack traces, assertions, and summarize repetitive output."
+        summary = summarize_tool_output(
+            candidate.text,
+            command=str(candidate.metadata.get("command") or ""),
+            max_chars=max(1000, int(config.hard_caps.get("single_tool_output", 2500) * 4)),
+        )
+        return "Use this summarized output instead:\n" + summary
     if candidate.candidate_type == "directory_listing":
         return "Use a narrower glob, `find <dir> -maxdepth 2`, or list one relevant subdirectory."
     return candidate.replacement
@@ -147,15 +154,24 @@ def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, 
         replacement = _replacement_for(candidate, config, signals)
         forced = _forced_decision(candidate, config, signals)
 
+        oversized_tool_output = candidate.candidate_type == "tool_output" and candidate.estimated_tokens > hard_cap
+
         if forced:
             action, after, reason, replacement = forced
+        elif oversized_tool_output:
+            action = "replace" if replacement else "trim"
+            after = min(estimate_tokens(replacement or "", content_type="logs"), hard_cap) if replacement else hard_cap
+            reason = f"candidate exceeds hard cap {hard_cap}"
         elif candidate.relevance_score < config.relevance_threshold:
             action = "defer" if config.mode in {"observe", "advise"} else "block"
             after = 0
             reason = candidate.reason or "below relevance threshold"
         elif candidate.estimated_tokens > hard_cap:
             action = "replace" if replacement else "trim"
-            after = min(candidate.estimated_tokens, hard_cap)
+            if candidate.candidate_type == "tool_output" and replacement:
+                after = min(estimate_tokens(replacement, content_type="logs"), hard_cap)
+            else:
+                after = min(candidate.estimated_tokens, hard_cap)
             reason = f"candidate exceeds hard cap {hard_cap}"
         elif used_before + candidate.estimated_tokens > category_limit:
             action = "defer" if config.mode in {"observe", "advise"} else "block"

@@ -22,6 +22,7 @@ from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals, grep_cache_key  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
 from agents.common.budget.estimator import estimate_tokens  # noqa: E402
+from agents.common.budget.summarizer import summarize_tool_output  # noqa: E402
 
 
 def test_estimator_uses_chars_div_4_with_multiplier():
@@ -287,3 +288,37 @@ def test_strict_blocks_oversized_unscored_context(tmp_path):
     decision = select_candidates([candidate], cfg)[0]
     assert decision.action == "block"
     assert "unscored context" in decision.reason
+
+
+def test_tool_output_summary_preserves_failure_signal():
+    raw = (
+        "\n".join(f"noise line {i}" for i in range(150))
+        + "\nFAILED tests/test_budget.py::test_summary - AssertionError\n"
+        + "E   assert 1 == 2\n"
+        + "Traceback (most recent call last):\n"
+        + '  File "tests/test_budget.py", line 42, in test_summary\n'
+    )
+    summary = summarize_tool_output(raw, command="pytest", max_lines=30, max_chars=1200)
+    assert "$ pytest" in summary
+    assert "FAILED tests/test_budget.py::test_summary" in summary
+    assert "E   assert 1 == 2" in summary
+    assert 'File "tests/test_budget.py", line 42' in summary
+    assert len(summary) <= 1200
+
+
+def test_oversized_tool_output_replacement_contains_summary(tmp_path):
+    cfg = load_budget_config(tmp_path)
+    raw = "\n".join(f"noise line {i}" for i in range(1200)) + "\nFAILED tests/test_x.py::test_y - AssertionError\nE   assert 1 == 2\n"
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "pytest"},
+        "tool_response": raw,
+    }, agent="claude")
+    scored = score_candidates(budget_input.candidates, query=budget_input.query)
+    decisions = select_candidates(scored, cfg)
+    tool_decision = next(decision for decision in decisions if decision.candidate_id == "tool_output:Bash")
+    assert tool_decision.action == "replace"
+    assert tool_decision.estimated_tokens_after < tool_decision.estimated_tokens_before
+    assert tool_decision.replacement and "$ pytest" in tool_decision.replacement
+    assert "FAILED tests/test_x.py::test_y" in tool_decision.replacement

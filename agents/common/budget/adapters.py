@@ -144,6 +144,7 @@ def _candidates_from_payload(payload: dict, *, phase: str, tool_name: str) -> li
             candidate_type="tool_output",
             text=output,
             content_type="logs",
+            metadata={"command": inp.get("command", "")},
         )]
         for path in sorted(extract_failure_paths(output) or extract_path_references(output)):
             candidates.append(_path_candidate(path, text=output[:1200]))
