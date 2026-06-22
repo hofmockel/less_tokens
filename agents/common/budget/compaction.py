@@ -42,7 +42,9 @@ def should_compact(decisions: list[BudgetDecision], *, threshold: float = PRESSU
 
 def refresh_compaction_snapshot(root: Path, agent: str, config: BudgetConfig) -> dict[str, object]:
     state = load_json(session_state_path(root, agent))
+    before_tokens = estimate_tokens(_render_state_for_compaction(state), content_type="json")
     summary = build_compaction_snapshot(state, config)
+    summary["estimated_tokens_before"] = before_tokens
     state["compact_summary"] = summary
     state["compact_summary_updated_at"] = time.time()
     save_json(session_state_path(root, agent), state)
@@ -115,6 +117,14 @@ def _extend_unique(state: dict, key: str, values: list[str], *, limit: int) -> N
 
 def _render_summary(summary: dict[str, object]) -> str:
     return "\n".join(f"{key}: {value}" for key, value in summary.items())
+
+
+def _render_state_for_compaction(state: dict) -> str:
+    keys = (
+        "current_objective", "active_files", "decisions_made", "files_changed",
+        "commands_run", "test_status", "open_questions", "next_step",
+    )
+    return "\n".join(f"{key}: {state.get(key, '')}" for key in keys)
 
 
 def _trim_longest_list(summary: dict[str, object]) -> bool:

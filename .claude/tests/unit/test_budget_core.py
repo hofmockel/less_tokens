@@ -197,6 +197,15 @@ def test_budget_doctor_smoke(tmp_path):
         "budget_used_after": 1000,
         "budget_limit": 2000,
     }) + "\n", encoding="utf-8")
+    with (state_dir / "events.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "version": 2,
+            "phase": "compaction",
+            "decision": "summarize",
+            "category": "session_summary",
+            "budget_used_after": 120,
+            "budget_limit": 3000,
+        }) + "\n")
     tool = Path(__file__).parent.parent.parent.parent / ".less_tokens" / "tools" / "budget_doctor.py"
     result = subprocess.run(
         [sys.executable, str(tool), "--limit", "5"],
@@ -209,6 +218,8 @@ def test_budget_doctor_smoke(tmp_path):
     assert result.returncode == 0
     assert "Mode: advise" in result.stdout
     assert "retrieved_context: 50%" in result.stdout
+    assert "Compactions: 1" in result.stdout
+    assert "context transformed" in result.stdout
 
 
 def test_repeated_read_blocks_in_enforce_mode(tmp_path):
@@ -365,3 +376,52 @@ def test_policy_refreshes_compaction_snapshot_on_pressure(tmp_path):
     session = json.loads((tmp_path / ".less_tokens" / "state" / "claude-session.json").read_text(encoding="utf-8"))
     assert str(target) in session["active_files"]
     assert session["compact_summary"]["budget_limit"] == 3000
+    events = load_events(tmp_path)
+    compaction = [event for event in events if event["phase"] == "compaction"]
+    assert compaction
+    assert compaction[0]["strategy"] == "pressure_compaction"
+    assert compaction[0]["decision"] == "summarize"
+
+
+def test_budget_report_includes_risk_and_compactions(tmp_path):
+    state_dir = tmp_path / ".less_tokens" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "events.jsonl").write_text("\n".join([
+        json.dumps({
+            "version": 2,
+            "agent": "claude",
+            "decision": "block",
+            "strategy": "relevance_gate",
+            "category": "retrieved_context",
+            "estimated_tokens_saved": 100,
+            "budget_used_after": 0,
+            "budget_limit": 1000,
+            "reason": "low relevance",
+        }),
+        json.dumps({
+            "version": 2,
+            "agent": "claude",
+            "phase": "compaction",
+            "decision": "summarize",
+            "strategy": "pressure_compaction",
+            "category": "session_summary",
+            "estimated_tokens_saved": 50,
+            "budget_used_after": 100,
+            "budget_limit": 3000,
+            "reason": "pressure",
+        }),
+    ]) + "\n", encoding="utf-8")
+    tool = Path(__file__).parent.parent.parent.parent / ".less_tokens" / "tools" / "budget_report.py"
+    result = subprocess.run(
+        [sys.executable, str(tool), "--limit", "5"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)},
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert "Quality risk:" in result.stdout
+    assert "context omitted" in result.stdout
+    assert "context transformed" in result.stdout
+    assert "Compactions: 1" in result.stdout

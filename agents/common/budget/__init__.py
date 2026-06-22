@@ -7,7 +7,7 @@ from .candidates import ContextCandidate
 from .compaction import build_compaction_snapshot, refresh_compaction_snapshot, should_compact
 from .config import BudgetConfig, load_budget_config
 from .decisions import BudgetDecision
-from .events import BudgetEvent, append_event, load_events
+from .events import BudgetEvent, append_compaction_event, append_event, load_events
 from .gate import score_candidates, select_candidates
 from .policy import evaluate_budget_input
 from .signals import BudgetSignals, build_budget_signals
@@ -20,6 +20,7 @@ __all__ = [
     "HookBudgetOutcome",
     "BudgetSignals",
     "ContextCandidate",
+    "append_compaction_event",
     "append_event",
     "advice_for_mode",
     "build_budget_signals",

@@ -51,6 +51,8 @@ def main() -> int:
     events = load_events(REPO, limit=args.limit)
     pressure: dict[str, tuple[int, int]] = {}
     decisions: collections.Counter[str] = collections.Counter()
+    risk: collections.Counter[str] = collections.Counter()
+    compactions = 0
     errors = 0
     for event in events:
         category = str(event.get("category") or "unknown")
@@ -59,8 +61,16 @@ def main() -> int:
         previous = pressure.get(category, (0, limit))
         pressure[category] = (max(previous[0], used), limit or previous[1])
         decisions[str(event.get("decision") or "unknown")] += 1
+        decision = str(event.get("decision") or "unknown")
+        if decision in {"block", "defer"}:
+            risk["context omitted"] += 1
+        if decision in {"replace", "trim", "summarize"}:
+            risk["context transformed"] += 1
+        if str(event.get("phase") or "") == "compaction":
+            compactions += 1
         if event.get("error"):
             errors += 1
+            risk["budget failure"] += 1
 
     who = f" ({args.agent})" if args.agent else ""
     print(f"less_tokens budget doctor{who}\n")
@@ -89,6 +99,13 @@ def main() -> int:
     if decisions:
         for decision, count in decisions.most_common():
             print(f"- {decision}: {count}")
+    else:
+        print("- none recorded")
+    print(f"\nCompactions: {compactions}")
+    print("\nQuality risk:")
+    if risk:
+        for label, count in risk.most_common():
+            print(f"- {label}: {count}")
     else:
         print("- none recorded")
     if errors:

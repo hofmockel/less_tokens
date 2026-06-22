@@ -134,6 +134,45 @@ def append_failure_event(
     append_event(root, event)
 
 
+def append_compaction_event(
+    root: Path,
+    *,
+    agent: str,
+    session_id: str,
+    run_id: str,
+    mode: str,
+    estimated_tokens_before: int,
+    estimated_tokens_after: int,
+    budget_limit: int,
+    reason: str,
+) -> None:
+    event = BudgetEvent(
+        version=2,
+        timestamp=iso_timestamp(),
+        agent=agent,
+        session_id=session_id,
+        run_id=run_id,
+        phase="compaction",
+        tool_name="budget_compaction",
+        category="session_summary",
+        candidate_id=f"session:{agent}",
+        strategy="pressure_compaction",
+        decision="summarize",
+        mode=mode,
+        estimated_tokens_before=estimated_tokens_before,
+        estimated_tokens_after=estimated_tokens_after,
+        estimated_tokens_saved=max(0, estimated_tokens_before - estimated_tokens_after),
+        budget_limit=budget_limit,
+        budget_used_before=estimated_tokens_before,
+        budget_used_after=estimated_tokens_after,
+        relevance_score=1.0,
+        reason=reason,
+        replacement="compact_summary",
+        error=None,
+    )
+    append_event(root, event)
+
+
 def load_events(root: Path, *, limit: int | None = None) -> list[dict[str, object]]:
     path = events_path(root)
     if not path.exists():

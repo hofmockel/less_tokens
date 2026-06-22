@@ -57,6 +57,8 @@ def main() -> int:
     by_strategy: collections.Counter[str] = collections.Counter()
     pressure: dict[str, tuple[int, int]] = {}
     rejected: collections.Counter[str] = collections.Counter()
+    risk: collections.Counter[str] = collections.Counter()
+    compactions = 0
 
     for event in events:
         saved = _int(event.get("estimated_tokens_saved"))
@@ -73,6 +75,14 @@ def main() -> int:
         if decision in {"block", "defer", "replace", "trim"}:
             reason = str(event.get("reason") or "unspecified")
             rejected[reason] += 1
+        if decision in {"block", "defer"}:
+            risk["context omitted"] += 1
+        if decision in {"replace", "trim", "summarize"}:
+            risk["context transformed"] += 1
+        if event.get("error"):
+            risk["budget failure"] += 1
+        if str(event.get("phase") or "") == "compaction":
+            compactions += 1
 
     print("less_tokens budget report\n")
     print(f"Estimated saved: {saved_total:,} tokens")
@@ -99,6 +109,14 @@ def main() -> int:
             print(f"{idx}. {reason}: {count} events")
     else:
         print("1. none: 0 events")
+
+    print("\nQuality risk:")
+    if risk:
+        for idx, (label, count) in enumerate(risk.most_common(), start=1):
+            print(f"{idx}. {label}: {count} events")
+    else:
+        print("1. none: 0 events")
+    print(f"\nCompactions: {compactions}")
     return 0
 
 
