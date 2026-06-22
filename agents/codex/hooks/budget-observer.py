@@ -26,7 +26,7 @@ sys.path[:0] = [
     str(REPO / "agents" / "common" / "hooks"),
 ]
 
-from budget_observer import observe_budget_payload  # noqa: E402
+from budget_observer import budget_hook_outcome  # noqa: E402
 
 try:
     from agents.common.budget.advice import claude_hook_output  # noqa: E402
@@ -42,10 +42,15 @@ def main() -> int:
     if raw.get("tool_name") == "mcp__filesystem__read_file":
         raw["tool_name"] = "Read"
         raw.setdefault("tool_input", {})["file_path"] = raw.get("tool_input", {}).get("path", "")
-    advice = observe_budget_payload(raw, repo=REPO, agent="codex")
-    if advice:
-        print(claude_hook_output(advice))
-    return 0
+    outcome = budget_hook_outcome(raw, repo=REPO, agent="codex")
+    if not outcome:
+        return 0
+    if outcome.message:
+        if outcome.stream == "stderr":
+            print(outcome.message, file=sys.stderr)
+        else:
+            print(claude_hook_output(outcome.message))
+    return outcome.exit_code
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from agents.common.budget import (  # noqa: E402
     score_candidates,
     select_candidates,
 )
-from agents.common.budget.advice import advice_for_mode, format_advice  # noqa: E402
+from agents.common.budget.advice import advice_for_mode, enforcement_decision, format_advice, outcome_for_mode  # noqa: E402
 from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
@@ -162,6 +162,23 @@ def test_advice_is_capped_and_mode_gated():
     assert advice is not None
     assert len(advice) <= 600
     assert "saves ~4,900 tokens" in advice
+
+
+def test_enforce_mode_blocks_actionable_decision():
+    decision = BudgetDecision(
+        action="replace",
+        category="retrieved_context",
+        candidate_id="file:big.py",
+        estimated_tokens_before=5000,
+        estimated_tokens_after=100,
+        budget_limit=3000,
+        replacement="Read a targeted slice from big.py with limit 200.",
+    )
+    assert enforcement_decision([decision], mode="advise") is None
+    outcome = outcome_for_mode([decision], mode="enforce")
+    assert outcome.exit_code == 2
+    assert outcome.stream == "stderr"
+    assert outcome.message and "Read a targeted slice" in outcome.message
 
 
 def test_budget_doctor_smoke(tmp_path):

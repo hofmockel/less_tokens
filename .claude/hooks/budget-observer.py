@@ -27,7 +27,7 @@ sys.path[:0] = [
     str(REPO / ".claude" / "hooks" / "common"),
 ]
 
-from budget_observer import observe_budget_payload  # noqa: E402
+from budget_observer import budget_hook_outcome  # noqa: E402
 
 try:
     from agents.common.budget.advice import claude_hook_output  # noqa: E402
@@ -40,10 +40,15 @@ def main() -> int:
         raw = json.loads(sys.stdin.read() or "{}")
     except Exception:
         return 0
-    advice = observe_budget_payload(raw, repo=REPO, agent="claude")
-    if advice:
-        print(claude_hook_output(advice))
-    return 0
+    outcome = budget_hook_outcome(raw, repo=REPO, agent="claude")
+    if not outcome:
+        return 0
+    if outcome.message:
+        if outcome.stream == "stderr":
+            print(outcome.message, file=sys.stderr)
+        else:
+            print(claude_hook_output(outcome.message))
+    return outcome.exit_code
 
 
 if __name__ == "__main__":
