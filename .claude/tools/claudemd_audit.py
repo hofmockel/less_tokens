@@ -14,6 +14,7 @@ Checks:
 
 Usage:
   python .claude/tools/claudemd_audit.py [path] [--budget N] [--json] [--strict]
+  python .claude/tools/claudemd_audit.py --rules [--rules-dir .claude/rules]
 """
 from __future__ import annotations
 
@@ -39,11 +40,15 @@ try:
         CHARS_PER_TOKEN,
         CLAUDE_MD_OVERFLOW_DOC,
         CLAUDE_MD_TOKEN_BUDGET,
+        RULES_OVERFLOW_DOC,
+        RULES_TOKEN_BUDGET,
     )
 except Exception:
     CHARS_PER_TOKEN = 4
     CLAUDE_MD_TOKEN_BUDGET = 1200
     CLAUDE_MD_OVERFLOW_DOC = "documentation.md"
+    RULES_TOKEN_BUDGET = 600
+    RULES_OVERFLOW_DOC = "documentation.md"
 
 DUP_SIM = 0.80          # cosine above which a section is "already discoverable"
 DUP_MIN_TOKENS = 120    # don't bother flagging tiny sections as dup
@@ -250,6 +255,27 @@ def audit(path: Path, budget: int) -> dict:
     }
 
 
+def audit_rules(rules_dir: Path, budget: int) -> dict:
+    files = sorted(
+        p for p in rules_dir.glob("*.md")
+        if p.is_file() and not p.name.startswith(".")
+    )
+    audits = []
+    for file in files:
+        result = audit(file, budget)
+        result["overflow_doc"] = RULES_OVERFLOW_DOC
+        audits.append(result)
+    return {
+        "path": str(rules_dir.relative_to(BASE)) if rules_dir.is_relative_to(BASE) else str(rules_dir),
+        "budget": budget,
+        "files": audits,
+        "total_tokens": sum(int(a["total_tokens"]) for a in audits),
+        "over_budget": any(a["over_budget"] for a in audits),
+        "dead_refs": [ref for a in audits for ref in a["dead_refs"]],
+        "overflow_doc": RULES_OVERFLOW_DOC,
+    }
+
+
 def render(a: dict) -> str:
     L = []
     status = "OVER" if a["over_budget"] else "ok"
@@ -286,20 +312,52 @@ def render(a: dict) -> str:
     return "\n".join(L)
 
 
+def render_rules(a: dict) -> str:
+    L = []
+    status = "OVER" if a["over_budget"] else "ok"
+    L.append(f"{a['path']}: {len(a['files'])} rule file(s), ~{a['total_tokens']:,} total tokens "
+             f"(budget {a['budget']:,} each) [{status}]")
+    if not a["files"]:
+        L.append("no markdown rule files found")
+        return "\n".join(L)
+    L.append("")
+    for idx, item in enumerate(a["files"]):
+        if idx:
+            L.append("")
+        L.append(render(item))
+    return "\n".join(L)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Audit CLAUDE.md token tax")
     ap.add_argument("path", nargs="?", default=str(BASE / "CLAUDE.md"))
-    ap.add_argument("--budget", type=int, default=CLAUDE_MD_TOKEN_BUDGET)
+    ap.add_argument("--rules", action="store_true",
+                    help="audit every markdown rule under .claude/rules/")
+    ap.add_argument("--rules-dir", default=str(BASE / ".claude" / "rules"))
+    ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true",
                     help="exit 1 if over budget or dead refs found")
     args = ap.parse_args()
 
+    if args.rules:
+        rules_dir = Path(args.rules_dir)
+        if not rules_dir.exists():
+            print(f"not found: {rules_dir}", file=sys.stderr)
+            return 2
+        budget = args.budget if args.budget is not None else RULES_TOKEN_BUDGET
+        a = audit_rules(rules_dir, budget)
+        print(json.dumps(a, indent=2) if args.json else render_rules(a))
+        if args.strict and (a["over_budget"] or a["dead_refs"]):
+            return 1
+        return 0
+
     p = Path(args.path)
     if not p.exists():
         print(f"not found: {p}", file=sys.stderr)
         return 2
-    a = audit(p, args.budget)
+    budget = args.budget if args.budget is not None else CLAUDE_MD_TOKEN_BUDGET
+    a = audit(p, budget)
     print(json.dumps(a, indent=2) if args.json else render(a))
     if args.strict and (a["over_budget"] or a["dead_refs"]):
         return 1

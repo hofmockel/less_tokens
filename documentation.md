@@ -550,6 +550,7 @@ agents/
 
 **Rules (`.claude/rules/`)**
 - `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
+- Audit always-loaded or appendable rule files with `.claude/bin/python .claude/tools/claudemd_audit.py --rules`; the per-file default cap is `RULES_TOKEN_BUDGET`.
 
 **Skills (`.claude/skills/`)**
 - `.claude/skills/bug-hunt/SKILL.md` — bug-hunt protocol: severity rubric, stop rule, agent prompt template

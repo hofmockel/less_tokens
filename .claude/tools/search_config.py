@@ -155,6 +155,13 @@ TRACK_SAVINGS = False   # set True via: python .claude/tools/stats.py
 CLAUDE_MD_TOKEN_BUDGET: int = 1200
 CLAUDE_MD_OVERFLOW_DOC: str = "documentation.md"
 
+# --- Always-loaded rule budgets (claudemd_audit.py --rules) ---
+# Files under .claude/rules/ are designed to be appended or loaded as stable
+# instructions. Audit them with a smaller per-file cap so opt-in style rules do
+# not become another hidden prompt tax. Set 0 to disable strict budget failure.
+RULES_TOKEN_BUDGET: int = 600
+RULES_OVERFLOW_DOC: str = "documentation.md"
+
 # --- AGENTS.md budget (agentsmd-budget Codex hook) ---
 # Mirrors the CLAUDE.md budget above. AGENTS.md is always-loaded by Codex.
 # Set 0 to disable.
