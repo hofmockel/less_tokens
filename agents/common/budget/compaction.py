@@ -9,7 +9,7 @@ from .adapters import BudgetInput
 from .config import BudgetConfig
 from .decisions import BudgetDecision
 from .estimator import estimate_tokens
-from .state import load_json, save_json, session_state_path
+from .state import load_json, save_json, session_state_path, shared_project_state_path
 
 PRESSURE_THRESHOLD = 0.80
 _MAX_ITEMS = 20
@@ -22,6 +22,19 @@ def record_session_activity(root: Path, budget_input: BudgetInput, decisions: li
     state.setdefault("session_id", budget_input.session_id)
     state.setdefault("run_id", budget_input.run_id)
     state["updated_at"] = time.time()
+    _extend_unique(state, "active_files", _candidate_paths(budget_input), limit=_MAX_ITEMS)
+    _extend_unique(state, "commands_run", _commands(budget_input), limit=_MAX_ITEMS)
+    _extend_unique(state, "decisions_made", _decision_notes(decisions), limit=_MAX_ITEMS)
+    _extend_unique(state, "test_status", _test_status(budget_input), limit=8)
+    save_json(path, state)
+    record_shared_project_activity(root, budget_input, decisions)
+
+
+def record_shared_project_activity(root: Path, budget_input: BudgetInput, decisions: list[BudgetDecision]) -> None:
+    path = shared_project_state_path(root)
+    state = load_json(path)
+    state["updated_at"] = time.time()
+    _extend_unique(state, "agents", [budget_input.agent], limit=8)
     _extend_unique(state, "active_files", _candidate_paths(budget_input), limit=_MAX_ITEMS)
     _extend_unique(state, "commands_run", _commands(budget_input), limit=_MAX_ITEMS)
     _extend_unique(state, "decisions_made", _decision_notes(decisions), limit=_MAX_ITEMS)

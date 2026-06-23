@@ -226,6 +226,18 @@ def test_advice_is_capped_and_mode_gated():
     assert "saves ~4,900 tokens" in advice
 
 
+def test_passing_tool_output_summary_shrinks_repetitive_logs():
+    raw = "============================= test session starts ==============================\n"
+    raw += "\n".join(f"tests/test_{idx}.py::test_ok PASSED" for idx in range(250))
+    raw += "\n============================= 250 passed in 3.21s =============================\n"
+    summary = summarize_tool_output(raw, command="pytest", max_lines=30, max_chars=1000)
+
+    assert "$ pytest" in summary
+    assert "line(s) omitted" in summary
+    assert "250 passed" in summary
+    assert len(summary) < len(raw)
+
+
 def test_enforce_mode_blocks_actionable_decision():
     decision = BudgetDecision(
         action="replace",
@@ -467,6 +479,42 @@ def test_policy_refreshes_compaction_snapshot_on_pressure(tmp_path):
     assert compaction
     assert compaction[0]["strategy"] == "pressure_compaction"
     assert compaction[0]["decision"] == "summarize"
+
+
+def test_policy_updates_shared_project_state(tmp_path):
+    target = tmp_path / "big.py"
+    target.write_text("x" * 20000, encoding="utf-8")
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(target)},
+        "session_id": "s1",
+        "run_id": "r1",
+    }, agent="claude")
+    evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+
+    shared = json.loads((tmp_path / ".less_tokens" / "state" / "shared-project-state.json").read_text(encoding="utf-8"))
+    assert shared["agents"] == ["claude"]
+    assert str(target) in shared["active_files"]
+    assert any("file:" in note for note in shared["decisions_made"])
+
+
+def test_tool_output_summary_uses_summary_strategy(tmp_path):
+    raw = "\n".join(f"noise line {i}" for i in range(1200)) + "\n250 passed in 3.21s\n"
+    budget_input = normalize_budget_input({
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "pytest"},
+        "tool_response": raw,
+        "session_id": "s1",
+        "run_id": "r1",
+    }, agent="claude")
+    evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    events = load_events(tmp_path)
+
+    summary_events = [event for event in events if event["strategy"] == "dynamic_output_summary"]
+    assert summary_events
+    assert summary_events[0]["estimated_tokens_saved"] > 0
 
 
 def test_budget_report_includes_risk_and_compactions(tmp_path):

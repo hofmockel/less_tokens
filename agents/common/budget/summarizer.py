@@ -5,7 +5,8 @@ import re
 
 SIGNAL_RE = re.compile(
     r"(Traceback|File \".+\", line \d+|FAILED\s+\S+|ERROR\s+\S+|AssertionError|"
-    r"\bassert\b|^\s*E\s+|error:|warning:|Exception|\.py:\d+|\.ts:\d+|\.js:\d+)",
+    r"\bassert\b|^\s*E\s+|error:|warning:|Exception|\d+\s+passed\b|"
+    r"\.py:\d+|\.ts:\d+|\.js:\d+)",
     re.IGNORECASE,
 )
 

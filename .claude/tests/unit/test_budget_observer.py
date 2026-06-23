@@ -29,6 +29,30 @@ def test_observer_returns_advice_only_in_advise_mode(tmp_path):
     assert "less_tokens budget" in advice
 
 
+def test_observer_rate_limits_repeated_advice(tmp_path):
+    cfg = tmp_path / ".less_tokens" / "config"
+    cfg.mkdir(parents=True)
+    (cfg / "budget.json").write_text(json.dumps({"mode": "advise"}), encoding="utf-8")
+    target = tmp_path / "big.py"
+    target.write_text("x" * 20000, encoding="utf-8")
+    raw = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(target)},
+        "session_id": "s1",
+        "run_id": "r1",
+    }
+
+    first = budget_hook_outcome(raw, repo=tmp_path, agent="claude")
+    second = budget_hook_outcome(raw, repo=tmp_path, agent="claude")
+
+    assert first is not None
+    assert first.message and "less_tokens budget" in first.message
+    assert second is not None
+    assert second.exit_code == 0
+    assert second.message is None
+
+
 def test_observer_stays_silent_in_observe_mode(tmp_path):
     target = tmp_path / "big.py"
     target.write_text("x" * 20000, encoding="utf-8")

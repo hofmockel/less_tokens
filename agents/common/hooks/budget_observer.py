@@ -8,9 +8,13 @@ def budget_hook_outcome(raw: dict, *, repo: Path, agent: str):
     """Record budget decisions and return a native hook outcome. Always fail open."""
     try:
         from agents.common.budget import HookBudgetOutcome, evaluate_budget_input, load_budget_config, normalize_budget_input, outcome_for_mode
+        from agents.common.budget.advice import best_advice
+        from agents.common.budget.state import should_emit_advice
     except Exception:
         try:
             from budget import HookBudgetOutcome, evaluate_budget_input, load_budget_config, normalize_budget_input, outcome_for_mode  # type: ignore[no-redef]
+            from budget.advice import best_advice  # type: ignore[no-redef]
+            from budget.state import should_emit_advice  # type: ignore[no-redef]
         except Exception:
             return None
     try:
@@ -19,7 +23,13 @@ def budget_hook_outcome(raw: dict, *, repo: Path, agent: str):
         budget_input = normalize_budget_input(raw, agent=agent)
         config = load_budget_config(repo, agent=agent)
         decisions = evaluate_budget_input(repo, budget_input, config)
-        return outcome_for_mode(decisions, mode=config.mode)
+        outcome = outcome_for_mode(decisions, mode=config.mode)
+        if config.mode == "advise" and outcome.message:
+            decision = best_advice(decisions)
+            key = f"{agent}:{budget_input.phase}:{budget_input.tool_name}:{decision.candidate_id if decision else outcome.message}"
+            if not should_emit_advice(repo, key):
+                return HookBudgetOutcome(exit_code=0)
+        return outcome
     except Exception:
         return None
 

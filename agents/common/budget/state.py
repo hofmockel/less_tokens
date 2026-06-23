@@ -46,3 +46,26 @@ def touch_session(root: Path, agent: str, *, session_id: str, run_id: str) -> No
         "updated_at": time.time(),
     })
     save_json(session_state_path(root, agent), data)
+
+
+def advice_state_path(root: Path) -> Path:
+    return state_dir(root) / "advice-rate-limit.json"
+
+
+def should_emit_advice(root: Path, key: str, *, window_seconds: int = 300) -> bool:
+    """Return True when an advise-mode message should be shown.
+
+    State failures fail open: noisy advice is worse than no state, but a broken
+    state file must never suppress a useful replacement hint.
+    """
+    now = time.time()
+    try:
+        state = load_json(advice_state_path(root))
+        last = float(state.get(key, 0) or 0)
+        if last and now - last < window_seconds:
+            return False
+        state[key] = now
+        save_json(advice_state_path(root), state)
+    except (OSError, TypeError, ValueError):
+        return True
+    return True

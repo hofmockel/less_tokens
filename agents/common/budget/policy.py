@@ -48,6 +48,7 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
                 phase=budget_input.phase,
                 tool_name=budget_input.tool_name,
                 mode=config.mode,
+                strategy=_strategy_for_decision(decision),
             ))
         return decisions
     except Exception as exc:
@@ -62,3 +63,14 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
             error=repr(exc),
         )
         return []
+
+
+def _strategy_for_decision(decision) -> str:
+    if (
+        decision.candidate_id.startswith("tool_output:")
+        and decision.action in {"replace", "trim"}
+        and decision.replacement
+        and "summarized output" in decision.replacement
+    ):
+        return "dynamic_output_summary"
+    return "relevance_gate"
