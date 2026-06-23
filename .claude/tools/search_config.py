@@ -168,6 +168,16 @@ RULES_OVERFLOW_DOC: str = "documentation.md"
 AGENTS_MD_TOKEN_BUDGET: int = 1200
 AGENTS_MD_OVERFLOW_DOC: str = "documentation.md"
 
+# --- Skill description budget (claudemd_audit.py --skills) ---
+# Every SKILL.md `description:` is always-loaded so the model can decide when a
+# skill applies. Long or overlapping descriptions are a per-turn tax that grows
+# with the skill library, and near-duplicate descriptions make the model pick
+# the wrong skill. Audit each description against a word cap and flag pairs that
+# overlap above SKILL_DESC_DUP_SIM. Set the cap to 0 to disable it.
+SKILL_DESC_WORD_CAP: int = 50
+SKILL_DESC_DUP_SIM: float = 0.85
+SKILLS_DIR: str = ".claude/skills"
+
 # --- Caveman output enforcement (Stop hook: caveman-reminder.py) ---
 # Checks the last assistant turn (not tool output) for filler phrases and an
 # over-long prose body. Code fences are exempt. Set False to disable.
