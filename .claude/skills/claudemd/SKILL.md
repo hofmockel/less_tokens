@@ -57,6 +57,17 @@ FIX: stale `path:line` refs. TRIM: filler + long sentences → caveman.
 
 `.claude/hooks/claudemd-budget.py` (PostToolUse on Edit/Write/MultiEdit) blocks when CLAUDE.md goes over budget or gains a dead ref. Budget set in `search_config.py` (`CLAUDE_MD_TOKEN_BUDGET`, 0 disables).
 
+## Wider always-loaded surfaces
+
+The same audit covers other surfaces injected every turn:
+
+```bash
+python .claude/tools/claudemd_audit.py --rules    # .claude/rules/*.md, per-file token budget
+python .claude/tools/claudemd_audit.py --skills   # SKILL.md descriptions: word cap + overlap
+```
+
+`--skills` flags descriptions over the word cap, missing descriptions (skill won't trigger), and near-duplicate descriptions that compete to trigger (needs fastembed; overlap check skips gracefully without it).
+
 ## Config
 
-`search_config.py`: `CLAUDE_MD_TOKEN_BUDGET` (default 1200), `CLAUDE_MD_OVERFLOW_DOC` (default `documentation.md`).
+`search_config.py`: `CLAUDE_MD_TOKEN_BUDGET` (default 1200), `CLAUDE_MD_OVERFLOW_DOC` (default `documentation.md`), `RULES_TOKEN_BUDGET` (default 600), `SKILL_DESC_WORD_CAP` (default 50), `SKILL_DESC_DUP_SIM` (default 0.85).

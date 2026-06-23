@@ -15,6 +15,7 @@ Checks:
 Usage:
   python .claude/tools/claudemd_audit.py [path] [--budget N] [--json] [--strict]
   python .claude/tools/claudemd_audit.py --rules [--rules-dir .claude/rules]
+  python .claude/tools/claudemd_audit.py --skills [--word-cap N]
 """
 from __future__ import annotations
 
@@ -42,6 +43,9 @@ try:
         CLAUDE_MD_TOKEN_BUDGET,
         RULES_OVERFLOW_DOC,
         RULES_TOKEN_BUDGET,
+        SKILL_DESC_DUP_SIM,
+        SKILL_DESC_WORD_CAP,
+        SKILLS_DIR,
     )
 except Exception:
     CHARS_PER_TOKEN = 4
@@ -49,6 +53,9 @@ except Exception:
     CLAUDE_MD_OVERFLOW_DOC = "documentation.md"
     RULES_TOKEN_BUDGET = 600
     RULES_OVERFLOW_DOC = "documentation.md"
+    SKILL_DESC_WORD_CAP = 50
+    SKILL_DESC_DUP_SIM = 0.85
+    SKILLS_DIR = ".claude/skills"
 
 DUP_SIM = 0.80          # cosine above which a section is "already discoverable"
 DUP_MIN_TOKENS = 120    # don't bother flagging tiny sections as dup
@@ -276,6 +283,115 @@ def audit_rules(rules_dir: Path, budget: int) -> dict:
     }
 
 
+def parse_skill_desc(path: Path) -> dict:
+    """Extract {name, description} from a SKILL.md frontmatter (folded scalars ok)."""
+    name = path.parent.name
+    desc = ""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return {"name": name, "description": "", "path": path}
+    m = re.match(r"^---\n(.*?)\n---", text, re.S)
+    if m:
+        fm_text = m.group(1)
+        try:
+            import yaml  # noqa: PLC0415
+            fm = yaml.safe_load(fm_text) or {}
+            name = str(fm.get("name", name))
+            desc = str(fm.get("description", "") or "")
+        except Exception:
+            dm = re.search(r"^description:\s*(.+)$", fm_text, re.M)
+            desc = dm.group(1).strip() if dm else ""
+    return {"name": name, "description": " ".join(desc.split()), "path": path}
+
+
+def desc_overlap(items: list[dict]):
+    """Return {name: (sim, other_name)} pairwise max, or None if embeddings unavailable."""
+    descs = [(it["name"], it["description"]) for it in items if it["description"]]
+    if len(descs) < 2:
+        return {}
+    try:
+        from embeddings import embed  # noqa: PLC0415
+        import numpy as np  # noqa: PLC0415
+    except Exception:
+        return None
+    try:
+        Q = np.asarray(embed([d for _, d in descs], input_type="query"), dtype="float32")
+    except Exception:
+        return None
+    Q /= (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-9)
+    sims = Q @ Q.T
+    np.fill_diagonal(sims, -1.0)
+    out = {}
+    for i, (n, _) in enumerate(descs):
+        j = int(sims[i].argmax())
+        out[n] = (float(sims[i][j]), descs[j][0])
+    return out
+
+
+def skill_verdict(words: int, cap: int, dup_for, dup_sim: float) -> str:
+    if words == 0:
+        return "NO-DESC (skill won't trigger reliably)"
+    if dup_for is not None:
+        sim, other = dup_for
+        if sim >= dup_sim:
+            return f"OVERLAP {sim*100:.0f}% with {other} (merge/disambiguate)"
+    if cap and words > cap:
+        return f"OVER cap by {words - cap}w (trim)"
+    return "KEEP"
+
+
+def audit_skills(skills_dir: Path, word_cap: int, dup_sim: float) -> dict:
+    files = sorted(skills_dir.glob("*/SKILL.md"))
+    items = [parse_skill_desc(f) for f in files]
+    dup = desc_overlap(items)
+    rows = []
+    for it in items:
+        words = len(it["description"].split())
+        df = dup.get(it["name"]) if dup else None
+        rows.append({
+            "name": it["name"],
+            "words": words,
+            "tokens": est_tokens(it["description"]),
+            "over_cap": bool(word_cap and words > word_cap),
+            "missing": words == 0,
+            "dup": df,
+            "verdict": skill_verdict(words, word_cap, df, dup_sim),
+            "path": str(it["path"].relative_to(BASE))
+            if it["path"].is_relative_to(BASE) else str(it["path"]),
+        })
+    return {
+        "path": str(skills_dir.relative_to(BASE))
+        if skills_dir.is_relative_to(BASE) else str(skills_dir),
+        "word_cap": word_cap, "dup_sim": dup_sim,
+        "dup_check": dup is not None,
+        "skills": rows,
+        "total_words": sum(int(r["words"]) for r in rows),
+        "total_tokens": sum(int(r["tokens"]) for r in rows),
+        "over_cap": any(r["over_cap"] for r in rows),
+        "missing": any(r["missing"] for r in rows),
+    }
+
+
+def render_skills(a: dict) -> str:
+    L = []
+    status = "OVER" if a["over_cap"] else "ok"
+    L.append(f"{a['path']}: {len(a['skills'])} skill(s), "
+             f"~{a['total_tokens']:,} desc tokens always-loaded "
+             f"(cap {a['word_cap']}w each) [{status}]")
+    if not a["dup_check"]:
+        L.append("overlap check: SKIPPED (no fastembed) — word-cap + missing-desc checks ran")
+    if not a["skills"]:
+        L.append("no SKILL.md files found")
+        return "\n".join(L)
+    L.append("")
+    L.append(f"{'verdict':<44} {'words':>5}  skill")
+    L.append("-" * 78)
+    for r in a["skills"]:
+        L.append(f"{r['verdict']:<44} {r['words']:>5}  {r['name']}")
+    return "\n".join(L)
+
+
 def render(a: dict) -> str:
     L = []
     status = "OVER" if a["over_budget"] else "ok"
@@ -334,11 +450,28 @@ def main() -> int:
     ap.add_argument("--rules", action="store_true",
                     help="audit every markdown rule under .claude/rules/")
     ap.add_argument("--rules-dir", default=str(BASE / ".claude" / "rules"))
+    ap.add_argument("--skills", action="store_true",
+                    help="audit every SKILL.md description under .claude/skills/")
+    ap.add_argument("--skills-dir", default=str(BASE / SKILLS_DIR))
+    ap.add_argument("--word-cap", type=int, default=None,
+                    help="per-description word cap for --skills (default SKILL_DESC_WORD_CAP)")
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true",
                     help="exit 1 if over budget or dead refs found")
     args = ap.parse_args()
+
+    if args.skills:
+        skills_dir = Path(args.skills_dir)
+        if not skills_dir.exists():
+            print(f"not found: {skills_dir}", file=sys.stderr)
+            return 2
+        cap = args.word_cap if args.word_cap is not None else SKILL_DESC_WORD_CAP
+        a = audit_skills(skills_dir, cap, SKILL_DESC_DUP_SIM)
+        print(json.dumps(a, indent=2) if args.json else render_skills(a))
+        if args.strict and (a["over_cap"] or a["missing"]):
+            return 1
+        return 0
 
     if args.rules:
         rules_dir = Path(args.rules_dir)
