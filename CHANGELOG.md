@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **CI: Windows path separator in `audit_rules()`** — `str(path.relative_to(BASE))` returned `\\`-separated paths on Windows; replaced with `.as_posix()`.
+- **CI: Python 3.9 `SystemError` in `duplication()`** — CPython 3.9 bug triggers `SystemError: bad argument to internal function` when `from X import Y` is used inside a `try/except` inside a function; replaced with `import X as _x` style.
+- **CI: `patch.object` fallback to `__builtins__` in duplication test** — fell back to patching `claudemd_audit.__builtins__` with a function when `embed` wasn't a module-level attribute; on Python 3.9, `__builtins__` is a dict so Python subscripted the function to look up `Exception`, causing `TypeError`; removed the `patch.object` wrapper.
+- **CI: Windows codex launcher check** — `test_install_check` created `python` but `do_check` looks for `python.exe` on Windows; test now creates the platform-appropriate name.
+- **CI: `test_recent_edit_blocks` Windows path mock** — test used Unix `/abs/foo.py` paths and patched `pathlib.Path.resolve` which doesn't work cross-platform; replaced with a real `tmp_path` file.
+- **CI: subprocess strips `SYSTEMROOT` on Windows** — `env={"PYTHONPATH": ...}` replaced the full environment, removing `SYSTEMROOT`; Python 3.9 on Windows crashes at startup without it (`_Py_HashRandomization_Init` fatal error); fixed with `{**os.environ, "PYTHONPATH": ...}`.
+
 ### Added
 - **`hunt_score.py`** — deterministic stop-rule scorer for bug hunts; reads `bughuntlog.jsonl`, evaluates three signals (severity slide, overlap rate, file coverage), prints `STOP` / `RUN ONE MORE` / `KEEP HUNTING` with per-signal breakdown.
 - **`bughuntlog.jsonl`** — replaces `bughuntlog.md`; one JSON record per hunt round, schema documented in file header.
