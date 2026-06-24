@@ -21,7 +21,7 @@ jobs:
       LT_SRC: ${{ github.workspace }}/less_tokens_src
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: less_tokens_src
 
