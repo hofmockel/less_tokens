@@ -134,6 +134,11 @@ SKILL_DESC_WORD_CAP: int = 50
 SKILL_DESC_DUP_SIM: float = 0.85
 SKILLS_DIR: str = ".claude/skills"
 
+# --- Search result dedup (search.py) --- Drop a hit whose cosine to an already-selected
+# hit is >= this, so two files with near-identical content don't both spend budget; the
+# freed slot backfills the next distinct hit. Set >= 1.0 to disable (unit-vector cosine maxes at 1).
+SEARCH_DEDUP_SIM: float = 0.97
+
 # --- Caveman output enforcement (Stop hook: caveman-reminder.py) --- Set False to disable.
 CAVEMAN_ENFORCE: bool = True
 MAX_RESPONSE_WORDS: int = 600   # prose-word ceiling per turn; 0 disables the word check

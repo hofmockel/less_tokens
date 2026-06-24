@@ -264,17 +264,13 @@ Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text retur
 
 ### Caveman mode
 
-Append the caveman snippet to your `CLAUDE.md` to enforce terse output:
+Append the terse-output rule to your `CLAUDE.md`:
 
 ```bash
 cat .claude/rules/caveman.md >> CLAUDE.md
 ```
 
-Before and after example:
-
-> **Before:** "I apologize, but I was unable to locate the file you specified. Could you please verify the path and try again?"
->
-> **After:** "File not found. Check path."
+Full spec — banned phrases and before/after examples: [.claude/rules/caveman.md](.claude/rules/caveman.md).
 
 ---
 
@@ -422,19 +418,13 @@ less_tokens/
 
 ## Contributing
 
-All contributions go through Pull Requests. Discussion happens in PR comments.
-
-- **Report a bug or request a feature** — fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR.
-- **Fix something** — fork, implement the fix, open a PR.
-- Both can be combined in one PR.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. In short: fork, add a [BACKLOG.md](BACKLOG.md) entry, open a PR.
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
 
 ---
 

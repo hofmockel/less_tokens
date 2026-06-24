@@ -171,13 +171,26 @@ def search(
     # descending, so the first chunk seen per path is its best.
     results: list[dict] = []
     seen_paths: set[str] = set()
+    # Unit vectors of already-selected hits, for cross-file dedup below.
+    selected_units: list[np.ndarray] = []
+    dedup_sim = search_config.SEARCH_DEDUP_SIM
     for i in np.argsort(-scores):
         if min_score is not None and scores[i] < min_score:
             break
         path = rows[i][2]
         if path in seen_paths:
             continue
+        # Cross-file semantic dedup: when this file's best chunk is near-identical
+        # to an already-selected hit, both would spend budget on the same content.
+        # Drop the whole file and let the freed slot backfill the next distinct hit.
+        cand = vecs[i]
+        cand_unit = cand / (np.linalg.norm(cand) or 1.0)
+        if dedup_sim < 1.0 and selected_units:
+            if float(np.max(np.array(selected_units) @ cand_unit)) >= dedup_sim:
+                seen_paths.add(path)
+                continue
         seen_paths.add(path)
+        selected_units.append(cand_unit)
         results.append({
             "score": float(scores[i]),
             "source_type": rows[i][1],
