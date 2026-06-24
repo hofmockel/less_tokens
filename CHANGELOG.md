@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **CI: `install-e2e` workflow never ran** — job-level `env` referenced `${{ runner.temp }}`, but the `runner` context is unavailable when job-level `env` is evaluated (no runner assigned yet), so every run failed at 0s with "workflow file issue" and zero jobs. Moved `HOST`/`HOST2` out of job `env`; they are now derived from `$RUNNER_TEMP` in a `Compute host paths` step that writes to `$GITHUB_ENV`.
 - **CI: Windows path separator in `audit_rules()`** — `str(path.relative_to(BASE))` returned `\\`-separated paths on Windows; replaced with `.as_posix()`.
 - **CI: Python 3.9 `SystemError` in `duplication()`** — CPython 3.9 bug triggers `SystemError: bad argument to internal function` when `from X import Y` is used inside a `try/except` inside a function; replaced with `import X as _x` style.
 - **CI: `patch.object` fallback to `__builtins__` in duplication test** — fell back to patching `claudemd_audit.__builtins__` with a function when `embed` wasn't a module-level attribute; on Python 3.9, `__builtins__` is a dict so Python subscripted the function to look up `Exception`, causing `TypeError`; removed the `patch.object` wrapper.

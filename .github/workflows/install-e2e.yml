@@ -19,8 +19,6 @@ jobs:
         shell: bash
     env:
       LT_SRC: ${{ github.workspace }}/less_tokens_src
-      HOST:   ${{ runner.temp }}/host
-      HOST2:  ${{ runner.temp }}/host2
 
     steps:
       - uses: actions/checkout@v6
@@ -30,6 +28,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Compute host paths
+        # runner.temp is unavailable in job-level env (runner not yet assigned),
+        # so derive HOST/HOST2 from $RUNNER_TEMP here instead.
+        run: |
+          echo "HOST=$RUNNER_TEMP/host"   >> "$GITHUB_ENV"
+          echo "HOST2=$RUNNER_TEMP/host2" >> "$GITHUB_ENV"
 
       - name: Set up scratch host project (clone less_tokens into HOST/less_tokens)
         run: |
