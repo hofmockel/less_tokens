@@ -2,7 +2,7 @@
 
 Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) / [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol.
 
-Token-reduction strategies and their rationale live in [evaluate.md](evaluate.md). Items below are tagged with their source `(evaluate.md)`.
+Token-reduction strategy and rationale live in [documentation.md](documentation.md) → *Token-reduction strategy*. Shipped strategies use stable IDs (S8–S13).
 
 ---
 
@@ -23,7 +23,7 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### Medium Priority
 
-- **F2 — Doc dedup to one source of truth** *(fixed)* — README, BACKLOG, documentation.md, and evaluate.md overlap. Pick one canonical home per topic, replace the duplicates with pointers. Point the `claudemd` skill at the other root docs, not just CLAUDE.md.
+- **F2 — Doc dedup to one source of truth** *(fixed)* — README, BACKLOG, and documentation.md overlap. Pick one canonical home per topic, replace the duplicates with pointers. Point the `claudemd` skill at the other root docs, not just CLAUDE.md.
 - **F3 — Terse hook block messages** *(output)* — block/reminder messages are output tokens paid on every trigger. Already trimmed once; push to short learned codes (e.g. `S9: slice 51-3`) instead of sentences across all hooks in `.claude/hooks/`.
 
 ### Low Priority
@@ -32,7 +32,7 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **G7 — Subagent context re-derivation** *(input)* — parent writes a compact context pack (relevant slices + search hits) to `STATE_DIR`; spawned agents read that instead of re-reading/re-searching the same files cold. Mostly a discipline + helper (a skill documenting "pass results, don't re-discover"); hard to hook-enforce. Spiky impact — large only when subagents are used heavily.
 
 - **G10 — Search-result dedup** *(input)* — in `search.py`, drop a hit whose cosine to an already-selected hit exceeds a threshold and backfill the next distinct one, so overlapping/near-duplicate chunks aren't paid for twice per query. Pure post-processing on vectors already in hand; sharpens an existing strategy.
-- **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus by need via `.claude/rules/tier-matrix.md` + an `AGENT_TIER_HINTS: bool` flag. **Verdict (evaluate.md): low confidence.** No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% blended saving is unverified. Keep as an opt-in rule only; prefer the shipped caveman Stop hook for output-token savings. (evaluate.md)
+- **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus by need via `.claude/rules/tier-matrix.md` + an `AGENT_TIER_HINTS: bool` flag. **Verdict: low confidence.** No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% blended saving is unverified. Keep as an opt-in rule only; prefer the shipped caveman Stop hook for output-token savings.
 
 ---
 
@@ -65,10 +65,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 - **P3 — Fix `is_indexed()` divergence instead of documenting it** *(fixed)* — CLAUDE.md "Known bugs worth avoiding" warns that `is_indexed()` behaves differently in `search-first.py` vs `index-refresh.py`. The warning costs tokens every turn forever; one shared implementation deletes both the bug and the warning. Prefer the fix to the landmine note.
 
-### Low Priority
-
-- **P4 — Replace rotting status prose with a parity matrix** *(meta)* — `evaluate.md:3` carries a hand-dated "Status update, 21 Jun 2026" line that goes stale silently. Replace per-agent status prose with a machine-checked parity matrix (see C3); doc stops lying on its own. Pairs with C3.
-
 
 
 ---
@@ -81,7 +77,7 @@ Rules, protocols, and configs expressed as natural language that could be determ
 - **C2 — Finish shared-hook extraction** *(meta)* — context-cache, listing-guard, and post-edit-diff are Codex-local with no `agents/common/hooks/` counterpart; extract shared logic so Claude adapters reuse without duplication. 
 ### Medium Priority
 
-- **C3 — CI-checked parity matrix** *(meta)* — data file mapping each hook × {claude, codex} = shipped/missing; CI fails on unintended gaps. Replaces the rotting prose status lines (see P4) and surfaces parity debt at a glance.
+- **C3 — CI-checked parity matrix** *(meta)* — data file mapping each hook × {claude, codex} = shipped/missing; CI fails on unintended gaps. Replaces hand-dated per-doc status prose (the kind retired with `evaluate.md`) and surfaces parity debt at a glance.
 - **Codex `apply_patch` path extraction** — parse touched file paths from `apply_patch` payloads in `.codex/hooks/index-refresh.py` instead of triggering a full conservative `embeddings.py refresh`; reduces unnecessary index churn on patch-only edits.
 ### Low Priority
 

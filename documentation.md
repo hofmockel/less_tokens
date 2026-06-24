@@ -558,6 +558,34 @@ agents/
 
 Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.py:load_hook()` (it puts `.claude/tools/` on `sys.path` so the source tools are importable during tests, then execs the hook file). Keep hook logic importable — no side effects at module load.
 
+### Token-reduction strategy
+
+The mission is fewer tokens. Every token falls in one of three buckets, and each lever targets one:
+
+- **Input** — files read, search results, history. Biggest lever (5–10×). Attacked by search-first, auto-slice, grep-first, the symbol index.
+- **Output** — assistant prose. Attacked by the caveman Stop hook.
+- **Tool** — raw Bash/Read/WebFetch dumps. Attacked by truncation and the lean-output parsers.
+
+Two principles decide *how*:
+
+- **Code over reasoning.** When a deterministic script can produce the answer, don't make the model read and think to get there — locate a symbol, slice a file, parse test output in code.
+- **A hook is law; a CLAUDE.md sentence is a suggestion.** PreToolUse blocks the wasteful action; PostToolUse rewrites or trims the result. A rule nobody enforces gets ignored.
+
+Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
+
+| ID | Lever | What | Enforced by |
+|---|---|---|---|
+| S8 | input | symbol index + `/def` locate | PreToolUse Read/Grep → `symbols.py` |
+| S9 | input | auto-slice Read to the searched range | PreToolUse Read → `auto-slice.py` |
+| S10 | input | post-Edit diff, block the verify re-Read | Pre+PostToolUse Edit |
+| S11 | output | caveman check on the assistant turn | Stop → `caveman-reminder.py` |
+| S12 | tool | structured parsers (pytest/ruff/eslint/git) | PostToolUse Bash → `lean-output.py` |
+| S13 | input | grep-first: block oversized Read, route to search/symbol | PreToolUse Read |
+
+S6 (tiered effort by model) stays an opt-in rule, not a hook — no hook can force a per-turn model downshift, so its saving is unverified; tracked in `BACKLOG.md`.
+
+Deliberately rejected as periphery (no effect on context tokens): a live savings-dashboard HTML artifact, a search REPL / file-watcher, a query/result cache (saves embedding compute, not tokens), and search-quality logging.
+
 ### State directory
 
 `STATE_DIR` in `search_config.py` is `CLAUDE_DIR / "state"` (i.e., `.claude/state/` in the host project).

@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Skill descriptions tightened (BACKLOG F1)** — compressed the always-loaded `description` frontmatter of all five repo skills (`claudemd`, `agentsmd`, `lean-output`, `less-tokens`, codex `bug-hunt`): cut connective filler ("Use when asked to", "Moves … and fixes …") while preserving every trigger keyword and scope. Shrinks the fixed (per-turn) token bucket with no triggering change.
 
 ### Removed
+- **`evaluate.md` retired** — every S8–S13 strategy it described has shipped, so the file was historical. Durable content found better homes: the lens (input/output/tool buckets), the "code over reasoning / a hook is law" principles, the shipped-strategy → enforcer table, and the deliberately-rejected ideas now live in `documentation.md` → *Token-reduction strategy* (indexed, searchable). The S6 verdict was already in `BACKLOG.md`; the hand-dated status line and one-time build order were dropped. `BACKLOG.md` references repointed; redundant `P4` folded into `C3`.
 - **`strategy_21june26.md`** — stale strategy brainstorm doc; recommendation (token budgeter + relevance gate) shipped in full.
 - **`strategy_21jun26_plan.md`** — completed implementation plan; all 7 phases shipped per results doc.
 - **`strategy_21jun26_results.md`** — post-mortem for completed strategy work; acceptance criteria all green.
