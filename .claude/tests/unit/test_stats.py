@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 # Ensure tools/ is importable before any patch() calls reference module names.
-_TOOLS = Path(__file__).parent.parent.parent.parent / "tools"
+_TOOLS = Path(__file__).parent.parent.parent / "tools"
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 

@@ -253,7 +253,7 @@ def audit(path: Path, budget: int) -> dict:
         })
     dead = [r for r in refs if not r["ok"]]
     return {
-        "path": str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
+        "path": path.relative_to(BASE).as_posix() if path.is_relative_to(BASE) else path.as_posix(),
         "total_tokens": total_tokens, "budget": budget,
         "over_budget": budget and total_tokens > budget,
         "dup_check": dup is not None,
@@ -301,7 +301,23 @@ def parse_skill_desc(path: Path) -> dict:
             desc = str(fm.get("description", "") or "")
         except Exception:
             dm = re.search(r"^description:\s*(.+)$", fm_text, re.M)
-            desc = dm.group(1).strip() if dm else ""
+            if dm:
+                val = dm.group(1).strip()
+                if val in (">", ">-", "|", "|-"):
+                    # folded/literal block scalar — collect indented continuation lines
+                    lines = []
+                    in_block = False
+                    for line in fm_text.splitlines():
+                        if re.match(r"^description:\s*[>|]", line):
+                            in_block = True
+                            continue
+                        if in_block:
+                            if line and not line[0].isspace():
+                                break
+                            lines.append(line.strip())
+                    desc = " ".join(lines).strip()
+                else:
+                    desc = val
     return {"name": name, "description": " ".join(desc.split()), "path": path}
 
 

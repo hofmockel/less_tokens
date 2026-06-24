@@ -87,7 +87,7 @@ def record_edit(state_dir: Path, file_path: str) -> None:
             data: dict = json.loads(last_edit_file.read_text())
         except Exception:
             data = {}
-        data[str(Path(file_path).resolve())] = time.time()
+        data[file_path] = time.time()
         last_edit_file.write_text(json.dumps(data))
     except Exception:
         pass

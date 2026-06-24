@@ -90,7 +90,7 @@ def append_event(root: Path, event: BudgetEvent) -> None:
         with path.open("a", encoding="utf-8") as f:
             locked = False
             try:
-                if hasattr(os, "lockf"):
+                if hasattr(os, "lockf") and hasattr(os, "F_LOCK"):
                     os.lockf(f.fileno(), os.F_LOCK, 0)
                     locked = True
             except OSError:
@@ -98,7 +98,7 @@ def append_event(root: Path, event: BudgetEvent) -> None:
             try:
                 f.write(line)
             finally:
-                if locked and hasattr(os, "lockf"):
+                if locked and hasattr(os, "lockf") and hasattr(os, "F_LOCK"):
                     try:
                         os.lockf(f.fileno(), os.F_ULOCK, 0)
                     except OSError:

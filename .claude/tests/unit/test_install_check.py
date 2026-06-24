@@ -29,16 +29,18 @@ def _minimal_install(tmp_path: Path, venv_py: Path | None = None) -> Path:
     tools.mkdir(parents=True)
 
     config = tools / "search_config.py"
-    config.write_text(f'VENV_PY = "{venv_py}"\n')
+    config.write_text(f'VENV_PY = {repr(venv_py.as_posix())}\n')
 
     hooks = tmp_path / ".claude" / "hooks"
     hooks.mkdir(parents=True)
     (hooks / "search-first.py").touch()
 
     db = tmp_path / ".claude" / "index.db"
-    with sqlite3.connect(str(db)) as conn:
-        conn.execute("CREATE TABLE chunks (id INTEGER PRIMARY KEY, body TEXT)")
-        conn.execute("INSERT INTO chunks (body) VALUES ('hello')")
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE chunks (id INTEGER PRIMARY KEY, body TEXT)")
+    conn.execute("INSERT INTO chunks (body) VALUES ('hello')")
+    conn.commit()
+    conn.close()
 
     settings = tmp_path / ".claude" / "settings.json"
     settings.write_text(json.dumps({

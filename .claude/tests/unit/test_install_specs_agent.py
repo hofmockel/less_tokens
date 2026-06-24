@@ -97,7 +97,9 @@ class TestInstallSpecsAgentSelector:
 
 class TestLauncherCommands:
     def test_codex_launcher_command_is_less_tokens_python(self, tmp_path):
-        assert launcher_cmd("codex", tmp_path) == ".less_tokens/bin/python"
+        import sys as _sys
+        expected = ".less_tokens/bin/python.cmd" if _sys.platform == "win32" else ".less_tokens/bin/python"
+        assert launcher_cmd("codex", tmp_path) == expected
 
     def test_codex_hooks_use_launcher_not_raw_venv(self, tmp_path):
         entries = build_codex_hook_entries(

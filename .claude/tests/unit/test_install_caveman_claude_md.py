@@ -67,7 +67,7 @@ class TestHandleCavemanClaudeMd:
         assert text.count(_CM_START) == 1
 
     def test_idempotent_with_legacy_caveman_mode(self, tmp_path):
-        (tmp_path / "CLAUDE.md").write_text("## Output Style — Caveman Mode\n")
+        (tmp_path / "CLAUDE.md").write_text("## Output Style — Caveman Mode\n", encoding="utf-8")
         result = handle_caveman_claude_md(tmp_path, dry_run=False)
         assert result == 0
 

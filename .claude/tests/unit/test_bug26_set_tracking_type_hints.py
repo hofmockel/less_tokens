@@ -33,7 +33,8 @@ def test_set_tracking_handles_complex_type_hints(tmp_path):
     """_set_tracking must succeed when TRACK_SAVINGS has a complex type hint."""
     stats = _import_stats()
     for src, hint_desc in _COMPLEX_HINTS:
-        cfg = tmp_path / f"cfg_{hint_desc.replace(' ', '_').replace('[', '').replace(']', '')}.py"
+        safe = hint_desc.replace(' ', '_').replace('[', '').replace(']', '').replace('|', '_or_')
+        cfg = tmp_path / f"cfg_{safe}.py"
         cfg.write_text(src)
         with patch("stats.CONFIG_FILE", cfg):
             stats._set_tracking(True)
