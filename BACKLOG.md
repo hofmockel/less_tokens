@@ -70,6 +70,8 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### Medium Priority
 
+- **Codex `apply_patch` path extraction** — parse touched file paths from `apply_patch` payloads in `.codex/hooks/index-refresh.py` instead of triggering a full conservative `embeddings.py refresh`; reduces unnecessary index churn on patch-only edits.
+
 ### Low Priority
 
 ---
