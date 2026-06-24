@@ -14,7 +14,7 @@ AGENTS.md is always-loaded Codex context. Every token is paid before task detail
 
 Ask: **could `.less_tokens/tools/search.py` find this during the task?**
 
-- Yes -> move it to the overflow doc (`AGENTS_MD_OVERFLOW_DOC`, default `documentation.md`).
+- Yes -> move it to the overflow doc (`AGENTS_MD_OVERFLOW_DOC`, default `DOCUMENTATION.md`).
 - No -> keep it as a standing rule.
 
 Keep: agent rules, token-discipline defaults, mandatory commands, safety constraints, gotchas that break work if unknown upfront.
@@ -61,4 +61,4 @@ Fix stale `path:line` refs. Prefer symbol names over line numbers.
 
 ## Config
 
-`search_config.py`: `AGENTS_MD_TOKEN_BUDGET` (default 1200), `AGENTS_MD_OVERFLOW_DOC` (default `documentation.md`).
+`search_config.py`: `AGENTS_MD_TOKEN_BUDGET` (default 1200), `AGENTS_MD_OVERFLOW_DOC` (default `DOCUMENTATION.md`).

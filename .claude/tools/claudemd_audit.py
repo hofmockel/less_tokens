@@ -50,9 +50,9 @@ try:
 except Exception:
     CHARS_PER_TOKEN = 4
     CLAUDE_MD_TOKEN_BUDGET = 1200
-    CLAUDE_MD_OVERFLOW_DOC = "documentation.md"
+    CLAUDE_MD_OVERFLOW_DOC = "DOCUMENTATION.md"
     RULES_TOKEN_BUDGET = 600
-    RULES_OVERFLOW_DOC = "documentation.md"
+    RULES_OVERFLOW_DOC = "DOCUMENTATION.md"
     SKILL_DESC_WORD_CAP = 50
     SKILL_DESC_DUP_SIM = 0.85
     SKILLS_DIR = ".claude/skills"

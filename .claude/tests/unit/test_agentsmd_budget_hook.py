@@ -54,7 +54,7 @@ def _run_main(mod, spec, stdin_data: dict, agents_md: Path | None = None,
               budget: int = 1200, cma=None) -> int:
     spec.loader.exec_module(mod)
     mod.AGENTS_MD_TOKEN_BUDGET = budget
-    mod.AGENTS_MD_OVERFLOW_DOC = "documentation.md"
+    mod.AGENTS_MD_OVERFLOW_DOC = "DOCUMENTATION.md"
     mod.cma = cma
     with patch.object(mod.sys, "stdin",
                       MagicMock(read=lambda: json.dumps(stdin_data))):
@@ -119,7 +119,7 @@ class TestAgentsMdBudgetHook:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         mod.AGENTS_MD_TOKEN_BUDGET = 1200
-        mod.AGENTS_MD_OVERFLOW_DOC = "documentation.md"
+        mod.AGENTS_MD_OVERFLOW_DOC = "DOCUMENTATION.md"
         fake_cma = MagicMock()
         fake_cma.audit.return_value = {
             "over_budget": True, "total_tokens": 1500, "budget": 1200, "dead_refs": []
@@ -138,7 +138,7 @@ class TestAgentsMdBudgetHook:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         mod.AGENTS_MD_TOKEN_BUDGET = 1200
-        mod.AGENTS_MD_OVERFLOW_DOC = "documentation.md"
+        mod.AGENTS_MD_OVERFLOW_DOC = "DOCUMENTATION.md"
         fake_cma = MagicMock()
         fake_cma.audit.return_value = {
             "over_budget": False, "total_tokens": 50, "budget": 1200, "dead_refs": []

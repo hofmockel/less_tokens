@@ -40,7 +40,7 @@ try:
     import claudemd_audit as cma
 except Exception:
     CLAUDE_MD_TOKEN_BUDGET = 1200
-    CLAUDE_MD_OVERFLOW_DOC = "documentation.md"
+    CLAUDE_MD_OVERFLOW_DOC = "DOCUMENTATION.md"
     cma = None
 
 

@@ -84,7 +84,7 @@ cd ~/myproject/less_tokens && git pull
 python3 install.py --update                # safe re-copy of hooks + tools
 ```
 
-See [documentation.md](documentation.md) for full installation, configuration, usage, and hook wiring instructions. See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix.
+See [DOCUMENTATION.md](DOCUMENTATION.md) for full installation, configuration, usage, and hook wiring instructions. See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix.
 
 Budget behavior is controlled by `.less_tokens/config/budget.json`. Modes are `observe` (record only), `advise` (print concise suggestions), `enforce` (block actionable waste with a replacement or bypass), and `strict` (also blocks oversized unscored context). Inspect recent decisions with:
 

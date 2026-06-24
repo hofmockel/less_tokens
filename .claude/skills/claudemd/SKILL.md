@@ -14,7 +14,7 @@ CLAUDE.md inject every turn. Never searched. Every token = per-turn tax. Keep on
 
 Test each section: **could `search.py` surface this mid-task in one query?**
 
-- Yes → discoverable. **CUT** to the overflow doc (`CLAUDE_MD_OVERFLOW_DOC`, default `documentation.md`).
+- Yes → discoverable. **CUT** to the overflow doc (`CLAUDE_MD_OVERFLOW_DOC`, default `DOCUMENTATION.md`).
 - No → it's a standing rule, not a lookup. **KEEP**.
 
 KEEP: output-style overrides (caveman), hard rules ("search before Read", `pip --break-system-packages`), gotchas that cause errors if unknown upfront, constant commands (test, build-index, search), default-overriding behavior.
@@ -70,4 +70,4 @@ python .claude/tools/claudemd_audit.py --skills   # SKILL.md descriptions: word 
 
 ## Config
 
-`search_config.py`: `CLAUDE_MD_TOKEN_BUDGET` (default 1200), `CLAUDE_MD_OVERFLOW_DOC` (default `documentation.md`), `RULES_TOKEN_BUDGET` (default 600), `SKILL_DESC_WORD_CAP` (default 50), `SKILL_DESC_DUP_SIM` (default 0.85).
+`search_config.py`: `CLAUDE_MD_TOKEN_BUDGET` (default 1200), `CLAUDE_MD_OVERFLOW_DOC` (default `DOCUMENTATION.md`), `RULES_TOKEN_BUDGET` (default 600), `SKILL_DESC_WORD_CAP` (default 50), `SKILL_DESC_DUP_SIM` (default 0.85).

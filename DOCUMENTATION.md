@@ -446,8 +446,8 @@ Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exc
 
 | Entry | Reason |
 |---|---|
-| `README.md` | User-facing marketing page; content is in `documentation.md` |
-| `documentation.md` | Reference docs; Claude reads source, not its own docs |
+| `README.md` | User-facing marketing page; content is in `DOCUMENTATION.md` |
+| `DOCUMENTATION.md` | Reference docs; Claude reads source, not its own docs |
 | `CHANGELOG.md` | History log; not relevant to active development |
 | `.github/` | CI workflow config; rarely needs reading during development |
 | `.claude/tests/perf/latest.json` | Generated benchmark artifact |

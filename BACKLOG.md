@@ -2,7 +2,7 @@
 
 Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) / [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol.
 
-Token-reduction strategy and rationale live in [documentation.md](documentation.md) → *Token-reduction strategy*. Shipped strategies use stable IDs (S8–S13).
+Token-reduction strategy and rationale live in [DOCUMENTATION.md](DOCUMENTATION.md) → *Token-reduction strategy*. Shipped strategies use stable IDs (S8–S13).
 
 ---
 
@@ -23,7 +23,7 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### Medium Priority
 
-- **F2 — Doc dedup to one source of truth** *(fixed)* — README, BACKLOG, and documentation.md overlap. Pick one canonical home per topic, replace the duplicates with pointers. Point the `claudemd` skill at the other root docs, not just CLAUDE.md.
+- **F2 — Doc dedup to one source of truth** *(fixed)* — README, BACKLOG, and DOCUMENTATION.md overlap. Pick one canonical home per topic, replace the duplicates with pointers. Point the `claudemd` skill at the other root docs, not just CLAUDE.md.
 - **F3 — Terse hook block messages** *(output)* — block/reminder messages are output tokens paid on every trigger. Already trimmed once; push to short learned codes (e.g. `S9: slice 51-3`) instead of sentences across all hooks in `.claude/hooks/`.
 
 ### Low Priority

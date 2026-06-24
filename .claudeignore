@@ -1,6 +1,6 @@
 # User-facing documentation — not needed for code work
 README.md
-documentation.md
+DOCUMENTATION.md
 CHANGELOG.md
 
 # CI configuration

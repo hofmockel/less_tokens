@@ -21,7 +21,7 @@ def test_readme_describes_budget_control_plane():
 
 
 def test_documentation_describes_budget_runtime_and_escape_hatch():
-    text = _read("documentation.md")
+    text = _read("DOCUMENTATION.md")
     assert "Budget control plane" in text
     assert ".less_tokens/state/events.jsonl" in text
     assert ".less_tokens/state/claude-session.json" in text

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repo. Architecture, internals, and the full install/verify walkthrough live in `documentation.md` — it is indexed, so search it instead of bloating this file.
+Guidance for Claude Code in this repo. Architecture, internals, and the full install/verify walkthrough live in `DOCUMENTATION.md` — it is indexed, so search it instead of bloating this file.
 
 ## Output style — Caveman Mode
 
@@ -27,7 +27,7 @@ The `search-first` hook enforces this within a 300s gate window. `/build-index` 
 
 A **toolkit** whose job is to be installed *into other projects*: `install.py` targets a host project's parent dir and deploys `.claude/` (tools, hooks, schema, venv, `index.db`); re-run after `git pull` to upgrade in place. That is the primary mission.
 
-But it is also developed **and dogfooded here** — this repo runs its own hooks, search, and skills to spend fewer tokens while building less_tokens. When working in this repo, use the installed tooling (search before Read, the skills, the budget hooks), not just edit it. Strategies: vector search, caveman mode, tool-output truncation, session compaction. Deploy mechanics: `documentation.md`.
+But it is also developed **and dogfooded here** — this repo runs its own hooks, search, and skills to spend fewer tokens while building less_tokens. When working in this repo, use the installed tooling (search before Read, the skills, the budget hooks), not just edit it. Strategies: vector search, caveman mode, tool-output truncation, session compaction. Deploy mechanics: `DOCUMENTATION.md`.
 
 ## Test commands
 
@@ -42,7 +42,7 @@ But it is also developed **and dogfooded here** — this repo runs its own hooks
 .claude/.venv-tokens/bin/python -m pytest .claude/tests/perf/ -v -m perf
 ```
 
-pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3.11/3.12 × 3 OS. Full install/verify walkthrough: `documentation.md`.
+pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3.11/3.12 × 3 OS. Full install/verify walkthrough: `DOCUMENTATION.md`.
 
 ## Backlog and changelog lifecycle
 
