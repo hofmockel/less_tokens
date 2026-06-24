@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Removed
 - **`strategy_21june26.md`** — stale strategy brainstorm doc; recommendation (token budgeter + relevance gate) shipped in full.
 - **`strategy_21jun26_plan.md`** — completed implementation plan; all 7 phases shipped per results doc.
+- **`strategy_21jun26_results.md`** — post-mortem for completed strategy work; acceptance criteria all green.
 
 ### Fixed
 - **Filler scan false positive on quoted examples** — `response_budget.py:analyze()` now strips single- and double-quoted spans before running the filler-phrase regex, so quoting a banned phrase as an example no longer triggers a caveman-mode violation.
