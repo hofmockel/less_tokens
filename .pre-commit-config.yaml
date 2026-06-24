@@ -11,7 +11,7 @@ repos:
   - repo: local
     hooks:
       - id: changelog-gate
-        name: changelog [Unreleased] entry for code changes
+        name: backlog/changelog lifecycle gate
         entry: python .claude/tools/changelog_gate.py
         language: system
         pass_filenames: false

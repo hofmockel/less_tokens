@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **CI: subprocess strips `SYSTEMROOT` on Windows** — `env={"PYTHONPATH": ...}` replaced the full environment, removing `SYSTEMROOT`; Python 3.9 on Windows crashes at startup without it (`_Py_HashRandomization_Init` fatal error); fixed with `{**os.environ, "PYTHONPATH": ...}`.
 
 ### Added
-- **`changelog_gate.py` merge gate (BACKLOG P2)** — turns the honor-system "add a CHANGELOG entry before merge" rule into law: a PR touching shipped `.py` under `.claude/`/`agents/` (tests excluded) must include `CHANGELOG.md` in its diff with a non-empty `## [Unreleased]` section, or the gate fails. Pure `check()` is unit-tested; wired into CI (`tests.yml`, PR-only) and `.pre-commit-config.yaml`.
+- **`changelog_gate.py` merge gate (BACKLOG P2)** — turns the honor-system lifecycle rule into law with two checks: (1) a PR touching shipped `.py` under `.claude/`/`agents/` (tests excluded) must include `CHANGELOG.md` in its diff with a non-empty `## [Unreleased]` section; (2) when an entry ships a backlog item it cites the item's ID (`- [P2] ...`), and the gate fails if any cited ID still has a heading in `BACKLOG.md`, so a shipped item can't linger. Pure `check()` / `lingering_backlog_ids()` are unit-tested; wired into CI (`tests.yml`, PR-only) and `.pre-commit-config.yaml`.
 - **`hunt_score.py`** — deterministic stop-rule scorer for bug hunts; reads `bughuntlog.jsonl`, evaluates three signals (severity slide, overlap rate, file coverage), prints `STOP` / `RUN ONE MORE` / `KEEP HUNTING` with per-signal breakdown.
 - **`bughuntlog.jsonl`** — replaces `bughuntlog.md`; one JSON record per hunt round, schema documented in file header.
 

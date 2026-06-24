@@ -34,7 +34,7 @@ pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3
 
 ## Backlog and changelog lifecycle
 
-Code-changing PRs need a `CHANGELOG.md` `[Unreleased]` entry — enforced by `changelog_gate.py` (CI + pre-commit). Also delete the shipped item from `BACKLOG.md` (no strike-through, no "DONE" marker); a duplicate across README and BACKLOG is a bookkeeping bug.
+Code-changing PRs need a `CHANGELOG.md` `[Unreleased]` entry — enforced by `changelog_gate.py` (CI + pre-commit). Also delete the shipped item from `BACKLOG.md` (no strike-through, no "DONE" marker); when the entry ships a backlog item, cite its ID (`- [P2] ...`) and the gate fails if that ID still has a heading in `BACKLOG.md`. A duplicate across README and BACKLOG is a bookkeeping bug.
 
 ## graphify
 

@@ -1,22 +1,31 @@
 #!/usr/bin/env python3
-"""Merge gate: a code-changing PR must record a CHANGELOG `[Unreleased]` entry.
+"""Merge gate for the backlog/changelog lifecycle. Two rules, both now law
+(were honor-system prose in CLAUDE.md / BACKLOG.md):
 
-Replaces the honor-system lifecycle prose (was in CLAUDE.md / BACKLOG.md). The
-rule is now law: if a PR touches shipped code under `.claude/` or `agents/`
-(tests excluded), `CHANGELOG.md` must appear in the diff and its `[Unreleased]`
-section must contain at least one entry.
+1. Changelog-exists: a PR touching shipped code under `.claude/` or `agents/`
+   (tests excluded) must include `CHANGELOG.md` in its diff with a non-empty
+   `## [Unreleased]` section.
+2. Backlog cross-check: when an `[Unreleased]` entry ships a backlog item it
+   cites the item's ID (`- [P2] ...`); the gate fails if any cited ID still has
+   a heading in `BACKLOG.md`, so a shipped item can't linger.
 
-Core check is pure (`check`) so it is unit-testable; the CLI gathers the diff
-from git. Wired into CI (`.github/workflows/tests.yml`) and `.pre-commit-config.yaml`.
+Pure checks (`check`, `lingering_backlog_ids`) are unit-testable; the CLI gathers
+the diff from git and reads the two files. Wired into CI and `.pre-commit-config.yaml`.
 """
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 CHANGELOG = "CHANGELOG.md"
+BACKLOG = "BACKLOG.md"
+
+ID = r"[A-Z]+\d+"
+CITED = re.compile(rf"\[({ID})\]")        # [P1] in a CHANGELOG entry
+HEADING = re.compile(rf"\*\*({ID})\s*—")   # **P1 — in BACKLOG
 
 
 def is_code_change(path: str) -> bool:
@@ -29,25 +38,42 @@ def is_code_change(path: str) -> bool:
     return p.startswith(".claude/") or p.startswith("agents/")
 
 
+def unreleased_section(changelog_text: str) -> str:
+    """Text between `## [Unreleased]` and the next `## ` heading."""
+    m = re.search(r"^##\s*\[Unreleased\]\s*$", changelog_text, re.MULTILINE)
+    if not m:
+        return ""
+    rest = changelog_text[m.end():]
+    nxt = re.search(r"^##\s", rest, re.MULTILINE)
+    return rest[: nxt.start()] if nxt else rest
+
+
 def unreleased_entries(changelog_text: str) -> list[str]:
     """Return the `- ` bullet lines under the `## [Unreleased]` heading."""
-    lines = changelog_text.splitlines()
-    out: list[str] = []
-    in_block = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("## "):
-            if in_block:
-                break  # reached the next release heading
-            in_block = stripped.lower().startswith("## [unreleased]")
-            continue
-        if in_block and stripped.startswith("- "):
-            out.append(stripped)
-    return out
+    return [
+        ln.strip()
+        for ln in unreleased_section(changelog_text).splitlines()
+        if ln.strip().startswith("- ")
+    ]
+
+
+def cited_ids(changelog_text: str) -> set[str]:
+    """Backlog IDs cited in `[Unreleased]` (e.g. `[P2]`)."""
+    return set(CITED.findall(unreleased_section(changelog_text)))
+
+
+def backlog_ids(backlog_text: str) -> set[str]:
+    """IDs that still have a `**P1 — ...**` heading in BACKLOG.md."""
+    return set(HEADING.findall(backlog_text))
+
+
+def lingering_backlog_ids(changelog_text: str, backlog_text: str) -> list[str]:
+    """IDs cited as shipped but still present in BACKLOG — the lifecycle bug."""
+    return sorted(cited_ids(changelog_text) & backlog_ids(backlog_text))
 
 
 def check(changed_files: list[str], changelog_text: str) -> tuple[bool, str]:
-    """(ok, message). Pure — no git, no IO."""
+    """Rule 1 (changelog-exists). Pure — no git, no IO."""
     code = sorted(f for f in changed_files if is_code_change(f))
     if not code:
         return True, "no shipped-code change in diff; changelog gate skipped"
@@ -84,18 +110,30 @@ def changed_files(base: str | None) -> list[str]:
 
 def main(argv: list[str]) -> int:
     base = None
-    if "GITHUB_BASE_REF" in os.environ and os.environ["GITHUB_BASE_REF"]:
+    if os.environ.get("GITHUB_BASE_REF"):
         base = f"origin/{os.environ['GITHUB_BASE_REF']}"
     if len(argv) > 1:
         base = argv[1]
 
     repo = Path(__file__).resolve().parents[2]
-    changelog_path = repo / CHANGELOG
-    text = changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else ""
+    text = (repo / CHANGELOG).read_text(encoding="utf-8") if (repo / CHANGELOG).exists() else ""
+    backlog_text = (repo / BACKLOG).read_text(encoding="utf-8") if (repo / BACKLOG).exists() else ""
 
-    ok, msg = check(changed_files(base), text)
-    stream = sys.stdout if ok else sys.stderr
-    print(f"changelog-gate: {msg}", file=stream)
+    ok = True
+    # Rule 1: changelog-exists
+    ok1, msg = check(changed_files(base), text)
+    print(f"changelog-gate: {msg}", file=sys.stdout if ok1 else sys.stderr)
+    ok &= ok1
+    # Rule 2: backlog cross-check
+    lingering = lingering_backlog_ids(text, backlog_text)
+    if lingering:
+        for i in lingering:
+            print(
+                f"changelog-gate: {i} shipped (CHANGELOG [Unreleased]) "
+                f"but still in {BACKLOG} — delete it.",
+                file=sys.stderr,
+            )
+        ok = False
     return 0 if ok else 1
 
 

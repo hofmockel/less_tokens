@@ -1,4 +1,8 @@
-"""P2: changelog merge gate — pure-check unit tests."""
+"""Unit tests for tools/changelog_gate.py — backlog/changelog lifecycle gate.
+
+Two rules: (1) changelog-exists for code changes, (2) backlog cross-check that a
+CHANGELOG-cited ID is gone from BACKLOG.
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -16,6 +20,8 @@ _spec.loader.exec_module(gate)
 CL_WITH = "## [Unreleased]\n\n### Fixed\n- **thing** — fixed it.\n\n## [1.0.0]\n- old\n"
 CL_EMPTY = "## [Unreleased]\n\n## [1.0.0]\n- old\n"
 
+
+# --- Rule 1: changelog-exists ------------------------------------------------
 
 def test_is_code_change():
     assert gate.is_code_change(".claude/tools/search.py")
@@ -59,3 +65,30 @@ def test_code_change_with_empty_unreleased_fails():
 def test_code_change_documented_passes():
     ok, msg = gate.check([".claude/tools/search.py", "CHANGELOG.md"], CL_WITH)
     assert ok, msg
+
+
+# --- Rule 2: backlog cross-check ---------------------------------------------
+
+CL_CITES_P1 = "## [Unreleased]\n- [P1] shipped it\n- plain entry\n\n## [1.0.0]\n- [F9] old\n"
+BACKLOG = "# Backlog\n- **P1 — thing** *(fixed)*\n- **F2 — other** *(fixed)*\n"
+
+
+def test_cited_ids_only_unreleased():
+    assert gate.cited_ids(CL_CITES_P1) == {"P1"}  # F9 below next heading ignored
+
+
+def test_backlog_ids():
+    assert gate.backlog_ids(BACKLOG) == {"P1", "F2"}
+
+
+def test_lingering_when_shipped_id_remains():
+    assert gate.lingering_backlog_ids(CL_CITES_P1, BACKLOG) == ["P1"]
+
+
+def test_no_lingering_when_deleted():
+    deleted = "# Backlog\n- **F2 — other** *(fixed)*\n"
+    assert gate.lingering_backlog_ids(CL_CITES_P1, deleted) == []
+
+
+def test_no_lingering_without_citations():
+    assert gate.lingering_backlog_ids(CL_WITH, BACKLOG) == []
