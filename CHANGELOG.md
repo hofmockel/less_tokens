@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **`caveman.md` collapsed to phrase list** — replaced conversational prose with a one-line rule + the canonical banned-phrase list from `VERBOSE_PATTERNS`, cutting always-loaded token cost ~50%.
+- **Hook block messages trimmed** — removed trailing explanatory sentences from `search_first.py` and `grep_first_read.py` block messages; stripped "Options:" / comment suffixes / "To skip this gate" lines. Each gate block now emits filename + command only.
+
 ### Fixed
 - **Filler scan false positive on quoted examples** — `response_budget.py:analyze()` now strips single- and double-quoted spans before running the filler-phrase regex, so quoting a banned phrase as an example no longer triggers a caveman-mode violation.
 

@@ -106,13 +106,10 @@ def check_grep_first_read(
     )
     hint = _symbol_hint(p)
     msg = (
-        f"Grep-first gate: {p.name} is {lines:,} lines (threshold {threshold}). "
-        "Locate the target before reading the whole file.\n\n"
-        "Options:\n"
+        f"Grep-first gate: {p.name} is {lines:,} lines (threshold {threshold}).\n"
         f"{hint}"
-        f"  {venv_py} {tool_prefix}/symbols.py <name>    # exact file:line for symbols\n"
-        f"  {venv_py} {tool_prefix}/search.py \"<query>\"  # semantic search for concepts\n\n"
-        f"Then: {read_example.format(file_path=str(p), start='<line>', limit='<n>')}\n"
-        "To skip this gate, pass an explicit offset."
+        f"  {venv_py} {tool_prefix}/symbols.py <name>\n"
+        f"  {venv_py} {tool_prefix}/search.py \"<query>\"\n"
+        f"Then: {read_example.format(file_path=str(p), start='<line>', limit='<n>')}"
     )
     return 2, "", msg

@@ -117,9 +117,6 @@ def check_search_first(
 
     msg = (
         f"Search-first rule: {rel} is indexed.\n"
-        f"Run vector search before Read:\n"
-        f"  {venv_py} {tool_prefix}/search.py \"<your query>\"\n"
-        f"After a search, Reads on indexed files are allowed for "
-        f"{config.get('window_seconds', 300)}s."
+        f"  {venv_py} {tool_prefix}/search.py \"<your query>\""
     )
     return 2, "", msg

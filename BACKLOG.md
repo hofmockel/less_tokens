@@ -54,9 +54,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### High Priority
 
-- **P1 — `caveman.md` prose → phrase list** *(fixed input)* — `.claude/rules/caveman.md` (always-loaded) describes forbidden phrases conversationally. `VERBOSE_PATTERNS` in `response_budget.py` already IS the machine-readable version. Collapse the rule file to: one-line summary + the patterns list + pointer to the hook. ~50% token reduction every turn.
-
-- **P2 — Hook block messages → trim trailing prose** *(tool output)* — `agents/common/hooks/search_first.py` line 122–123 appends explanatory sentences after the action command. `search-first.py` line 107 adds a third. Both fire on every gate block. Strip to: filename + command only. Same pattern in `grep-first-read.py`. Saves tokens on every blocked call.
 
 ### Medium Priority
 

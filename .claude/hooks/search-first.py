@@ -104,7 +104,6 @@ def main() -> int:
             saved = 0
         _config.get("log", lambda _: None)({"strategy": "search-blocked", "file": rel, "saved_chars": saved})
         stderr = stderr.replace("Search-first rule:", "Search-first rule (CLAUDE.md):")
-        stderr += " If you need to edit this file, search first to satisfy the gate, then Read + Edit normally."
     if stdout:
         print(stdout)
     if stderr:
