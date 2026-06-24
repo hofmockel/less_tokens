@@ -48,6 +48,30 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ---
 
+## Prose to Code
+
+Rules, protocols, and configs expressed as natural language that could be deterministic scripts, structured data, or shorter pointers. Ordered by per-turn impact.
+
+### High Priority
+
+- **P1 — `caveman.md` prose → phrase list** *(fixed input)* — `.claude/rules/caveman.md` (always-loaded) describes forbidden phrases conversationally. `VERBOSE_PATTERNS` in `response_budget.py` already IS the machine-readable version. Collapse the rule file to: one-line summary + the patterns list + pointer to the hook. ~50% token reduction every turn.
+
+- **P2 — Hook block messages → trim trailing prose** *(tool output)* — `agents/common/hooks/search_first.py` line 122–123 appends explanatory sentences after the action command. `search-first.py` line 107 adds a third. Both fire on every gate block. Strip to: filename + command only. Same pattern in `grep-first-read.py`. Saves tokens on every blocked call.
+
+### Medium Priority
+
+- **P3 — Bug-hunt stop rule → `tools/hunt_score.py`** *(meta)* — `agents/common/bug-hunt-protocol.md` lines 30–34 describe three numeric thresholds (median severity ≤ `ux`, overlap ≥ 60%, file coverage ≥ 80%) as prose for a human to eyeball. Should be a script: reads structured hunt data, prints `GO` or `STOP` + which signals failed. Requires P4.
+
+- **P4 — `bughuntlog.md` → structured JSONL** *(meta)* — currently free markdown prose per round. Convert to one JSON record per round (bugs found, tiers assigned, overlap count, files hit). Unlocks P3 and makes stop-rule scoring auditable without re-parsing prose.
+
+### Low Priority
+
+- **P5 — `evaluate.md` per-strategy prose → 2-sentence summaries** *(indexed input)* — each S8–S13 section is 100–200 words; the verdict table already captures the essentials. Compress each body to: problem sentence + code-over-reasoning sentence. ~60% word reduction; search hits return tighter chunks.
+
+- **P6 — `search_config.py` comment blocks → inline one-liners** *(read cost)* — multi-paragraph comment blocks precede each config group (e.g. 4-line block before `READ_DENY_GLOBS`). Not in always-loaded context, but inflates read cost when Claude needs the file. Trim each block to one line matching the variable name.
+
+---
+
 ## Codex Agent
 
 ### High Priority

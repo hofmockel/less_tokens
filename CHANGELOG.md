@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Filler scan false positive on quoted examples** — `response_budget.py:analyze()` now strips single- and double-quoted spans before running the filler-phrase regex, so quoting a banned phrase as an example no longer triggers a caveman-mode violation.
+
 ### Added
 - **Skill-description budget audit** — `claudemd_audit.py --skills` audits every `.claude/skills/*/SKILL.md` description (always-loaded so the model can decide when a skill applies) against `SKILL_DESC_WORD_CAP`, flagging over-cap descriptions, missing descriptions (skill won't trigger), and near-duplicate descriptions that compete to trigger (cosine ≥ `SKILL_DESC_DUP_SIM`, skipped gracefully without fastembed). Added `SKILL_DESC_WORD_CAP`, `SKILL_DESC_DUP_SIM`, and `SKILLS_DIR` config defaults; `--strict` exits 1 on over-cap or missing descriptions.
 - **Rule-file token budget audit** — `claudemd_audit.py --rules` now audits markdown files under `.claude/rules/` with a per-file `RULES_TOKEN_BUDGET`, reporting token tax, stale refs, verbosity, and cut/trim verdicts just like the CLAUDE.md audit. Added `RULES_TOKEN_BUDGET` and `RULES_OVERFLOW_DOC` config defaults.

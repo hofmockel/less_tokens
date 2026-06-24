@@ -70,6 +70,17 @@ def test_unclosed_fence_not_counted_as_prose(hook):
     assert problems == [], f"unclosed fence leaked into prose: {problems}"
 
 
+def test_quoted_filler_not_flagged(hook):
+    """Banned phrases inside prose quotation marks must not trigger filler detection."""
+    assert hook.analyze("The rule bans phrases like \"I'd be happy to\" and 'certainly'.") == []
+
+
+def test_unquoted_filler_still_flagged(hook):
+    """Banned phrases outside quotes are still caught."""
+    problems = hook.analyze("I'd be happy to help with that.")
+    assert any("filler" in p for p in problems)
+
+
 def test_unclosed_fence_words_not_counted(hook, monkeypatch):
     """Words in an unclosed code fence must not count toward the word budget."""
     monkeypatch.setattr(hook, "MAX_RESPONSE_WORDS", 5)

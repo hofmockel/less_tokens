@@ -30,6 +30,7 @@ VERBOSE_PATTERNS = [
 _PATTERN = re.compile("|".join(VERBOSE_PATTERNS), re.IGNORECASE)
 _FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 _INLINE = re.compile(r"`[^`]*`")
+_QUOTED = re.compile(r'"[^"]*"|\'[^\']*\'')
 
 
 def last_assistant_text(transcript_path: str) -> str:
@@ -65,7 +66,7 @@ def last_assistant_text(transcript_path: str) -> str:
 def analyze(text: str, *, max_response_words: int, min_filler_hits: int = 1) -> list[str]:
     if not text:
         return []
-    prose = _INLINE.sub(" ", _FENCE.sub(" ", text))
+    prose = _QUOTED.sub(" ", _INLINE.sub(" ", _FENCE.sub(" ", text)))
     problems = []
     fillers = sorted({m.group(0).lower() for m in _PATTERN.finditer(prose)})
     if len(fillers) >= min_filler_hits:
