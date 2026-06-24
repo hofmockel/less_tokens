@@ -20,10 +20,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **CI: subprocess strips `SYSTEMROOT` on Windows** — `env={"PYTHONPATH": ...}` replaced the full environment, removing `SYSTEMROOT`; Python 3.9 on Windows crashes at startup without it (`_Py_HashRandomization_Init` fatal error); fixed with `{**os.environ, "PYTHONPATH": ...}`.
 
 ### Added
+- **`changelog_gate.py` merge gate (BACKLOG P2)** — turns the honor-system "add a CHANGELOG entry before merge" rule into law: a PR touching shipped `.py` under `.claude/`/`agents/` (tests excluded) must include `CHANGELOG.md` in its diff with a non-empty `## [Unreleased]` section, or the gate fails. Pure `check()` is unit-tested; wired into CI (`tests.yml`, PR-only) and `.pre-commit-config.yaml`.
 - **`hunt_score.py`** — deterministic stop-rule scorer for bug hunts; reads `bughuntlog.jsonl`, evaluates three signals (severity slide, overlap rate, file coverage), prints `STOP` / `RUN ONE MORE` / `KEEP HUNTING` with per-signal breakdown.
 - **`bughuntlog.jsonl`** — replaces `bughuntlog.md`; one JSON record per hunt round, schema documented in file header.
 
 ### Changed
+- **CLAUDE.md prose pruned (BACKLOG P1/P3)** — deleted the "Search before Read" section (fully enforced by `search-first.py`, whose block message already prints the exact command) and the stale "Known bugs worth avoiding" note about `is_indexed()` divergence (both hooks already delegate to one shared `is_indexed` in `agents/common/hooks/search_first.py`; pinned by new `test_is_indexed_parity.py`). Lifecycle section shrunk to a pointer at the new gate. Cuts always-loaded per-turn tokens.
 - **`caveman.md` collapsed to phrase list** — replaced conversational prose with a one-line rule + the canonical banned-phrase list from `VERBOSE_PATTERNS`, cutting always-loaded token cost ~50%.
 - **`search_config.py` comment blocks trimmed to one-liners** — all multi-paragraph comment blocks reduced to single lines; file shrunk from 232 to 167 lines.
 - **`evaluate.md` strategy sections compressed** — each S8–S13 section reduced from 100–200 words to 2 sentences (problem + enforcement); ~60% word reduction for tighter search hits.
