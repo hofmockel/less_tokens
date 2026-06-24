@@ -57,7 +57,7 @@ jobs:
         run: |
           python - <<'EOF'
           import sys
-          sys.path.insert(0, "tools")
+          sys.path.insert(0, ".claude/tools")
           from savings_log import append
           # Simulate a realistic session
           append({"strategy": "truncation", "tool": "Bash",   "original_chars": 14200, "saved_chars": 10200})

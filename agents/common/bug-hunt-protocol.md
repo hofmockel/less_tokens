@@ -32,6 +32,13 @@ Signal definitions (for filling in the record):
 2. **Overlap** — of bugs surfaced, how many match a prior-round bug by file:line or paraphrase? Record as `{"matched": N, "total": N}`.
 3. **File coverage** — list new files hit in `new_files`; scorer accumulates across all rounds vs the 14-file target list.
 
+High-yield target files (cover as many as possible across rounds):
+`.claude/tools/embeddings.py`, `.claude/tools/search.py`, `.claude/hooks/search-first.py`,
+`.claude/tools/index-refresh.py`, `.claude/hooks/truncate-output.py`, `.claude/tools/stats.py`,
+`.claude/tools/savings_log.py`, `.claude/hooks/budget-observer.py`, `install.py`,
+`.claude/tools/search_config.py`, `.claude/tools/chunkers.py`, `.claude/tools/hunt_score.py`,
+`agents/common/budget/engine.py`, `.claude/hooks/compact-trigger.py`
+
 ---
 
 ## How to run a hunt (one-shot agent prompt template)

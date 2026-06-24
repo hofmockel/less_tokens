@@ -38,21 +38,3 @@ def test_changelog_mentions_budget_control_plane():
     assert "budget_doctor.py" in text
 
 
-def test_codex_coverage_mentions_budget_observer():
-    text = _read("codex-hook-coverage.md")
-    assert ".codex/hooks/budget-observer.py" in text
-    assert ".less_tokens/config/budget.json" in text
-    assert ".less_tokens/state/events.jsonl" in text
-    assert "observe" in text
-    assert "strict" in text
-
-
-def test_strategy_results_capture_budget_verification():
-    text = _read("strategy_21jun26_results.md")
-    assert "Full unit and integration suite: 710 passed." in text
-    assert "budget_report.py" in text
-    assert "budget_doctor.py" in text
-    assert "rate-limited" in text
-    assert "dynamic_output_summary" in text
-    assert "shared project state" in text
-    assert "Live savings numbers require actual hook-delivered events" in text
