@@ -61,7 +61,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 ### Low Priority
 
 
-- **P6 — `search_config.py` comment blocks → inline one-liners** *(read cost)* — multi-paragraph comment blocks precede each config group (e.g. 4-line block before `READ_DENY_GLOBS`). Not in always-loaded context, but inflates read cost when Claude needs the file. Trim each block to one line matching the variable name.
 
 ---
 
