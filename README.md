@@ -48,34 +48,7 @@ python3 less_tokens/install.py --agent codex   # Codex
 python3 less_tokens/install.py --agent both    # both simultaneously
 ```
 
-Claude artifacts land under `.claude/`; the shared budget control plane lands under `.less_tokens/`; Codex support also installs adapter hooks plus `AGENTS.md` guidance:
-
-```
-~/myproject/
-├── .claude/
-│   ├── .venv-tokens/        # fastembed + numpy
-│   ├── bin/python           # venv-backed launcher for Claude commands
-│   ├── hooks/               # Claude Code hook scripts
-│   ├── index.db             # vector index
-│   ├── rules/               # output style rules (caveman.md) — --caveman only
-│   ├── schema/              # SQL schema
-│   ├── skills/claudemd/     # /claudemd CLAUDE.md pruning skill
-│   ├── state/               # runtime state (last-search, savings log, …)
-│   └── tools/               # search.py, embeddings.py, db.py, stats.py, …
-├── .less_tokens/            # shared budget control plane + Codex runtime
-│   ├── config/budget.json   # observe, advise, enforce, or strict mode
-│   ├── hooks/budget/        # shared budget engine used by both agents
-│   ├── hooks/               # shared hook support used by Codex adapters
-│   ├── bin/python           # venv-backed launcher for Codex commands
-│   ├── schema/
-│   ├── skills/less-tokens/  # fallback Codex skill path
-│   ├── state/               # events.jsonl plus per-agent session state
-│   └── tools/               # budget_report.py, budget_doctor.py, Codex shims
-├── .codex/hooks/            # Codex adapter hooks, when .codex is writable
-├── .codex/hooks.json        # Codex hook wiring, when .codex is writable
-├── AGENTS.md                # Codex token-discipline block
-└── less_tokens/             # this clone — unchanged after install
-```
+Claude artifacts land under `.claude/`, the shared budget control plane under `.less_tokens/`, and Codex support adds adapter hooks plus `AGENTS.md`. Full directory tree: [DOCUMENTATION.md → Repository layout](DOCUMENTATION.md#repository-layout).
 
 Upgrade an existing install the same way:
 

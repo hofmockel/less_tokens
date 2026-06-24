@@ -23,9 +23,11 @@ import search_config  # noqa: E402
 _DB = sys.modules[search.connect_index.__module__]
 
 
-def _vec(scale: float) -> bytes:
+def _vec(scale: float, axis: int = 0) -> bytes:
+    # Distinct paths on distinct axes so the cross-file dedup (SEARCH_DEDUP_SIM)
+    # doesn't collapse these as near-duplicates; only the score floor is exercised.
     v = np.zeros(search.DIM, dtype="<f4")
-    v[0] = scale
+    v[axis] = scale
     return v.tobytes()
 
 
@@ -43,17 +45,17 @@ def index_db(tmp_path, monkeypatch):
         "INSERT INTO documents (source_type, source_path, source_key, text, "
         "embedding, embedding_model) VALUES (?, ?, ?, ?, ?, ?)",
         [
-            ("code", "p/hi.py", "hi", "high", _vec(0.9), model),
-            ("code", "p/mid.py", "mid", "mid", _vec(0.4), model),
-            ("code", "p/lo.py", "lo", "low", _vec(0.1), model),
+            ("code", "p/hi.py", "hi", "high", _vec(0.9, 0), model),
+            ("code", "p/mid.py", "mid", "mid", _vec(0.4, 1), model),
+            ("code", "p/lo.py", "lo", "low", _vec(0.1, 2), model),
         ],
     )
     conn.commit()
     conn.close()
     monkeypatch.setattr(_DB, "INDEX_DB", dbp)
-    # Query vector = unit e0, so score == stored scale.
+    # Query hits each file's axis, so score == that file's stored scale.
     q = np.zeros(search.DIM, dtype=np.float32)
-    q[0] = 1.0
+    q[0] = q[1] = q[2] = 1.0
     monkeypatch.setattr(search, "embed", lambda *a, **k: np.array([q]))
     return dbp
 

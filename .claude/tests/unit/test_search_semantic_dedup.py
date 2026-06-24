@@ -1,9 +1,9 @@
-"""search.py collapses same-file chunks and backfills k with unique files.
+"""search.py drops a hit whose vector is near-identical to one already selected (G10).
 
-When two top-k chunks share a source_path, returning both spends context
-budget on near-duplicate text from one file while a distinct file drops off
-the list. search() now keeps the best-scoring chunk per source_path and
-pulls the next distinct file in to fill k.
+Same-file collapse (test_search_dedup.py) keys on source_path. This adds *cross-file*
+dedup: two distinct files whose best chunks embed almost identically would both spend
+context budget on the same content. search() now skips the second and backfills the
+next distinct hit. Controlled by search_config.SEARCH_DEDUP_SIM (>= 1.0 disables it).
 """
 from __future__ import annotations
 
@@ -23,8 +23,6 @@ _DB = sys.modules[search.connect_index.__module__]
 
 
 def _vec(scale: float, axis: int = 0) -> bytes:
-    # Distinct files live on distinct axes so cross-file cosine is ~0; only
-    # same-axis vectors are near-duplicates (exercised by the semantic-dedup test).
     v = np.zeros(search.DIM, dtype="<f4")
     v[axis] = scale
     return v.tobytes()
@@ -44,37 +42,31 @@ def index_db(tmp_path, monkeypatch):
         "INSERT INTO documents (source_type, source_path, source_key, text, "
         "embedding, embedding_model) VALUES (?, ?, ?, ?, ?, ?)",
         [
+            # a and d are different files but collinear → near-duplicate content.
             ("code", "p/a.py", "a1", "a-one", _vec(0.9, 0), model),
-            ("code", "p/a.py", "a2", "a-two", _vec(0.8, 0), model),
+            ("code", "p/d.py", "d1", "d-one", _vec(0.85, 0), model),
+            # b is on a distinct axis → not a duplicate of either.
             ("code", "p/b.py", "b1", "b-one", _vec(0.7, 1), model),
-            ("code", "p/c.py", "c1", "c-one", _vec(0.3, 2), model),
         ],
     )
     conn.commit()
     conn.close()
     monkeypatch.setattr(_DB, "INDEX_DB", dbp)
     q = np.zeros(search.DIM, dtype=np.float32)
-    q[0] = q[1] = q[2] = 1.0
+    q[0] = q[1] = 1.0
     monkeypatch.setattr(search, "embed", lambda *a, **k: np.array([q]))
     return dbp
 
 
-def test_collapses_same_path_and_backfills(index_db):
+def test_near_duplicate_file_dropped_and_backfilled(index_db, monkeypatch):
+    monkeypatch.setattr(search_config, "SEARCH_DEDUP_SIM", 0.97)
     hits = search.search("q", k=2)
-    # Pre-fix this returned [a1, a2]; now it's the best chunk of a then b.
-    assert [(h["source_path"], h["source_key"]) for h in hits] == [
-        ("p/a.py", "a1"),
-        ("p/b.py", "b1"),
-    ]
-
-
-def test_unique_paths_in_results(index_db):
-    hits = search.search("q", k=3)
-    paths = [h["source_path"] for h in hits]
-    assert paths == ["p/a.py", "p/b.py", "p/c.py"]
-    assert len(paths) == len(set(paths))
-
-
-def test_min_score_still_applies_after_dedup(index_db):
-    hits = search.search("q", k=3, min_score=0.5)
+    # d.py is near-identical to a.py, so it's dropped and b.py backfills the slot.
     assert [h["source_path"] for h in hits] == ["p/a.py", "p/b.py"]
+
+
+def test_dedup_disabled_keeps_near_duplicate(index_db, monkeypatch):
+    monkeypatch.setattr(search_config, "SEARCH_DEDUP_SIM", 1.0)
+    hits = search.search("q", k=2)
+    # With dedup off, the second-best hit (the near-duplicate) stays.
+    assert [h["source_path"] for h in hits] == ["p/a.py", "p/d.py"]

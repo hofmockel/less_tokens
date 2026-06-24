@@ -68,6 +68,21 @@ python .claude/tools/claudemd_audit.py --skills   # SKILL.md descriptions: word 
 
 `--skills` flags descriptions over the word cap, missing descriptions (skill won't trigger), and near-duplicate descriptions that compete to trigger (needs fastembed; overlap check skips gracefully without it).
 
+## Root-doc canonical homes
+
+Root docs overlap too — same topic copied across README, DOCUMENTATION.md, CONTRIBUTING.md, CLAUDE.md, `.claude/rules/*.md`. Each topic gets one canonical home; the rest reduce to a one-line pointer. When pruning or before a release, check these and fix drift:
+
+| Topic | Canonical | Others point here |
+|---|---|---|
+| Repo layout tree | DOCUMENTATION.md → Repository layout | README |
+| Install / config / usage / hook wiring | DOCUMENTATION.md | README (teaser only) |
+| Contributing | CONTRIBUTING.md | README, DOCUMENTATION.md |
+| License | README + `LICENSE` | DOCUMENTATION.md |
+| Caveman / terse-output spec | `.claude/rules/caveman.md` | CLAUDE.md, DOCUMENTATION.md |
+| Token-reduction strategy | DOCUMENTATION.md | BACKLOG.md |
+
+A topic duplicated across two root docs is a bookkeeping bug — collapse the non-canonical copy to a pointer.
+
 ## Config
 
 `search_config.py`: `CLAUDE_MD_TOKEN_BUDGET` (default 1200), `CLAUDE_MD_OVERFLOW_DOC` (default `DOCUMENTATION.md`), `RULES_TOKEN_BUDGET` (default 600), `SKILL_DESC_WORD_CAP` (default 50), `SKILL_DESC_DUP_SIM` (default 0.85).
