@@ -46,7 +46,7 @@ pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3
 
 ## Backlog and changelog lifecycle
 
-Before merging any fix PR: (1) add an entry under `[Unreleased]` in `CHANGELOG.md` (Keep a Changelog format); (2) delete the item from `BACKLOG.md` entirely — no strike-through, no "DONE" marker. Anything in both README and BACKLOG is a bookkeeping bug — remove the backlog entry.
+Before merging any fix PR: (1) add an entry under `[Unreleased]` in `CHANGELOG.md` (Keep a Changelog format); (2) delete the item from `BACKLOG.md` entirely — no strike-through, no "DONE" marker. When the entry ships a backlog item, cite its ID: `- [P2] ...`. `changelog_gate.py` (pre-commit + CI) fails if a cited ID still has a heading in `BACKLOG.md`, so a shipped item can't linger. Anything in both README and BACKLOG is a bookkeeping bug — remove the backlog entry.
 
 ## Known bugs worth avoiding
 

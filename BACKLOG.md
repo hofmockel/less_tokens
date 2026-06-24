@@ -59,7 +59,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 ### High Priority
 
 - **P1 — Delete hook-duplicating prose from CLAUDE.md** *(fixed)* — every CLAUDE.md sentence that merely restates a rule a hook already enforces (e.g. "Search before Read" → `search-first.py`, read-after-edit guidance → `read-after-edit.py`) is paid on every turn and enforces nothing; the hook is law, the prose is suggestion. Audit CLAUDE.md against `.claude/hooks/`, delete prose whose rule is hook-enforced. Cheapest fixed-bucket win, zero behavior risk.
-- **P2 — Lifecycle rule → merge gate** *(meta)* — the "add CHANGELOG `[Unreleased]` entry + delete BACKLOG item before merge" rule lives as prose in CLAUDE.md and BACKLOG.md and is enforced only by honor system. Replace with a pre-commit / CI check that fails when `[Unreleased]` is empty for a fix PR or a closed BACKLOG item is still present. Stops the README↔BACKLOG bookkeeping bugs the rule already warns about.
 
 ### Medium Priority
 

@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **CI: subprocess strips `SYSTEMROOT` on Windows** — `env={"PYTHONPATH": ...}` replaced the full environment, removing `SYSTEMROOT`; Python 3.9 on Windows crashes at startup without it (`_Py_HashRandomization_Init` fatal error); fixed with `{**os.environ, "PYTHONPATH": ...}`.
 
 ### Added
+- **[P2] `changelog_gate.py` — backlog-lifecycle merge gate** — a CHANGELOG `[Unreleased]` entry that ships a backlog item cites its ID (`- [P2] ...`); the gate fails if any cited ID still has a heading in `BACKLOG.md`, so a shipped item can't linger. Stdlib-only, wired into pre-commit and CI. Replaces the honor-system lifecycle rule.
 - **`hunt_score.py`** — deterministic stop-rule scorer for bug hunts; reads `bughuntlog.jsonl`, evaluates three signals (severity slide, overlap rate, file coverage), prints `STOP` / `RUN ONE MORE` / `KEEP HUNTING` with per-signal breakdown.
 - **`bughuntlog.jsonl`** — replaces `bughuntlog.md`; one JSON record per hunt round, schema documented in file header.
 

@@ -29,6 +29,9 @@ jobs:
       - name: Install test dependencies
         run: pip install numpy pytest
 
+      - name: Backlog-lifecycle gate
+        run: python .claude/tools/changelog_gate.py
+
       - name: Run unit tests
         run: pytest .claude/tests/unit/ -v
 

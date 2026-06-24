@@ -8,3 +8,11 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: changelog-gate
+        name: backlog-lifecycle gate
+        entry: python .claude/tools/changelog_gate.py
+        language: system
+        pass_filenames: false
+        files: ^(CHANGELOG|BACKLOG)\.md$
