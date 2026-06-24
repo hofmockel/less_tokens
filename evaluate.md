@@ -36,115 +36,49 @@ Every token Claude spends falls in three buckets:
 
 ## Critical finding: caveman enforcement is misaimed
 
-`.claude/hooks/caveman-reminder.py` scans `tool_result` for filler phrases. But filler lives in **Claude's prose**, not in tool output. Bash/Read results almost never say "I'd be happy to." So the one hook guarding the output-token strategy rarely fires on the real offender. Caveman mode today is a CLAUDE.md suggestion with no teeth. S11 fixes this.
+The hook scanned tool output, not assistant prose — filler went uncaught. S11 fixes this by moving enforcement to the Stop hook which reads the actual assistant message.
 
 ---
 
 ## S8 — Symbol index + `/def` lookup
 
-**Problem.** Claude locates a function by reasoning: grep the name, read the dump, pick the line, then Read the file. Grep alone can dump hundreds of lines. Pure waste — locating a symbol is deterministic.
-
-**Code over reasoning.** Build a symbol→`file:line:end` map at index time. `embeddings.py` already AST-parses Python (`chunk_python`) and splits SQL/markdown. Same pass emits a symbol table into `index.db`. Lookup is an O(1) DB hit, not a model decision.
-
-**Pieces.**
-
-1. `tools/symbols.py` — `symbols.py <name>` → `path:start-end` rows, exact ranges. Reuse the AST walk already in `embeddings.py`. New table:
-
-```sql
-CREATE TABLE symbols (
-  name TEXT, kind TEXT, source_path TEXT,
-  start_line INTEGER, end_line INTEGER,
-  PRIMARY KEY (name, source_path, start_line)
-);
-```
-
-2. `commands/def.md` — `/def <symbol>` slash command wrapping the tool.
-
-3. **Enforcement** — extend `hooks/search-first.py`: a `Grep`/`Bash grep` for a bare identifier that exists in `symbols` gets blocked with `"foo is a known symbol. /def foo for exact location."` Symbol lookup returns 1 line; grep returns the dump.
-
-**Why code.** The location is a fact in the DB. No reasoning, no dump, no read-to-find.
+Grep-to-locate dumps hundreds of lines to find one symbol — locating is a deterministic DB lookup, not a reasoning task. `tools/symbols.py` returns exact `file:line:end`; PreToolUse blocks grep on known symbols and routes to `/def`.
 
 ---
 
 ## S9 — Auto-slice Read (hook computes the slice)
 
-**Problem.** Search returns the right chunk, then Claude Reads the **whole file** anyway "for context." The chunk's line range is already known — recomputing which lines to read is reasoning that code can do.
-
-**Code over reasoning.** `search.py` already knows each hit's `start_line`/`end_line` (and S8's symbol table makes it exact). On a `Read` of an indexed file with no `offset`, the PreToolUse hook looks up the last search's matched range for that path and **computes** offset+limit, then blocks with the exact targeted command:
-
-```
-foo.py is 600 lines. Last search matched lines 210–248.
-Read(foo.py, offset=205, limit=50) — not the whole file.
-```
-
-Claude obeys a computed instruction; it does not decide the range. If the host's Claude Code build supports `updatedInput` on PreToolUse, the hook rewrites the call directly — zero model involvement. Otherwise it blocks with the computed slice. Either way the math is in code.
-
-**Enforcement.** PreToolUse on `Read`, gated to indexed files, reading `STATE_DIR/last-search` (already written every search).
-
-**Saving.** A 600-line file read as a 50-line slice ≈ 90% off that Read. This is the headline lever.
+Search already knows the matched line range; Claude reads the whole file anyway. PreToolUse hook reads `last-search` state and rewrites the Read to the exact offset+limit — zero model reasoning, ~90% off large-file reads.
 
 ---
 
 ## S10 — Post-Edit diff, block the re-Read
 
-**Problem.** After `Edit`, Claude re-Reads the file to "verify." Edit already errors on failure, so the re-Read is a full-file input cost for confirmation it already has. Classic reasoning-instead-of-fact.
-
-**Code over reasoning.**
-
-1. **PostToolUse on `Edit`/`Write`** — emit a tight unified diff (`git diff -U2 -- <file>` or difflib on the known before/after). Claude sees exactly what changed, in a handful of lines.
-
-2. **PreToolUse on `Read`** — if `<file>` was edited within N seconds (track in `STATE_DIR/last-edit`), block: `"You just edited foo.py; diff already shown above. Re-Read only if you need unrelated lines."`
-
-**Saving.** Replaces a full-file Read after every edit with a 2–10 line diff. Edit-heavy sessions edit constantly.
+Edit already errors on failure, so the verify re-Read is a full-file cost for confirmation already in hand. PostToolUse emits a compact diff; PreToolUse blocks re-Read of any file edited within N seconds.
 
 ---
 
 ## S11 — Caveman enforcement via Stop hook (fixes the misaim)
 
-**Problem.** See critical finding. The output-token strategy has no working enforcement.
-
-**Code over reasoning.** A `Stop` hook reads the **last assistant message** from `transcript_path` (compact-trigger already consumes that path, so the plumbing exists) and checks it deterministically:
-
-- filler regex (reuse `VERBOSE_PATTERNS`)
-- word count over a budget (config `MAX_RESPONSE_WORDS`, exempt code fences)
-
-On violation, exit 2 with `"Response verbose (N words / filler hit). Caveman mode: cut to facts, retry."` Now the rule that defines the strategy actually fires on the text it governs.
-
-**Config.** Add `MAX_RESPONSE_WORDS` and a `CAVEMAN_ENFORCE: bool` to `search_config.py`. Wire the Stop hook in `install.py` under `--caveman`.
-
-**Note.** Pairs with the open backlog item "Per-task exemptions" — let CLAUDE.md whitelist task types (PR text, user copy) that skip the check.
+Caveman mode had no enforcement — the reminder hook scanned tool output, not Claude's prose. Stop hook reads the last assistant message and checks filler regex + word count; exits 2 on violation.
 
 ---
 
 ## S12 — Structured tool-output parsers (skill, not prompt)
 
-**Problem.** Truncation (S3) blindly head/tails. A 2000-line pytest run truncated to 4000 chars still wastes tokens AND may cut the failing assertion. Claude then reasons over noise to find the one failure.
-
-**Skill over prompt.** Ship a `skills/lean-output/` skill with thin parsers that return **only what matters**:
-
-- pytest → failing test ids + assertion lines + counts
-- ruff/eslint → `file:line: code msg` rows only
-- `git status`/`diff` → name-status + stat, not full hunks unless asked
-
-```bash
-pytest -q | python .claude/tools/parse.py pytest   # 1200 lines -> ~8
-```
-
-A skill (with the parser scripts beside it) beats a CLAUDE.md sentence: it carries the exact commands and runs deterministically. **PostToolUse on `Bash`** can auto-detect known tools (pytest/ruff/git in the command) and pipe through the parser before the result reaches context — enforcement without Claude remembering.
-
-**Saving.** 60–95% on the noisiest, most-repeated tool outputs, and the signal survives.
+Blind truncation passes noise and may cut the failing assertion; Claude then reasons over it to find the signal. Parser scripts (pytest → failures+counts, ruff/eslint → `file:line: code`, git → name-status) pipe automatically via PostToolUse on Bash — 60–95% output reduction, signal preserved.
 
 ---
 
 ## S13 — Adopt Grep-first (backlog S7)
 
-**Verdict: ship it, fold into S8.** Sound and code-driven. The PreToolUse `Read` block on files over a line threshold is the right shape. Refinements: exempt files S9 already auto-slices (no double-gate), and route the "find the line" step to S8's `/def` / symbol table instead of raw `grep -n` so the locate step is also deterministic. S7 + S8 + S9 form one input-token pipeline: locate by symbol → read only the slice.
+**Verdict: ship it, fold into S8.** PreToolUse blocks reads over threshold and routes to symbol table or search; exempt files already auto-sliced by S9. S7 + S8 + S9 form one pipeline: locate → slice → read.
 
 ---
 
 ## S6 — Tiered effort (backlog): keep, but honest
 
-**Verdict: low-confidence, weak enforcement.** Routing tasks to Haiku/Sonnet/Opus genuinely saves output tokens, but a CLAUDE.md "emit a tier line" rule is a suggestion the model drops under load — no hook can force the model to downshift mid-session, and Cowork/Claude Code don't expose per-turn model switching to a hook. Keep as a rule, but do not count on the 50–70% claim. Higher-certainty output savings come from S11 (enforced caveman). Prioritize S11 over S6.
+**Verdict: low-confidence, weak enforcement.** No hook can force per-turn model downshift; the 50–70% saving claim is unverified. Keep as an opt-in rule; prefer S11 for output-token savings.
 
 ---
 

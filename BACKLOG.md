@@ -60,7 +60,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### Low Priority
 
-- **P5 — `evaluate.md` per-strategy prose → 2-sentence summaries** *(indexed input)* — each S8–S13 section is 100–200 words; the verdict table already captures the essentials. Compress each body to: problem sentence + code-over-reasoning sentence. ~60% word reduction; search hits return tighter chunks.
 
 - **P6 — `search_config.py` comment blocks → inline one-liners** *(read cost)* — multi-paragraph comment blocks precede each config group (e.g. 4-line block before `READ_DENY_GLOBS`). Not in always-loaded context, but inflates read cost when Claude needs the file. Trim each block to one line matching the variable name.
 
