@@ -11,18 +11,6 @@ Bad: "I apologize, but I was unable to locate the file you specified."
 
 Code blocks stay normal — only prose go caveman. Full spec: `.claude/rules/caveman.md`.
 
-## Search before Read
-
-Index covers root `*.md` files. Before reading any indexed file, search first:
-
-```bash
-/search <query>
-# or directly:
-.claude/.venv-tokens/bin/python .claude/tools/search.py "<query>"
-```
-
-The `search-first` hook enforces this within a 300s gate window. `/build-index` to create or refresh.
-
 ## Project purpose
 
 A **toolkit** whose job is to be installed *into other projects*: `install.py` targets a host project's parent dir and deploys `.claude/` (tools, hooks, schema, venv, `index.db`); re-run after `git pull` to upgrade in place. That is the primary mission.
@@ -46,11 +34,7 @@ pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3
 
 ## Backlog and changelog lifecycle
 
-Before merging any fix PR: (1) add an entry under `[Unreleased]` in `CHANGELOG.md` (Keep a Changelog format); (2) delete the item from `BACKLOG.md` entirely — no strike-through, no "DONE" marker. When the entry ships a backlog item, cite its ID: `- [P2] ...`. `changelog_gate.py` (pre-commit + CI) fails if a cited ID still has a heading in `BACKLOG.md`, so a shipped item can't linger. Anything in both README and BACKLOG is a bookkeeping bug — remove the backlog entry.
-
-## Known bugs worth avoiding
-
-- `is_indexed()` logic differs between `search-first.py` and `index-refresh.py` — mid-path excluded dirs behave differently in each.
+Code-changing PRs need a `CHANGELOG.md` `[Unreleased]` entry — enforced by `changelog_gate.py` (CI + pre-commit). Also delete the shipped item from `BACKLOG.md` (no strike-through, no "DONE" marker); when the entry ships a backlog item, cite its ID (`- [P2] ...`) and the gate fails if that ID still has a heading in `BACKLOG.md`. A duplicate across README and BACKLOG is a bookkeeping bug.
 
 ## graphify
 

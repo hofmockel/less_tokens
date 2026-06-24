@@ -1,58 +1,94 @@
-"""Unit tests for tools/changelog_gate.py — backlog-lifecycle gate."""
+"""Unit tests for tools/changelog_gate.py — backlog/changelog lifecycle gate.
+
+Two rules: (1) changelog-exists for code changes, (2) backlog cross-check that a
+CHANGELOG-cited ID is gone from BACKLOG.
+"""
 from __future__ import annotations
 
-from tools.changelog_gate import backlog_ids, check, cited_ids, unreleased_section
+import importlib.util
+from pathlib import Path
 
-CHANGELOG = """# Changelog
+REPO = Path(__file__).resolve().parents[3]
 
-## [Unreleased]
+_spec = importlib.util.spec_from_file_location(
+    "changelog_gate", REPO / ".claude" / "tools" / "changelog_gate.py"
+)
+gate = importlib.util.module_from_spec(_spec)
+assert _spec and _spec.loader
+_spec.loader.exec_module(gate)
 
-### Fixed
-- [P1] Delete hook-duplicating prose from CLAUDE.md
-- plain entry with no id
-
-## [1.0.0]
-- [F9] released long ago, should be ignored
-"""
-
-BACKLOG = """# Backlog
-
-- **P1 — Delete hook-duplicating prose** *(fixed)* — still here.
-- **F2 — Doc dedup** *(fixed)* — unrelated.
-"""
+CL_WITH = "## [Unreleased]\n\n### Fixed\n- **thing** — fixed it.\n\n## [1.0.0]\n- old\n"
+CL_EMPTY = "## [Unreleased]\n\n## [1.0.0]\n- old\n"
 
 
-def write(root, changelog=CHANGELOG, backlog=BACKLOG):
-    (root / "CHANGELOG.md").write_text(changelog)
-    (root / "BACKLOG.md").write_text(backlog)
+# --- Rule 1: changelog-exists ------------------------------------------------
+
+def test_is_code_change():
+    assert gate.is_code_change(".claude/tools/search.py")
+    assert gate.is_code_change("agents/common/hooks/x.py")
+    assert not gate.is_code_change(".claude/tests/unit/test_x.py")
+    assert not gate.is_code_change("CLAUDE.md")
+    assert not gate.is_code_change("README.md")
+    # Windows separators normalize
+    assert gate.is_code_change(".claude\\tools\\search.py")
 
 
-class TestParsing:
-    def test_unreleased_excludes_released(self):
-        section = unreleased_section(CHANGELOG)
-        assert "P1" in section
-        assert "F9" not in section  # below the next ## heading
-
-    def test_cited_ids_only_unreleased(self):
-        assert cited_ids(CHANGELOG) == {"P1"}
-
-    def test_backlog_ids(self):
-        assert backlog_ids(BACKLOG) == {"P1", "F2"}
+def test_unreleased_entries_parsing():
+    assert gate.unreleased_entries(CL_WITH) == ["- **thing** — fixed it."]
+    assert gate.unreleased_entries(CL_EMPTY) == []
+    # old-release bullets are not counted
+    assert "- old" not in gate.unreleased_entries(CL_WITH)
 
 
-class TestCheck:
-    def test_fails_when_shipped_id_lingers(self, tmp_path):
-        write(tmp_path)
-        assert check(tmp_path) == 1  # P1 cited but still in backlog
+def test_docs_only_change_skips_gate():
+    ok, msg = gate.check(["CLAUDE.md", "README.md"], CL_EMPTY)
+    assert ok, msg
 
-    def test_passes_when_deleted(self, tmp_path):
-        write(tmp_path, backlog="# Backlog\n- **F2 — Doc dedup** *(fixed)*\n")
-        assert check(tmp_path) == 0
 
-    def test_passes_with_no_citations(self, tmp_path):
-        write(tmp_path, changelog="# Changelog\n\n## [Unreleased]\n- plain\n")
-        assert check(tmp_path) == 0
+def test_tests_only_change_skips_gate():
+    ok, _ = gate.check([".claude/tests/unit/test_foo.py"], CL_EMPTY)
+    assert ok
 
-    def test_missing_file_returns_2(self, tmp_path):
-        (tmp_path / "CHANGELOG.md").write_text(CHANGELOG)
-        assert check(tmp_path) == 2  # no BACKLOG.md
+
+def test_code_change_without_changelog_fails():
+    ok, msg = gate.check([".claude/tools/search.py"], CL_WITH)
+    assert not ok
+    assert "not in the diff" in msg
+
+
+def test_code_change_with_empty_unreleased_fails():
+    ok, msg = gate.check([".claude/tools/search.py", "CHANGELOG.md"], CL_EMPTY)
+    assert not ok
+    assert "no entries" in msg
+
+
+def test_code_change_documented_passes():
+    ok, msg = gate.check([".claude/tools/search.py", "CHANGELOG.md"], CL_WITH)
+    assert ok, msg
+
+
+# --- Rule 2: backlog cross-check ---------------------------------------------
+
+CL_CITES_P1 = "## [Unreleased]\n- [P1] shipped it\n- plain entry\n\n## [1.0.0]\n- [F9] old\n"
+BACKLOG = "# Backlog\n- **P1 — thing** *(fixed)*\n- **F2 — other** *(fixed)*\n"
+
+
+def test_cited_ids_only_unreleased():
+    assert gate.cited_ids(CL_CITES_P1) == {"P1"}  # F9 below next heading ignored
+
+
+def test_backlog_ids():
+    assert gate.backlog_ids(BACKLOG) == {"P1", "F2"}
+
+
+def test_lingering_when_shipped_id_remains():
+    assert gate.lingering_backlog_ids(CL_CITES_P1, BACKLOG) == ["P1"]
+
+
+def test_no_lingering_when_deleted():
+    deleted = "# Backlog\n- **F2 — other** *(fixed)*\n"
+    assert gate.lingering_backlog_ids(CL_CITES_P1, deleted) == []
+
+
+def test_no_lingering_without_citations():
+    assert gate.lingering_backlog_ids(CL_WITH, BACKLOG) == []

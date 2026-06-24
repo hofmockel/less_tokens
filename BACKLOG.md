@@ -58,13 +58,7 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### High Priority
 
-- **P1 — Delete hook-duplicating prose from CLAUDE.md** *(fixed)* — every CLAUDE.md sentence that merely restates a rule a hook already enforces (e.g. "Search before Read" → `search-first.py`, read-after-edit guidance → `read-after-edit.py`) is paid on every turn and enforces nothing; the hook is law, the prose is suggestion. Audit CLAUDE.md against `.claude/hooks/`, delete prose whose rule is hook-enforced. Cheapest fixed-bucket win, zero behavior risk.
-
 ### Medium Priority
-
-- **P3 — Fix `is_indexed()` divergence instead of documenting it** *(fixed)* — CLAUDE.md "Known bugs worth avoiding" warns that `is_indexed()` behaves differently in `search-first.py` vs `index-refresh.py`. The warning costs tokens every turn forever; one shared implementation deletes both the bug and the warning. Prefer the fix to the landmine note.
-
-
 
 ---
 

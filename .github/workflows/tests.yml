@@ -29,14 +29,26 @@ jobs:
       - name: Install test dependencies
         run: pip install numpy pytest
 
-      - name: Backlog-lifecycle gate
-        run: python .claude/tools/changelog_gate.py
-
       - name: Run unit tests
         run: pytest .claude/tests/unit/ -v
 
       - name: Run integration tests
         run: pytest .claude/tests/integration/ -v
+
+  # ---------------------------------------------------------------------------
+  # Merge gate: code-changing PRs must record a CHANGELOG [Unreleased] entry
+  # ---------------------------------------------------------------------------
+  changelog-gate:
+    name: "Changelog gate"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check CHANGELOG [Unreleased] for code changes
+        run: python .claude/tools/changelog_gate.py
 
   # ---------------------------------------------------------------------------
   # Perf benchmarks: fastembed required, ubuntu only, model cached
