@@ -57,7 +57,7 @@ jobs:
         run: |
           set -e
           cd "$HOME"
-          python "$HOST/less_tokens/install.py" --skip-deps
+          python "$HOST/less_tokens/install.py" --skip-deps --no-build
           python - <<'PY'
           import json, os, sys
           from pathlib import Path
@@ -81,7 +81,7 @@ jobs:
         run: |
           set -e
           cd "$HOST/less_tokens"
-          OUT=$(python install.py --skip-deps)
+          OUT=$(python install.py --skip-deps --no-build)
           printf '%s\n' "$OUT"
           printf '%s\n' "$OUT" | grep -q "no changes" \
             || { echo "FAIL: expected clean no-op"; exit 1; }
@@ -98,7 +98,7 @@ jobs:
           host2.mkdir(parents=True)
           PY
           python -m venv "$HOST2/.venv"
-          python "$HOST/less_tokens/install.py" --target "$HOST2" --skip-deps
+          python "$HOST/less_tokens/install.py" --target "$HOST2" --skip-deps --no-build
           test -d "$HOST2/.claude/tools" || { echo "FAIL: $HOST2/.claude/tools missing"; exit 1; }
           grep -q '_venv_python(".venv")' "$HOST2/.claude/tools/search_config.py" \
             || { echo "FAIL: VENV_PY not patched in --target install"; exit 1; }

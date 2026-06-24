@@ -434,7 +434,12 @@ def write_python_launcher(
         (cmd_launcher, cmd_text, False),
     ):
         rel_path = path.relative_to(target_root)
-        if path.exists() and path.read_text(encoding="utf-8", errors="replace") == text:
+        # Compare bytes, not decoded text: read_text() applies universal-newline
+        # translation (\r\n -> \n), but the .cmd launcher is written with CRLF and
+        # newline="" (no translation), so a text compare never matches and the file
+        # gets rewritten every run — breaking install idempotency. read_text(newline=)
+        # isn't available before Python 3.13, so compare raw bytes instead.
+        if path.exists() and path.read_bytes() == text.encode("utf-8"):
             print(f"  + {rel_path} (launcher already current)")
             continue
         print(f"  {'would write' if dry_run else '~'} {rel_path}")
