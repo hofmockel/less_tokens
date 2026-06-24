@@ -71,6 +71,7 @@ Rules, protocols, and configs expressed as natural language that could be determ
 ### Medium Priority
 
 - **Codex `apply_patch` path extraction** — parse touched file paths from `apply_patch` payloads in `.codex/hooks/index-refresh.py` instead of triggering a full conservative `embeddings.py refresh`; reduces unnecessary index churn on patch-only edits.
+- **Extract context-cache, listing-guard, post-edit-diff into shared hooks** — these three Codex adapter-local hooks have no `agents/common/hooks/` counterpart; extract shared logic so Claude adapters can reuse without duplication.
 
 ### Low Priority
 

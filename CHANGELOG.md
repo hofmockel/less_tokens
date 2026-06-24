@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`strategy_21jun26_plan.md`** — completed implementation plan; all 7 phases shipped per results doc.
 - **`strategy_21jun26_results.md`** — post-mortem for completed strategy work; acceptance criteria all green.
 - **`multi-agent.md`** — completed multi-agent implementation plan; Codex adapter set shipped. `apply_patch` path extraction backlogged.
+- **`codex-hook-coverage.md`** — point-in-time Codex hook coverage snapshot; content superseded by installed hooks. Three pending shared extractions backlogged.
 
 ### Fixed
 - **Filler scan false positive on quoted examples** — `response_budget.py:analyze()` now strips single- and double-quoted spans before running the filler-phrase regex, so quoting a banned phrase as an example no longer triggers a caveman-mode violation.
