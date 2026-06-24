@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -82,7 +83,7 @@ def test_skills_cli_json_uses_default_word_cap(tmp_path):
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(REPO / ".claude" / "tools")},
+        env={**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")},
         timeout=30,
     )
 
@@ -101,7 +102,7 @@ def test_skills_cli_strict_fails_on_missing_description(tmp_path):
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(REPO / ".claude" / "tools")},
+        env={**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")},
         timeout=30,
     )
 

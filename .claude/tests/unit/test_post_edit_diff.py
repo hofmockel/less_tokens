@@ -172,14 +172,14 @@ class TestRaeMain:
         monkeypatch.setattr(rae, "LAST_EDIT_WINDOW_SECONDS", 120)
 
     def test_recent_edit_blocks(self, rae, tmp_path, monkeypatch):
-        self._write_edits(rae, tmp_path, monkeypatch, {"/abs/foo.py": time.time()})
-        # monkeypatch resolve so relative path matches
-        import unittest.mock as mock
-        with mock.patch("pathlib.Path.resolve", return_value=Path("/abs/foo.py")):
-            rc, err = self._run(rae, {
-                "tool_name": "Read",
-                "tool_input": {"file_path": "foo.py"},
-            })
+        real_file = tmp_path / "foo.py"
+        real_file.touch()
+        abs_path = str(real_file.resolve())
+        self._write_edits(rae, tmp_path, monkeypatch, {abs_path: time.time()})
+        rc, err = self._run(rae, {
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(real_file)},
+        })
         assert rc == 2
         assert "diff already in context" in err
 

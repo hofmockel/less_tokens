@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -40,7 +41,7 @@ def test_rules_cli_json_uses_rules_default_budget(tmp_path):
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(REPO / ".claude" / "tools")},
+        env={**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")},
         timeout=10,
     )
 
@@ -60,7 +61,7 @@ def test_rules_cli_strict_fails_when_rule_exceeds_budget(tmp_path):
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(REPO / ".claude" / "tools")},
+        env={**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")},
         timeout=10,
     )
 

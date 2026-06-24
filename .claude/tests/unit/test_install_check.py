@@ -70,7 +70,8 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     root = _minimal_install(tmp_path)
     venv_py = root / "fake_venv" / "bin" / "python"
 
-    launcher = root / ".less_tokens" / "bin" / "python"
+    launcher_name = "python.exe" if sys.platform == "win32" else "python"
+    launcher = root / ".less_tokens" / "bin" / launcher_name
     launcher.parent.mkdir(parents=True)
     launcher.write_text("#!/bin/sh\n")
 

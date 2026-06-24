@@ -12,7 +12,6 @@ import sqlite3
 import struct
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -85,22 +84,19 @@ def test_duplication_filters_by_model(mixed_model_db, monkeypatch):
         vals = struct.unpack(f"<{len(blob)//4}f", blob)
         return np.array(vals, dtype="float32")
 
-    with patch.object(claudemd_audit, "embed" if hasattr(claudemd_audit, "embed") else "__builtins__",
-                      fake_embed, create=True):
-        # Patch inside the function scope via the imports it does
-        import embeddings as emb_mod
-        monkeypatch.setattr(emb_mod, "DIM", CURRENT_DIM)
+    import embeddings as emb_mod
+    monkeypatch.setattr(emb_mod, "DIM", CURRENT_DIM)
 
-        def safe_unpack(blob, dim):
-            return fake_unpack(blob, dim)
+    def safe_unpack(blob, dim):
+        return fake_unpack(blob, dim)
 
-        monkeypatch.setattr(emb_mod, "unpack_vectors", safe_unpack)
-        monkeypatch.setattr(emb_mod, "embed", fake_embed)
+    monkeypatch.setattr(emb_mod, "unpack_vectors", safe_unpack)
+    monkeypatch.setattr(emb_mod, "embed", fake_embed)
 
-        # With the bug, this raises ValueError (vstack on mismatched dims)
-        # caught by except Exception → returns None unexpectedly.
-        # With the fix it returns a dict (not None) because the stale row is excluded.
-        result = claudemd_audit.duplication(sections)
+    # With the bug, this raises ValueError (vstack on mismatched dims)
+    # caught by except Exception → returns None unexpectedly.
+    # With the fix it returns a dict (not None) because the stale row is excluded.
+    result = claudemd_audit.duplication(sections)
 
     # Result must not be None — stale row excluded, so vstack succeeds
     assert result is not None, (

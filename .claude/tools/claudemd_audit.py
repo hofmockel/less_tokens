@@ -180,10 +180,14 @@ def scan_verbosity(body: str) -> dict:
 def duplication(sections: list[dict]):
     """Return {title: (sim, source_path)} or None if index unavailable."""
     try:
-        from db import connect_index  # noqa: PLC0415
-        from embeddings import DIM, embed, unpack_vectors  # noqa: PLC0415
+        import db as _db  # noqa: PLC0415
+        import embeddings as _emb  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
         import search_config  # noqa: PLC0415
+        connect_index = _db.connect_index
+        DIM = _emb.DIM
+        embed = _emb.embed
+        unpack_vectors = _emb.unpack_vectors
     except Exception:
         return None
     try:
@@ -273,7 +277,7 @@ def audit_rules(rules_dir: Path, budget: int) -> dict:
         result["overflow_doc"] = RULES_OVERFLOW_DOC
         audits.append(result)
     return {
-        "path": str(rules_dir.relative_to(BASE)) if rules_dir.is_relative_to(BASE) else str(rules_dir),
+        "path": rules_dir.relative_to(BASE).as_posix() if rules_dir.is_relative_to(BASE) else rules_dir.as_posix(),
         "budget": budget,
         "files": audits,
         "total_tokens": sum(int(a["total_tokens"]) for a in audits),
