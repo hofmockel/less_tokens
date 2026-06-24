@@ -21,8 +21,6 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ### High Priority
 
-- **F1 — Tighten skill descriptions** *(fixed)* — every skill `description` loads into context every turn. Compress them like `caveman.md` was collapsed: keep the trigger + scope, cut the prose. Largest untouched slice of the fixed bucket.
-
 ### Medium Priority
 
 - **F2 — Doc dedup to one source of truth** *(fixed)* — README, BACKLOG, documentation.md, and evaluate.md overlap. Pick one canonical home per topic, replace the duplicates with pointers. Point the `claudemd` skill at the other root docs, not just CLAUDE.md.

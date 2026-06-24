@@ -1,9 +1,9 @@
 ---
 name: claudemd
 description: >-
-  Prune CLAUDE.md to only what must be always-loaded. Use when CLAUDE.md grows
-  large, the claudemd-budget hook fires, or before a release. Moves discoverable
-  detail to an indexed doc and fixes stale references.
+  Prune CLAUDE.md to its always-loaded essentials; move detail to indexed docs,
+  fix stale refs. Use when CLAUDE.md grows large, the claudemd-budget hook fires,
+  or before a release.
 ---
 
 # claudemd — keep CLAUDE.md lean

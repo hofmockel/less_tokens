@@ -1,6 +1,6 @@
 ---
 name: less-tokens
-description: Token-efficient codebase exploration for Codex. Use when asked to search the codebase, look up a symbol, check a file before reading, or audit AGENTS.md size.
+description: Token-efficient codebase exploration for Codex. Use to search the codebase, look up a symbol, check a file before reading, or audit AGENTS.md size.
 ---
 
 ## less-tokens — Token-Efficient Codebase Exploration

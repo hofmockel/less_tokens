@@ -1,6 +1,6 @@
 ---
 name: lean-output
-description: Pipe noisy CLI tool output through signal-only parsers (pytest, ruff, eslint, git). Use when a Bash command dumps large test/lint/diff output and you only need the failures and counts.
+description: Pipe noisy CLI output (pytest, ruff, eslint, git) through signal-only parsers. Use when a Bash command dumps large test/lint/diff output and you want only failures and counts.
 ---
 
 # lean-output — structured parsers

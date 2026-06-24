@@ -1,6 +1,6 @@
 ---
 name: bug-hunt
-description: Run a structured bug hunt using the shared protocol. Use when asked to find bugs, run a hunt round, or apply the stop rule.
+description: Run a structured bug hunt via the shared protocol. Use to find bugs, run a hunt round, or apply the stop rule.
 ---
 
 # Bug-Hunt Protocol

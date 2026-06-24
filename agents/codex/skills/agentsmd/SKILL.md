@@ -1,9 +1,9 @@
 ---
 name: agentsmd
 description: >-
-  Prune AGENTS.md to only what Codex must always load. Use when AGENTS.md grows
-  large, the agentsmd-budget hook fires, or before a release. Moves searchable
-  detail to indexed docs and fixes stale references.
+  Prune AGENTS.md to Codex's always-load essentials; move detail to indexed docs,
+  fix stale refs. Use when AGENTS.md grows large, the agentsmd-budget hook fires,
+  or before a release.
 ---
 
 # agentsmd — keep AGENTS.md lean

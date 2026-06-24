@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`search_config.py` comment blocks trimmed to one-liners** — all multi-paragraph comment blocks reduced to single lines; file shrunk from 232 to 167 lines.
 - **`evaluate.md` strategy sections compressed** — each S8–S13 section reduced from 100–200 words to 2 sentences (problem + enforcement); ~60% word reduction for tighter search hits.
 - **Hook block messages trimmed** — removed trailing explanatory sentences from `search_first.py` and `grep_first_read.py` block messages; stripped "Options:" / comment suffixes / "To skip this gate" lines. Each gate block now emits filename + command only.
+- **Skill descriptions tightened (BACKLOG F1)** — compressed the always-loaded `description` frontmatter of all five repo skills (`claudemd`, `agentsmd`, `lean-output`, `less-tokens`, codex `bug-hunt`): cut connective filler ("Use when asked to", "Moves … and fixes …") while preserving every trigger keyword and scope. Shrinks the fixed (per-turn) token bucket with no triggering change.
 
 ### Removed
 - **`strategy_21june26.md`** — stale strategy brainstorm doc; recommendation (token budgeter + relevance gate) shipped in full.
