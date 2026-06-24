@@ -446,7 +446,11 @@ def write_python_launcher(
         changes += 1
         if not dry_run:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8", newline="")
+            # write_bytes (not write_text(newline=...)): the newline kwarg to
+            # write_text was added in Python 3.10, but we support 3.9. Writing
+            # the encoded bytes preserves CRLF in the .cmd launcher with no
+            # newline translation on any version, matching the read_bytes compare.
+            path.write_bytes(text.encode("utf-8"))
             if executable:
                 path.chmod(0o755)
     return changes
@@ -1720,6 +1724,16 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    # Force UTF-8 console output. Status lines use non-ASCII glyphs (→ ~ ✓ ·);
+    # on Windows the default stdout/stderr codec is cp1252, which raises
+    # UnicodeEncodeError on those characters and aborts the install. reconfigure
+    # exists on 3.7+; guard for non-TextIOWrapper streams (pipes, captured output).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
