@@ -57,9 +57,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### Medium Priority
 
-- **P3 — Bug-hunt stop rule → `tools/hunt_score.py`** *(meta)* — `agents/common/bug-hunt-protocol.md` lines 30–34 describe three numeric thresholds (median severity ≤ `ux`, overlap ≥ 60%, file coverage ≥ 80%) as prose for a human to eyeball. Should be a script: reads structured hunt data, prints `GO` or `STOP` + which signals failed. Requires P4.
-
-- **P4 — `bughuntlog.md` → structured JSONL** *(meta)* — currently free markdown prose per round. Convert to one JSON record per round (bugs found, tiers assigned, overlap count, files hit). Unlocks P3 and makes stop-rule scoring auditable without re-parsing prose.
 
 ### Low Priority
 

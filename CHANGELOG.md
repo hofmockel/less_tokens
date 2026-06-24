@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **`hunt_score.py`** — deterministic stop-rule scorer for bug hunts; reads `bughuntlog.jsonl`, evaluates three signals (severity slide, overlap rate, file coverage), prints `STOP` / `RUN ONE MORE` / `KEEP HUNTING` with per-signal breakdown.
+- **`bughuntlog.jsonl`** — replaces `bughuntlog.md`; one JSON record per hunt round, schema documented in file header.
+
 ### Changed
 - **`caveman.md` collapsed to phrase list** — replaced conversational prose with a one-line rule + the canonical banned-phrase list from `VERBOSE_PATTERNS`, cutting always-loaded token cost ~50%.
 - **Hook block messages trimmed** — removed trailing explanatory sentences from `search_first.py` and `grep_first_read.py` block messages; stripped "Options:" / comment suffixes / "To skip this gate" lines. Each gate block now emits filename + command only.

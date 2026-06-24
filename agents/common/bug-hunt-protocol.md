@@ -2,7 +2,7 @@
 
 How to decide when to run another hunt vs stop and fix. Eyeball-driven (no metric scripts); the rubric below keeps the eyeball calibrated.
 
-Hunt statistics are recorded in `.claude/skills/bug-hunt/bughuntlog.md` — one entry per round.
+Hunt statistics are recorded in `.claude/skills/bug-hunt/bughuntlog.jsonl` — one JSON record per round.
 
 ---
 
@@ -17,21 +17,20 @@ Hunt statistics are recorded in `.claude/skills/bug-hunt/bughuntlog.md` — one 
 
 ---
 
-## Three signals to assess after each hunt
+## Stop rule
 
-1. **Severity slide** — what's the median tier of THIS round vs the previous? Going `data-loss → silent → ux → cosmetic` means the high-value surface is exhausted.
-2. **Overlap rate** — when running a hunt, do NOT pre-exclude the existing bug list (let the agent rediscover). Then count: of the bugs surfaced, what fraction matches a bug already in the table by file:line or paraphrase? Rising overlap = saturated surface.
-3. **File coverage** — cumulative distinct files where bugs have been found, vs the high-yield target list (`embeddings.py`, `search.py`, `search_config.py`, `model_profiles.py`, `stats.py`, `savings_log.py`, `db.py`, `search-first.py`, `truncate-output.py`, `index-refresh.py`, `compact-trigger.py`, `caveman-reminder.py`, `install.py`, `index.sql`). When new hunts stop landing on new files, surface is covered.
+After each round, append a JSON record to `bughuntlog.jsonl`, then run:
 
----
+```
+python .claude/tools/hunt_score.py
+```
 
-## Stop rule (all three required)
+The scorer evaluates three signals against the log and prints `STOP`, `RUN ONE MORE`, or `KEEP HUNTING`.
 
-- Median severity of last round ≤ `ux` (no `data-loss` or `silent` finds), AND
-- Overlap rate with prior rounds ≥ 60% (mostly rediscovering known bugs), AND
-- Cumulative file coverage ≥ 80% of the high-yield list above.
-
-If 2 of 3 hold, run one more round. If ≤1 of 3, keep hunting.
+Signal definitions (for filling in the record):
+1. **Severity slide** — `median_severity` of this round (`data_loss` > `silent` > `ux` > `cosmetic`).
+2. **Overlap** — of bugs surfaced, how many match a prior-round bug by file:line or paraphrase? Record as `{"matched": N, "total": N}`.
+3. **File coverage** — list new files hit in `new_files`; scorer accumulates across all rounds vs the 14-file target list.
 
 ---
 
@@ -46,4 +45,4 @@ Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/less_tokens/.
 - Output: 10 bugs in `**Bug N: title** (file:line)` + What/Why/Repro/Fix format, ≤6 lines each. If <10 solid, surface fewer + say so.
 ```
 
-After the agent returns, the operator: (1) assigns each a tier, (2) checks each against the existing table for overlap, (3) scores the three signals, (4) applies the stop rule, (5) appends a round entry to `.claude/skills/bug-hunt/bughuntlog.md`.
+After the agent returns, the operator: (1) assigns each a tier, (2) checks each against the existing table for overlap, (3) appends a JSON record to `bughuntlog.jsonl`, (4) runs `hunt_score.py`.

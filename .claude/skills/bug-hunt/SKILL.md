@@ -6,4 +6,4 @@ Full protocol lives in the shared canonical source:
 
 Read that file for the severity rubric, three signals, stop rule, and agent prompt template.
 
-Hunt log: [bughuntlog.md](bughuntlog.md)
+Hunt log: [bughuntlog.jsonl](bughuntlog.jsonl) — score with `.claude/tools/hunt_score.py`
