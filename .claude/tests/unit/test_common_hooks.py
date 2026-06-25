@@ -184,6 +184,10 @@ class TestSearchWasRecent:
         (tmp_path / "last-search").touch()
         assert search_was_recent(tmp_path, 300)
 
+    def test_zero_window_is_never_recent(self, tmp_path):
+        (tmp_path / "last-search").touch()
+        assert not search_was_recent(tmp_path, 0)
+
     def test_returns_false_when_stale(self, tmp_path):
         f = tmp_path / "last-search"
         f.touch()

@@ -43,6 +43,8 @@ def is_indexed(
 
 
 def search_was_recent(state_dir: Path, window_seconds: int) -> bool:
+    if window_seconds <= 0:
+        return False
     state_file = state_dir / "last-search"
     try:
         mtime = state_file.stat().st_mtime
