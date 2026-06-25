@@ -63,12 +63,8 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### High Priority
 
-- **C1 — Single source, two emitters** *(meta)* — define each hook once in `agents/common/hooks/` and generate both `.claude/settings` and `.codex/hooks.json` wiring from one manifest. The format difference becomes a translator, not a fork. Pays down the two-agent maintenance tax at its root.
-- **C2 — Finish shared-hook extraction** *(meta)* — context-cache, listing-guard, and post-edit-diff are Codex-local with no `agents/common/hooks/` counterpart; extract shared logic so Claude adapters reuse without duplication. 
 ### Medium Priority
 
-- **C3 — CI-checked parity matrix** *(meta)* — data file mapping each hook × {claude, codex} = shipped/missing; CI fails on unintended gaps. Replaces hand-dated per-doc status prose (the kind retired with `evaluate.md`) and surfaces parity debt at a glance.
-- **Codex `apply_patch` path extraction** — parse touched file paths from `apply_patch` payloads in `.codex/hooks/index-refresh.py` instead of triggering a full conservative `embeddings.py refresh`; reduces unnecessary index churn on patch-only edits.
 ### Low Priority
 
 ---

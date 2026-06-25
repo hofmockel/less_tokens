@@ -43,6 +43,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from agents.common.hooks.hook_manifest import hook_entries
+
 SOURCE = Path(__file__).resolve().parent
 
 
@@ -746,32 +748,7 @@ def build_claude_hook_entries(venv_py: Path, target_root: Path, args: argparse.N
     different and add duplicate entries.
     """
     py = launcher_cmd("claude", target_root)
-    entries: list[tuple[str, str, str]] = [
-        ("PreToolUse",  "Read|Grep|Glob|Bash", f"{py} .claude/hooks/budget-observer.py"),
-        ("PostToolUse", "Read|Grep|Glob|Bash|Edit|Write", f"{py} .claude/hooks/budget-observer.py"),
-        ("PreToolUse",  "Read",          f"{py} .claude/hooks/search-first.py"),
-        ("PreToolUse",  "Grep",          f"{py} .claude/hooks/search-first.py"),
-        ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-guard.py"),
-        ("PreToolUse",  "Read",          f"{py} .claude/hooks/auto-slice.py"),
-        ("PreToolUse",  "Read",          f"{py} .claude/hooks/grep-first-read.py"),
-        ("PreToolUse",  "Read",          f"{py} .claude/hooks/read-after-edit.py"),
-        ("PreToolUse",  "Read|Grep",      f"{py} .claude/hooks/context-cache.py"),
-        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/post-edit-diff.py"),
-        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/index-refresh.py"),
-        ("PostToolUse", "Edit|Write",    f"{py} .claude/hooks/claudemd-budget.py"),
-        ("PostToolUse", "Bash",          f"{py} .claude/hooks/lean-output.py"),
-        ("PreToolUse",  "Bash",          f"{py} .claude/hooks/listing-guard.py"),
-    ]
-    if getattr(args, "truncate", False):
-        entries.append(("PostToolUse", "Bash|Read|WebFetch|Glob",
-                         f"{py} .claude/hooks/truncate-output.py"))
-    if getattr(args, "compact", False):
-        entries.append(("PostToolUse", ".*",
-                         f"{py} .claude/hooks/compact-trigger.py"))
-    if getattr(args, "caveman", False):
-        entries.append(("Stop", "",
-                         f"{py} .claude/hooks/caveman-reminder.py"))
-    return entries
+    return hook_entries("claude", py, args)
 
 
 _build_hook_entries = build_claude_hook_entries  # backward compat
@@ -784,29 +761,7 @@ def build_codex_hook_entries(
 ) -> list[tuple[str, str, str]]:
     py = launcher_cmd("codex", target_root)
     prefix = f"LESS_TOKENS_AGENT=codex {py}"
-    entries: list[tuple[str, str, str]] = [
-        ("PreToolUse",  "mcp__filesystem__.*|Bash", f"{prefix} .codex/hooks/budget-observer.py"),
-        ("PostToolUse", "Bash|mcp__filesystem__.*|apply_patch|Edit|Write", f"{prefix} .codex/hooks/budget-observer.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/search-first.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-guard.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/auto-slice.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/grep-first-read.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/read-after-edit.py"),
-        ("PreToolUse",  "mcp__filesystem__.*",    f"{prefix} .codex/hooks/context-cache.py"),
-        ("PreToolUse",  "Bash",                   f"{prefix} .codex/hooks/listing-guard.py"),
-        ("PostToolUse", "Bash",                   f"{prefix} .codex/hooks/lean-output.py"),
-        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/post-edit-diff.py"),
-        ("PostToolUse", "apply_patch|Edit|Write", f"{prefix} .codex/hooks/index-refresh.py"),
-        ("PostToolUse", "Edit|Write",             f"{prefix} .codex/hooks/agentsmd-budget.py"),
-    ]
-    if getattr(args, "truncate", False):
-        entries.append(("PostToolUse", "Bash|mcp__filesystem__.*",
-                         f"{prefix} .codex/hooks/truncate-output.py"))
-    if getattr(args, "compact", False):
-        entries.append(("PostToolUse", ".*", f"{prefix} .codex/hooks/compact-trigger.py"))
-    if getattr(args, "caveman", False):
-        entries.append(("PostToolUse", ".*", f"{prefix} .codex/hooks/terse-reminder.py"))
-    return entries
+    return hook_entries("codex", prefix, args)
 
 
 def wire_settings(

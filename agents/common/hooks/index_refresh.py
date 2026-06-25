@@ -46,8 +46,20 @@ def check_index_refresh(
     if not embeddings_py.exists():
         return 0, "", ""
 
-    # For apply_patch skip is_indexed() check — can't easily enumerate touched files
-    if tool != "apply_patch":
+    if tool == "apply_patch" and payload.touched_files:
+        if not any(
+            is_indexed(
+                path if path.is_absolute() else repo / path,
+                repo,
+                excluded_prefixes=config.get("excluded_prefixes", ()),
+                excluded_names=config.get("excluded_names"),
+                indexed_dirs=config.get("dirs", ()),
+                root_globs=config.get("root_globs", ("*.md", "*.py", "*.sql")),
+            )
+            for path in payload.touched_files
+        ):
+            return 0, "", ""
+    elif tool != "apply_patch":
         file_path = (payload.tool_input or {}).get("file_path", "")
         if not file_path:
             return 0, "", ""

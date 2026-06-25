@@ -12,7 +12,7 @@ REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
-from agents.common.hooks.payload import HookPayload, normalize_claude, normalize_codex
+from agents.common.hooks.payload import HookPayload, extract_apply_patch_paths, normalize_claude, normalize_codex
 import agents.common.hooks.search_first as search_first_mod
 from agents.common.hooks.index_refresh import check_index_refresh
 from agents.common.hooks.search_first import check_search_first, is_indexed, search_was_recent
@@ -77,10 +77,30 @@ class TestNormalizeCodex:
         p = normalize_codex({"tool_name": "Bash", "tool_input": {}, "tool_result": "result"})
         assert p.tool_output == "result"
 
-    def test_apply_patch_has_empty_touched_files(self):
+    def test_apply_patch_extracts_touched_files(self):
         p = normalize_codex({"tool_name": "apply_patch",
-                              "tool_input": {"file_path": "/a/b.py"}, "tool_response": ""})
-        assert p.touched_files == ()
+                              "tool_input": {
+                                  "patch": "*** Begin Patch\n*** Update File: a/b.py\n@@\n x\n*** End Patch\n"
+                              },
+                              "tool_response": ""})
+        assert p.touched_files == (Path("a/b.py"),)
+
+    def test_extract_apply_patch_paths_handles_add_delete_move(self):
+        patch = """*** Begin Patch
+*** Add File: new.py
+@@
++x
+*** Delete File: old.py
+*** Update File: moved.py
+*** Move to: renamed.py
+*** End Patch
+"""
+        assert extract_apply_patch_paths(patch) == (
+            Path("new.py"),
+            Path("old.py"),
+            Path("moved.py"),
+            Path("renamed.py"),
+        )
 
     def test_edit_extracts_touched_files(self):
         p = normalize_codex({"tool_name": "Edit",
@@ -311,7 +331,7 @@ class TestCheckIndexRefresh:
         assert calls[0][0][:2] == [str(venv_py), str(tools / "embeddings.py")]
         assert (tmp_path / "state" / "index-refresh.log").exists()
 
-    def test_apply_patch_fires_without_file_path(self, tmp_path, monkeypatch):
+    def test_apply_patch_fires_without_parsed_paths(self, tmp_path, monkeypatch):
         calls = []
 
         class DummyPopen:
@@ -328,6 +348,68 @@ class TestCheckIndexRefresh:
 
         check_index_refresh(
             _search_payload("apply_patch"),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py, "tool_prefix": ".less_tokens/tools"},
+        )
+
+        assert calls == [[str(venv_py), str(tools / "embeddings.py"), "refresh"]]
+
+    def test_apply_patch_skips_when_parsed_paths_are_unindexed(self, tmp_path, monkeypatch):
+        calls = []
+
+        class DummyPopen:
+            def __init__(self, args, **kwargs):
+                calls.append(args)
+
+        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".less_tokens" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+
+        check_index_refresh(
+            HookPayload(
+                agent="codex",
+                tool_name="apply_patch",
+                tool_input={},
+                tool_output="",
+                transcript_path=None,
+                touched_files=(Path("assets/logo.png"),),
+            ),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py, "tool_prefix": ".less_tokens/tools"},
+        )
+
+        assert calls == []
+
+    def test_apply_patch_fires_when_parsed_path_is_indexed(self, tmp_path, monkeypatch):
+        calls = []
+
+        class DummyPopen:
+            def __init__(self, args, **kwargs):
+                calls.append(args)
+
+        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".less_tokens" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+
+        check_index_refresh(
+            HookPayload(
+                agent="codex",
+                tool_name="apply_patch",
+                tool_input={},
+                tool_output="",
+                transcript_path=None,
+                touched_files=(Path("README.md"),),
+            ),
             repo=tmp_path,
             state_dir=tmp_path / "state",
             config={"venv_py": venv_py, "tool_prefix": ".less_tokens/tools"},
