@@ -1,0 +1,84 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*|Bash",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/budget-observer.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Bash|mcp__filesystem__.*|apply_patch|Edit|Write",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/budget-observer.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/search-first.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/read-guard.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/auto-slice.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/grep-first-read.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/read-after-edit.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/context-cache.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "apply_patch|Edit|Write",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/post-edit-diff.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "apply_patch|Edit|Write",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/index-refresh.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Edit|Write",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/agentsmd-budget.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Bash",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/lean-output.py"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/listing-guard.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "Bash|mcp__filesystem__.*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/truncate-output.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/compact-trigger.py"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "command": "LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/savings-html.py"
+    }
+  ]
+}
