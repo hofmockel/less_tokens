@@ -63,8 +63,17 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### High Priority
 
+- **CX1 — Deep-merge Codex budget overrides** *(input/tool/output; Codex-only)* — make `.less_tokens/config/budget.json` `agent_overrides.codex` deeply override `categories` and `hard_caps` without changing Claude defaults. Target stricter Codex caps first: smaller `single_tool_output`, `full_file_read`, `directory_listing`, `retrieved_context`, `tool_output`, and `diffs`. Add tests proving `agent_overrides.claude` remains empty/no-op and Codex gets the tighter effective budget.
+- **CX2 — Default optional savings hooks on for Codex installs** *(tool/output; Codex-only)* — for `--agent codex`, wire `truncate-output`, `compact-trigger`, and `terse-reminder` by default while preserving Claude's current opt-in `--truncate --compact --caveman` behavior. Keep explicit flags/back-compat accepted; document the Codex default and test `build_codex_hook_entries()` / install check for the larger default hook set.
+- **CX3 — Codex-specific truncate caps** *(tool; Codex-only)* — add Codex-scoped caps/env/config for `truncate-output.py` so Bash and filesystem results are much smaller than Claude's defaults. Target noisy commands and large reads first; pin with subprocess tests for `Bash` and `mcp__filesystem__read_file`.
+- **CX4 — Codex Bash command rewrites** *(tool/input; Codex-only)* — extend Codex `listing-guard` / `lean-output` behavior to block or rewrite high-token commands with cheaper replacements: `find .` → `rg --files`, broad `git diff` → stat/name-only or capped diff, verbose test runs → failure summary, broad `cat`/`tree`/recursive listings → targeted alternatives. Tests should prove Claude hook behavior is unchanged.
 ### Medium Priority
 
+- **CX5 — Shrink Codex AGENTS.md fixed context** *(fixed; Codex-only)* — compress `agents/codex/instructions/AGENTS.md.fragment` to rules plus pointers; move command examples/details into the installed `less-tokens` skill. Verify `agentsmd-budget.py` still passes and install still injects enough guidance for search-before-read, noise guards, and concise output.
+- **CX6 — Codex search result budget** *(input; Codex-only)* — when `LESS_TOKENS_AGENT=codex`, make `.less_tokens/tools/search.py` default to fewer hits/chars unless the user passes explicit limits. Keep Claude/search defaults unchanged. Add tests for environment-driven defaults and explicit-flag override.
+- **CX7 — Patch-aware Codex post-edit diff caps** *(tool/input; Codex-only)* — for Codex `apply_patch`, have post-edit-diff emit touched files + compact hunk summaries first, and include full diff only below a low Codex cap. Preserve Claude `Edit|Write` diff behavior.
+- **CX8 — Codex Bash context-cache** *(tool; Codex-only)* — add short-TTL duplicate detection for repeated Codex Bash commands such as `git status`, `pwd`, identical `rg`, and repeated test commands. Block repeats with a concise "already in context" message and record saved output chars.
+- **CX9 — Codex savings install profile** *(meta; Codex-only)* — add `--codex-savings balanced|aggressive` profile that only changes `.codex/hooks.json`, `AGENTS.md`, and `agent_overrides.codex`. `balanced` should match current/default behavior; `aggressive` enables stricter caps and optional hooks without touching Claude settings.
 ### Low Priority
 
 ---
