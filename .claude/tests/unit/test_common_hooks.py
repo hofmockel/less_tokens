@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO / ".claude" / "tools"))
 from agents.common.hooks.payload import HookPayload, extract_apply_patch_paths, normalize_claude, normalize_codex
 import agents.common.hooks.search_first as search_first_mod
 from agents.common.hooks.index_refresh import check_index_refresh
+from agents.common.hooks.listing_guard import is_bare_listing
 from agents.common.hooks.search_first import check_search_first, is_indexed, search_was_recent
 from agents.common.hooks.truncate_output import check_truncate_output
 from agents.common.hooks.compact_trigger import check_compact_trigger
@@ -467,6 +468,16 @@ class TestCheckTruncateOutput:
             max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
         assert code == 2
         assert len(stdout) <= 5000
+
+
+# ---------------------------------------------------------------------------
+# listing_guard
+# ---------------------------------------------------------------------------
+
+class TestListingGuard:
+    def test_broad_git_diff_is_not_shared_claude_listing_rule(self):
+        intercepted, _ = is_bare_listing("git diff")
+        assert not intercepted
 
 
 # ---------------------------------------------------------------------------

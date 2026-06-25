@@ -429,6 +429,43 @@ class TestCodexBashAndCacheAdapters:
         assert code == 2
         assert "listing-guard" in stdout
 
+    def test_listing_guard_rewrites_bare_find(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "find ."},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "rg --files" in stdout
+
+    def test_listing_guard_blocks_broad_git_diff(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "git diff"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "git diff --stat" in stdout
+        assert "git diff --name-only" in stdout
+
+    def test_listing_guard_blocks_verbose_pytest(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest -vv"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "pytest -q" in stdout
+
+    def test_listing_guard_blocks_broad_cat(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "cat README.md"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "sed -n" in stdout
+
     def test_lean_output_parses_pytest_failure(self):
         raw = (
             "\n".join(f"noise line {i}" for i in range(40))
