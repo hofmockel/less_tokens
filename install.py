@@ -809,6 +809,42 @@ def wire_settings(
 wire_claude_settings = wire_settings  # alias for agent-aware callers
 
 
+def statusline_command(target_root: Path) -> str:
+    """The Claude Code statusline command that prints the measured one-liner."""
+    py = launcher_cmd("claude", target_root)
+    return f"{py} .claude/tools/stats.py --oneliner"
+
+
+def wire_statusline(settings_path: Path, command: str, dry_run: bool = False) -> int:
+    """Set the savings statusLine, but never clobber a host's existing one.
+
+    Returns 1 if it wrote our statusLine, 0 if left untouched (already ours, or
+    a different statusLine the user owns). Phase 5 surfacing (stats_plan.md).
+    """
+    if settings_path.exists():
+        try:
+            settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            settings = {}
+    else:
+        settings = {}
+
+    existing = settings.get("statusLine")
+    if isinstance(existing, dict):
+        if existing.get("command") == command:
+            print("  + statusLine already wired")
+            return 0
+        print("  · statusLine present (host-owned) — left untouched")
+        return 0
+
+    settings["statusLine"] = {"type": "command", "command": command, "padding": 0}
+    print(f"  {'+ (would wire)' if dry_run else '+'} statusLine")
+    if not dry_run:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    return 1
+
+
 def wire_codex_hooks_json(
     hooks_json_path: Path,
     entries: list[tuple[str, str, str]],
@@ -1299,9 +1335,6 @@ def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return 0
-    hooks = settings.get("hooks")
-    if not isinstance(hooks, dict):
-        return 0
     names = _our_hook_names(source)
 
     def _is_ours(cmd: str) -> bool:
@@ -1310,21 +1343,30 @@ def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
         return any(f"hooks/{n}" in cmd or f"hooks\\{n}" in cmd for n in names)
 
     removed = 0
-    for event_type in list(hooks.keys()):
-        kept_entries = []
-        for entry in hooks[event_type]:
-            inner = entry.get("hooks", [])
-            keep = [h for h in inner if not _is_ours(h.get("command", ""))]
-            removed += len(inner) - len(keep)
-            if keep:
-                entry["hooks"] = keep
-                kept_entries.append(entry)
-        if kept_entries:
-            hooks[event_type] = kept_entries
-        else:
-            del hooks[event_type]
-    if not hooks:
-        settings.pop("hooks", None)
+    hooks = settings.get("hooks")
+    if isinstance(hooks, dict):
+        for event_type in list(hooks.keys()):
+            kept_entries = []
+            for entry in hooks[event_type]:
+                inner = entry.get("hooks", [])
+                keep = [h for h in inner if not _is_ours(h.get("command", ""))]
+                removed += len(inner) - len(keep)
+                if keep:
+                    entry["hooks"] = keep
+                    kept_entries.append(entry)
+            if kept_entries:
+                hooks[event_type] = kept_entries
+            else:
+                del hooks[event_type]
+        if not hooks:
+            settings.pop("hooks", None)
+
+    # Remove our statusLine, but never touch a host-owned one.
+    sl = settings.get("statusLine")
+    if isinstance(sl, dict) and "stats.py --oneliner" in sl.get("command", ""):
+        settings.pop("statusLine", None)
+        removed += 1
+        print(f"  {'would unwire' if dry_run else '-'} settings.json: statusLine")
 
     if removed:
         print(f"  {'would unwire' if dry_run else '-'} settings.json: "
@@ -2039,6 +2081,7 @@ def main() -> int:
         print(f"  {added} hook(s) {'would be ' if dry else ''}wired, "
               f"{present} already present")
         changes += added
+        changes += wire_statusline(settings_path, statusline_command(target_root), dry_run=dry)
     if "codex" in agents:
         codex_hooks_json = target_root / ".codex" / "hooks.json"
         if _dir_is_writable(target_root, ".codex"):

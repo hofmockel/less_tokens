@@ -13,5 +13,6 @@
   "listing-guard": {"claude": "shipped", "codex": "shipped"},
   "truncate-output": {"claude": "shipped", "codex": "shipped", "optional": true},
   "compact-trigger": {"claude": "shipped", "codex": "shipped", "optional": true},
-  "terse-output": {"claude": "shipped", "codex": "shipped", "optional": true}
+  "terse-output": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "savings-html": {"claude": "shipped", "codex": "missing"}
 }

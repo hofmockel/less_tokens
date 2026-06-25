@@ -4,11 +4,13 @@
 Usage:
   python tools/stats.py              # show current-session stats
   python tools/stats.py --report     # write savings-report.md and print path
+  python tools/stats.py --html       # write savings.html (self-contained page)
   python tools/stats.py --all        # show all-time totals
 """
 from __future__ import annotations
 
 import argparse
+import html as _html
 import json
 import sys
 import time
@@ -25,6 +27,7 @@ except Exception:
 
 LOG_FILE = STATE_DIR / "savings.jsonl"
 REPORT_FILE = STATE_DIR / "savings-report.md"
+HTML_FILE = STATE_DIR / "savings.html"
 CHARS_PER_TOKEN = 4
 SESSION_HOURS = 8
 
@@ -270,12 +273,156 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
     return REPORT_FILE
 
 
+# ---------------------------------------------------------------------------
+# HTML renderer — self-contained page (Phase 4)
+#
+# The HTML mirrors the Markdown report's honesty axis: measured and upper-bound
+# panels stay separate, each with its own total, never cross-summed. The page is
+# fully self-contained — inline CSS only, no external links, scripts, fonts, or
+# images — so it opens straight from `file://` and the Stop hook can regenerate
+# it after every turn without a network round-trip.
+# ---------------------------------------------------------------------------
+
+_HTML_STYLE = """
+:root { color-scheme: light dark; }
+body { font-family: -apple-system, system-ui, sans-serif; margin: 2rem auto;
+  max-width: 52rem; padding: 0 1rem; line-height: 1.5; }
+h1 { margin-bottom: .25rem; }
+.gen { color: #888; font-size: .85rem; margin-top: 0; }
+.intro { background: rgba(127,127,127,.08); border-radius: 8px; padding: .75rem 1rem; }
+h2 { margin-top: 2rem; border-bottom: 1px solid rgba(127,127,127,.3); padding-bottom: .25rem; }
+table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+th, td { padding: .35rem .6rem; text-align: right; border-bottom: 1px solid rgba(127,127,127,.2); }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child { font-weight: 600; border-top: 2px solid rgba(127,127,127,.4); }
+.measured h3 { color: #1a7f37; }
+.upper h3 { color: #9a6700; }
+.note, .footer { color: #888; font-size: .85rem; }
+caption { display: none; }
+""".strip()
+
+
+def _html_panel(title: str, records: list[dict], strategies: tuple[str, ...],
+                *, prefix: str = "") -> str:
+    """One basis-homogeneous HTML table. Mirrors :func:`_panel_lines`."""
+    data = _summarize(records)
+    total_chars = 0
+    rows = []
+    for key in strategies:
+        d = data[key]
+        sc = d["saved_chars"]
+        total_chars += sc
+        sc_str = f"{prefix}{sc:,}" if sc else "—"
+        tok = sc // CHARS_PER_TOKEN if sc else 0
+        tok_str = f"{prefix}{tok:,}" if tok else "—"
+        rows.append(
+            f"<tr><td>{_html.escape(_STRATEGY_LABELS[key])}</td>"
+            f"<td>{d['events']:,}</td><td>{sc_str}</td><td>{tok_str}</td></tr>"
+        )
+    total_tokens = total_chars // CHARS_PER_TOKEN
+    rows.append(
+        f"<tr><td>Total</td><td></td>"
+        f"<td>{prefix}{total_chars:,}</td><td>{prefix}{total_tokens:,}</td></tr>"
+    )
+    return (
+        f"<h3>{_html.escape(title)}</h3>\n"
+        "<table><thead><tr><th>Strategy</th><th>Events</th>"
+        "<th>Chars saved</th><th>~Tokens saved</th></tr></thead>\n"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
+def _html_block(heading: str, records: list[dict]) -> str:
+    """A session/all-time section: measured panel + upper-bound panel."""
+    return (
+        f"<h2>{_html.escape(heading)}</h2>\n"
+        '<div class="measured">'
+        + _html_panel("Measured — removed before reaching the model",
+                      records, _MEASURED_STRATEGIES)
+        + "</div>\n"
+        '<div class="upper">'
+        + _html_panel("Upper bound — avoided cost, optimistic (≤)",
+                      records, _UPPER_BOUND_STRATEGIES, prefix="≤")
+        + "</div>\n"
+        '<p class="note">Upper-bound rows assume you would otherwise have read the '
+        "whole file and do not subtract the search you ran instead. They are not "
+        "added to the measured total.</p>"
+    )
+
+
+def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    session_label = _session_label(session_records)
+    all_label = f"All-time ({len(all_records)} events)"
+    return (
+        "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        "<title>Token Savings Report</title>\n"
+        f"<style>{_HTML_STYLE}</style>\n</head>\n<body>\n"
+        "<h1>Token Savings Report</h1>\n"
+        f"<p class=\"gen\">Generated: {_html.escape(now)}</p>\n"
+        "<p class=\"intro\">Counts tokens <em>not</em> sent to the model because a hook "
+        "or tool intervened. Tracking is always on and <strong>local-only</strong>: each "
+        "event appends one line to <code>state/savings.jsonl</code> (never transmitted). "
+        "Disable with <code>LESS_TOKENS_NO_STATS=1</code>. Measured and upper-bound "
+        "savings are shown in separate panels and never added together.</p>\n"
+        f"{_html_block(session_label, session_records)}\n"
+        f"{_html_block(all_label, all_records)}\n"
+        f"<p class=\"footer\">{_html.escape(TOKEN_FOOTER.strip('_'))}</p>\n"
+        "</body></html>\n"
+    )
+
+
+def _write_html_report(session_records: list[dict], all_records: list[dict]) -> Path:
+    HTML_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HTML_FILE.write_text(_render_html(session_records, all_records), encoding="utf-8")
+    return HTML_FILE
+
+
+# --- Phase 5 surfacing: glanceable one-liner + clickable link ---------------
+#
+# Both surfaces (Claude Stop-hook transcript line, Claude Code statusline) read
+# the same log and report measured strategies only — upper-bound counterfactuals
+# are never folded into the headline number, to stay honest.
+
+def _fmt_tokens(tok: int) -> str:
+    if tok >= 10_000:
+        return f"{tok / 1000:.0f}k"
+    if tok >= 1_000:
+        return f"{tok / 1000:.1f}k"
+    return str(tok)
+
+
+def _measured_saved_chars(records: list[dict]) -> int:
+    data = _summarize(records)
+    return sum(data[k]["saved_chars"] for k in _MEASURED_STRATEGIES)
+
+
+def _measured_oneliner(records: list[dict], *, scope: str = "session") -> str:
+    """Measured-only savings headline, e.g. ``↓ ~122k tok saved (measured) · session``."""
+    tok = _measured_saved_chars(records) // CHARS_PER_TOKEN
+    return f"↓ ~{_fmt_tokens(tok)} tok saved (measured) · {scope}"
+
+
+def _savings_link() -> str:
+    """``file://`` URL to the generated HTML page, for click-through."""
+    return HTML_FILE.resolve().as_uri()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
+    ap.add_argument("--html", action="store_true", help="Write savings.html")
+    ap.add_argument("--oneliner", action="store_true",
+                    help="Print one measured savings line (for statusline) and exit")
     ap.add_argument("--all", dest="all_time", action="store_true",
                     help="Show all-time totals instead of session")
     args = ap.parse_args()
+
+    if args.oneliner:
+        print(_measured_oneliner(_load_records(all_time=False)))
+        return 0
 
     session_records = _load_records(all_time=False)
     all_records = _load_records(all_time=True)
@@ -283,6 +430,10 @@ def main() -> int:
     if args.report:
         path = _write_report(session_records, all_records)
         print(f"Report written to {path}\n")
+
+    if args.html:
+        path = _write_html_report(session_records, all_records)
+        print(f"HTML written to {path}\n")
 
     label = (
         f"All-time ({len(all_records)} events)"
