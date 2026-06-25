@@ -50,9 +50,6 @@ jobs:
       - name: Install dependencies
         run: pip install numpy
 
-      - name: Enable token tracking
-        run: python .claude/tools/stats.py --enable
-
       - name: Generate synthetic savings events
         run: |
           python - <<'EOF'
@@ -86,7 +83,3 @@ jobs:
         with:
           name: savings-report-${{ github.run_id }}
           path: .claude/state/savings-report.md
-
-      - name: Reset tracking to default-off
-        if: always()
-        run: python .claude/tools/stats.py --disable

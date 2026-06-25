@@ -61,11 +61,18 @@ def blocked_read_chars(file_path: str, offset: object, limit: object) -> int:
     if not offset and not limit:
         return size
     try:
-        lines = Path(file_path).read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
         start = (int(offset) - 1) if offset else 0
         start = max(0, start)
         end = (start + int(limit)) if limit else None
-        return len("".join(lines[start:end]))
+        total = 0
+        with Path(file_path).open(encoding="utf-8", errors="replace") as fh:
+            for idx, line in enumerate(fh):
+                if idx < start:
+                    continue
+                if end is not None and idx >= end:
+                    break
+                total += len(line)
+        return total
     except (OSError, ValueError):
         return size
 

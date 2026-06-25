@@ -284,15 +284,19 @@ def _methodology_lines() -> list[str]:
         "(the produced summary) and `elided_chars` = peak − kept. **Actual** on both "
         "sides — two real transcript char counts. Only fires on a genuine shrink, so "
         "the row stays `—` until a compaction actually happens.",
-        "- **Cached read (repeat block)** — `context-cache.py` blocks a Read of a file "
-        "already in context. Saved = the chars that would have re-entered (full file "
-        "size for a whole-file read, or just the line slice for a partial read); "
-        "`kept_chars` = 0 because nothing new entered. **Actual**: the agent issued the "
-        "duplicate Read with known args and those bytes were prevented from re-entering "
-        "context.",
-        "- **Cached grep (repeat block)** — `context-cache.py` blocks a repeat Grep "
-        "within the TTL window. Logged with `saved_chars = 0` (the grep never ran, so "
-        "its output size is unknown); the row counts events only, never magnitude.",
+        (
+            "- **Cached read (repeat block)** — `context-cache.py` blocks a Read of a file "
+            "already in context. Saved = the chars that would have re-entered (full file "
+            "size for a whole-file read, or just the line slice for a partial read); "
+            "`kept_chars` = 0 because nothing new entered. **Actual**: the agent issued the "
+            "duplicate Read with known args and those bytes were prevented from re-entering "
+            "context."
+        ),
+        (
+            "- **Cached grep (repeat block)** — `context-cache.py` blocks a repeat Grep "
+            "within the TTL window. Logged with `saved_chars = 0` (the grep never ran, so "
+            "its output size is unknown); the row counts events only, never magnitude."
+        ),
         "- **Search-first block** — `search-first.py` blocks a Read of a large file and "
         "redirects you to search. Saved = the file's full byte size. This is a "
         "**counterfactual upper bound**: it assumes you would otherwise have read the "
