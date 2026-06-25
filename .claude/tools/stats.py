@@ -628,6 +628,14 @@ def _run_calibrate(model: str) -> int:
 
 
 def main() -> int:
+    # The report uses non-ASCII glyphs (≤, em dashes); a non-UTF-8 console
+    # (e.g. Windows cp1252) would raise UnicodeEncodeError on print. Force UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
     ap.add_argument("--html", action="store_true", help="Write savings.html")
