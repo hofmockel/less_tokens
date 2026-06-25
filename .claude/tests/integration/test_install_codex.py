@@ -181,7 +181,7 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 13
+        assert len(entries) == 14
         assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
         assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)
@@ -195,6 +195,7 @@ class TestBuildCodexHookEntries:
         assert any("post-edit-diff.py" in cmd for cmd in commands)
         assert any("index-refresh.py" in cmd for cmd in commands)
         assert any("agentsmd-budget.py" in cmd for cmd in commands)
+        assert any("savings-html.py" in cmd for cmd in commands)
 
     def test_optional_entries_are_added(self, tmp_path):
         entries = build_codex_hook_entries(
