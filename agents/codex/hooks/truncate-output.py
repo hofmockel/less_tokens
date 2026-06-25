@@ -40,24 +40,48 @@ except Exception:
 
 try:
     from search_config import (  # noqa: E402
-        MAX_TOOL_OUTPUT_CHARS,
         MAX_GLOB_RESULTS,
-        TOOL_OUTPUT_HEAD_LINES,
-        TOOL_OUTPUT_TAIL_LINES,
     )
 except Exception:
-    MAX_TOOL_OUTPUT_CHARS = 4000
     MAX_GLOB_RESULTS = 100
-    TOOL_OUTPUT_HEAD_LINES = 50
-    TOOL_OUTPUT_TAIL_LINES = 20
+
+try:
+    from search_config import (  # noqa: E402
+        CODEX_MAX_TOOL_OUTPUT_CHARS,
+        CODEX_MAX_FILESYSTEM_READ_CHARS,
+        CODEX_TOOL_OUTPUT_HEAD_LINES,
+        CODEX_TOOL_OUTPUT_TAIL_LINES,
+    )
+except Exception:
+    CODEX_MAX_TOOL_OUTPUT_CHARS = 1500
+    CODEX_MAX_FILESYSTEM_READ_CHARS = 1200
+    CODEX_TOOL_OUTPUT_HEAD_LINES = 30
+    CODEX_TOOL_OUTPUT_TAIL_LINES = 20
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _cap_for_tool(tool_name: str) -> int:
+    if tool_name == "mcp__filesystem__read_file":
+        return _env_int("LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS", CODEX_MAX_FILESYSTEM_READ_CHARS)
+    return _env_int("LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS", CODEX_MAX_TOOL_OUTPUT_CHARS)
+
+
+def _line_cap(name: str, default: int) -> int:
+    return _env_int(name, default)
 
 raw = json.loads(sys.stdin.read())
 payload = normalize_codex(raw)
 code, stdout, stderr = check_truncate_output(
     payload,
-    max_chars=MAX_TOOL_OUTPUT_CHARS,
-    head_lines=TOOL_OUTPUT_HEAD_LINES,
-    tail_lines=TOOL_OUTPUT_TAIL_LINES,
+    max_chars=_cap_for_tool(payload.tool_name),
+    head_lines=_line_cap("LESS_TOKENS_CODEX_TOOL_OUTPUT_HEAD_LINES", CODEX_TOOL_OUTPUT_HEAD_LINES),
+    tail_lines=_line_cap("LESS_TOKENS_CODEX_TOOL_OUTPUT_TAIL_LINES", CODEX_TOOL_OUTPUT_TAIL_LINES),
     max_glob_results=MAX_GLOB_RESULTS,
 )
 if stdout:

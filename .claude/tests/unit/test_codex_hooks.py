@@ -94,6 +94,7 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout or "omitted" in stderr
+        assert len(stdout) < 2_000
 
     def test_passes_non_targeted_tool(self):
         code, _, _ = run_hook_with_env("truncate-output.py", {
@@ -109,6 +110,25 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout
+        assert len(stdout) < 1_600
+
+    def test_env_override_sets_bash_cap(self):
+        code, stdout, _ = run_hook_with_env("truncate-output.py", {
+            "tool_name": "Bash",
+            "tool_response": "x" * 10_000,
+        }, extra_env={"LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS": "900"})
+        assert code == 2
+        assert "omitted" in stdout
+        assert len(stdout) < 1_200
+
+    def test_env_override_sets_filesystem_read_cap(self):
+        code, stdout, _ = run_hook_with_env("truncate-output.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_response": "x" * 10_000,
+        }, extra_env={"LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS": "700"})
+        assert code == 2
+        assert "omitted" in stdout
+        assert len(stdout) < 1_000
 
     def test_logs_measured_savings(self, tmp_path):
         state_dir = tmp_path / "state"

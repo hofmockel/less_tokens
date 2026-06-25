@@ -152,6 +152,7 @@ All variables:
 | `MAX_TOOL_OUTPUT_CHARS` | Truncation ceiling for Bash/Read/WebFetch results (set 0 to disable) |
 | `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
+| `CODEX_MAX_TOOL_OUTPUT_CHARS` / `CODEX_MAX_FILESYSTEM_READ_CHARS` | Tighter Codex-only truncation ceilings; env overrides are `LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS` and `LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS` |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
 
@@ -338,7 +339,7 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
 }
 ```
 
-Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
+Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). Codex adapters use tighter defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
 
 **Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
 
@@ -531,7 +532,7 @@ agents/
 - `.claude/hooks/read-guard.py` — PreToolUse on `Read`; blocks an un-sliced Read of a noise file (lockfile/minified/binary/oversized data) per `READ_DENY_GLOBS` + `READ_DENY_DATA_MAX_LINES`; a Read with an `offset` is allowed
 - `.claude/hooks/auto-slice.py` — PreToolUse on `Read`; if the file was a hit in the last (recent) search, blocks an un-sliced Read with the exact `Read(offset, limit)` for the matched range (`STATE_DIR/last-search.json`, written by `search.py`); pass `offset` to override
 - `.claude/hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
-- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split)
+- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split). Codex's adapter uses separate `CODEX_MAX_*` caps.
 - `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; 25% hysteresis via `.claude/state/compact-trigger-last`
 - `.claude/hooks/caveman-reminder.py` — Stop hook; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
 - `.claude/hooks/claudemd-budget.py` — PostToolUse on `Edit|Write`; blocks when CLAUDE.md exceeds `CLAUDE_MD_TOKEN_BUDGET` or gains a stale ref
