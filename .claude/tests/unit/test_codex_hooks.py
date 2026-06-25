@@ -35,6 +35,13 @@ def run_hook_with_env(hook_name: str, payload: dict, extra_env: dict | None = No
     return result.returncode, result.stdout, result.stderr
 
 
+def _records(state_dir: Path) -> list[dict]:
+    log = state_dir / "savings.jsonl"
+    if not log.exists():
+        return []
+    return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+
+
 # ---------------------------------------------------------------------------
 # index-refresh.py
 # ---------------------------------------------------------------------------
@@ -102,6 +109,25 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout
+
+    def test_logs_measured_savings(self, tmp_path):
+        state_dir = tmp_path / "state"
+        code, stdout, _ = run_hook_with_env("truncate-output.py", {
+            "tool_name": "Bash",
+            "tool_response": "x" * 10_000,
+            "session_id": "codex-sess",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+
+        assert code == 2
+        recs = _records(state_dir)
+        assert len(recs) == 1
+        rec = recs[0]
+        assert rec["strategy"] == "truncation"
+        assert rec["basis"] == "measured"
+        kept = len(stdout.rstrip("\n"))
+        assert rec["kept_chars"] == kept
+        assert rec["elided_chars"] == 10_000 - kept
+        assert rec["session_id"] == "codex-sess"
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +212,38 @@ class TestCodexCompactTrigger:
 
         assert "/compact" not in stderr
 
+    def test_logs_measured_compaction_when_transcript_shrinks(self, tmp_path):
+        transcript = tmp_path / "session.json"
+        transcript.write_text("x" * 700_000)
+        state_dir = tmp_path / "state"
+
+        run_hook_with_env("compact-trigger.py", {
+            "tool_name": "Bash",
+            "tool_input": {},
+            "tool_response": "",
+            "transcript_path": str(transcript),
+            "session_id": "codex-sess",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+
+        transcript.write_text("x" * 40_000)
+        code, _, _ = run_hook_with_env("compact-trigger.py", {
+            "tool_name": "Bash",
+            "tool_input": {},
+            "tool_response": "",
+            "transcript_path": str(transcript),
+            "session_id": "codex-sess",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+
+        assert code == 0
+        recs = _records(state_dir)
+        assert len(recs) == 1
+        rec = recs[0]
+        assert rec["strategy"] == "compaction"
+        assert rec["basis"] == "measured"
+        assert rec["kept_chars"] == 40_000
+        assert rec["elided_chars"] == 700_000 - 40_000
+        assert rec["session_id"] == "codex-sess"
+
 
 # ---------------------------------------------------------------------------
 # search-first.py
@@ -201,6 +259,27 @@ class TestCodexSearchFirst:
             "tool_response": "",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 0
+
+    def test_logs_upper_bound_when_blocking_indexed_read(self, tmp_path):
+        state_dir = tmp_path / "state"
+        code, _, stderr = run_hook_with_env("search-first.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(REPO / "README.md")},
+            "tool_response": "",
+            "session_id": "codex-sess",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+
+        assert code == 2
+        assert "Search-first rule" in stderr
+        recs = _records(state_dir)
+        assert len(recs) == 1
+        rec = recs[0]
+        assert rec["strategy"] == "search-blocked"
+        assert rec["basis"] == "upper_bound"
+        assert rec["kept_chars"] == 0
+        assert rec["elided_chars"] == (REPO / "README.md").stat().st_size
+        assert rec["where"] == "README.md"
+        assert rec["session_id"] == "codex-sess"
 
 
 # ---------------------------------------------------------------------------

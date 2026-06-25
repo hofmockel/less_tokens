@@ -230,7 +230,7 @@ For Codex-only workflows, `.less_tokens/bin/python .less_tokens/tools/search.py`
 
 Track how many chars and tokens each strategy saves across a session.
 
-Tracking is **always on and local-only** from the first session of every install — there is no enable flag. Each event appends one JSON record to `.claude/state/savings.jsonl`; the log is never transmitted. Records store exact characters (`kept_chars`/`elided_chars`) plus `basis`, `content_kind`, `where`, and `session_id`; tokens are derived at report time, not stored.
+Tracking is **always on and local-only** from the first session of every install — there is no enable flag. Each event appends one JSON record to the active state directory (`.claude/state/savings.jsonl` for Claude, `.less_tokens/state/savings.jsonl` for Codex); the log is never transmitted. Records store exact characters (`kept_chars`/`elided_chars`) plus `basis`, `content_kind`, `where`, and `session_id`; tokens are derived at report time, not stored.
 
 Disable local logging with the `LESS_TOKENS_NO_STATS=1` environment variable.
 
@@ -240,12 +240,14 @@ Disable local logging with the `LESS_TOKENS_NO_STATS=1` environment variable.
 .claude/bin/python .claude/tools/stats.py              # show session table (last 8h)
 .claude/bin/python .claude/tools/stats.py --all        # show all-time totals
 .claude/bin/python .claude/tools/stats.py --report     # write .claude/state/savings-report.md and print table
+.claude/bin/python .claude/tools/stats.py --html       # write .claude/state/savings.html
 ```
 
 Also accessible as:
 
 ```bash
 .claude/bin/python .claude/tools/embeddings.py savings
+.less_tokens/bin/python .less_tokens/tools/stats.py --html  # Codex shim; writes .less_tokens/state/savings.html
 ```
 
 **Example output:**
@@ -579,11 +581,11 @@ Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
 
 S6 (tiered effort by model) stays an opt-in rule, not a hook — no hook can force a per-turn model downshift, so its saving is unverified; tracked in `BACKLOG.md`.
 
-Deliberately rejected as periphery (no effect on context tokens): a live savings-dashboard HTML artifact, a search REPL / file-watcher, a query/result cache (saves embedding compute, not tokens), and search-quality logging.
+Deliberately rejected as periphery (no effect on context tokens): a search REPL / file-watcher, a query/result cache (saves embedding compute, not tokens), and search-quality logging. The live savings HTML artifact is intentionally included because it reports the measured local savings log; it is not a separate optimization lever.
 
 ### State directory
 
-`STATE_DIR` in `search_config.py` is `CLAUDE_DIR / "state"` (i.e., `.claude/state/` in the host project).
+`active_state_dir()` in `search_config.py` selects the agent state directory. Claude uses `.claude/state/`; Codex uses `.less_tokens/state/`; `LESS_TOKENS_STATE_DIR` can override either for tests or advanced setups.
 
 ### Chunking strategies
 

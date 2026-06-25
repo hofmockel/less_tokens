@@ -23,7 +23,8 @@ CLAUDE_DIR = BASE / ".claude"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
-    from search_config import STATE_DIR, CHARS_PER_TOKEN
+    from search_config import CHARS_PER_TOKEN, active_state_dir
+    STATE_DIR = active_state_dir()
 except Exception:
     STATE_DIR = CLAUDE_DIR / "state"
     CHARS_PER_TOKEN = 4

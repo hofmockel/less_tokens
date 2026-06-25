@@ -32,6 +32,16 @@ from payload import normalize_codex  # noqa: E402
 from search_first import check_search_first  # noqa: E402
 
 try:
+    from savings_log import append as _log_savings  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
+except Exception:
+    def _log_savings(_r: dict) -> None:
+        pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
+
+try:
     from search_config import (  # noqa: E402
         active_state_dir,
         EXCLUDED_DIR_NAMES,
@@ -65,6 +75,26 @@ if raw.get("tool_name") == "mcp__filesystem__read_file":
 
 payload = normalize_codex(raw)
 code, stdout, stderr = check_search_first(payload, repo=REPO, state_dir=state_dir, config=config)
+if code == 2:
+    file_path = (payload.tool_input or {}).get("file_path", "")
+    try:
+        rel = Path(file_path).resolve().relative_to(REPO).as_posix()
+        saved = Path(file_path).stat().st_size
+    except Exception:
+        rel = str(file_path)
+        saved = 0
+    sid, ssrc = resolve_session(raw)
+    _log_savings({
+        "strategy": "search-blocked",
+        "basis": "upper_bound",
+        "kept_chars": 0,
+        "elided_chars": saved,
+        "content_kind": "source_file",
+        "where": rel,
+        "session_id": sid,
+        "session_source": ssrc,
+        "correlation_id": f"sf:{rel}",
+    })
 if stdout:
     print(stdout)
 if stderr:

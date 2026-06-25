@@ -29,6 +29,16 @@ from payload import normalize_codex  # noqa: E402
 from truncate_output import check_truncate_output  # noqa: E402
 
 try:
+    from savings_log import append as _log_savings  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
+except Exception:
+    def _log_savings(_r: dict) -> None:
+        pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
+
+try:
     from search_config import (  # noqa: E402
         MAX_TOOL_OUTPUT_CHARS,
         MAX_GLOB_RESULTS,
@@ -51,6 +61,17 @@ code, stdout, stderr = check_truncate_output(
     max_glob_results=MAX_GLOB_RESULTS,
 )
 if stdout:
+    sid, ssrc = resolve_session(raw)
+    _log_savings({
+        "strategy": "truncation",
+        "basis": "measured",
+        "kept_chars": len(stdout),
+        "elided_chars": max(0, len(payload.tool_output) - len(stdout)),
+        "content_kind": "tool_output",
+        "where": payload.tool_name,
+        "session_id": sid,
+        "session_source": ssrc,
+    })
     print(stdout)
 if stderr:
     print(stderr, file=sys.stderr)

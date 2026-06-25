@@ -26,7 +26,17 @@ sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 from payload import normalize_codex  # noqa: E402
-from compact_trigger import check_compact_trigger  # noqa: E402
+from compact_trigger import check_compact_trigger, measure_compaction  # noqa: E402
+
+try:
+    from savings_log import append as _log_savings  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
+except Exception:
+    def _log_savings(_r: dict) -> None:
+        pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
 
 try:
     from search_config import MAX_SESSION_CHARS, active_state_dir  # noqa: E402
@@ -37,6 +47,16 @@ except Exception:
 
 raw = json.loads(sys.stdin.read())
 payload = normalize_codex(raw)
+try:
+    measure_compaction(
+        payload,
+        state_dir=state_dir,
+        max_session_chars=MAX_SESSION_CHARS,
+        log=_log_savings,
+        session=resolve_session(raw),
+    )
+except Exception:
+    pass
 code, stdout, stderr = check_compact_trigger(
     payload,
     state_dir=state_dir,
