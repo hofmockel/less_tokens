@@ -24,7 +24,18 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | `--compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-Core search/read guards and the budget control plane are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. Claude and Codex have feature parity for the shipped strategies, but Codex enforcement is best-effort through `.codex/hooks.json` while Claude hooks are enforced directly. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+Core search/read guards and the budget control plane are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. Claude and Codex have feature parity for the shipped strategies, but Codex enforcement is best-effort through `.codex/hooks.json` while Claude hooks are enforced directly. Parity is the floor, not the ceiling: every shipped strategy reaches both agents, but Claude has more enforceable levers (direct hooks, `agent_overrides.claude`, model-aware thresholds) and we deliberately push Claude ahead where a Claude-only lever cuts tokens at acceptable risk rather than throttle it to Codex's best-effort ceiling — Claude-only headroom is tracked as CL-prefixed items in `BACKLOG.md`, each isolated so it never degrades Codex. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+
+**Claude vs Codex support**
+
+| Area | Claude Code | Codex |
+|---|---|---|
+| Hook wiring | `.claude/settings.json` or `.claude/settings.local.json` points directly at `.claude/hooks/` | `.codex/hooks.json` points at thin adapters in `.codex/hooks/` |
+| Enforcement strength | Direct hook enforcement on Claude `Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`, and `Stop` events | Best-effort adapter enforcement; depends on Codex event payloads and writable `.codex/` |
+| Runtime layout | Primary tools, hooks, rules, state, and index live under `.claude/` | Codex uses `.less_tokens/` shims/runtime, `.codex/hooks/`, `AGENTS.md`, and the shared `.claude/index.db` |
+| Output style hook | `Stop` hook can inspect the assistant turn before it finishes | Terse reminder runs through Codex hook events, so it is advisory/best-effort |
+| Edit handling | `Edit|Write` events name a target file | Codex may use `apply_patch`, so adapters parse patch payloads to recover touched paths |
+| Docs loaded every turn | `CLAUDE.md` budget/audit | `AGENTS.md` budget/audit |
 
 ```
 Without less_tokens:           With less_tokens:

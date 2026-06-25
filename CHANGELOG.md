@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Savings report explains its own methodology** — `stats.py --report` now emits a "How these numbers are measured" prose section in `savings-report.md`. It documents how each strategy derives `saved_chars` and grades how grounded each is: truncation is an actual byte cut, while search-first/search are counterfactual upper bounds (they credit the full size of files you would otherwise have read whole and never subtract the search cost paid). Also notes the chars÷4 token estimate, the 8h wall-clock "session" window, and that compaction-nudge is an unemitted placeholder.
+
 ### Fixed
 - **Codex install check false failures** — `install.py --check --agent codex` no longer requires `.claude/hooks/` for Codex-only installs, and `search_config.py` is loaded with `__file__` set so path-aware configs verify correctly.
 - **install: `write_text(newline=...)` crashes on Python 3.9** — `write_python_launcher` wrote the launcher with `Path.write_text(..., newline="")`, but the `newline` kwarg was only added to `write_text` in Python 3.10. On 3.9 every install raised `TypeError: write_text() got an unexpected keyword argument 'newline'`. Now writes via `write_bytes(text.encode())`, preserving CRLF on all versions. Exposed by the integration suite once unit tests stopped failing first.

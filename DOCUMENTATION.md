@@ -97,6 +97,14 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 This is feature parity, not identical enforcement parity. The shared source of truth is `agents/common/hooks/hook_manifest.py`; `agents/common/hooks/parity.json` records whether each strategy is shipped for Claude and Codex. Claude hooks are enforced directly by Claude Code. Codex hooks are adapter-based and best-effort through `.codex/hooks.json`, so they can lose enforcement if `.codex/` is not writable or Codex changes event payloads/matchers.
 
+**Parity is the floor, not the ceiling.** Every shipped strategy should reach both agents — that is the parity guarantee, and regressions below it are bugs. But Claude exposes more enforceable levers than Codex (direct PreToolUse/Stop hooks, per-agent `agent_overrides.claude`, model-aware thresholds), and we do not throttle Claude down to Codex's best-effort ceiling just to keep the two visually identical. Where a Claude-only lever cuts tokens with acceptable risk, take it: pushing Claude ahead is intended, not a parity violation. Claude-only headroom is tracked under *Claude Agent* in `BACKLOG.md` (CL-prefixed), with each item naming the Codex-safe isolation wall (`agent_overrides.claude`, `.claude/settings.json`) so advancing Claude never degrades Codex.
+
+**Why Claude is easier to enforce:**
+
+Claude Code exposes stable hook events for the token-heavy operations less_tokens wants to shape: `Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`, and `Stop`. Those events carry purpose-specific payloads such as `file_path`, `offset`, `limit`, command text, tool output, and transcript path. That lets a hook block a whole-file read before it happens, replace it with an exact slice, compact oversized Bash output after it returns, or inspect the final assistant message through the `Stop` event. The install target is also straightforward: `.claude/hooks/` plus `.claude/settings.json` or `.claude/settings.local.json`.
+
+Codex has the same strategy coverage, but it needs a translation layer. Filesystem activity often arrives through MCP-style tool names such as `mcp__filesystem__.*`, edits can arrive as `apply_patch` instead of a single file-oriented `Edit|Write`, and output-style enforcement does not have Claude's exact `Stop` hook shape. The `.codex/hooks.json` file may also be absent or unwritable in some installs. For that reason, Codex support installs thin adapters in `.codex/hooks/`, shared logic in `.less_tokens/hooks/`, command shims in `.less_tokens/tools/`, and state under `.less_tokens/state/`. Those adapters normalize Codex payloads into the shared hook checks where possible, and fail open when the Codex event shape cannot be trusted.
+
 **Known limitations:**
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
@@ -537,6 +545,10 @@ agents/
 
 **Codex hook layer (`agents/codex/hooks/`)**
 - Thin adapters normalize Codex payloads, call shared checks where available, and write state under `.less_tokens/state/`.
+- Codex installs use `.less_tokens/tools/` compatibility shims so the single `.claude/tools/` implementation remains the source of truth while Codex commands still work from `.less_tokens/bin/python`.
+- Codex filesystem matchers are broader (`mcp__filesystem__.*`) than Claude's named `Read|Grep|Glob` events, so adapters map read/search-like payloads into the shared `HookPayload` shape before running gates.
+- Codex patch edits may arrive as `apply_patch`; `payload.py` extracts touched paths from patch headers so index refresh and post-edit diff logic can stay targeted instead of refreshing conservatively.
+- Codex output-style enforcement uses `terse-reminder.py` as a best-effort adapter rather than Claude's direct `Stop` hook.
 - Default adapters cover search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks.
 - Optional adapters cover truncation, compaction, and terse-output reminders when their install flags are enabled.
 - Event matchers and optional/default status live in `agents/common/hooks/hook_manifest.py`; shipped/missing parity lives in `agents/common/hooks/parity.json`.

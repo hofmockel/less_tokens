@@ -184,6 +184,9 @@ def test_write_report_creates_file(tmp_path):
     assert "# Token Savings Report" in content
     assert "Generated:" in content
     assert "8,000" in content
+    # methodology prose explains how each number is derived
+    assert "How these numbers are measured" in content
+    assert "counterfactual upper bound" in content
 
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,38 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
     ]
 
 
+def _methodology_lines() -> list[str]:
+    """Prose explaining how each number is derived and how trustworthy it is."""
+    return [
+        "## How these numbers are measured",
+        "",
+        "Each strategy estimates `saved_chars` differently, so they are not equally "
+        "real. From most grounded to most speculative:",
+        "",
+        "- **Truncation** — `truncate-output.py` caps oversized tool output to a "
+        "head+tail slice. Saved = `original_chars − kept_chars`. This is **actual**: "
+        "those bytes were removed before the output ever reached the model.",
+        "- **Search-first block** — `search-first.py` blocks a Read of a large file and "
+        "redirects you to search. Saved = the file's full byte size. This is a "
+        "**counterfactual upper bound**: it assumes you would otherwise have read the "
+        "*entire* file, and it does not subtract the cost of the search you run instead.",
+        "- **Search (vs full file)** — `search.py` returns ranked chunks. Saved = "
+        "`sum(full size of every matched file) − returned chunk chars`. Also a "
+        "**counterfactual upper bound**: it credits the full size of all matched files "
+        "as if you would have read every one of them whole.",
+        "- **Compaction nudges** — placeholder. Nothing emits this event yet, so the "
+        "row is always `—`.",
+        "",
+        "Caveats: tokens are estimated as chars ÷ "
+        f"{CHARS_PER_TOKEN} (rough). \"Session\" means events in the last "
+        f"{SESSION_HOURS}h of wall-clock time, not a true session boundary. File sizes "
+        "use byte counts, which equal char counts only for ASCII. Net of these, "
+        "**Truncation is a real saving; the search rows are optimistic estimates** — "
+        "useful as a directional signal, not an exact ledger.",
+        "",
+    ]
+
+
 def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
     from datetime import datetime
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -119,12 +151,18 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
         "# Token Savings Report",
         f"Generated: {now}",
         "",
+        "Counts tokens *not* sent to the model because a hook or tool intervened. "
+        "Tracking is opt-in (`TRACK_SAVINGS`); each event appends one line to "
+        "`state/savings.jsonl`, and this report sums them. Read the numbers with the "
+        "methodology below — the four strategies are *not* equally grounded.",
+        "",
         *_build_table_lines(session_label, session_records),
         "",
         *_build_table_lines(all_label, all_records),
         "",
         f"_~{CHARS_PER_TOKEN} chars per token (estimate)_",
         "",
+        *_methodology_lines(),
     ]
     REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
     REPORT_FILE.write_text("\n".join(lines), encoding="utf-8")
