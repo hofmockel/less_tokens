@@ -16,6 +16,16 @@ app/.venv/
 .claude/state/
 .claude/settings.local.json
 .claude/worktrees/
-.less_tokens/state/
+# install.py output (also generated when the repo dogfoods itself). Keep only the
+# budget control-plane source that install distributes; ignore everything generated.
+.less_tokens/*
+!.less_tokens/config/
+.less_tokens/config/*
+!.less_tokens/config/budget.json
+!.less_tokens/tools/
+.less_tokens/tools/*
+!.less_tokens/tools/budget_doctor.py
+!.less_tokens/tools/budget_report.py
+.codex/
 .fuse_hidden*
 --upgrade/
