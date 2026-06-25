@@ -279,3 +279,106 @@ def test_write_report_creates_file(tmp_path):
     assert "counterfactual upper bound" in content
     # always-on / local-only framing, not the old opt-in flag
     assert "LESS_TOKENS_NO_STATS" in content
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — session_id grouping (real session, wall-clock only as legacy)
+# ---------------------------------------------------------------------------
+
+def test_load_records_groups_by_current_session(tmp_path):
+    stats = _import_stats()
+    log = tmp_path / "savings.jsonl"
+    now = time.time()
+    rows = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 100,
+         "session_id": "old-sess", "session_source": "payload", "ts": now - 7200},
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 200,
+         "session_id": "cur-sess", "session_source": "payload", "ts": now - 60},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 300,
+         "session_id": "cur-sess", "session_source": "payload", "ts": now - 30},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    with patch("stats.LOG_FILE", log):
+        session = stats._load_records(all_time=False)
+        all_time = stats._load_records(all_time=True)
+    # current session = the most recent real session, not an 8h wall-clock window
+    assert {r["session_id"] for r in session} == {"cur-sess"}
+    assert len(session) == 2
+    assert len(all_time) == 3
+
+
+def test_load_records_explicit_session_id(tmp_path):
+    stats = _import_stats()
+    log = tmp_path / "savings.jsonl"
+    now = time.time()
+    rows = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 1,
+         "session_id": "a", "session_source": "payload", "ts": now},
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 1,
+         "session_id": "b", "session_source": "payload", "ts": now},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    with patch("stats.LOG_FILE", log):
+        only_a = stats._load_records(session_id="a")
+    assert {r["session_id"] for r in only_a} == {"a"}
+
+
+def test_load_records_legacy_falls_back_to_wall_clock(tmp_path):
+    # No real session_id anywhere → the wall-clock window is the legacy view.
+    stats = _import_stats()
+    log = tmp_path / "savings.jsonl"
+    now = time.time()
+    old = {"strategy": "truncation", "saved_chars": 100, "ts": now - 86400}
+    recent = {"strategy": "search", "saved_chars": 200, "ts": now - 60}
+    log.write_text(json.dumps(old) + "\n" + json.dumps(recent) + "\n")
+    with patch("stats.LOG_FILE", log):
+        session = stats._load_records(all_time=False)
+    assert len(session) == 1
+    assert session[0]["strategy"] == "search"
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — measured vs upper-bound never cross-summed
+# ---------------------------------------------------------------------------
+
+def test_report_separates_measured_and_upper_bound(tmp_path):
+    stats = _import_stats()
+    records = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 1000},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 9000},
+    ]
+    lines = stats._build_table_lines("Block", records)
+    joined = "\n".join(lines)
+    # two distinct panels
+    assert "Measured" in joined
+    assert "Upper bound" in joined
+    # measured total is 1,000 — the 9,000 upper-bound is NEVER folded in
+    assert "**1,000**" in joined
+    assert "10,000" not in joined  # 1000 + 9000 would be a cross-sum
+    # upper-bound magnitudes are flagged optimistic with the ≤ prefix
+    assert "≤9,000" in joined
+
+
+def test_panel_lines_sums_only_its_strategies(tmp_path):
+    stats = _import_stats()
+    records = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 400},
+        {"strategy": "compaction", "basis": "measured", "elided_chars": 600},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 5000},
+    ]
+    measured = "\n".join(
+        stats._panel_lines("m", records, stats._MEASURED_STRATEGIES)
+    )
+    upper = "\n".join(
+        stats._panel_lines("u", records, stats._UPPER_BOUND_STRATEGIES, prefix="≤")
+    )
+    assert "**1,000**" in measured  # 400 + 600, search excluded
+    assert "5,000" not in measured
+    assert "≤5,000" in upper
+    assert "1,000" not in upper
+
+
+def test_token_footer_is_uncalibrated():
+    stats = _import_stats()
+    assert "uncalibrated" in stats.TOKEN_FOOTER
+    assert "chars÷4" in stats.TOKEN_FOOTER

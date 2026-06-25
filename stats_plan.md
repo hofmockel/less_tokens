@@ -221,7 +221,7 @@ only guard the pipe.
    `basis="measured"`, `kept_chars=len(compacted_summary)`, and
    `elided_chars=max(0, pre_compaction_transcript_chars - kept_chars)`. It should
    fire only when both sides are available; otherwise it logs no savings event.
-3. **Report core** — measured vs upper-bound separation; real `session_id`
+3. ✅ **Report core** *(done)* — measured vs upper-bound separation; real `session_id`
    grouping; honest token-estimate footer; Markdown `--report` for terminals/CI.
 4. **HTML page** — `--html` self-contained renderer; `Stop`-hook regeneration so
    `state/savings.html` is always current.

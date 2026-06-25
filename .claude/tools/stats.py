@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Token savings tracker — enable, report, and disable.
+"""Token savings tracker — always-on, local-only report.
 
 Usage:
-  python tools/stats.py              # show session stats; prompt to enable if off
+  python tools/stats.py              # show current-session stats
   python tools/stats.py --report     # write savings-report.md and print path
   python tools/stats.py --all        # show all-time totals
-  python tools/stats.py --disable    # turn tracking off
 """
 from __future__ import annotations
 
@@ -29,12 +28,23 @@ REPORT_FILE = STATE_DIR / "savings-report.md"
 CHARS_PER_TOKEN = 4
 SESSION_HOURS = 8
 
+# Honest token footer. Tokens are never stored; they are a report-time estimate.
+# Stays "uncalibrated" until Phase 6 `--calibrate` grounds the divisor in Claude's
+# real tokenizer.
+TOKEN_FOOTER = f"_tokens est. at chars÷{CHARS_PER_TOKEN} (uncalibrated)_"
+
 _STRATEGY_LABELS = {
     "truncation":     "Truncation",
     "search-blocked": "Search-first block",
     "search":         "Search (vs full file)",
     "compaction":     "Compaction",
 }
+
+# Measured vs upper-bound is the report's central honesty axis. Measured rows were
+# actually removed before reaching the model; upper-bound rows are counterfactual
+# avoided cost. The two are rendered in separate panels and never cross-summed.
+_MEASURED_STRATEGIES = ("truncation", "compaction")
+_UPPER_BOUND_STRATEGIES = ("search-blocked", "search")
 
 
 def _normalize_record(r: dict) -> dict:
@@ -61,10 +71,10 @@ def _normalize_record(r: dict) -> dict:
     return r
 
 
-def _load_records(all_time: bool = False) -> list[dict]:
+def _load_all() -> list[dict]:
+    """Every normalized record in the log, oldest first. Malformed lines skipped."""
     if not LOG_FILE.exists():
         return []
-    cutoff = 0.0 if all_time else time.time() - SESSION_HOURS * 3600
     out = []
     for line in LOG_FILE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -75,9 +85,46 @@ def _load_records(all_time: bool = False) -> list[dict]:
         except Exception as e:
             print(f"  WARN: skipping malformed record in {LOG_FILE}: {e}", file=sys.stderr)
             continue
-        if r.get("ts", 0) >= cutoff:
-            out.append(_normalize_record(r))
+        out.append(_normalize_record(r))
     return out
+
+
+def _current_session_id(records: list[dict]) -> str | None:
+    """The session_id of the most recent *real* session, or None if there is none.
+
+    A real session is one resolved from a payload/transcript/env source — not the
+    ``local`` last-resort bucket and not a legacy record (which carries no
+    ``session_id`` at all). When none exists we fall back to the wall-clock window.
+    """
+    real = [
+        r for r in records
+        if r.get("session_id") and r.get("session_source") not in (None, "local")
+    ]
+    if not real:
+        return None
+    return max(real, key=lambda r: r.get("ts", 0)).get("session_id")
+
+
+def _session_subset(records: list[dict], session_id: str | None) -> list[dict]:
+    """Records for the current (or given) session_id.
+
+    With a real session_id, group by it. Without one (only legacy/local records),
+    fall back to the old ``SESSION_HOURS`` wall-clock window — kept strictly as a
+    legacy view, never the primary grouping.
+    """
+    if session_id is None:
+        session_id = _current_session_id(records)
+    if session_id is not None:
+        return [r for r in records if r.get("session_id") == session_id]
+    cutoff = time.time() - SESSION_HOURS * 3600
+    return [r for r in records if r.get("ts", 0) >= cutoff]
+
+
+def _load_records(all_time: bool = False, session_id: str | None = None) -> list[dict]:
+    records = _load_all()
+    if all_time:
+        return records
+    return _session_subset(records, session_id)
 
 
 def _summarize(records: list[dict]) -> dict:
@@ -90,30 +137,63 @@ def _summarize(records: list[dict]) -> dict:
     return data
 
 
-def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
+def _panel_lines(title: str, records: list[dict], strategies: tuple[str, ...],
+                 *, prefix: str = "") -> list[str]:
+    """One basis-homogeneous table: only ``strategies``, with its own total.
+
+    ``prefix`` (e.g. "≤") marks upper-bound magnitudes as optimistic. The total
+    sums only this panel's strategies — measured and upper-bound are never mixed.
+    """
     data = _summarize(records)
     total_chars = 0
     body_rows = []
-    for key, lbl in _STRATEGY_LABELS.items():
+    for key in strategies:
+        lbl = _STRATEGY_LABELS[key]
         d = data[key]
         sc = d["saved_chars"]
         total_chars += sc
-        sc_str = f"{sc:,}" if sc else "—"
+        sc_str = f"{prefix}{sc:,}" if sc else "—"
         tok = sc // CHARS_PER_TOKEN if sc else 0
-        tok_str = f"{tok:,}" if tok else "—"
+        tok_str = f"{prefix}{tok:,}" if tok else "—"
         body_rows.append(
             f"| {lbl:<22} | {d['events']:>6} | {sc_str:>12} | {tok_str:>14} |"
         )
     total_tokens = total_chars // CHARS_PER_TOKEN
     sep = f"|{'-'*24}|{'-'*8}|{'-'*14}|{'-'*16}|"
     return [
-        f"## {heading}",
+        f"### {title}",
         "",
         f"| {'Strategy':<22} | {'Events':>6} | {'Chars saved':>12} | {'~Tokens saved':>14} |",
         sep,
         *body_rows,
         sep,
-        f"| {'**Total**':<22} | {'':>6} | **{total_chars:,}** | **{total_tokens:,}** |",
+        f"| {'**Total**':<22} | {'':>6} | **{prefix}{total_chars:,}** | **{prefix}{total_tokens:,}** |",
+    ]
+
+
+def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
+    """Render a session/all-time block as two separate panels.
+
+    Measured (truncation, compaction) and upper-bound (search) live in their own
+    tables with their own totals so the report never cross-sums real removals with
+    counterfactual avoided cost.
+    """
+    return [
+        f"## {heading}",
+        "",
+        *_panel_lines(
+            "Measured — removed before reaching the model",
+            records, _MEASURED_STRATEGIES,
+        ),
+        "",
+        *_panel_lines(
+            "Upper bound — avoided cost, optimistic (≤)",
+            records, _UPPER_BOUND_STRATEGIES, prefix="≤",
+        ),
+        "",
+        "_Upper-bound rows assume you would otherwise have read the whole file and "
+        "do not subtract the search you ran instead. Do not add them to the measured "
+        "total._",
     ]
 
 
@@ -142,9 +222,11 @@ def _methodology_lines() -> list[str]:
         "**counterfactual upper bound**: it credits the full size of all matched files "
         "as if you would have read every one of them whole.",
         "",
-        "Caveats: tokens are estimated as chars ÷ "
-        f"{CHARS_PER_TOKEN} (rough). \"Session\" means events in the last "
-        f"{SESSION_HOURS}h of wall-clock time, not a true session boundary. File sizes "
+        "Caveats: tokens are an estimate, not a count — chars ÷ "
+        f"{CHARS_PER_TOKEN}, uncalibrated against Claude's tokenizer (run "
+        "`stats.py --calibrate` to ground the divisor). \"Session\" groups by the "
+        "resolved `session_id`; only when no real session is known does it fall back "
+        f"to the last {SESSION_HOURS}h of wall-clock time (a legacy view). File sizes "
         "use byte counts, which equal char counts only for ASCII. Net of these, "
         "**truncation and compaction are real savings; the search rows are optimistic "
         "estimates** — useful as a directional signal, not an exact ledger.",
@@ -152,10 +234,17 @@ def _methodology_lines() -> list[str]:
     ]
 
 
+def _session_label(records: list[dict]) -> str:
+    sid = _current_session_id(records)
+    if sid:
+        return f"Current session ({sid} · {len(records)} events)"
+    return f"Session (last {SESSION_HOURS}h, legacy view · {len(records)} events)"
+
+
 def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
     from datetime import datetime
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    session_label = f"Session (last {SESSION_HOURS}h · {len(session_records)} events)"
+    session_label = _session_label(session_records)
     all_label = f"All-time ({len(all_records)} events)"
     lines = [
         "# Token Savings Report",
@@ -164,14 +253,15 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
         "Counts tokens *not* sent to the model because a hook or tool intervened. "
         "Tracking is always on and **local-only**: each event appends one line to "
         "`state/savings.jsonl` (never transmitted), and this report sums them. "
-        "Disable with `LESS_TOKENS_NO_STATS=1`. Read the numbers with the "
-        "methodology below — the four strategies are *not* equally grounded.",
+        "Disable with `LESS_TOKENS_NO_STATS=1`. Measured and upper-bound savings are "
+        "shown in **separate panels** and never added together — read the methodology "
+        "below; the four strategies are *not* equally grounded.",
         "",
         *_build_table_lines(session_label, session_records),
         "",
         *_build_table_lines(all_label, all_records),
         "",
-        f"_~{CHARS_PER_TOKEN} chars per token (estimate)_",
+        TOKEN_FOOTER,
         "",
         *_methodology_lines(),
     ]
@@ -197,11 +287,11 @@ def main() -> int:
     label = (
         f"All-time ({len(all_records)} events)"
         if args.all_time
-        else f"Session (last {SESSION_HOURS}h · {len(session_records)} events)"
+        else _session_label(session_records)
     )
     display = all_records if args.all_time else session_records
     print("\n".join(_build_table_lines(label, display)))
-    print(f"\n_~{CHARS_PER_TOKEN} chars per token (estimate)_")
+    print(f"\n{TOKEN_FOOTER}")
     return 0
 
 
