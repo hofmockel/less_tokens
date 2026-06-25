@@ -44,6 +44,39 @@ def read_key(file_path: str, offset: object, limit: object) -> str:
     return f"{file_path}::{offset}::{limit}"
 
 
+def blocked_read_chars(file_path: str, offset: object, limit: object) -> int:
+    """Chars the blocked Read would have re-injected into context.
+
+    The cache key is ``file::offset::limit``, so a block always repeats the exact
+    same slice. A full read (no offset/limit) re-injects the whole file, so its byte
+    size is exact. A partial read re-injects only its line slice, so crediting the
+    full file size would overstate the saving — measure the slice instead (Read's
+    ``offset`` is a 1-based line; ``limit`` is a line count). Best-effort: any read
+    error falls back to the full size. Only runs on the rare block path, not per call.
+    """
+    try:
+        size = Path(file_path).stat().st_size
+    except OSError:
+        return 0
+    if not offset and not limit:
+        return size
+    try:
+        start = (int(offset) - 1) if offset else 0
+        start = max(0, start)
+        end = (start + int(limit)) if limit else None
+        total = 0
+        with Path(file_path).open(encoding="utf-8", errors="replace") as fh:
+            for idx, line in enumerate(fh):
+                if idx < start:
+                    continue
+                if end is not None and idx >= end:
+                    break
+                total += len(line)
+        return total
+    except (OSError, ValueError):
+        return size
+
+
 def check_read(state: dict, file_path: str, offset: object, limit: object) -> str | None:
     key = read_key(file_path, offset, limit)
     entry = state.get("reads", {}).get(key)
@@ -110,11 +143,14 @@ def check_context_cache(
     enabled: bool,
     grep_ttl: int,
     log=None,
+    session: tuple[str, str] | None = None,
 ) -> tuple[int, str, str]:
     if not enabled:
         return 0, "", ""
     if payload.tool_name not in {"Read", "Grep"}:
         return 0, "", ""
+
+    sid, ssrc = session or ("local-session", "local")
 
     state = get_state(
         state_dir,
@@ -133,11 +169,17 @@ def check_context_cache(
         msg = check_read(state, file_path, offset, limit)
         if msg:
             if log:
-                try:
-                    saved_chars = Path(file_path).stat().st_size
-                except OSError:
-                    saved_chars = 0
-                log({"strategy": "context-cache-read", "file": file_path, "saved_chars": saved_chars})
+                saved_chars = blocked_read_chars(file_path, offset, limit)
+                log({
+                    "strategy": "context-cache-read",
+                    "basis": "measured",
+                    "kept_chars": 0,
+                    "elided_chars": saved_chars,
+                    "content_kind": "cached_read",
+                    "where": file_path,
+                    "session_id": sid,
+                    "session_source": ssrc,
+                })
             save_state(state_dir, state)
             return 2, "", msg
         record_read(state, file_path, offset, limit)
@@ -145,7 +187,16 @@ def check_context_cache(
         msg = check_grep(state, inp, grep_ttl)
         if msg:
             if log:
-                log({"strategy": "context-cache-grep", "pattern": inp.get("pattern", ""), "saved_chars": 0})
+                log({
+                    "strategy": "context-cache-grep",
+                    "basis": "measured",
+                    "kept_chars": 0,
+                    "elided_chars": 0,
+                    "content_kind": "cached_grep",
+                    "where": inp.get("pattern", ""),
+                    "session_id": sid,
+                    "session_source": ssrc,
+                })
             save_state(state_dir, state)
             return 2, "", msg
         record_grep(state, inp)

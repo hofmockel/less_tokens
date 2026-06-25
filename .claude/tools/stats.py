@@ -96,16 +96,18 @@ def _calibration_badge() -> str:
 TOKEN_FOOTER = _token_footer()
 
 _STRATEGY_LABELS = {
-    "truncation":     "Truncation",
-    "search-blocked": "Search-first block",
-    "search":         "Search (vs full file)",
-    "compaction":     "Compaction",
+    "truncation":          "Truncation",
+    "compaction":          "Compaction",
+    "context-cache-read":  "Cached read (repeat)",
+    "context-cache-grep":  "Cached grep (repeat)",
+    "search-blocked":      "Search-first block",
+    "search":              "Search (vs full file)",
 }
 
 # Measured vs upper-bound is the report's central honesty axis. Measured rows were
 # actually removed before reaching the model; upper-bound rows are counterfactual
 # avoided cost. The two are rendered in separate panels and never cross-summed.
-_MEASURED_STRATEGIES = ("truncation", "compaction")
+_MEASURED_STRATEGIES = ("truncation", "compaction", "context-cache-read", "context-cache-grep")
 _UPPER_BOUND_STRATEGIES = ("search-blocked", "search")
 
 
@@ -127,7 +129,7 @@ def _normalize_record(r: dict) -> dict:
         elided = r.get("elided_chars", r.get("saved_chars", 0))
         r["elided_chars"] = elided
         r.setdefault("kept_chars", 0)
-        r["basis"] = "measured" if r.get("strategy") == "truncation" else "upper_bound"
+        r["basis"] = "measured" if r.get("strategy") in _MEASURED_STRATEGIES else "upper_bound"
         r["content_kind"] = "legacy"
     r["saved_chars"] = r.get("elided_chars", r.get("saved_chars", 0))
     return r
@@ -282,6 +284,19 @@ def _methodology_lines() -> list[str]:
         "(the produced summary) and `elided_chars` = peak − kept. **Actual** on both "
         "sides — two real transcript char counts. Only fires on a genuine shrink, so "
         "the row stays `—` until a compaction actually happens.",
+        (
+            "- **Cached read (repeat block)** — `context-cache.py` blocks a Read of a file "
+            "already in context. Saved = the chars that would have re-entered (full file "
+            "size for a whole-file read, or just the line slice for a partial read); "
+            "`kept_chars` = 0 because nothing new entered. **Actual**: the agent issued the "
+            "duplicate Read with known args and those bytes were prevented from re-entering "
+            "context."
+        ),
+        (
+            "- **Cached grep (repeat block)** — `context-cache.py` blocks a repeat Grep "
+            "within the TTL window. Logged with `saved_chars = 0` (the grep never ran, so "
+            "its output size is unknown); the row counts events only, never magnitude."
+        ),
         "- **Search-first block** — `search-first.py` blocks a Read of a large file and "
         "redirects you to search. Saved = the file's full byte size. This is a "
         "**counterfactual upper bound**: it assumes you would otherwise have read the "
@@ -296,8 +311,8 @@ def _methodology_lines() -> list[str]:
         "resolved `session_id`; only when no real session is known does it fall back "
         f"to the last {SESSION_HOURS}h of wall-clock time (a legacy view). File sizes "
         "use byte counts, which equal char counts only for ASCII. Net of these, "
-        "**truncation and compaction are real savings; the search rows are optimistic "
-        "estimates** — useful as a directional signal, not an exact ledger.",
+        "**truncation, compaction, and cached repeat-reads are real savings; the search "
+        "rows are optimistic estimates** — useful as a directional signal, not an exact ledger.",
         "",
     ]
 
@@ -613,6 +628,14 @@ def _run_calibrate(model: str) -> int:
 
 
 def main() -> int:
+    # The report uses non-ASCII glyphs (≤, em dashes); a non-UTF-8 console
+    # (e.g. Windows cp1252) would raise UnicodeEncodeError on print. Force UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
     ap.add_argument("--html", action="store_true", help="Write savings.html")
