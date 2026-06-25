@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+- **Fixture-driven perf benchmark** — deleted `.claude/tests/perf/` (`test_bench_tokens.py`), the `perf` pytest marker, and the `Perf benchmarks` CI job. Its `reduction >= MIN_*_REDUCTION` assertions measured properties of hand-built fixtures, not real-session savings. Phase 0 of the stats framework rewrite (`stats_plan.md`): pure removal with no replacement dependency, done first so it stops gating the rewrite on a contract the rewrite deletes.
+
 ### Added
 - **Savings report explains its own methodology** — `stats.py --report` now emits a "How these numbers are measured" prose section in `savings-report.md`. It documents how each strategy derives `saved_chars` and grades how grounded each is: truncation is an actual byte cut, while search-first/search are counterfactual upper bounds (they credit the full size of files you would otherwise have read whole and never subtract the search cost paid). Also notes the chars÷4 token estimate, the 8h wall-clock "session" window, and that compaction-nudge is an unemitted placeholder.
 

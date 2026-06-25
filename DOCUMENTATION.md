@@ -389,8 +389,7 @@ less_tokens/
     │       └── SKILL.md           # bug-hunt protocol and round log
     ├── tests/                 # test suite (not deployed)
     │   ├── unit/
-    │   ├── integration/
-    │   └── perf/
+    │   └── integration/
     └── tools/                 # deployed to <host>/.claude/tools/
         ├── search_config.py       # ← only file to edit after install
         ├── embeddings.py          # build/refresh the vector index
@@ -451,7 +450,6 @@ Claude Code respects a `.claudeignore` file (same syntax as `.gitignore`) to exc
 | `DOCUMENTATION.md` | Reference docs; Claude reads source, not its own docs |
 | `CHANGELOG.md` | History log; not relevant to active development |
 | `.github/` | CI workflow config; rarely needs reading during development |
-| `.claude/tests/perf/latest.json` | Generated benchmark artifact |
 
 **When installing into your own project**, add a `.claudeignore` at the project root to exclude any large files Claude doesn't need for its day-to-day work — test fixtures, generated output, vendored assets, docs:
 
@@ -506,7 +504,7 @@ The source tree has a Claude runtime, a Codex adapter layer, and shared hook log
   skills/          ← Claude Code skills (bug-hunt, claudemd)
   tools/           ← Core Python scripts deployed to host projects
   schema/          ← SQL schema deployed to host projects
-  tests/           ← Unit, integration, and perf test suites
+  tests/           ← Unit and integration test suites
   commands/        ← /build-index, /search, /def slash commands
 agents/
   common/hooks/    ← agent-neutral hook checks used by adapters

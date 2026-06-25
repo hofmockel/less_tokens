@@ -26,8 +26,6 @@ But it is also developed **and dogfooded here** — this repo runs its own hooks
 .claude/.venv-tokens/bin/python -m pytest .claude/tests/integration/ -v
 # Single test
 .claude/.venv-tokens/bin/python -m pytest .claude/tests/unit/test_chunkers.py::<test_name> -v
-# Perf (needs fastembed; marker-gated, ubuntu CI only)
-.claude/.venv-tokens/bin/python -m pytest .claude/tests/perf/ -v -m perf
 ```
 
 pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3.11/3.12 × 3 OS. Full install/verify walkthrough: `DOCUMENTATION.md`.
