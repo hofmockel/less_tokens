@@ -12,9 +12,8 @@ Two product decisions frame the rest:
 - **The deliverable is an HTML status page**, regenerated from the real log and
   surfaced inside both the Claude and Codex interfaces.
 
-> **Reviewer (Codex): start with [Open questions for review](#open-questions-for-review).**
-> Six decisions are unresolved; three block Phase 1. Everything else is a proposal
-> we will change based on your answers.
+> **Review status:** open questions resolved below. Phase 1 can start once the
+> session-id fallback and privacy notice are reflected in code/docs.
 
 ## Principle
 
@@ -37,7 +36,9 @@ headline number. That single rule is what makes the report honest.
   benchmark. Those numbers are properties of hand-built fixtures, not of real use.
 - The chars÷4 token figure presented as if it were a count. Tokens become an
   explicitly labelled estimate everywhere (see Token honesty).
-- The dead `compaction` row, unless/until a real emitter ships (Open Questions).
+- The dead `compaction` savings row as a placeholder. If compaction appears in the
+  savings report, this rewrite must add a real compaction savings emitter that logs
+  the same `kept_chars`/`elided_chars` schema as every other strategy.
 - The `TRACK_SAVINGS` opt-in gate and every `if not TRACK_SAVINGS: return` branch.
   Tracking is unconditional (see Always on).
 
@@ -50,9 +51,11 @@ Tracking runs from the first session of every install — no flag, no prompt.
 - It must stay **cheap** — one JSON line, one append, exact chars only, no tokenizer
   or network in the hot path. The hooks already compute the quantities; we only
   write them.
-- The only escape hatch is removal, not a toggle: an undocumented
-  `LESS_TOKENS_NO_STATS=1` env bail-out for users who must opt out, kept out of the
-  normal config so it is not the default mental model.
+- The escape hatch is documented but not prompted: `LESS_TOKENS_NO_STATS=1`
+  disables local savings logging for users who need it. It stays outside
+  `search_config.py` so the default mental model remains "local telemetry is on."
+- The installer and docs must say plainly that savings telemetry is local-only,
+  what it records, and how to disable it. No interactive first-run prompt.
 - The log is **local only** (`state/savings.jsonl`), never transmitted. "Always on"
   means always *recorded*, not always *sent* — the calibration API call stays the
   one opt-in network action.
@@ -73,7 +76,9 @@ improves.
   "elided_chars": 37835,        // what did not (measured fact, or assumed bound)
   "content_kind": "tool_output",// tool_output | source_file | search_result
   "where": "Bash",              // tool name / file path / query — for audit
-  "session_id": "abc123"        // group events into the real session that produced them
+  "session_id": "abc123",       // group events into the real session that produced them
+  "session_source": "payload",  // payload | transcript_path | env | local
+  "correlation_id": "sf:..."    // optional: link redirects to later search events
 }
 ```
 
@@ -82,15 +87,32 @@ Per strategy:
 | Strategy | basis | `kept_chars` | `elided_chars` | Honesty |
 |----------|-------|--------------|----------------|---------|
 | Truncation (Bash/Glob) | `measured` | len(kept head+tail) | `original − kept` | exact both sides |
+| Compaction | `measured` | compacted summary chars | `pre_compaction_transcript_chars − compacted_summary_chars` | exact only when the emitter sees both texts |
 | Search-first block | `upper_bound` | 0 (you were redirected) | blocked file size | avoided cost assumed; the search you ran instead is unmeasured |
 | Search vs full read | `upper_bound` | chunk chars returned (exact) | `sum(full file sizes) − chunk_chars` | kept side real; avoided side assumed |
 
 This is the same data the hooks already have — `truncate-output.py`,
-`search-first.py`, and `search.py` each already compute these quantities. The change
-is the **schema** (`kept`/`elided`/`basis`/`session_id`), not new instrumentation.
+`search-first.py`, and `search.py` each already compute these quantities. Compaction
+is the exception: including it requires new instrumentation that records the
+pre-compaction transcript size and the produced compact summary size at the moment
+the compaction snapshot is generated. The shared rule still holds: no event is
+reported unless the emitter has both sides of the cut.
 
-`savings_log.append()` stays the thin writer it is. `session_id` comes from the hook
-payload so the report can show *real sessions* instead of an 8h wall-clock guess.
+`savings_log.append()` stays the thin writer it is. `session_id` is resolved in one
+shared helper, in this order:
+
+1. Native payload field: `session_id` if present.
+2. Stable transcript identity: hash of `transcript_path` if present.
+3. Environment: `LESS_TOKENS_SESSION_ID`.
+4. Last-resort local bucket: `local-session`.
+
+The existing code already normalizes `transcript_path` for both Claude and Codex
+payloads, and the budget adapter already accepts `session_id` when the harness
+provides one. That means Phase 1 is not blocked on proving a new native Codex field:
+the schema stores a stable `session_id` plus `session_source`, and reports label
+`local-session` as "session unavailable" instead of pretending it is a real
+session. Do not return to the old 8h wall-clock grouping except as a legacy view for
+old records.
 
 ### Migrating old logs
 
@@ -150,17 +172,17 @@ Neither interface renders HTML inline, so the integration point is a **clickable
 link to the generated file**, plus a glanceable one-liner. Both read the same log;
 nothing interface-specific lives in the data layer.
 
-- **Link**: the `Stop` hook emits a `file://…/state/savings.html` link (and the
-  measured one-liner) in its output. Both Claude Code and Codex render that line in
-  the transcript, so the user clicks through to the page. This is the
-  lowest-assumption path and works identically in both.
+- **Claude link**: the `Stop` hook emits a `file://…/state/savings.html` link (and
+  the measured one-liner) in its output, so the user can click through from the
+  transcript.
 - **Statusline (Claude Code)**: a statusline command prints
   `↓ ~122k tok saved (measured) · session` from the loader, measured-only to stay
   honest. Always visible, no click.
-- **Codex**: surface the same one-liner through whatever turn-summary / notification
-  channel the Codex integration already uses in this repo (the Codex-parity work);
-  fall back to the transcript link if none. Confirm the exact channel during build —
-  flagged in Open Questions so we don't assume a hook that isn't there.
+- **Codex**: generate the same `state/savings.html` file and expose its path through
+  the safest available channel. Current parity wiring exposes Codex PostToolUse
+  adapters, not a native Stop hook, so Phase 4 must not depend on end-of-turn
+  Codex output. A richer Codex one-liner is allowed only after implementation
+  confirms a durable channel.
 
 We do **not** claim native in-TUI HTML rendering. The HTML is a browser artifact;
 the interfaces surface a link and a number.
@@ -183,53 +205,62 @@ only guard the pipe.
 
 ## Phases
 
-1. **Always-on schema + loader** — drop `TRACK_SAVINGS`; new
-   `kept/elided/basis/session_id` record; legacy-tolerant loader; update the three
-   hooks to emit it. Unit tests for the arithmetic identities and the always-on
-   write path.
-2. **Report core** — measured vs upper-bound separation; real `session_id`
+1. **Always-on schema + loader** — drop `TRACK_SAVINGS`; add
+   `kept/elided/basis/session_id/session_source` records plus optional
+   `correlation_id`; legacy-tolerant loader; update the three existing hooks to
+   emit it.
+   Unit tests for the arithmetic identities, session-id fallback order, documented
+   env opt-out, and always-on write path.
+2. **Compaction emitter** — add a savings emitter to the compaction path that logs
+   `basis="measured"`, `kept_chars=len(compacted_summary)`, and
+   `elided_chars=max(0, pre_compaction_transcript_chars - kept_chars)`. It should
+   fire only when both sides are available; otherwise it logs no savings event.
+3. **Report core** — measured vs upper-bound separation; real `session_id`
    grouping; honest token-estimate footer; Markdown `--report` for terminals/CI.
    Delete the fixture benchmark.
-3. **HTML page** — `--html` self-contained renderer; `Stop`-hook regeneration so
+4. **HTML page** — `--html` self-contained renderer; `Stop`-hook regeneration so
    `state/savings.html` is always current.
-4. **Surfacing** — `Stop`-hook link + measured one-liner in the transcript;
-   Claude Code statusline; Codex turn-summary channel (confirm the channel first).
-5. **Calibration (opt-in)** — `--calibrate` against `count_tokens` to ground the
+5. **Surfacing** — `Stop`-hook link + measured one-liner in the Claude transcript;
+   Claude Code statusline; Codex transcript/file link as the floor, with a richer
+   Codex turn-summary channel only if one is confirmed during implementation.
+6. **Calibration (opt-in)** — `--calibrate` against `count_tokens` to ground the
    divisor in Claude's real tokenizer on our real content; HTML badge reflects state.
 
-## Open questions for review
+## Review decisions
 
-Each lists the decision needed and our current lean. **Blocks Phase 1** = must be
-settled before we touch the schema/hooks; the rest can be decided as we reach them.
+1. **`session_id` provenance — resolved.** Do not block Phase 1 on a native field
+   existing in both harnesses. Use a shared resolver: payload `session_id`, then a
+   stable hash of `transcript_path`, then `LESS_TOKENS_SESSION_ID`, then
+   `local-session`. Store `session_source` so reports can distinguish real sessions
+   from fallback buckets. The budget adapter already has payload/env support, and
+   the shared hook payload already carries `transcript_path`; align savings logging
+   with that pattern.
 
-1. **`session_id` provenance — BLOCKS PHASE 1.** The new schema groups events by
-   real session. Does the hook payload actually carry a stable session id in *both*
-   Claude Code and Codex? If not, the whole "real sessions" framing degrades to the
-   8h wall-clock guess we are trying to kill. Need confirmation of the field (and
-   its name) in each harness before we commit the schema. *Lean: unknown — this is
-   the first thing to verify.*
+2. **Always-on privacy — resolved.** Tracking can be always-on because it is local
+   only, but the opt-out must be documented. Add installer/docs copy that says the
+   log records local event metadata and character counts, never uploads them, and
+   can be disabled with `LESS_TOKENS_NO_STATS=1`. Do not add a config toggle or
+   prompt.
 
-2. **Always-on privacy — BLOCKS PHASE 1.** Tracking becomes unconditional with only
-   an undocumented `LESS_TOKENS_NO_STATS=1` bail-out. Acceptable for a tool that
-   installs into other people's repos, or do we need a documented opt-out and a
-   first-run notice? Log is local-only, never transmitted. *Lean: always-on, env
-   bail-out only — but this is a product call, not ours to make alone.*
+3. **Compaction strategy — resolved.** Add a real compaction savings emitter if
+   compaction is included in the savings report. Do not reuse the existing v2 budget
+   compaction telemetry as savings by itself: it is token-estimate telemetry, not a
+   measured `kept_chars`/`elided_chars` event. The new emitter must only log when it
+   can see both the pre-compaction transcript text/size and the compacted summary
+   text/size.
 
-3. **Compaction strategy — BLOCKS PHASE 1 (scope).** Still has no emitter. Omit it
-   from the schema/report until a real one exists, or build the emitter now and
-   measure it like the rest? Affects whether Phase 1 includes new instrumentation.
-   *Lean: omit until real.*
+4. **Search-first kept side — resolved.** Keep `kept_chars=0` for the redirect
+   event in Phase 1 and add an optional `correlation_id`. Search events can later
+   carry the same id or a `caused_by` field so the report can net the follow-up
+   search cost without changing the base schema.
 
-4. **Search-first kept side.** We log `kept_chars=0`, but the agent did run a real
-   search with real cost. Capture that follow-up search's chars (linked via
-   `session_id`) so the upper bound can later be netted toward a real figure — or
-   leave it as a pure ceiling? *Lean: design the link now, net it down later.*
+5. **Codex surfacing channel — resolved.** Treat the transcript/file link as the
+   only guaranteed Codex surface. The current manifest has Codex PostToolUse
+   adapters but no native Stop hook equivalent, so richer end-of-turn surfacing must
+   be opportunistic and separately confirmed.
 
-5. **Codex surfacing channel.** What does Codex expose for end-of-turn output in
-   this repo's parity layer — a turn-summary hook, a notification, or only the
-   transcript? Determines whether the one-liner has a home beyond the `file://`
-   link. *Lean: transcript link as the floor; richer channel if one exists.*
-
-6. **Calibration sample.** Which content mix best represents real token spend for
-   `--calibrate` — this repo's own files, or captured live tool outputs? Wrong
-   sample biases the divisor. *Lean: start with repo files; revisit if biased.*
+6. **Calibration sample — resolved.** Start with repository files plus a bounded
+   sample of recent captured tool outputs when available. Label the resulting
+   divisor with sample counts and date. If no tool-output samples exist, calibrate
+   from repo files only and mark the badge `repo-sample calibrated` rather than
+   implying it represents all runtime output.
