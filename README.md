@@ -24,7 +24,7 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | `--compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-Core search/read guards and the budget control plane are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+Core search/read guards and the budget control plane are wired by default for the selected agent; truncation, compaction, and caveman/terse output enforcement remain optional flags. Claude and Codex have feature parity for the shipped strategies, but Codex enforcement is best-effort through `.codex/hooks.json` while Claude hooks are enforced directly. A built-in **savings tracker** (`.claude/tools/stats.py` after install) measures chars and estimated tokens saved per strategy; off by default, enable with one command. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 ```
 Without less_tokens:           With less_tokens:
@@ -57,7 +57,7 @@ cd ~/myproject/less_tokens && git pull
 python3 install.py --update                # safe re-copy of hooks + tools
 ```
 
-See [DOCUMENTATION.md](DOCUMENTATION.md) for full installation, configuration, usage, and hook wiring instructions. See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix.
+See [DOCUMENTATION.md](DOCUMENTATION.md) for full installation, configuration, usage, hook wiring instructions, and the Claude/Codex parity matrix. The hook manifest lives in [`agents/common/hooks/hook_manifest.py`](agents/common/hooks/hook_manifest.py), with CI-checked parity data in [`agents/common/hooks/parity.json`](agents/common/hooks/parity.json).
 
 Budget behavior is controlled by `.less_tokens/config/budget.json`. Modes are `observe` (record only), `advise` (print concise suggestions), `enforce` (block actionable waste with a replacement or bypass), and `strict` (also blocks oversized unscored context). Inspect recent decisions with:
 

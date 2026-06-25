@@ -67,6 +67,9 @@ Rules, protocols, and configs expressed as natural language that could be determ
 - **CX2 — Default optional savings hooks on for Codex installs** *(tool/output; Codex-only)* — for `--agent codex`, wire `truncate-output`, `compact-trigger`, and `terse-reminder` by default while preserving Claude's current opt-in `--truncate --compact --caveman` behavior. Keep explicit flags/back-compat accepted; document the Codex default and test `build_codex_hook_entries()` / install check for the larger default hook set.
 - **CX3 — Codex-specific truncate caps** *(tool; Codex-only)* — add Codex-scoped caps/env/config for `truncate-output.py` so Bash and filesystem results are much smaller than Claude's defaults. Target noisy commands and large reads first; pin with subprocess tests for `Bash` and `mcp__filesystem__read_file`.
 - **CX4 — Codex Bash command rewrites** *(tool/input; Codex-only)* — extend Codex `listing-guard` / `lean-output` behavior to block or rewrite high-token commands with cheaper replacements: `find .` → `rg --files`, broad `git diff` → stat/name-only or capped diff, verbose test runs → failure summary, broad `cat`/`tree`/recursive listings → targeted alternatives. Tests should prove Claude hook behavior is unchanged.
+- **CX10 — Codex enforcement parity audit** *(meta; Codex-only)* — turn the current "feature parity but best-effort enforcement" gap into a repeatable audit: validate `.codex/hooks.json` writability, event names, matcher coverage, and fail-open cases against the shipped hook manifest. Output should say which strategies are feature-parity, enforcement-parity, or best-effort-only.
+- **CX11 — Codex hook event-contract CI** *(meta/tool; Codex-only)* — add fixture-level tests that replay representative Codex payloads for every `.codex/hooks.json` matcher, including filesystem reads/searches, Bash, `apply_patch`, Edit, and Write. Goal: catch Codex event-shape drift before parity silently degrades.
+
 ### Medium Priority
 
 - **CX5 — Shrink Codex AGENTS.md fixed context** *(fixed; Codex-only)* — compress `agents/codex/instructions/AGENTS.md.fragment` to rules plus pointers; move command examples/details into the installed `less-tokens` skill. Verify `agentsmd-budget.py` still passes and install still injects enough guidance for search-before-read, noise guards, and concise output.
@@ -74,6 +77,8 @@ Rules, protocols, and configs expressed as natural language that could be determ
 - **CX7 — Patch-aware Codex post-edit diff caps** *(tool/input; Codex-only)* — for Codex `apply_patch`, have post-edit-diff emit touched files + compact hunk summaries first, and include full diff only below a low Codex cap. Preserve Claude `Edit|Write` diff behavior.
 - **CX8 — Codex Bash context-cache** *(tool; Codex-only)* — add short-TTL duplicate detection for repeated Codex Bash commands such as `git status`, `pwd`, identical `rg`, and repeated test commands. Block repeats with a concise "already in context" message and record saved output chars.
 - **CX9 — Codex savings install profile** *(meta; Codex-only)* — add `--codex-savings balanced|aggressive` profile that only changes `.codex/hooks.json`, `AGENTS.md`, and `agent_overrides.codex`. `balanced` should match current/default behavior; `aggressive` enables stricter caps and optional hooks without touching Claude settings.
+- **CX12 — Generated parity docs from hook manifest** *(meta; docs)* — generate the README/DOCUMENTATION parity table from `agents/common/hooks/hook_manifest.py` + `parity.json` so docs cannot point at retired files or drift from the actual Claude/Codex hook set. Include feature parity vs enforcement parity wording.
+
 ### Low Priority
 
 ---

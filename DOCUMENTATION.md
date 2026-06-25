@@ -95,14 +95,17 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 | Symbol lookup | ✓ Python + JS/TS | ✓ Python + JS/TS |
 | AGENTS.md / CLAUDE.md pruning | ✓ | ✓ (`agentsmd_audit.py`) |
 
+This is feature parity, not identical enforcement parity. The shared source of truth is `agents/common/hooks/hook_manifest.py`; `agents/common/hooks/parity.json` records whether each strategy is shipped for Claude and Codex. Claude hooks are enforced directly by Claude Code. Codex hooks are adapter-based and best-effort through `.codex/hooks.json`, so they can lose enforcement if `.codex/` is not writable or Codex changes event payloads/matchers.
+
 **Known limitations:**
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
 - Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
 - Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
+- Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
-See [codex-hook-coverage.md](codex-hook-coverage.md) for the exact Codex hook matrix, including which strategies are wired by default and which remain optional.
+See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default and which remain optional, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
 
 For repeatable savings checks, run:
 
@@ -536,7 +539,7 @@ agents/
 - Thin adapters normalize Codex payloads, call shared checks where available, and write state under `.less_tokens/state/`.
 - Default adapters cover search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks.
 - Optional adapters cover truncation, compaction, and terse-output reminders when their install flags are enabled.
-- See [codex-hook-coverage.md](codex-hook-coverage.md) for event matchers and known limits.
+- Event matchers and optional/default status live in `agents/common/hooks/hook_manifest.py`; shipped/missing parity lives in `agents/common/hooks/parity.json`.
 
 **Rules (`.claude/rules/`)**
 - `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
