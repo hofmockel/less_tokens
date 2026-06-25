@@ -40,6 +40,7 @@ from search_config import (  # noqa: E402
     active_state_dir,
 )
 from savings_log import append as _log_savings  # noqa: E402
+from savings_log import resolve_session as _resolve_session  # noqa: E402
 
 DEFAULT_K = 3
 
@@ -316,12 +317,16 @@ def main() -> int:
                 full_file_chars += (BASE / fp).stat().st_size
             except OSError:
                 pass
+        sid, ssrc = _resolve_session(None)
         _log_savings({
             "strategy": "search",
-            "query": args.query,
-            "chunk_chars": chunk_chars,
-            "full_file_chars": full_file_chars,
-            "saved_chars": max(0, full_file_chars - chunk_chars),
+            "basis": "upper_bound",
+            "kept_chars": chunk_chars,
+            "elided_chars": max(0, full_file_chars - chunk_chars),
+            "content_kind": "search_result",
+            "where": args.query,
+            "session_id": sid,
+            "session_source": ssrc,
         })
 
     _write_last_search_ranges(results)

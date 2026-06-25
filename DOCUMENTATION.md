@@ -153,7 +153,6 @@ All variables:
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
-| `TRACK_SAVINGS` | Enable per-strategy savings logging (default `False`; set via `.claude/bin/python .claude/tools/stats.py --enable`) |
 
 `INDEXED_SOURCE_DIRS` also feeds JS/TS indexing for `.js`, `.jsx`, `.ts`, and `.tsx` files.
 
@@ -231,15 +230,9 @@ For Codex-only workflows, `.less_tokens/bin/python .less_tokens/tools/search.py`
 
 Track how many chars and tokens each strategy saves across a session.
 
-Tracking is **off by default**. Enable it with:
+Tracking is **always on and local-only** from the first session of every install — there is no enable flag. Each event appends one JSON record to `.claude/state/savings.jsonl`; the log is never transmitted. Records store exact characters (`kept_chars`/`elided_chars`) plus `basis`, `content_kind`, `where`, and `session_id`; tokens are derived at report time, not stored.
 
-```bash
-.claude/bin/python .claude/tools/stats.py --enable    # non-interactive
-# or
-.claude/bin/python .claude/tools/stats.py             # interactive prompt
-```
-
-Once enabled, each hook call appends one JSON record to `.claude/state/savings.jsonl`.
+Disable local logging with the `LESS_TOKENS_NO_STATS=1` environment variable.
 
 **Commands:**
 
@@ -247,7 +240,6 @@ Once enabled, each hook call appends one JSON record to `.claude/state/savings.j
 .claude/bin/python .claude/tools/stats.py              # show session table (last 8h)
 .claude/bin/python .claude/tools/stats.py --all        # show all-time totals
 .claude/bin/python .claude/tools/stats.py --report     # write .claude/state/savings-report.md and print table
-.claude/bin/python .claude/tools/stats.py --disable    # turn tracking off
 ```
 
 Also accessible as:
@@ -396,7 +388,7 @@ less_tokens/
         ├── search.py              # semantic search CLI
         ├── db.py                  # SQLite helpers
         ├── savings_log.py         # per-event savings logger (used by hooks)
-        └── stats.py               # savings tracker CLI (enable / report / disable)
+        └── stats.py               # savings tracker CLI (report; always on)
 ```
 
 **Deployed layout** (inside the host project's `.claude/`):

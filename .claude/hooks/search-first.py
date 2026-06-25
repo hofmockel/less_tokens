@@ -61,7 +61,9 @@ def _load_config() -> bool:
         return False
     try:
         from savings_log import append as _log  # noqa: PLC0415
+        from savings_log import resolve_session  # noqa: PLC0415
         _config["log"] = _log
+        _config["resolve_session"] = resolve_session
     except Exception:
         pass
     return True
@@ -102,7 +104,19 @@ def main() -> int:
         except Exception:
             rel = str(file_path)
             saved = 0
-        _config.get("log", lambda _: None)({"strategy": "search-blocked", "file": rel, "saved_chars": saved})
+        _resolve = _config.get("resolve_session", lambda _r: ("local-session", "local"))
+        sid, ssrc = _resolve(raw)
+        _config.get("log", lambda _: None)({
+            "strategy": "search-blocked",
+            "basis": "upper_bound",
+            "kept_chars": 0,
+            "elided_chars": saved,
+            "content_kind": "source_file",
+            "where": rel,
+            "session_id": sid,
+            "session_source": ssrc,
+            "correlation_id": f"sf:{rel}",
+        })
         stderr = stderr.replace("Search-first rule:", "Search-first rule (CLAUDE.md):")
     if stdout:
         print(stdout)

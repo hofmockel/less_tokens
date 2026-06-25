@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -20,12 +19,9 @@ BASE = Path(__file__).resolve().parent.parent.parent
 CLAUDE_DIR = BASE / ".claude"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-CONFIG_FILE = CLAUDE_DIR / "tools" / "search_config.py"
-
 try:
-    from search_config import STATE_DIR, TRACK_SAVINGS
+    from search_config import STATE_DIR
 except Exception:
-    TRACK_SAVINGS = False
     STATE_DIR = CLAUDE_DIR / "state"
 
 LOG_FILE = STATE_DIR / "savings.jsonl"
@@ -41,17 +37,28 @@ _STRATEGY_LABELS = {
 }
 
 
-def _set_tracking(enabled: bool) -> None:
-    src = CONFIG_FILE.read_text(encoding="utf-8")
-    # Matches TRACK_SAVINGS = True, TRACK_SAVINGS: bool = False,
-    # TRACK_SAVINGS: bool | None = False, etc.
-    pattern = r"^(TRACK_SAVINGS(?:\s*:[^=]+)?\s*=\s*)(?:True|False)"
-    replacement = rf"\g<1>{enabled}"
-    new_src = re.sub(pattern, replacement, src, count=1, flags=re.MULTILINE)
-    if new_src == src:
-        print(f"Could not find 'TRACK_SAVINGS' in {CONFIG_FILE}", file=sys.stderr)
-        return
-    CONFIG_FILE.write_text(new_src, encoding="utf-8")
+def _normalize_record(r: dict) -> dict:
+    """Map any record — new-schema or legacy — to the canonical shape.
+
+    New records carry ``basis``/``kept_chars``/``elided_chars``. Legacy records
+    (pre-Phase-1) only have ``saved_chars``: treat the saved amount as elided,
+    infer ``basis`` from the strategy (truncation is measured, everything else is
+    an upper bound), tag ``content_kind="legacy"``, and fold the old ``glob-cap``
+    strategy into ``truncation``. The file is never rewritten — the reader is
+    tolerant. ``saved_chars`` is kept as an alias of ``elided_chars`` so existing
+    summing keeps working until the Phase 3 report split.
+    """
+    r = dict(r)
+    if r.get("strategy") == "glob-cap":
+        r["strategy"] = "truncation"
+    if "basis" not in r:
+        elided = r.get("elided_chars", r.get("saved_chars", 0))
+        r["elided_chars"] = elided
+        r.setdefault("kept_chars", 0)
+        r["basis"] = "measured" if r.get("strategy") == "truncation" else "upper_bound"
+        r["content_kind"] = "legacy"
+    r["saved_chars"] = r.get("elided_chars", r.get("saved_chars", 0))
+    return r
 
 
 def _load_records(all_time: bool = False) -> list[dict]:
@@ -69,7 +76,7 @@ def _load_records(all_time: bool = False) -> list[dict]:
             print(f"  WARN: skipping malformed record in {LOG_FILE}: {e}", file=sys.stderr)
             continue
         if r.get("ts", 0) >= cutoff:
-            out.append(r)
+            out.append(_normalize_record(r))
     return out
 
 
@@ -79,7 +86,7 @@ def _summarize(records: list[dict]) -> dict:
         s = r.get("strategy", "")
         if s in data:
             data[s]["events"] += 1
-            data[s]["saved_chars"] += r.get("saved_chars", 0)
+            data[s]["saved_chars"] += r.get("elided_chars", r.get("saved_chars", 0))
     return data
 
 
@@ -152,8 +159,9 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
         f"Generated: {now}",
         "",
         "Counts tokens *not* sent to the model because a hook or tool intervened. "
-        "Tracking is opt-in (`TRACK_SAVINGS`); each event appends one line to "
-        "`state/savings.jsonl`, and this report sums them. Read the numbers with the "
+        "Tracking is always on and **local-only**: each event appends one line to "
+        "`state/savings.jsonl` (never transmitted), and this report sums them. "
+        "Disable with `LESS_TOKENS_NO_STATS=1`. Read the numbers with the "
         "methodology below — the four strategies are *not* equally grounded.",
         "",
         *_build_table_lines(session_label, session_records),
@@ -170,35 +178,11 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Token savings tracker")
-    ap.add_argument("--enable", action="store_true", help="Turn tracking on (non-interactive)")
+    ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
-    ap.add_argument("--disable", action="store_true", help="Turn tracking off")
     ap.add_argument("--all", dest="all_time", action="store_true",
                     help="Show all-time totals instead of session")
     args = ap.parse_args()
-
-    if args.enable:
-        _set_tracking(True)
-        print(f"Token tracking enabled. Savings logged to {LOG_FILE}")
-        return 0
-
-    if args.disable:
-        _set_tracking(False)
-        print("Token tracking disabled.")
-        return 0
-
-    if not TRACK_SAVINGS:
-        print("Token tracking is disabled.")
-        try:
-            answer = input("Enable? [y/N]: ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return 0
-        if answer == "y":
-            _set_tracking(True)
-            print(f"Token tracking enabled. Savings logged to {LOG_FILE}")
-        return 0
 
     session_records = _load_records(all_time=False)
     all_records = _load_records(all_time=True)

@@ -44,6 +44,7 @@ except Exception:
 try:
     from search_config import MAX_GLOB_RESULTS, MAX_TOOL_OUTPUT_CHARS, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES  # noqa: E402
     from savings_log import append as _log_savings  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
 except Exception:
     MAX_TOOL_OUTPUT_CHARS = 4000
     MAX_GLOB_RESULTS = 100
@@ -52,6 +53,9 @@ except Exception:
 
     def _log_savings(_r: dict) -> None:
         pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
 
 
 def main() -> int:
@@ -68,11 +72,17 @@ def main() -> int:
         max_glob_results=MAX_GLOB_RESULTS,
     )
     if code == 2:
+        sid, ssrc = resolve_session(raw)
+        kept = len(stdout)
         _log_savings({
-            "strategy": "glob-cap" if payload.tool_name == "Glob" else "truncation",
-            "tool": payload.tool_name,
-            "original_chars": len(payload.tool_output),
-            "saved_chars": max(0, len(payload.tool_output) - len(stdout)),
+            "strategy": "truncation",
+            "basis": "measured",
+            "kept_chars": kept,
+            "elided_chars": max(0, len(payload.tool_output) - kept),
+            "content_kind": "tool_output",
+            "where": payload.tool_name,
+            "session_id": sid,
+            "session_source": ssrc,
         })
     if stdout:
         print(stdout)

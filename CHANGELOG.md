@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Savings tracking is always on, local-only, with a new exact-chars schema** — Phase 1 of the stats framework rewrite (`stats_plan.md`). Dropped the `TRACK_SAVINGS` opt-in gate (and the enable/disable CLI + interactive prompt); tracking now runs from the first session of every install and writes only to `.claude/state/savings.jsonl`, never transmitted. Disable with the `LESS_TOKENS_NO_STATS=1` environment variable. Each event now records exact `kept_chars`/`elided_chars` plus `basis` (`measured` vs `upper_bound`), `content_kind`, `where`, and a resolved `session_id`/`session_source` (payload → transcript-hash → env → `local-session`); the search-first block also emits a `correlation_id`. `truncate-output.py`, `search-first.py`, and `search.py` emit the new shape; `stats.py` gained a legacy-tolerant loader that maps pre-Phase-1 records (`saved_chars` → `elided_chars`, infers `basis`, tags `content_kind="legacy"`, folds `glob-cap` into `truncation`) without rewriting the file. Tokens remain a report-time estimate, never stored.
+
 ### Removed
+- **`_set_tracking` type-hint regression test** — deleted `test_bug26_set_tracking_type_hints.py`; the `_set_tracking` helper it guarded was removed with the `TRACK_SAVINGS` gate (always-on tracking has no enable flag to flip).
 - **Fixture-driven perf benchmark** — deleted `.claude/tests/perf/` (`test_bench_tokens.py`), the `perf` pytest marker, and the `Perf benchmarks` CI job. Its `reduction >= MIN_*_REDUCTION` assertions measured properties of hand-built fixtures, not real-session savings. Phase 0 of the stats framework rewrite (`stats_plan.md`): pure removal with no replacement dependency, done first so it stops gating the rewrite on a contract the rewrite deletes.
 
 ### Added

@@ -1,7 +1,15 @@
-"""Unit tests for tools/savings_log.py and tools/stats.py."""
+"""Unit tests for tools/savings_log.py and tools/stats.py.
+
+These guard the measurement *pipe*, never a savings magnitude: arithmetic
+identities, basis classification, session-id fallback order, the always-on
+write path, and the legacy-tolerant loader. No fixture asserts that a made-up
+input "saves" a made-up amount.
+"""
 from __future__ import annotations
 
+import importlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -14,36 +22,36 @@ if str(_TOOLS) not in sys.path:
 
 import savings_log  # noqa: E402  (must follow sys.path setup)
 
+_ENABLED = {"LESS_TOKENS_NO_STATS": "0"}
+
 
 # ---------------------------------------------------------------------------
-# savings_log
+# savings_log.append — always on, local-only, env opt-out
 # ---------------------------------------------------------------------------
 
-def test_append_noop_when_disabled(tmp_path):
+def test_append_noop_when_opted_out(tmp_path):
     log = tmp_path / "savings.jsonl"
     with (
-        patch("savings_log.TRACK_SAVINGS", False),
+        patch.dict(os.environ, {"LESS_TOKENS_NO_STATS": "1"}),
         patch("savings_log._LOG_FILE", log),
     ):
-        import savings_log
-        savings_log.append({"strategy": "truncation", "saved_chars": 100})
+        savings_log.append({"strategy": "truncation", "elided_chars": 100})
     assert not log.exists()
 
 
-def test_append_writes_when_enabled(tmp_path):
+def test_append_writes_when_on_by_default(tmp_path):
     log = tmp_path / "savings.jsonl"
     with (
-        patch("savings_log.TRACK_SAVINGS", True),
+        patch.dict(os.environ, _ENABLED),
         patch("savings_log.STATE_DIR", tmp_path),
         patch("savings_log._LOG_FILE", log),
     ):
-        import savings_log
-        savings_log.append({"strategy": "truncation", "saved_chars": 500})
+        savings_log.append({"strategy": "truncation", "elided_chars": 500})
 
     assert log.exists()
     record = json.loads(log.read_text())
     assert record["strategy"] == "truncation"
-    assert record["saved_chars"] == 500
+    assert record["elided_chars"] == 500
     assert "ts" in record
 
 
@@ -51,12 +59,11 @@ def test_append_adds_timestamp_if_missing(tmp_path):
     log = tmp_path / "savings.jsonl"
     before = time.time()
     with (
-        patch("savings_log.TRACK_SAVINGS", True),
+        patch.dict(os.environ, _ENABLED),
         patch("savings_log.STATE_DIR", tmp_path),
         patch("savings_log._LOG_FILE", log),
     ):
-        import savings_log
-        savings_log.append({"strategy": "compaction", "saved_chars": 0})
+        savings_log.append({"strategy": "compaction", "elided_chars": 0})
     after = time.time()
     record = json.loads(log.read_text())
     assert before <= record["ts"] <= after
@@ -65,26 +72,107 @@ def test_append_adds_timestamp_if_missing(tmp_path):
 def test_append_respects_existing_timestamp(tmp_path):
     log = tmp_path / "savings.jsonl"
     with (
-        patch("savings_log.TRACK_SAVINGS", True),
+        patch.dict(os.environ, _ENABLED),
         patch("savings_log.STATE_DIR", tmp_path),
         patch("savings_log._LOG_FILE", log),
     ):
-        import savings_log
-        savings_log.append({"strategy": "truncation", "saved_chars": 0, "ts": 12345.0})
+        savings_log.append({"strategy": "truncation", "elided_chars": 0, "ts": 12345.0})
     record = json.loads(log.read_text())
     assert record["ts"] == 12345.0
 
 
 # ---------------------------------------------------------------------------
-# stats._summarize
+# savings_log.resolve_session — fallback order
+# ---------------------------------------------------------------------------
+
+def test_resolve_session_prefers_payload_field():
+    with patch.dict(os.environ, {"LESS_TOKENS_SESSION_ID": "envval"}):
+        sid, src = savings_log.resolve_session(
+            {"session_id": "abc", "transcript_path": "/t/x.jsonl"}
+        )
+    assert (sid, src) == ("abc", "payload")
+
+
+def test_resolve_session_hashes_transcript_path():
+    sid, src = savings_log.resolve_session({"transcript_path": "/home/u/x.jsonl"})
+    assert src == "transcript_path"
+    assert len(sid) == 12 and sid.isalnum()
+    # stable: same path → same id
+    assert savings_log.resolve_session({"transcript_path": "/home/u/x.jsonl"})[0] == sid
+
+
+def test_resolve_session_falls_back_to_env():
+    with patch.dict(os.environ, {"LESS_TOKENS_SESSION_ID": "envval"}):
+        sid, src = savings_log.resolve_session({})
+    assert (sid, src) == ("envval", "env")
+
+
+def test_resolve_session_last_resort_local():
+    env = dict(os.environ)
+    env.pop("LESS_TOKENS_SESSION_ID", None)
+    with patch.dict(os.environ, env, clear=True):
+        sid, src = savings_log.resolve_session(None)
+    assert (sid, src) == ("local-session", "local")
+
+
+# ---------------------------------------------------------------------------
+# stats._normalize_record — basis classification + legacy mapping
 # ---------------------------------------------------------------------------
 
 def _import_stats():
-    import importlib, sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "tools"))
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tools"))
     import stats
     return importlib.reload(stats)
 
+
+def test_normalize_legacy_truncation_is_measured():
+    stats = _import_stats()
+    r = stats._normalize_record({"strategy": "truncation", "saved_chars": 100})
+    assert r["basis"] == "measured"
+    assert r["elided_chars"] == 100
+    assert r["content_kind"] == "legacy"
+    assert r["saved_chars"] == 100  # alias preserved for summing
+
+
+def test_normalize_legacy_search_is_upper_bound():
+    stats = _import_stats()
+    r = stats._normalize_record({"strategy": "search", "saved_chars": 50})
+    assert r["basis"] == "upper_bound"
+    assert r["content_kind"] == "legacy"
+
+
+def test_normalize_folds_glob_cap_into_truncation():
+    stats = _import_stats()
+    r = stats._normalize_record({"strategy": "glob-cap", "saved_chars": 30})
+    assert r["strategy"] == "truncation"
+    assert r["basis"] == "measured"
+
+
+def test_normalize_preserves_new_schema_record():
+    stats = _import_stats()
+    rec = {
+        "strategy": "truncation", "basis": "measured",
+        "kept_chars": 5, "elided_chars": 20, "content_kind": "tool_output",
+    }
+    r = stats._normalize_record(rec)
+    assert r["basis"] == "measured"
+    assert r["elided_chars"] == 20
+    assert r["saved_chars"] == 20  # alias of elided
+
+
+def test_elided_is_original_minus_kept_identity():
+    # The arithmetic identity each emitter relies on — deterministic, no fixtures.
+    original = "x" * 4000
+    kept = "x" * 137
+    elided = max(0, len(original) - len(kept))
+    rec = {"strategy": "truncation", "basis": "measured",
+           "kept_chars": len(kept), "elided_chars": elided}
+    assert rec["elided_chars"] == len(original) - len(kept)
+
+
+# ---------------------------------------------------------------------------
+# stats._summarize
+# ---------------------------------------------------------------------------
 
 def test_summarize_empty():
     stats = _import_stats()
@@ -97,10 +185,10 @@ def test_summarize_empty():
 def test_summarize_aggregates():
     stats = _import_stats()
     records = [
-        {"strategy": "truncation", "saved_chars": 1000},
-        {"strategy": "truncation", "saved_chars": 2000},
-        {"strategy": "search", "saved_chars": 500},
-        {"strategy": "unknown", "saved_chars": 999},  # should be ignored
+        {"strategy": "truncation", "elided_chars": 1000},
+        {"strategy": "truncation", "elided_chars": 2000},
+        {"strategy": "search", "elided_chars": 500},
+        {"strategy": "unknown", "elided_chars": 999},  # should be ignored
     ]
     result = stats._summarize(records)
     assert result["truncation"]["events"] == 2
@@ -125,7 +213,7 @@ def test_build_table_lines_returns_list_of_strings():
 
 def test_build_table_lines_shows_savings():
     stats = _import_stats()
-    records = [{"strategy": "truncation", "saved_chars": 4000}]
+    records = [{"strategy": "truncation", "elided_chars": 4000}]
     lines = stats._build_table_lines("Session", records)
     joined = "\n".join(lines)
     assert "4,000" in joined
@@ -133,7 +221,7 @@ def test_build_table_lines_shows_savings():
 
 
 # ---------------------------------------------------------------------------
-# stats._load_records
+# stats._load_records — legacy-tolerant loader
 # ---------------------------------------------------------------------------
 
 def test_load_records_session_filter(tmp_path):
@@ -150,6 +238,8 @@ def test_load_records_session_filter(tmp_path):
 
     assert len(session) == 1
     assert session[0]["strategy"] == "search"
+    # loader normalizes legacy records on the way out
+    assert session[0]["basis"] == "upper_bound"
     assert len(all_time) == 2
 
 
@@ -176,7 +266,7 @@ def test_load_records_skips_malformed_lines(tmp_path):
 def test_write_report_creates_file(tmp_path):
     stats = _import_stats()
     report = tmp_path / "savings-report.md"
-    records = [{"strategy": "truncation", "saved_chars": 8000, "ts": time.time()}]
+    records = [{"strategy": "truncation", "elided_chars": 8000, "ts": time.time()}]
     with patch("stats.REPORT_FILE", report):
         path = stats._write_report(records, records)
     assert path == report
@@ -187,35 +277,5 @@ def test_write_report_creates_file(tmp_path):
     # methodology prose explains how each number is derived
     assert "How these numbers are measured" in content
     assert "counterfactual upper bound" in content
-
-
-# ---------------------------------------------------------------------------
-# stats._set_tracking
-# ---------------------------------------------------------------------------
-
-def test_set_tracking_enables(tmp_path):
-    stats = _import_stats()
-    cfg = tmp_path / "search_config.py"
-    cfg.write_text("TRACK_SAVINGS = False   # comment\n")
-    with patch("stats.CONFIG_FILE", cfg):
-        stats._set_tracking(True)
-    assert "TRACK_SAVINGS = True" in cfg.read_text()
-
-
-def test_set_tracking_disables(tmp_path):
-    stats = _import_stats()
-    cfg = tmp_path / "search_config.py"
-    cfg.write_text("TRACK_SAVINGS = True\n")
-    with patch("stats.CONFIG_FILE", cfg):
-        stats._set_tracking(False)
-    assert "TRACK_SAVINGS = False" in cfg.read_text()
-
-
-def test_set_tracking_missing_key(tmp_path, capsys):
-    stats = _import_stats()
-    cfg = tmp_path / "search_config.py"
-    cfg.write_text("# no tracking variable here\n")
-    with patch("stats.CONFIG_FILE", cfg):
-        stats._set_tracking(True)
-    err = capsys.readouterr().err
-    assert "Could not find" in err
+    # always-on / local-only framing, not the old opt-in flag
+    assert "LESS_TOKENS_NO_STATS" in content

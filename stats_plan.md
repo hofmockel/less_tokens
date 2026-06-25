@@ -205,13 +205,13 @@ only guard the pipe.
 
 ## Phases
 
-0. **Teardown — remove fixture benchmark** — delete `tests/perf/test_bench_tokens.py`
+0. ✅ **Teardown — remove fixture benchmark** *(done)* — delete `tests/perf/test_bench_tokens.py`
    and any fixture-driven "reduction ratio" assertion. Pure removal, no replacement
    dependency: it tests fabricated numbers this rewrite rejects outright, and leaving
    it in keeps CI green on a contract the rewrite deletes. Done first so it stops
    gating the rewrite. (Other deletions — `TRACK_SAVINGS`, the compaction placeholder
    row — are coupled to their replacements and stay in Phases 1–2, not here.)
-1. **Always-on schema + loader** — drop `TRACK_SAVINGS`; add
+1. ✅ **Always-on schema + loader** *(done)* — drop `TRACK_SAVINGS`; add
    `kept/elided/basis/session_id/session_source` records plus optional
    `correlation_id`; legacy-tolerant loader; update the three existing hooks to
    emit it.

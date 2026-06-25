@@ -111,8 +111,8 @@ _STATE_AGENT_AWARE: bool = True   # sentinel for installer merge check
 # Seconds after a search that Read calls on indexed files are allowed without re-searching.
 WINDOW_SECONDS: int = 300
 
-# --- Token savings tracking (Strategy metrics) ---
-TRACK_SAVINGS = False   # set True via: python .claude/tools/stats.py
+# Token savings tracking is always on and local-only (state/savings.jsonl);
+# disable with the LESS_TOKENS_NO_STATS=1 environment variable.
 
 # --- CLAUDE.md budget (claudemd skill + claudemd-budget hook) ---
 # Always-loaded; every token is a per-turn tax. Set 0 to disable.
