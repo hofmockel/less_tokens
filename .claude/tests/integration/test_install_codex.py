@@ -208,6 +208,20 @@ class TestBuildCodexHookEntries:
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("terse-reminder.py" in cmd for cmd in commands)
 
+    def test_codex_optional_stay_opt_in(self, tmp_path):
+        # CL2 defaults the optional hooks ON for Claude only — Codex must stay
+        # opt-in (CX2 is its separate mirror), so a flagless Codex install gets
+        # none of them.
+        entries = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(truncate=False, compact=False, caveman=False),
+        )
+        commands = [cmd for _, _, cmd in entries]
+        assert not any("truncate-output.py" in cmd for cmd in commands)
+        assert not any("compact-trigger.py" in cmd for cmd in commands)
+        assert not any("terse-reminder.py" in cmd for cmd in commands)
+
 
 # ---------------------------------------------------------------------------
 # AGENTS.md creation
