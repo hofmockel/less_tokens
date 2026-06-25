@@ -6,12 +6,14 @@ Usage:
   python tools/stats.py --report     # write savings-report.md and print path
   python tools/stats.py --html       # write savings.html (self-contained page)
   python tools/stats.py --all        # show all-time totals
+  python tools/stats.py --calibrate  # ground the token divisor in Claude's tokenizer
 """
 from __future__ import annotations
 
 import argparse
 import html as _html
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -21,20 +23,76 @@ CLAUDE_DIR = BASE / ".claude"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
-    from search_config import STATE_DIR
+    from search_config import STATE_DIR, CHARS_PER_TOKEN
 except Exception:
     STATE_DIR = CLAUDE_DIR / "state"
+    CHARS_PER_TOKEN = 4
 
 LOG_FILE = STATE_DIR / "savings.jsonl"
 REPORT_FILE = STATE_DIR / "savings-report.md"
 HTML_FILE = STATE_DIR / "savings.html"
-CHARS_PER_TOKEN = 4
+CALIBRATION_FILE = STATE_DIR / "calibration.json"
 SESSION_HOURS = 8
 
-# Honest token footer. Tokens are never stored; they are a report-time estimate.
-# Stays "uncalibrated" until Phase 6 `--calibrate` grounds the divisor in Claude's
-# real tokenizer.
-TOKEN_FOOTER = f"_tokens est. at chars÷{CHARS_PER_TOKEN} (uncalibrated)_"
+# Claude model `--calibrate` counts tokens against. Opus is the project default;
+# override with `--model`.
+CALIBRATION_MODEL = "claude-opus-4-8"
+
+
+def _cpt_str() -> str:
+    """Render the divisor compactly — '4', not '4.0'; '3.72' once calibrated."""
+    return f"{CHARS_PER_TOKEN:g}"
+
+
+def _to_tokens(chars: int) -> int:
+    """Chars → estimated tokens. Float-safe so a calibrated divisor works."""
+    if not chars:
+        return 0
+    return int(chars / CHARS_PER_TOKEN)
+
+
+def _load_calibration() -> dict | None:
+    """Calibration metadata (date, basis, sample counts), or None if uncalibrated.
+
+    Written by ``--calibrate``. Tolerant: a missing or malformed file reads as
+    uncalibrated, never an error.
+    """
+    try:
+        return json.loads(CALIBRATION_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _calibration_label(cal: dict) -> str:
+    """Human badge tail: ``calibrated <date>``, or ``repo-sample calibrated <date>``
+    when the sample didn't include real tool output."""
+    date = cal.get("calibrated_at", "?")
+    basis = cal.get("basis", "full")
+    return f"calibrated {date}" if basis == "full" else f"{basis} calibrated {date}"
+
+
+def _token_footer() -> str:
+    """Honest token footer reflecting calibration state.
+
+    Tokens are never stored; they are a report-time estimate at chars÷divisor.
+    Until ``--calibrate`` grounds the divisor in Claude's real tokenizer the
+    footer reads ``(uncalibrated)``; afterwards it names the date and sample basis.
+    """
+    cal = _load_calibration()
+    state = _calibration_label(cal) if cal else "uncalibrated"
+    return f"_tokens est. at chars÷{_cpt_str()} ({state})_"
+
+
+def _calibration_badge() -> str:
+    """Glanceable HTML-header badge: ``chars÷4 uncalibrated`` vs
+    ``chars÷3.72 calibrated <date>``."""
+    cal = _load_calibration()
+    state = _calibration_label(cal) if cal else "uncalibrated"
+    return f"chars÷{_cpt_str()} {state}"
+
+
+# Module-level snapshot for callers/tests that read the constant directly.
+TOKEN_FOOTER = _token_footer()
 
 _STRATEGY_LABELS = {
     "truncation":     "Truncation",
@@ -156,12 +214,12 @@ def _panel_lines(title: str, records: list[dict], strategies: tuple[str, ...],
         sc = d["saved_chars"]
         total_chars += sc
         sc_str = f"{prefix}{sc:,}" if sc else "—"
-        tok = sc // CHARS_PER_TOKEN if sc else 0
+        tok = _to_tokens(sc)
         tok_str = f"{prefix}{tok:,}" if tok else "—"
         body_rows.append(
             f"| {lbl:<22} | {d['events']:>6} | {sc_str:>12} | {tok_str:>14} |"
         )
-    total_tokens = total_chars // CHARS_PER_TOKEN
+    total_tokens = _to_tokens(total_chars)
     sep = f"|{'-'*24}|{'-'*8}|{'-'*14}|{'-'*16}|"
     return [
         f"### {title}",
@@ -202,6 +260,13 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
 
 def _methodology_lines() -> list[str]:
     """Prose explaining how each number is derived and how trustworthy it is."""
+    cal = _load_calibration()
+    cal_phrase = (
+        f"{_calibration_label(cal)} against Claude's tokenizer"
+        if cal
+        else "uncalibrated against Claude's tokenizer (run `stats.py --calibrate` "
+        "to ground the divisor)"
+    )
     return [
         "## How these numbers are measured",
         "",
@@ -226,8 +291,7 @@ def _methodology_lines() -> list[str]:
         "as if you would have read every one of them whole.",
         "",
         "Caveats: tokens are an estimate, not a count — chars ÷ "
-        f"{CHARS_PER_TOKEN}, uncalibrated against Claude's tokenizer (run "
-        "`stats.py --calibrate` to ground the divisor). \"Session\" groups by the "
+        f"{_cpt_str()}, {cal_phrase}. \"Session\" groups by the "
         "resolved `session_id`; only when no real session is known does it fall back "
         f"to the last {SESSION_HOURS}h of wall-clock time (a legacy view). File sizes "
         "use byte counts, which equal char counts only for ASCII. Net of these, "
@@ -264,7 +328,7 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
         "",
         *_build_table_lines(all_label, all_records),
         "",
-        TOKEN_FOOTER,
+        _token_footer(),
         "",
         *_methodology_lines(),
     ]
@@ -298,6 +362,8 @@ tbody tr:last-child { font-weight: 600; border-top: 2px solid rgba(127,127,127,.
 .measured h3 { color: #1a7f37; }
 .upper h3 { color: #9a6700; }
 .note, .footer { color: #888; font-size: .85rem; }
+.badge { font-size: .8rem; border: 1px solid rgba(127,127,127,.4); border-radius: 6px;
+  padding: .05rem .4rem; color: #888; }
 caption { display: none; }
 """.strip()
 
@@ -313,13 +379,13 @@ def _html_panel(title: str, records: list[dict], strategies: tuple[str, ...],
         sc = d["saved_chars"]
         total_chars += sc
         sc_str = f"{prefix}{sc:,}" if sc else "—"
-        tok = sc // CHARS_PER_TOKEN if sc else 0
+        tok = _to_tokens(sc)
         tok_str = f"{prefix}{tok:,}" if tok else "—"
         rows.append(
             f"<tr><td>{_html.escape(_STRATEGY_LABELS[key])}</td>"
             f"<td>{d['events']:,}</td><td>{sc_str}</td><td>{tok_str}</td></tr>"
         )
-    total_tokens = total_chars // CHARS_PER_TOKEN
+    total_tokens = _to_tokens(total_chars)
     rows.append(
         f"<tr><td>Total</td><td></td>"
         f"<td>{prefix}{total_chars:,}</td><td>{prefix}{total_tokens:,}</td></tr>"
@@ -361,7 +427,8 @@ def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
         "<title>Token Savings Report</title>\n"
         f"<style>{_HTML_STYLE}</style>\n</head>\n<body>\n"
         "<h1>Token Savings Report</h1>\n"
-        f"<p class=\"gen\">Generated: {_html.escape(now)}</p>\n"
+        f"<p class=\"gen\">Generated: {_html.escape(now)} · "
+        f"<span class=\"badge\">{_html.escape(_calibration_badge())}</span></p>\n"
         "<p class=\"intro\">Counts tokens <em>not</em> sent to the model because a hook "
         "or tool intervened. Tracking is always on and <strong>local-only</strong>: each "
         "event appends one line to <code>state/savings.jsonl</code> (never transmitted). "
@@ -369,7 +436,7 @@ def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
         "savings are shown in separate panels and never added together.</p>\n"
         f"{_html_block(session_label, session_records)}\n"
         f"{_html_block(all_label, all_records)}\n"
-        f"<p class=\"footer\">{_html.escape(TOKEN_FOOTER.strip('_'))}</p>\n"
+        f"<p class=\"footer\">{_html.escape(_token_footer().strip('_'))}</p>\n"
         "</body></html>\n"
     )
 
@@ -401,7 +468,7 @@ def _measured_saved_chars(records: list[dict]) -> int:
 
 def _measured_oneliner(records: list[dict], *, scope: str = "session") -> str:
     """Measured-only savings headline, e.g. ``↓ ~122k tok saved (measured) · session``."""
-    tok = _measured_saved_chars(records) // CHARS_PER_TOKEN
+    tok = _to_tokens(_measured_saved_chars(records))
     return f"↓ ~{_fmt_tokens(tok)} tok saved (measured) · {scope}"
 
 
@@ -410,15 +477,157 @@ def _savings_link() -> str:
     return HTML_FILE.resolve().as_uri()
 
 
+# --- Phase 6: opt-in calibration against Claude's real tokenizer ------------
+#
+# `--calibrate` samples representative repo content (code + prose, plus any
+# captured tool outputs when a store exists), counts its tokens against the real
+# model via Anthropic's count_tokens endpoint, and computes the true
+# chars-per-token for OUR content against Claude. It writes the divisor to
+# search_config.CHARS_PER_TOKEN (with a dated comment) and a calibration.json
+# sidecar the report/HTML badge read. Network + API-key gated; never automatic.
+# Stored chars are unchanged — only the report-time estimate is re-grounded.
+
+_CALIBRATION_MAX_FILES = 24
+_CALIBRATION_MAX_FILE_CHARS = 20_000
+
+
+def _chars_per_token(total_chars: int, total_tokens: int) -> float:
+    """The calibration identity: chars ÷ tokens. Guards divide-by-zero."""
+    if total_tokens <= 0:
+        raise ValueError("token count must be positive")
+    return total_chars / total_tokens
+
+
+def _gather_calibration_samples() -> tuple[list[str], dict]:
+    """Representative real content for calibration, bounded for cost.
+
+    Repo prose (root ``*.md``) and code (``.claude/tools/*.py``) always; recent
+    captured tool outputs when a capture store exists (none today). Returns
+    ``(texts, counts)`` — counts records how many of each kind contributed, so
+    the report can label the basis ``repo-sample`` when no real tool output was
+    available.
+    """
+    texts: list[str] = []
+    counts = {"prose": 0, "code": 0, "tool_outputs": 0}
+    candidates = sorted(BASE.glob("*.md")) + sorted((CLAUDE_DIR / "tools").glob("*.py"))
+    for p in candidates:
+        if len(texts) >= _CALIBRATION_MAX_FILES:
+            break
+        try:
+            t = p.read_text(encoding="utf-8")[:_CALIBRATION_MAX_FILE_CHARS]
+        except Exception:
+            continue
+        if not t.strip():
+            continue
+        texts.append(t)
+        counts["code" if p.suffix == ".py" else "prose"] += 1
+    return texts, counts
+
+
+def _count_tokens_via_api(texts: list[str], model: str) -> int:
+    """Total Claude tokens for ``texts`` via Anthropic's count_tokens endpoint.
+
+    Local import so the SDK is never on the hot path. Raises ImportError when the
+    SDK is absent and the SDK's own errors on auth/network failure — the caller
+    turns these into a clear, actionable message.
+    """
+    import anthropic  # opt-in, network path only
+
+    client = anthropic.Anthropic()
+    total = 0
+    for t in texts:
+        resp = client.messages.count_tokens(
+            model=model, messages=[{"role": "user", "content": t}]
+        )
+        total += resp.input_tokens
+    return total
+
+
+def _write_config_divisor(cpt: float, *, model: str, basis: str, date: str,
+                          cfg_path: Path | None = None) -> None:
+    """Rewrite the ``CHARS_PER_TOKEN`` line in search_config.py with a dated note.
+
+    Tolerant single-line regex replace; the rest of the file is untouched.
+    """
+    cfg = cfg_path or (Path(__file__).resolve().parent / "search_config.py")
+    text = cfg.read_text(encoding="utf-8")
+    line = (
+        f"CHARS_PER_TOKEN: float = {cpt:.4f}  "
+        f"# calibrated {date} vs {model} ({basis}); was 4 (prose ~4, code ~3)"
+    )
+    new, n = re.subn(r"^CHARS_PER_TOKEN\s*:.*$", line, text, count=1, flags=re.M)
+    if n != 1:
+        raise RuntimeError("could not locate CHARS_PER_TOKEN in search_config.py")
+    cfg.write_text(new, encoding="utf-8")
+
+
+def _run_calibrate(model: str) -> int:
+    from datetime import datetime
+
+    texts, counts = _gather_calibration_samples()
+    if not texts:
+        print("Calibration: no sample content found.", file=sys.stderr)
+        return 1
+    try:
+        total_tokens = _count_tokens_via_api(texts, model)
+    except ImportError:
+        print("Calibration needs the Anthropic SDK: pip install anthropic "
+              "(and set ANTHROPIC_API_KEY).", file=sys.stderr)
+        return 1
+    except Exception as e:  # auth / network / API — opt-in, so surface and stop
+        print(f"Calibration failed: {e}", file=sys.stderr)
+        return 1
+
+    total_chars = sum(len(t) for t in texts)
+    try:
+        cpt = _chars_per_token(total_chars, total_tokens)
+    except ValueError as e:
+        print(f"Calibration failed: {e}", file=sys.stderr)
+        return 1
+
+    basis = "full" if counts["tool_outputs"] else "repo-sample"
+    date = datetime.now().strftime("%Y-%m-%d")
+    payload = {
+        "chars_per_token": round(cpt, 4),
+        "calibrated_at": date,
+        "model": model,
+        "basis": basis,
+        "samples": counts,
+        "total_chars": total_chars,
+        "total_tokens": total_tokens,
+    }
+    CALIBRATION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CALIBRATION_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:
+        _write_config_divisor(cpt, model=model, basis=basis, date=date)
+    except Exception as e:
+        print(f"Calibrated, but could not update search_config.py: {e}", file=sys.stderr)
+        return 1
+    print(
+        f"Calibrated chars÷{cpt:.4f} vs {model} ({basis}: {sum(counts.values())} "
+        f"samples, {total_chars:,} chars / {total_tokens:,} tokens). "
+        f"Written to search_config.py and {CALIBRATION_FILE}."
+    )
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
     ap.add_argument("--html", action="store_true", help="Write savings.html")
     ap.add_argument("--oneliner", action="store_true",
                     help="Print one measured savings line (for statusline) and exit")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="Calibrate the token divisor against Claude's tokenizer "
+                         "(opt-in; needs anthropic + ANTHROPIC_API_KEY)")
+    ap.add_argument("--model", default=CALIBRATION_MODEL,
+                    help="Model for --calibrate count_tokens (default: %(default)s)")
     ap.add_argument("--all", dest="all_time", action="store_true",
                     help="Show all-time totals instead of session")
     args = ap.parse_args()
+
+    if args.calibrate:
+        return _run_calibrate(args.model)
 
     if args.oneliner:
         print(_measured_oneliner(_load_records(all_time=False)))
@@ -442,7 +651,7 @@ def main() -> int:
     )
     display = all_records if args.all_time else session_records
     print("\n".join(_build_table_lines(label, display)))
-    print(f"\n{TOKEN_FOOTER}")
+    print(f"\n{_token_footer()}")
     return 0
 
 

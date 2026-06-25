@@ -298,7 +298,7 @@ def main() -> int:
     # Warn if returned chunks would consume a large fraction of the
     # configured model's window.
     if prof and results:
-        approx_tokens = sum(len(r["text"]) for r in results) // search_config.CHARS_PER_TOKEN
+        approx_tokens = int(sum(len(r["text"]) for r in results) / search_config.CHARS_PER_TOKEN)
         window = prof.get("context_window", 0)
         if window and approx_tokens > window // 4:
             print(
