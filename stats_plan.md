@@ -205,6 +205,12 @@ only guard the pipe.
 
 ## Phases
 
+0. **Teardown — remove fixture benchmark** — delete `tests/perf/test_bench_tokens.py`
+   and any fixture-driven "reduction ratio" assertion. Pure removal, no replacement
+   dependency: it tests fabricated numbers this rewrite rejects outright, and leaving
+   it in keeps CI green on a contract the rewrite deletes. Done first so it stops
+   gating the rewrite. (Other deletions — `TRACK_SAVINGS`, the compaction placeholder
+   row — are coupled to their replacements and stay in Phases 1–2, not here.)
 1. **Always-on schema + loader** — drop `TRACK_SAVINGS`; add
    `kept/elided/basis/session_id/session_source` records plus optional
    `correlation_id`; legacy-tolerant loader; update the three existing hooks to
@@ -217,7 +223,6 @@ only guard the pipe.
    fire only when both sides are available; otherwise it logs no savings event.
 3. **Report core** — measured vs upper-bound separation; real `session_id`
    grouping; honest token-estimate footer; Markdown `--report` for terminals/CI.
-   Delete the fixture benchmark.
 4. **HTML page** — `--html` self-contained renderer; `Stop`-hook regeneration so
    `state/savings.html` is always current.
 5. **Surfacing** — `Stop`-hook link + measured one-liner in the Claude transcript;
