@@ -120,6 +120,32 @@ class TestDoCheckAllPass:
         assert "AGENTS.md contains managed less_tokens block" in out
         assert ".less_tokens/config/budget.json present" in out
 
+    def test_codex_check_does_not_require_claude_hooks(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        import shutil
+        shutil.rmtree(root / ".claude" / "hooks")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert ".codex/hooks.json has all" in out
+        assert ".claude/hooks/ missing" not in out
+
+    def test_search_config_load_supports_file_dunder(self, tmp_path, capsys):
+        root = _minimal_install(tmp_path)
+        venv_py = root / "fake_venv" / "bin" / "python"
+        (root / ".claude" / "tools" / "search_config.py").write_text(
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parent\n"
+            f"VENV_PY = {repr(venv_py.as_posix())}\n"
+        )
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            rc = do_check(root, _args())
+        assert rc == 0
+        assert "Could not load search_config.py" not in capsys.readouterr().out
+
 
 class TestDoCheckBudgetControlPlane:
     def test_fails_when_budget_config_absent(self, tmp_path, capsys):

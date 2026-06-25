@@ -1483,7 +1483,7 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             import importlib.util, types
             spec = importlib.util.spec_from_file_location("_sc_check", config_path)
             assert spec and spec.loader
-            sc: types.ModuleType = types.ModuleType("_sc_check")
+            sc: types.ModuleType = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(sc)  # type: ignore[union-attr]
             venv_py = Path(sc.VENV_PY)
             if venv_py.exists():
@@ -1528,15 +1528,16 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         _fail(".claude/index.db missing — run embeddings.py refresh")
 
     # --- hook files ---
-    hooks_dir = target_root / ".claude" / "hooks"
-    if hooks_dir.is_dir():
-        hook_files = list(hooks_dir.glob("*.py"))
-        if hook_files:
-            _pass(f".claude/hooks/ present ({len(hook_files)} script(s))")
+    if "claude" in agents:
+        hooks_dir = target_root / ".claude" / "hooks"
+        if hooks_dir.is_dir():
+            hook_files = list(hooks_dir.glob("*.py"))
+            if hook_files:
+                _pass(f".claude/hooks/ present ({len(hook_files)} script(s))")
+            else:
+                _fail(".claude/hooks/ exists but contains no .py scripts")
         else:
-            _fail(".claude/hooks/ exists but contains no .py scripts")
-    else:
-        _fail(".claude/hooks/ missing — install not complete")
+            _fail(".claude/hooks/ missing — install not complete")
 
     # --- shared budget control plane ---
     budget_config = target_root / ".less_tokens" / "config" / "budget.json"
