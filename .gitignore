@@ -18,3 +18,4 @@ app/.venv/
 .claude/worktrees/
 .less_tokens/state/
 .fuse_hidden*
+--upgrade/

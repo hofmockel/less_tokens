@@ -136,15 +136,30 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         codex_script="terse-reminder.py",
         codex=(HookWire("PostToolUse", ".*"),),
     ),
-    # Claude-only: regenerates state/savings.html on Stop so the page is always
-    # current. Codex has no native Stop equivalent (stats_plan.md review #5), so it
-    # wires nothing — the Codex savings surface stays the transcript/file link.
+    # Regenerates state/savings.html. Claude can do this once per assistant turn
+    # through Stop; Codex has no native Stop equivalent, so refresh after tools.
     HookSpec(
         name="savings-html",
         claude_script="savings-html.py",
         claude=(HookWire("Stop", ""),),
+        codex_script="savings-html.py",
+        codex=(HookWire("PostToolUse", ".*"),),
     ),
 )
+
+
+def _optional_enabled(agent: str, optional_flag: str, args: object) -> bool:
+    """Decide whether an optional savings hook is wired (CL2).
+
+    Claude installs wire these by default; ``--no-<flag>`` opts out. Codex stays
+    opt-in via ``--<flag>`` until its mirror (CX2). The explicit ``--<flag>`` is
+    still accepted on both agents for back-compat (a no-op on Claude).
+    """
+    if bool(getattr(args, f"no_{optional_flag}", False)):
+        return False
+    if agent == "claude":
+        return True
+    return bool(getattr(args, optional_flag, False))
 
 
 def hook_entries(agent: str, py_command: str, args: object) -> list[tuple[str, str, str]]:
@@ -153,7 +168,7 @@ def hook_entries(agent: str, py_command: str, args: object) -> list[tuple[str, s
 
     entries: list[tuple[str, str, str]] = []
     for spec in HOOK_SPECS:
-        if spec.optional_flag and not bool(getattr(args, spec.optional_flag, False)):
+        if spec.optional_flag and not _optional_enabled(agent, spec.optional_flag, args):
             continue
         script = spec.claude_script if agent == "claude" else spec.codex_script
         wires = spec.claude if agent == "claude" else spec.codex

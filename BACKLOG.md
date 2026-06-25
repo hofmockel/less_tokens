@@ -65,7 +65,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CL2 — Default optional savings hooks on for Claude installs** *(tool/output; Claude-only)* — for `--agent claude`, wire `truncate-output`, `compact-trigger`, and `terse-output`/caveman by default instead of requiring `--truncate --compact --caveman`. These are the only `optional:true` rows in `parity.json`; fresh installs currently ship without them. Pure `.claude/settings.json` generation change — `.codex/hooks.json` untouched. Keep explicit flags/back-compat accepted; mirror of CX2 on the Claude side. Test the larger default Claude hook set and prove Codex wiring is unchanged. *(Do first: config-only, no tuning risk.)*
 - **CL1 — Populate `agent_overrides.claude` with tighter caps** *(input/tool/output; Claude-only)* — `agent_overrides.claude` is empty `{}` today, so Claude runs the shared `hard_caps`/`categories`. Claude enforces deterministically (real PreToolUse blocks), unlike Codex best-effort, so tightening actually sticks. Push down `single_tool_output` (2500→~1500), `full_file_read` (3000→~2000), `directory_listing` (1000→~600), and `tool_output`/`retrieved_context`. Mirror of CX1 on the Claude side; deep-merge touches only the `claude` subtree. Tune in `observe` mode against budget telemetry before ratcheting (this repo dogfoods Claude — too tight hurts here first). Add tests proving `agent_overrides.codex` stays no-op and Claude gets the tighter effective budget.
 
 ### Medium Priority
