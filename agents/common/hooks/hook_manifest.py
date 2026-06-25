@@ -149,15 +149,15 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
 
 
 def _optional_enabled(agent: str, optional_flag: str, args: object) -> bool:
-    """Decide whether an optional savings hook is wired (CL2).
+    """Decide whether an optional savings hook is wired (CL2/CX2).
 
-    Claude installs wire these by default; ``--no-<flag>`` opts out. Codex stays
-    opt-in via ``--<flag>`` until its mirror (CX2). The explicit ``--<flag>`` is
-    still accepted on both agents for back-compat (a no-op on Claude).
+    Claude and Codex installs wire these by default; ``--no-<flag>`` opts out.
+    The explicit ``--<flag>`` remains accepted for back-compat and now matches
+    the default set.
     """
     if bool(getattr(args, f"no_{optional_flag}", False)):
         return False
-    if agent == "claude":
+    if agent in {"claude", "codex"}:
         return True
     return bool(getattr(args, optional_flag, False))
 

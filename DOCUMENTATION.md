@@ -45,9 +45,10 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
 | `--build` | Build the index immediately after install |
 | `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
-| `--caveman` | Also copy `.claude/rules/` (caveman output style) |
-| `--truncate` | Wire the tool output truncation hook |
-| `--compact` | Wire the conversation compaction trigger hook |
+| `--caveman` | Back-compatible; also copy `.claude/rules/` (caveman output style) |
+| `--truncate` | Back-compatible; truncation hook is wired by default |
+| `--compact` | Back-compatible; compaction trigger is wired by default |
+| `--no-caveman` / `--no-truncate` / `--no-compact` | Opt out of default savings hooks |
 
 ---
 
@@ -90,8 +91,8 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 | Post-edit diff and reread block | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
 | Recursive listing guard | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
 | Structured Bash output parsers | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Tool-output truncation | ✓ optional hook | best-effort optional hook |
-| Compaction trigger | ✓ optional hook | best-effort optional hook |
+| Tool-output truncation | ✓ default hook | best-effort default hook |
+| Compaction trigger | ✓ default hook | best-effort default hook |
 | Symbol lookup | ✓ Python + JS/TS | ✓ Python + JS/TS |
 | AGENTS.md / CLAUDE.md pruning | ✓ | ✓ (`agentsmd_audit.py`) |
 
@@ -113,7 +114,7 @@ Codex has the same strategy coverage, but it needs a translation layer. Filesyst
 - Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
-See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default and which remain optional, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
+See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
 
 For repeatable savings checks, run:
 
@@ -541,8 +542,7 @@ agents/
 - Codex filesystem matchers are broader (`mcp__filesystem__.*`) than Claude's named `Read|Grep|Glob` events, so adapters map read/search-like payloads into the shared `HookPayload` shape before running gates.
 - Codex patch edits may arrive as `apply_patch`; `payload.py` extracts touched paths from patch headers so index refresh and post-edit diff logic can stay targeted instead of refreshing conservatively.
 - Codex output-style enforcement uses `terse-reminder.py` as a best-effort adapter rather than Claude's direct `Stop` hook.
-- Default adapters cover search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, and AGENTS.md budget checks.
-- Optional adapters cover truncation, compaction, and terse-output reminders when their install flags are enabled.
+- Default adapters cover search-first, read guard, auto-slice, grep-first read, read-after-edit, context cache, listing guard, lean-output, post-edit diff, index refresh, AGENTS.md budget checks, truncation, compaction, and terse-output reminders.
 - Event matchers and optional/default status live in `agents/common/hooks/hook_manifest.py`; shipped/missing parity lives in `agents/common/hooks/parity.json`.
 
 **Rules (`.claude/rules/`)**

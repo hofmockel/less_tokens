@@ -18,14 +18,14 @@ selected agent adapters:
     --create-venv       create .claude/.venv-tokens if no venv is found
     --skip-deps         skip pip install of fastembed + numpy
     --no-build          skip the initial index build
-    --truncate          wire tool-output truncation hooks (Claude: on by default)
-    --compact           wire session-size compaction hooks (Claude: on by default)
+    --truncate          accepted for back-compat; truncation hooks are on by default
+    --compact           accepted for back-compat; compaction hooks are on by default
     --caveman           also append the caveman block to CLAUDE.md. The
                         terse-output hook itself (Claude Stop / Codex reminder)
-                        is on by default for Claude; pass this only to add the
+                        is on by default; pass this only to add the
                         CLAUDE.md block too.
     --no-truncate / --no-compact / --no-caveman
-                        opt a Claude install out of the above default-on hooks
+                        opt an install out of the above default-on hooks
     --local             for Claude, write .claude/settings.local.json instead
                         of .claude/settings.json
     --dry-run           preview without writing anything
@@ -1768,20 +1768,18 @@ def main() -> int:
                     help="skip the default initial index build (defer the ~130 MB model download)")
     # Optional strategies
     ap.add_argument("--caveman", action="store_true",
-                    help="wire terse-output enforcement hooks where supported "
-                         "(also appends the caveman block to CLAUDE.md)")
+                    help="accepted for back-compat; also appends the caveman block to CLAUDE.md")
     ap.add_argument("--truncate", action="store_true",
-                    help="wire tool output truncation hook (Strategy 3)")
+                    help="accepted for back-compat; truncation hook is wired by default")
     ap.add_argument("--compact", action="store_true",
-                    help="wire conversation compaction trigger hook (Strategy 4)")
-    # Claude wires the optional savings hooks by default (CL2); these opt out.
-    # Codex stays opt-in via the flags above until its mirror (CX2).
+                    help="accepted for back-compat; compaction trigger is wired by default")
+    # Claude and Codex wire optional savings hooks by default (CL2/CX2); these opt out.
     ap.add_argument("--no-caveman", action="store_true",
-                    help="opt out of the terse-output hook (Claude installs wire it by default)")
+                    help="opt out of the terse-output hook (wired by default)")
     ap.add_argument("--no-truncate", action="store_true",
-                    help="opt out of the tool-output truncation hook (on by default for Claude)")
+                    help="opt out of the tool-output truncation hook (wired by default)")
     ap.add_argument("--no-compact", action="store_true",
-                    help="opt out of the compaction trigger hook (on by default for Claude)")
+                    help="opt out of the compaction trigger hook (wired by default)")
     # Safety / lifecycle
     ap.add_argument("--dry-run", action="store_true",
                     help="show exactly what would change without writing anything")
