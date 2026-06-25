@@ -35,10 +35,10 @@ sys.path[:0] = [
 ]
 
 try:
-    from agents.common.hooks.compact_trigger import check_compact_trigger  # type: ignore[import]
+    from agents.common.hooks.compact_trigger import check_compact_trigger, measure_compaction  # type: ignore[import]
     from agents.common.hooks.payload import normalize_claude
 except Exception:
-    from compact_trigger import check_compact_trigger  # type: ignore[no-redef]
+    from compact_trigger import check_compact_trigger, measure_compaction  # type: ignore[no-redef]
     from payload import normalize_claude  # type: ignore[no-redef]
 
 try:
@@ -49,6 +49,16 @@ except Exception:
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
 
+try:
+    from savings_log import append as _log_savings  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
+except Exception:
+    def _log_savings(_r: dict) -> None:
+        pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
+
 STATE_FILE = active_state_dir() / "compact-trigger-last"
 
 
@@ -57,8 +67,20 @@ def main() -> int:
         raw = json.load(sys.stdin)
     except Exception:
         return 0
+    payload = normalize_claude(raw)
+    # Record measured compaction savings when the transcript has shrunk.
+    try:
+        measure_compaction(
+            payload,
+            state_dir=active_state_dir(),
+            max_session_chars=MAX_SESSION_CHARS,
+            log=_log_savings,
+            session=resolve_session(raw),
+        )
+    except Exception:
+        pass
     code, stdout, stderr = check_compact_trigger(
-        normalize_claude(raw),
+        payload,
         state_dir=active_state_dir(),
         max_session_chars=MAX_SESSION_CHARS,
         state_file=STATE_FILE,

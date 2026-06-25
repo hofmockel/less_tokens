@@ -217,7 +217,7 @@ only guard the pipe.
    emit it.
    Unit tests for the arithmetic identities, session-id fallback order, documented
    env opt-out, and always-on write path.
-2. **Compaction emitter** — add a savings emitter to the compaction path that logs
+2. ✅ **Compaction emitter** *(done)* — add a savings emitter to the compaction path that logs
    `basis="measured"`, `kept_chars=len(compacted_summary)`, and
    `elided_chars=max(0, pre_compaction_transcript_chars - kept_chars)`. It should
    fire only when both sides are available; otherwise it logs no savings event.

@@ -33,7 +33,7 @@ _STRATEGY_LABELS = {
     "truncation":     "Truncation",
     "search-blocked": "Search-first block",
     "search":         "Search (vs full file)",
-    "compaction":     "Compaction nudges",
+    "compaction":     "Compaction",
 }
 
 
@@ -128,6 +128,11 @@ def _methodology_lines() -> list[str]:
         "- **Truncation** — `truncate-output.py` caps oversized tool output to a "
         "head+tail slice. Saved = `original_chars − kept_chars`. This is **actual**: "
         "those bytes were removed before the output ever reached the model.",
+        "- **Compaction** — `compact-trigger.py` watches the transcript and, when "
+        "Claude Code compacts it, logs `kept_chars` = the post-compaction transcript "
+        "(the produced summary) and `elided_chars` = peak − kept. **Actual** on both "
+        "sides — two real transcript char counts. Only fires on a genuine shrink, so "
+        "the row stays `—` until a compaction actually happens.",
         "- **Search-first block** — `search-first.py` blocks a Read of a large file and "
         "redirects you to search. Saved = the file's full byte size. This is a "
         "**counterfactual upper bound**: it assumes you would otherwise have read the "
@@ -136,15 +141,13 @@ def _methodology_lines() -> list[str]:
         "`sum(full size of every matched file) − returned chunk chars`. Also a "
         "**counterfactual upper bound**: it credits the full size of all matched files "
         "as if you would have read every one of them whole.",
-        "- **Compaction nudges** — placeholder. Nothing emits this event yet, so the "
-        "row is always `—`.",
         "",
         "Caveats: tokens are estimated as chars ÷ "
         f"{CHARS_PER_TOKEN} (rough). \"Session\" means events in the last "
         f"{SESSION_HOURS}h of wall-clock time, not a true session boundary. File sizes "
         "use byte counts, which equal char counts only for ASCII. Net of these, "
-        "**Truncation is a real saving; the search rows are optimistic estimates** — "
-        "useful as a directional signal, not an exact ledger.",
+        "**truncation and compaction are real savings; the search rows are optimistic "
+        "estimates** — useful as a directional signal, not an exact ledger.",
         "",
     ]
 
