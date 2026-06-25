@@ -146,6 +146,65 @@ def test_new_session_clears_cache(hook, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Blocked repeat read emits a full-schema measured savings record
+# ---------------------------------------------------------------------------
+
+def test_blocked_read_emits_measured_savings_schema(hook, tmp_path):
+    p = tmp_path / "cached.py"
+    p.write_text("z = 3" * 50)
+    captured = []
+    base = {"tool_name": "Read", "tool_input": {"file_path": str(p)},
+            "transcript_path": "t1"}
+
+    # First call records the read (allowed, no savings event).
+    code, _, _ = hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
+    assert code == 0 and captured == []
+
+    # Repeat call is blocked and must log the new schema.
+    code, _, msg = hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
+    assert code == 2 and "already in context" in msg
+    assert len(captured) == 1
+    rec = captured[0]
+    assert rec["strategy"] == "context-cache-read"
+    assert rec["basis"] == "measured"
+    assert rec["kept_chars"] == 0
+    assert rec["elided_chars"] == p.stat().st_size
+    assert rec["session_id"] == "sess-1"
+    assert rec["session_source"] == "payload"
+
+
+def test_blocked_partial_read_credits_only_the_slice(hook, tmp_path):
+    # A partial re-read re-injects only its line slice, so the saving is the slice
+    # size — not the whole file. Crediting st_size would overstate it.
+    p = tmp_path / "big.py"
+    lines = [f"line {i}\n" for i in range(100)]
+    p.write_text("".join(lines))
+    slice_chars = len("".join(lines[9:19]))  # offset=10 (1-based), limit=10
+    assert slice_chars < p.stat().st_size
+
+    captured = []
+    base = {"tool_name": "Read",
+            "tool_input": {"file_path": str(p), "offset": 10, "limit": 10},
+            "transcript_path": "t1"}
+    for _ in range(2):
+        _, _, _ = hook.check_context_cache(
+            hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+            grep_ttl=300, log=captured.append, session=("s", "payload"))
+    assert len(captured) == 1
+    assert captured[0]["elided_chars"] == slice_chars
+
+
+def test_blocked_read_chars_full_file_is_exact(hook, tmp_path):
+    p = tmp_path / "whole.py"
+    p.write_text("a = 1\nb = 2\n")
+    assert hook.blocked_read_chars(str(p), None, None) == p.stat().st_size
+
+
+# ---------------------------------------------------------------------------
 # None transcript_path must not share state across sessions
 # ---------------------------------------------------------------------------
 

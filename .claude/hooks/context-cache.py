@@ -36,6 +36,7 @@ sys.path[:0] = [
 
 try:
     from agents.common.hooks.context_cache import (
+        blocked_read_chars,
         check_context_cache,
         check_grep,
         check_read,
@@ -49,6 +50,7 @@ try:
     from agents.common.hooks.payload import normalize_claude
 except Exception:
     from context_cache import (  # type: ignore[no-redef]
+        blocked_read_chars,
         check_context_cache,
         check_grep,
         check_read,
@@ -72,9 +74,13 @@ except Exception:
 
 try:
     from savings_log import append as _log  # noqa: E402
+    from savings_log import resolve_session  # noqa: E402
 except Exception:
     def _log(_r: dict) -> None:
         pass
+
+    def resolve_session(_raw: dict | None) -> tuple[str, str]:
+        return "local-session", "local"
 
 
 def _cache_file() -> Path:
@@ -115,6 +121,7 @@ def main() -> int:
         enabled=CONTEXT_CACHE_ENABLED,
         grep_ttl=CONTEXT_CACHE_GREP_TTL,
         log=_log,
+        session=resolve_session(raw),
     )
     if stdout:
         print(stdout)

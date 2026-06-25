@@ -148,6 +148,38 @@ def test_normalize_folds_glob_cap_into_truncation():
     assert r["basis"] == "measured"
 
 
+def test_normalize_legacy_context_cache_read_is_measured():
+    # Pre-schema context-cache records (saved_chars only) are real measured savings:
+    # the blocked duplicate Read had known args, so the bytes are exact, not assumed.
+    stats = _import_stats()
+    r = stats._normalize_record({"strategy": "context-cache-read", "saved_chars": 800})
+    assert r["basis"] == "measured"
+    assert r["elided_chars"] == 800
+    assert r["strategy"] in stats._MEASURED_STRATEGIES
+
+
+def test_context_cache_strategies_live_in_measured_panel():
+    stats = _import_stats()
+    for key in ("context-cache-read", "context-cache-grep"):
+        assert key in stats._MEASURED_STRATEGIES
+        assert key in stats._STRATEGY_LABELS
+        assert key not in stats._UPPER_BOUND_STRATEGIES
+
+
+def test_summarize_counts_context_cache():
+    stats = _import_stats()
+    records = [
+        {"strategy": "context-cache-read", "elided_chars": 800},
+        {"strategy": "context-cache-read", "elided_chars": 200},
+        {"strategy": "context-cache-grep", "elided_chars": 0},
+    ]
+    result = stats._summarize(records)
+    assert result["context-cache-read"]["events"] == 2
+    assert result["context-cache-read"]["saved_chars"] == 1000
+    assert result["context-cache-grep"]["events"] == 1
+    assert result["context-cache-grep"]["saved_chars"] == 0
+
+
 def test_normalize_preserves_new_schema_record():
     stats = _import_stats()
     rec = {
