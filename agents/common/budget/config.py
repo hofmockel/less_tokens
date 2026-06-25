@@ -31,7 +31,18 @@ DEFAULT_BUDGET_CONFIG: dict[str, Any] = {
     },
     "agent_overrides": {
         "claude": {},
-        "codex": {},
+        "codex": {
+            "categories": {
+                "retrieved_context": 6000,
+                "tool_output": 2000,
+                "diffs": 1500,
+            },
+            "hard_caps": {
+                "full_file_read": 2000,
+                "single_tool_output": 1500,
+                "directory_listing": 600,
+            },
+        },
     },
 }
 
