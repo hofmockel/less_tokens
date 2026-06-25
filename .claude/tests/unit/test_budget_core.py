@@ -53,6 +53,48 @@ def test_load_budget_config_merges_project_file(tmp_path):
     assert cfg.category_limit("retrieved_context") == 10000
 
 
+def test_codex_budget_overrides_are_deep_merged_by_default(tmp_path):
+    base = load_budget_config(tmp_path)
+    claude = load_budget_config(tmp_path, agent="claude")
+    codex = load_budget_config(tmp_path, agent="codex")
+
+    assert claude.categories == base.categories
+    assert claude.hard_caps == base.hard_caps
+    assert codex.category_limit("retrieved_context") == 6000
+    assert codex.category_limit("tool_output") == 2000
+    assert codex.category_limit("diffs") == 1500
+    assert codex.hard_caps["full_file_read"] == 2000
+    assert codex.hard_caps["single_tool_output"] == 1500
+    assert codex.hard_caps["directory_listing"] == 600
+    assert codex.category_limit("session_summary") == base.category_limit("session_summary")
+
+
+def test_project_codex_budget_override_preserves_other_codex_caps(tmp_path):
+    cfg_dir = tmp_path / ".less_tokens" / "config"
+    cfg_dir.mkdir(parents=True)
+    (cfg_dir / "budget.json").write_text(
+        json.dumps({
+            "agent_overrides": {
+                "codex": {
+                    "categories": {"tool_output": 1750},
+                    "hard_caps": {"directory_listing": 500},
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    codex = load_budget_config(tmp_path, agent="codex")
+    claude = load_budget_config(tmp_path, agent="claude")
+
+    assert codex.category_limit("tool_output") == 1750
+    assert codex.category_limit("retrieved_context") == 6000
+    assert codex.hard_caps["directory_listing"] == 500
+    assert codex.hard_caps["single_tool_output"] == 1500
+    assert claude.category_limit("tool_output") == 4000
+    assert claude.hard_caps["directory_listing"] == 1000
+
+
 def test_score_explicit_path_beats_unmentioned_path():
     candidates = [
         ContextCandidate(candidate_id="file:a.py", category="retrieved_context", candidate_type="file", path="a.py", text="x"),

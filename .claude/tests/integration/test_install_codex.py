@@ -181,7 +181,7 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 14
+        assert len(entries) == 17
         assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
         assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)
@@ -196,26 +196,35 @@ class TestBuildCodexHookEntries:
         assert any("index-refresh.py" in cmd for cmd in commands)
         assert any("agentsmd-budget.py" in cmd for cmd in commands)
         assert any("savings-html.py" in cmd for cmd in commands)
+        assert any("truncate-output.py" in cmd for cmd in commands)
+        assert any("compact-trigger.py" in cmd for cmd in commands)
+        assert any("terse-reminder.py" in cmd for cmd in commands)
 
-    def test_optional_entries_are_added(self, tmp_path):
+    def test_explicit_optional_flags_are_back_compat_no_op(self, tmp_path):
+        default = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(truncate=False, compact=False, caveman=False),
+        )
         entries = build_codex_hook_entries(
             tmp_path / ".venv" / "bin" / "python",
             tmp_path,
             Namespace(truncate=True, compact=True, caveman=True),
         )
-        commands = [cmd for _, _, cmd in entries]
-        assert any("truncate-output.py" in cmd for cmd in commands)
-        assert any("compact-trigger.py" in cmd for cmd in commands)
-        assert any("terse-reminder.py" in cmd for cmd in commands)
+        assert entries == default
 
-    def test_codex_optional_stay_opt_in(self, tmp_path):
-        # CL2 defaults the optional hooks ON for Claude only — Codex must stay
-        # opt-in (CX2 is its separate mirror), so a flagless Codex install gets
-        # none of them.
+    def test_codex_optional_hooks_can_opt_out(self, tmp_path):
         entries = build_codex_hook_entries(
             tmp_path / ".venv" / "bin" / "python",
             tmp_path,
-            Namespace(truncate=False, compact=False, caveman=False),
+            Namespace(
+                truncate=False,
+                compact=False,
+                caveman=False,
+                no_truncate=True,
+                no_compact=True,
+                no_caveman=True,
+            ),
         )
         commands = [cmd for _, _, cmd in entries]
         assert not any("truncate-output.py" in cmd for cmd in commands)
