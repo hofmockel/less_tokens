@@ -478,3 +478,96 @@ def test_savings_link_is_file_uri():
     link = stats._savings_link()
     assert link.startswith("file://")
     assert link.endswith("savings.html")
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — opt-in calibration (plumbing only; never a token magnitude, never a
+# network call). The API path is mocked; we test the divisor arithmetic, the
+# sample gathering, the config rewrite, and how calibration state flows into the
+# footer/badge.
+# ---------------------------------------------------------------------------
+
+def test_chars_per_token_identity():
+    stats = _import_stats()
+    # the whole point: divisor = chars / tokens, deterministic, no fixtures
+    assert stats._chars_per_token(1000, 250) == 4.0
+    assert stats._chars_per_token(740, 200) == 3.7
+
+
+def test_chars_per_token_rejects_zero_tokens():
+    stats = _import_stats()
+    for bad in (0, -5):
+        try:
+            stats._chars_per_token(100, bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("expected ValueError for non-positive token count")
+
+
+def test_token_footer_uncalibrated_by_default(tmp_path):
+    stats = _import_stats()
+    with patch("stats.CALIBRATION_FILE", tmp_path / "nope.json"):
+        footer = stats._token_footer()
+    assert "uncalibrated" in footer
+    assert "calibrated 2" not in footer  # no date
+
+
+def test_token_footer_reflects_calibration(tmp_path):
+    stats = _import_stats()
+    cal = tmp_path / "calibration.json"
+    cal.write_text(json.dumps({
+        "chars_per_token": 3.7, "calibrated_at": "2026-06-25",
+        "basis": "repo-sample", "model": "claude-opus-4-8",
+    }))
+    with patch("stats.CALIBRATION_FILE", cal):
+        footer = stats._token_footer()
+        badge = stats._calibration_badge()
+    assert "uncalibrated" not in footer
+    assert "repo-sample calibrated 2026-06-25" in footer
+    assert "repo-sample calibrated 2026-06-25" in badge
+
+
+def test_calibration_label_drops_basis_for_full():
+    stats = _import_stats()
+    full = {"calibrated_at": "2026-06-25", "basis": "full"}
+    assert stats._calibration_label(full) == "calibrated 2026-06-25"
+
+
+def test_html_badge_uncalibrated_by_default(tmp_path):
+    stats = _import_stats()
+    with patch("stats.CALIBRATION_FILE", tmp_path / "nope.json"):
+        html = stats._render_html([], [])
+    assert "uncalibrated" in html
+
+
+def test_gather_calibration_samples_returns_repo_content():
+    stats = _import_stats()
+    texts, counts = stats._gather_calibration_samples()
+    assert texts and all(isinstance(t, str) and t.strip() for t in texts)
+    # this repo has both prose (*.md) and code (.claude/tools/*.py)
+    assert counts["prose"] > 0
+    assert counts["code"] > 0
+    # no tool-output capture store exists → basis will be repo-sample
+    assert counts["tool_outputs"] == 0
+    assert len(texts) <= stats._CALIBRATION_MAX_FILES
+
+
+def test_write_config_divisor_rewrites_only_the_line(tmp_path):
+    stats = _import_stats()
+    cfg = tmp_path / "search_config.py"
+    cfg.write_text(
+        "X = 1\n"
+        "# Chars per token estimate for cost display (prose ~4, code ~3).\n"
+        "CHARS_PER_TOKEN: int = 4\n"
+        "Y = 2\n"
+    )
+    stats._write_config_divisor(3.7, model="claude-opus-4-8", basis="repo-sample",
+                                date="2026-06-25", cfg_path=cfg)
+    out = cfg.read_text()
+    assert "CHARS_PER_TOKEN: float = 3.7000" in out
+    assert "calibrated 2026-06-25 vs claude-opus-4-8 (repo-sample)" in out
+    # surrounding lines untouched
+    assert "X = 1" in out and "Y = 2" in out
+    # exactly one CHARS_PER_TOKEN assignment remains
+    assert out.count("CHARS_PER_TOKEN") == 1

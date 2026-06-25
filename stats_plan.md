@@ -229,8 +229,12 @@ only guard the pipe.
    transcript; Claude Code statusline (`stats.py --oneliner`, measured-only); Codex
    transcript/file link as the floor. No durable Codex end-of-turn channel was
    confirmed, so the richer Codex one-liner stays unbuilt (review #5).
-6. **Calibration (opt-in)** — `--calibrate` against `count_tokens` to ground the
-   divisor in Claude's real tokenizer on our real content; HTML badge reflects state.
+6. ✅ **Calibration (opt-in)** *(done)* — `--calibrate` against `count_tokens` to ground the
+   divisor in Claude's real tokenizer on our real content; writes
+   `search_config.CHARS_PER_TOKEN` (dated comment) + `state/calibration.json`;
+   report footer and HTML badge reflect state. No tool-output capture store
+   exists, so the basis is `repo-sample` (review #6). Network + key gated,
+   failure-safe, never automatic.
 
 ## Review decisions
 

@@ -174,7 +174,7 @@ def probe_server(name: str, config: dict, timeout: float) -> list[dict] | None: 
 # ---------------------------------------------------------------------------
 
 def est_tokens(obj: Any) -> int:
-    return len(json.dumps(obj)) // max(1, CHARS_PER_TOKEN)
+    return int(len(json.dumps(obj)) / max(1, CHARS_PER_TOKEN))
 
 
 def server_tokens(tools: list[dict]) -> int:  # type: ignore[type-arg]
