@@ -382,3 +382,99 @@ def test_token_footer_is_uncalibrated():
     stats = _import_stats()
     assert "uncalibrated" in stats.TOKEN_FOOTER
     assert "chars÷4" in stats.TOKEN_FOOTER
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — self-contained HTML page
+# ---------------------------------------------------------------------------
+
+def test_write_html_creates_file(tmp_path):
+    stats = _import_stats()
+    html = tmp_path / "savings.html"
+    records = [{"strategy": "truncation", "elided_chars": 8000, "ts": time.time()}]
+    with patch("stats.HTML_FILE", html):
+        path = stats._write_html_report(records, records)
+    assert path == html
+    content = html.read_text()
+    assert content.startswith("<!DOCTYPE html>")
+    assert "<title>Token Savings Report</title>" in content
+    assert "8,000" in content
+    assert "LESS_TOKENS_NO_STATS" in content
+
+
+def test_html_is_self_contained(tmp_path):
+    """No external resources — opens straight from file:// and never phones home."""
+    stats = _import_stats()
+    html = stats._render_html([], [])
+    # style is inlined, not linked; no remote fetches of any kind
+    assert "<style>" in html
+    assert "http://" not in html and "https://" not in html
+    assert "<link" not in html and "src=" not in html
+    assert "<script" not in html
+
+
+def test_html_separates_measured_and_upper_bound(tmp_path):
+    stats = _import_stats()
+    records = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 1000},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 9000},
+    ]
+    html = stats._html_block("Block", records)
+    assert "Measured" in html
+    assert "Upper bound" in html
+    # the 9,000 upper bound is never folded into the measured total
+    assert "10,000" not in html
+    assert "≤9,000" in html
+
+
+def test_html_escapes_session_id(tmp_path):
+    """A session_id is rendered as text, never as live markup."""
+    stats = _import_stats()
+    records = [{
+        "strategy": "truncation", "basis": "measured", "elided_chars": 10,
+        "session_id": "<img src=x>", "session_source": "payload", "ts": time.time(),
+    }]
+    html = stats._render_html(records, records)
+    assert "<img src=x>" not in html
+    assert "&lt;img" in html
+
+
+# --- Phase 5 surfacing helpers ---------------------------------------------
+
+def test_fmt_tokens_scales():
+    stats = _import_stats()
+    assert stats._fmt_tokens(0) == "0"
+    assert stats._fmt_tokens(999) == "999"
+    assert stats._fmt_tokens(1500) == "1.5k"
+    assert stats._fmt_tokens(122_000) == "122k"
+
+
+def test_measured_saved_chars_excludes_upper_bound():
+    stats = _import_stats()
+    records = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 400},
+        {"strategy": "compaction", "basis": "measured", "elided_chars": 400},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 9999},
+    ]
+    # only the two measured rows count toward the headline number
+    assert stats._measured_saved_chars(records) == 800
+
+
+def test_measured_oneliner_format_and_honesty():
+    stats = _import_stats()
+    records = [
+        {"strategy": "truncation", "basis": "measured", "elided_chars": 8000},
+        {"strategy": "search", "basis": "upper_bound", "elided_chars": 1_000_000},
+    ]
+    line = stats._measured_oneliner(records)
+    assert line == "↓ ~2.0k tok saved (measured) · session"
+    assert "measured" in line
+    # upper-bound magnitude must never leak into the glanceable line
+    assert "250" not in line and "1000" not in line
+
+
+def test_savings_link_is_file_uri():
+    stats = _import_stats()
+    link = stats._savings_link()
+    assert link.startswith("file://")
+    assert link.endswith("savings.html")

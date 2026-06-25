@@ -136,6 +136,14 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         codex_script="terse-reminder.py",
         codex=(HookWire("PostToolUse", ".*"),),
     ),
+    # Claude-only: regenerates state/savings.html on Stop so the page is always
+    # current. Codex has no native Stop equivalent (stats_plan.md review #5), so it
+    # wires nothing — the Codex savings surface stays the transcript/file link.
+    HookSpec(
+        name="savings-html",
+        claude_script="savings-html.py",
+        claude=(HookWire("Stop", ""),),
+    ),
 )
 
 

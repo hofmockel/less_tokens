@@ -139,7 +139,21 @@
             "command": ".claude/.venv-tokens/bin/python .claude/hooks/caveman-reminder.py"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/savings-html.py"
+          }
+        ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": ".claude/.venv-tokens/bin/python .claude/tools/stats.py --oneliner",
+    "padding": 0
   }
 }

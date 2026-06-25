@@ -223,11 +223,12 @@ only guard the pipe.
    fire only when both sides are available; otherwise it logs no savings event.
 3. ✅ **Report core** *(done)* — measured vs upper-bound separation; real `session_id`
    grouping; honest token-estimate footer; Markdown `--report` for terminals/CI.
-4. **HTML page** — `--html` self-contained renderer; `Stop`-hook regeneration so
+4. ✅ **HTML page** *(done)* — `--html` self-contained renderer; `Stop`-hook regeneration so
    `state/savings.html` is always current.
-5. **Surfacing** — `Stop`-hook link + measured one-liner in the Claude transcript;
-   Claude Code statusline; Codex transcript/file link as the floor, with a richer
-   Codex turn-summary channel only if one is confirmed during implementation.
+5. ✅ **Surfacing** *(done)* — `Stop`-hook link + measured one-liner in the Claude
+   transcript; Claude Code statusline (`stats.py --oneliner`, measured-only); Codex
+   transcript/file link as the floor. No durable Codex end-of-turn channel was
+   confirmed, so the richer Codex one-liner stays unbuilt (review #5).
 6. **Calibration (opt-in)** — `--calibrate` against `count_tokens` to ground the
    divisor in Claude's real tokenizer on our real content; HTML badge reflects state.
 
