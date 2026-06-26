@@ -47,6 +47,7 @@ def test_search_cli_uses_profile_k_when_unset(monkeypatch):
         return []
 
     monkeypatch.setattr(search_mod, "search", fake_search)
+    monkeypatch.delenv("LESS_TOKENS_AGENT", raising=False)
     monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-opus-4-7")
     monkeypatch.setattr(search_mod, "_index_is_stale", lambda: False)
     monkeypatch.setattr(sys, "argv", ["search.py", "anything"])
@@ -63,6 +64,7 @@ def test_search_cli_explicit_k_overrides_profile(monkeypatch):
         search_mod, "search",
         lambda query, k, source_type=None, min_score=None: captured.update({"k": k}) or [],
     )
+    monkeypatch.delenv("LESS_TOKENS_AGENT", raising=False)
     monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-opus-4-7")
     monkeypatch.setattr(search_mod, "_index_is_stale", lambda: False)
     monkeypatch.setattr(sys, "argv", ["search.py", "anything", "-k", "2"])

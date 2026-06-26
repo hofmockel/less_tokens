@@ -13,6 +13,8 @@ selected agent adapters:
 
     --agent claude|codex|both
                         Claude Code (default), Codex, or both integrations
+    --codex-savings balanced|aggressive
+                        Codex-only install profile; balanced matches defaults
     --target PATH       install into PATH instead of the parent of this clone
     --venv PATH         use an existing venv instead of auto-detecting
     --create-venv       create .claude/.venv-tokens if no venv is found
@@ -51,11 +53,52 @@ from agents.common.hooks.hook_manifest import hook_entries
 
 SOURCE = Path(__file__).resolve().parent
 
+CODEX_BALANCED_BUDGET_OVERRIDE: dict[str, dict[str, int]] = {
+    "categories": {
+        "retrieved_context": 6000,
+        "tool_output": 2000,
+        "diffs": 1500,
+    },
+    "hard_caps": {
+        "full_file_read": 2000,
+        "single_tool_output": 1500,
+        "directory_listing": 600,
+    },
+}
+
+CODEX_AGGRESSIVE_BUDGET_OVERRIDE: dict[str, dict[str, int]] = {
+    "categories": {
+        "retrieved_context": 4000,
+        "tool_output": 1200,
+        "diffs": 900,
+    },
+    "hard_caps": {
+        "full_file_read": 1200,
+        "single_tool_output": 900,
+        "directory_listing": 350,
+    },
+}
+
+CODEX_AGGRESSIVE_AGENTS_NOTE = (
+    "\n\nAggressive Codex savings: keep context tighter than default; prefer "
+    "cached/search-backed slices and avoid repeated or full-file tool output."
+)
+
 
 def selected_agents(value: str) -> set[str]:
     if value == "both":
         return {"claude", "codex"}
     return {value}
+
+
+def codex_savings_profile(args: argparse.Namespace) -> str:
+    return str(getattr(args, "codex_savings", "balanced"))
+
+
+def codex_budget_override(profile: str) -> dict[str, dict[str, int]]:
+    if profile == "aggressive":
+        return CODEX_AGGRESSIVE_BUDGET_OVERRIDE
+    return CODEX_BALANCED_BUDGET_OVERRIDE
 
 
 def _dir_is_writable(target_root: Path, rel: str) -> bool:
@@ -764,7 +807,17 @@ def build_codex_hook_entries(
     args: argparse.Namespace,
 ) -> list[tuple[str, str, str]]:
     py = launcher_cmd("codex", target_root)
-    prefix = f"LESS_TOKENS_AGENT=codex {py}"
+    profile = codex_savings_profile(args)
+    env = "LESS_TOKENS_AGENT=codex"
+    if profile == "aggressive":
+        env = f"{env} LESS_TOKENS_CODEX_SAVINGS=aggressive"
+        args = argparse.Namespace(**{
+            **vars(args),
+            "no_truncate": False,
+            "no_compact": False,
+            "no_caveman": False,
+        })
+    prefix = f"{env} {py}"
     return hook_entries("codex", prefix, args)
 
 
@@ -1380,7 +1433,51 @@ def unwire_settings(settings_path: Path, source: Path, dry_run: bool) -> int:
     return removed
 
 
-def handle_agents_md(fragment_path: Path, target_root: Path, dry_run: bool = False) -> int:
+def codex_agents_fragment(fragment_text: str, profile: str) -> str:
+    fragment = fragment_text.strip()
+    if profile == "aggressive":
+        return fragment + CODEX_AGGRESSIVE_AGENTS_NOTE
+    return fragment
+
+
+def apply_codex_savings_profile(
+    target_root: Path,
+    profile: str,
+    dry_run: bool = False,
+) -> int:
+    """Write only agent_overrides.codex for the selected Codex profile."""
+    budget_path = target_root / ".less_tokens" / "config" / "budget.json"
+    try:
+        data = json.loads(budget_path.read_text(encoding="utf-8")) if budget_path.exists() else {}
+    except (json.JSONDecodeError, OSError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    agent_overrides = data.setdefault("agent_overrides", {})
+    if not isinstance(agent_overrides, dict):
+        agent_overrides = {}
+        data["agent_overrides"] = agent_overrides
+
+    desired = codex_budget_override(profile)
+    if agent_overrides.get("codex") == desired:
+        print(f"  · budget.json agent_overrides.codex unchanged ({profile})")
+        return 0
+
+    agent_overrides["codex"] = desired
+    print(f"  {'would update' if dry_run else '~'} budget.json agent_overrides.codex ({profile})")
+    if not dry_run:
+        budget_path.parent.mkdir(parents=True, exist_ok=True)
+        budget_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return 1
+
+
+def handle_agents_md(
+    fragment_path: Path,
+    target_root: Path,
+    dry_run: bool = False,
+    profile: str = "balanced",
+) -> int:
     """Append or update a less_tokens fragment in target_root/AGENTS.md.
 
     Uses HTML comment sentinels for idempotent management.
@@ -1391,7 +1488,7 @@ def handle_agents_md(fragment_path: Path, target_root: Path, dry_run: bool = Fal
               file=sys.stderr)
         return 1
 
-    fragment = fragment_path.read_text(encoding="utf-8").strip()
+    fragment = codex_agents_fragment(fragment_path.read_text(encoding="utf-8"), profile)
     begin = "<!-- less_tokens: begin -->"
     end = "<!-- less_tokens: end -->"
     block = f"{begin}\n{fragment}\n{end}\n"
@@ -1800,6 +1897,8 @@ def main() -> int:
                          "Incompatible with --force-config and --build.")
     ap.add_argument("--agent", choices=["claude", "codex", "both"], default="claude",
                     help="agent(s) to install for: claude (default), codex, or both")
+    ap.add_argument("--codex-savings", choices=["balanced", "aggressive"], default="balanced",
+                    help="Codex-only savings profile; aggressive tightens Codex caps and hooks")
     ap.add_argument("--check", action="store_true",
                     help="verify a previous install: venv, fastembed, index, hooks, settings")
     ap.add_argument("--uninstall", action="store_true",
@@ -1938,6 +2037,8 @@ def main() -> int:
     print(f"\n{tag}[2/5] Copying files...")
     changes += copy_tree(SOURCE / ".less_tokens" / "config", target_root / ".less_tokens" / "config",
               target_root, force_tools, overwrite_modified, ".less_tokens/config/", dry_run=dry)
+    if "codex" in agents:
+        changes += apply_codex_savings_profile(target_root, codex_savings_profile(args), dry_run=dry)
     changes += copy_tree(SOURCE / ".less_tokens" / "tools", target_root / ".less_tokens" / "tools",
               target_root, force_tools, overwrite_modified, ".less_tokens/tools/", dry_run=dry)
     changes += copy_tree(SOURCE / "agents" / "common" / "budget", target_root / ".less_tokens" / "hooks" / "budget",
@@ -2106,7 +2207,7 @@ def main() -> int:
             print("  · .codex/ not writable — hooks.json skipped; "
                   "AGENTS.md + skill installed")
         fragment = SOURCE / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
-        handle_agents_md(fragment, target_root, dry_run=dry)
+        handle_agents_md(fragment, target_root, dry_run=dry, profile=codex_savings_profile(args))
 
     # Keep generated artifacts out of the host git repo (opt-in via
     # --gitignore; otherwise just a one-time tip).
