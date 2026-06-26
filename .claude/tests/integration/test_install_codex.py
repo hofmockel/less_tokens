@@ -246,10 +246,12 @@ class TestCodexAgentsMd:
         content = (tmp_path / "AGENTS.md").read_text()
         assert "Token Discipline" in content
 
-    def test_agents_md_contains_search_command(self, tmp_path):
+    def test_agents_md_points_to_less_tokens_skill(self, tmp_path):
         handle_agents_md(FRAGMENT, tmp_path)
         content = (tmp_path / "AGENTS.md").read_text()
-        assert "search.py" in content
+        assert "large or indexed files" in content
+        assert "use the `less-tokens` skill" in content
+        assert "search.py" not in content
 
     def test_agents_md_dry_run_does_not_write(self, tmp_path):
         handle_agents_md(FRAGMENT, tmp_path, dry_run=True)

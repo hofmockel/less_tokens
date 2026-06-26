@@ -5,7 +5,7 @@ description: Token-efficient codebase exploration for Codex. Use to search the c
 
 ## less-tokens — Token-Efficient Codebase Exploration
 
-Shared vector search and guard tools installed in `.less_tokens/`.
+Shared vector search and guard tools installed in `.less_tokens/`. AGENTS.md keeps only terse rules; load this skill when you need the concrete commands.
 
 ### Search before reading
 
@@ -30,6 +30,10 @@ Checks whether the file is a lockfile, generated bundle, binary, or large data f
     .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py
 
 Checks AGENTS.md token budget, stale line references, and verbosity. Run before adding new sections.
+
+### Directory navigation and responses
+
+Prefer `rg --files` over `find . -R` or `ls -R`. Keep replies to direct findings with exact `file:line` references and no filler.
 
 ### Rebuild the index
 

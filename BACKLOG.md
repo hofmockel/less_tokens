@@ -79,7 +79,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### Medium Priority
 
-- **CX5 — Shrink Codex AGENTS.md fixed context** *(fixed; Codex-only)* — compress `agents/codex/instructions/AGENTS.md.fragment` to rules plus pointers; move command examples/details into the installed `less-tokens` skill. Verify `agentsmd-budget.py` still passes and install still injects enough guidance for search-before-read, noise guards, and concise output.
 - **CX6 — Codex search result budget** *(input; Codex-only)* — when `LESS_TOKENS_AGENT=codex`, make `.less_tokens/tools/search.py` default to fewer hits/chars unless the user passes explicit limits. Keep Claude/search defaults unchanged. Add tests for environment-driven defaults and explicit-flag override.
 - **CX7 — Patch-aware Codex post-edit diff caps** *(tool/input; Codex-only)* — for Codex `apply_patch`, have post-edit-diff emit touched files + compact hunk summaries first, and include full diff only below a low Codex cap. Preserve Claude `Edit|Write` diff behavior.
 - **CX8 — Codex Bash context-cache** *(tool; Codex-only)* — add short-TTL duplicate detection for repeated Codex Bash commands such as `git status`, `pwd`, identical `rg`, and repeated test commands. Block repeats with a concise "already in context" message and record saved output chars.

@@ -2,22 +2,12 @@
 
 Use targeted context. Prefer `rg`, `rg --files`, semantic search, and file slices over full-file reads.
 
-Search before reading large indexed files:
+Search before reading large or indexed files; use symbol lookup for definitions.
 
-    .less_tokens/bin/python .less_tokens/tools/search.py "query"
+Check lockfiles, generated bundles, binaries, and large data files before reading them in full.
 
-Symbol lookup (definition only, no embedding cost):
+Directory navigation: prefer `rg --files` over recursive listings.
 
-    .less_tokens/bin/python .less_tokens/tools/symbols.py <SymbolName>
+Responses: direct findings, exact file:line references, no filler.
 
-Noise-file check before reading lockfiles, generated bundles, or large data files:
-
-    .less_tokens/bin/python .less_tokens/tools/read_guard.py path/to/file
-
-AGENTS.md hygiene audit:
-
-    .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py
-
-Directory navigation — prefer `rg --files` over `find . -R` or `ls -R`.
-
-Response budget: direct findings, exact file:line references, no filler.
+For installed commands and AGENTS.md hygiene, use the `less-tokens` skill.
