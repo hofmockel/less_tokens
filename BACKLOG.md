@@ -77,8 +77,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CX11 — Codex hook event-contract CI** *(meta/tool; Codex-only)* — add fixture-level tests that replay representative Codex payloads for every `.codex/hooks.json` matcher, including filesystem reads/searches, Bash, `apply_patch`, Edit, and Write. Goal: catch Codex event-shape drift before parity silently degrades.
-
 ### Medium Priority
 
 - **CX5 — Shrink Codex AGENTS.md fixed context** *(fixed; Codex-only)* — compress `agents/codex/instructions/AGENTS.md.fragment` to rules plus pointers; move command examples/details into the installed `less-tokens` skill. Verify `agentsmd-budget.py` still passes and install still injects enough guidance for search-before-read, noise guards, and concise output.
