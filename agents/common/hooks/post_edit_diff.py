@@ -73,6 +73,88 @@ def diff_repo(repo: Path, pathspec: str = ".") -> list[str]:
     return []
 
 
+def _display_path(path: Path, repo: Path) -> str:
+    try:
+        if path.is_absolute():
+            return path.resolve().relative_to(repo.resolve()).as_posix()
+    except Exception:
+        pass
+    return path.as_posix()
+
+
+def _diff_touched_files(repo: Path, touched_files: tuple[Path, ...]) -> list[str]:
+    diff_lines: list[str] = []
+    for path in touched_files:
+        pathspec = _display_path(path, repo)
+        diff_lines.extend(diff_repo(repo, pathspec))
+    return diff_lines
+
+
+def _diff_file_from_line(line: str) -> str | None:
+    if line.startswith("diff --git "):
+        parts = line.strip().split()
+        if len(parts) >= 4:
+            return parts[3].removeprefix("b/")
+    if line.startswith("+++ b/"):
+        return line.strip()[6:]
+    return None
+
+
+def compact_hunk_summary(diff_lines: list[str], touched_files: tuple[Path, ...], repo: Path) -> str:
+    """Summarize touched files and hunk sizes before any full apply_patch diff."""
+    touched = [_display_path(path, repo) for path in touched_files]
+    stats: dict[str, dict[str, int]] = {}
+    current = touched[0] if len(touched) == 1 else ""
+    for line in diff_lines:
+        file_from_line = _diff_file_from_line(line)
+        if file_from_line:
+            current = file_from_line
+            stats.setdefault(current, {"hunks": 0, "added": 0, "removed": 0})
+            continue
+        if not current:
+            continue
+        stats.setdefault(current, {"hunks": 0, "added": 0, "removed": 0})
+        if line.startswith("@@"):
+            stats[current]["hunks"] += 1
+        elif line.startswith("+") and not line.startswith("+++"):
+            stats[current]["added"] += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            stats[current]["removed"] += 1
+
+    lines = ["apply_patch touched files:"]
+    if touched:
+        lines.extend(f"- {path}" for path in touched)
+    else:
+        lines.append("- unknown; parsed paths unavailable")
+    if stats:
+        lines.extend(["", "compact hunk summary:"])
+        for path in sorted(stats):
+            s = stats[path]
+            lines.append(f"- {path}: {s['hunks']} hunk(s), +{s['added']} -{s['removed']}")
+    return "\n".join(lines) + "\n"
+
+
+def apply_patch_diff_text(
+    payload: HookPayload,
+    *,
+    repo: Path,
+    max_chars: int,
+) -> str:
+    diff_lines = _diff_touched_files(repo, payload.touched_files) if payload.touched_files else diff_repo(repo, ".")
+    summary = compact_hunk_summary(diff_lines, payload.touched_files, repo)
+    full = "".join(diff_lines)
+    if not full:
+        return summary
+    if max_chars <= 0 or len(full) <= max_chars:
+        return summary + "\nfull diff:\n" + full
+    return (
+        summary
+        + "\nfull diff omitted: "
+        + f"{len(full)} chars exceeds Codex apply_patch cap {max_chars}. "
+        + "Use targeted git diff for a touched file if needed.\n"
+    )
+
+
 def cap(diff_lines: list[str], max_lines: int) -> str:
     if max_lines <= 0 or len(diff_lines) <= max_lines:
         return "".join(diff_lines)
@@ -105,6 +187,7 @@ def check_post_edit_diff(
     max_diff_lines: int,
     include_apply_patch: bool,
     message: str,
+    apply_patch_max_chars: int = 0,
 ) -> tuple[int, str, str]:
     tools = {"Edit", "Write"}
     if include_apply_patch:
@@ -119,6 +202,7 @@ def check_post_edit_diff(
 
     label = Path(file_path).name if file_path else "patch"
     diff_lines: list[str] = []
+    diff_text = ""
     if payload.tool_name == "Edit":
         old = inp.get("old_string", "")
         new = inp.get("new_string", "")
@@ -127,14 +211,17 @@ def check_post_edit_diff(
     elif file_path:
         diff_lines = diff_write(file_path, repo=repo)
     elif payload.tool_name == "apply_patch":
-        diff_lines = diff_repo(repo, ".")
+        diff_text = apply_patch_diff_text(payload, repo=repo, max_chars=apply_patch_max_chars)
 
     if file_path:
         record_edit(state_dir, file_path)
-    if not diff_lines:
+    elif payload.tool_name == "apply_patch":
+        for path in payload.touched_files:
+            record_edit(state_dir, str(path if path.is_absolute() else repo / path))
+    if not diff_lines and not diff_text:
         return 0, "", ""
 
-    context = hook_context(label, cap(diff_lines, max_diff_lines), message.format(label=label))
+    context = hook_context(label, diff_text or cap(diff_lines, max_diff_lines), message.format(label=label))
     return 0, json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PostToolUse",

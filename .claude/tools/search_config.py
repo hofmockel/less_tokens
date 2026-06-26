@@ -84,6 +84,7 @@ CODEX_MAX_TOOL_OUTPUT_CHARS: int = 1500
 CODEX_MAX_FILESYSTEM_READ_CHARS: int = 1200
 CODEX_TOOL_OUTPUT_HEAD_LINES: int = 30
 CODEX_TOOL_OUTPUT_TAIL_LINES: int = 20
+CODEX_APPLY_PATCH_DIFF_CHARS: int = 1200
 
 # --- Strategy 5: Conversation Compaction Trigger ---
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
