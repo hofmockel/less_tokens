@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
@@ -43,6 +44,9 @@ from savings_log import append as _log_savings  # noqa: E402
 from savings_log import resolve_session as _resolve_session  # noqa: E402
 
 DEFAULT_K = 3
+CODEX_DEFAULT_K = 2
+DEFAULT_SNIPPET_CHARS = 600
+CODEX_DEFAULT_SNIPPET_CHARS = 400
 
 # db module owns INDEX_DB; resolve it lazily so test monkeypatches are seen.
 _DB_MOD = sys.modules[connect_index.__module__]
@@ -258,6 +262,28 @@ def _write_last_search_ranges(results: list[dict]) -> None:
         pass
 
 
+def _is_codex_agent() -> bool:
+    return os.environ.get("LESS_TOKENS_AGENT", "").lower() == "codex"
+
+
+def _resolve_k(explicit_k: int | None, prof: dict | None) -> int:
+    if explicit_k is not None:
+        return explicit_k
+    if _is_codex_agent():
+        return CODEX_DEFAULT_K
+    if prof and "recommended_k" in prof:
+        return prof["recommended_k"]
+    return DEFAULT_K
+
+
+def _resolve_snippet_chars(explicit_chars: int | None) -> int:
+    if explicit_chars is not None:
+        return explicit_chars
+    if _is_codex_agent():
+        return CODEX_DEFAULT_SNIPPET_CHARS
+    return DEFAULT_SNIPPET_CHARS
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("query")
@@ -266,7 +292,9 @@ def main() -> int:
     # for broad-research queries where you want the wider funnel.
     ap.add_argument("-k", type=int, default=None,
                     help="Number of chunks to return "
-                         "(default: AGENT_MODEL profile, else 3)")
+                         "(default: Codex 2, else AGENT_MODEL profile, else 3)")
+    ap.add_argument("--snippet-chars", type=int, default=None,
+                    help="Characters to print per hit (default: Codex 400, else 600)")
     ap.add_argument("--source-type", choices=_source_type_choices())
     ap.add_argument("--min-score", type=float, default=None,
                     help="Drop results with cosine score below this floor")
@@ -285,14 +313,11 @@ def main() -> int:
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
-    # Resolve k: explicit -k wins; else AGENT_MODEL profile; else DEFAULT_K.
+    # Resolve k: explicit -k wins; Codex gets a tighter default; Claude keeps
+    # the model profile/default behavior.
     prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))
-    if args.k is not None:
-        k = args.k
-    elif prof and "recommended_k" in prof:
-        k = prof["recommended_k"]
-    else:
-        k = DEFAULT_K
+    k = _resolve_k(args.k, prof)
+    snippet_chars = _resolve_snippet_chars(args.snippet_chars)
     results = search(args.query, k=k, source_type=args.source_type,
                      min_score=args.min_score)
     # Warn if returned chunks would consume a large fraction of the
@@ -339,8 +364,8 @@ def main() -> int:
         return 0
     for r in results:
         print(f"\n[{r['score']:.3f}] {r['source_path']}::{r['source_key']}  ({r['source_type']})")
-        snippet = r["text"][:600]
-        print(snippet + ("…" if len(r["text"]) > 600 else ""))
+        snippet = r["text"][:snippet_chars]
+        print(snippet + ("…" if len(r["text"]) > snippet_chars else ""))
     return 0
 
 
