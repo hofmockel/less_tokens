@@ -77,7 +77,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CX10 — Codex enforcement parity audit** *(meta; Codex-only)* — turn the current "feature parity but best-effort enforcement" gap into a repeatable audit: validate `.codex/hooks.json` writability, event names, matcher coverage, and fail-open cases against the shipped hook manifest. Output should say which strategies are feature-parity, enforcement-parity, or best-effort-only.
 - **CX11 — Codex hook event-contract CI** *(meta/tool; Codex-only)* — add fixture-level tests that replay representative Codex payloads for every `.codex/hooks.json` matcher, including filesystem reads/searches, Bash, `apply_patch`, Edit, and Write. Goal: catch Codex event-shape drift before parity silently degrades.
 
 ### Medium Priority

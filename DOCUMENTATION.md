@@ -115,6 +115,11 @@ Codex has the same strategy coverage, but it needs a translation layer. Filesyst
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
 See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
+Audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
+
+```bash
+.less_tokens/bin/python .less_tokens/tools/codex_parity_audit.py
+```
 
 For repeatable savings checks, run:
 
