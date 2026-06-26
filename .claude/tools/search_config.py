@@ -176,6 +176,7 @@ MAX_DIFF_LINES: int = 60
 # --- G2: In-session re-read/re-search cache (context-cache.py) --- Set False to disable.
 CONTEXT_CACHE_ENABLED: bool = True
 CONTEXT_CACHE_GREP_TTL: int = 300  # seconds; mirrors WINDOW_SECONDS
+CONTEXT_CACHE_BASH_TTL: int = 120
 
 # --- G3: Directory listing dump control (listing-guard.py + lean-ls.py) --- Set False to disable.
 LISTING_GUARD_ENABLED: bool = True

@@ -79,7 +79,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### Medium Priority
 
-- **CX8 — Codex Bash context-cache** *(tool; Codex-only)* — add short-TTL duplicate detection for repeated Codex Bash commands such as `git status`, `pwd`, identical `rg`, and repeated test commands. Block repeats with a concise "already in context" message and record saved output chars.
 - **CX9 — Codex savings install profile** *(meta; Codex-only)* — add `--codex-savings balanced|aggressive` profile that only changes `.codex/hooks.json`, `AGENTS.md`, and `agent_overrides.codex`. `balanced` should match current/default behavior; `aggressive` enables stricter caps and optional hooks without touching Claude settings.
 - **CX12 — Generated parity docs from hook manifest** *(meta; docs)* — generate the README/DOCUMENTATION parity table from `agents/common/hooks/hook_manifest.py` + `parity.json` so docs cannot point at retired files or drift from the actual Claude/Codex hook set. Include feature parity vs enforcement parity wording.
 

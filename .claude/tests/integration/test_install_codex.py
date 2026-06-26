@@ -12,6 +12,7 @@ import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
+from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
 from install import (
     _dir_is_writable,
     _foreign_files,
@@ -181,7 +182,7 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 17
+        assert len(entries) == sum(len(spec.codex) for spec in HOOK_SPECS)
         assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
         assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)

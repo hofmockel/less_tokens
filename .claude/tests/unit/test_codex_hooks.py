@@ -498,6 +498,27 @@ class TestCodexBashAndCacheAdapters:
         assert code2 == 2
         assert "context-cache" in stderr2
 
+    def test_context_cache_blocks_repeat_bash_after_posttool_record(self, tmp_path):
+        state_dir = tmp_path / "state"
+        post = {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pwd"},
+            "tool_response": str(tmp_path),
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        pre = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pwd"},
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        code1, _, _ = run_hook_with_env("context-cache.py", post, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code2, _, stderr2 = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code1 == 0
+        assert code2 == 2
+        assert "Bash `pwd` already ran" in stderr2
+
     def test_filesystem_read_of_indexed_file_is_checked(self, tmp_path):
         """mcp__filesystem__read_file on an indexed file with no recent search is blocked."""
         state_dir = tmp_path / "state"

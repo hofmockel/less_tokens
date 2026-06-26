@@ -75,7 +75,10 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         claude_script="context-cache.py",
         claude=(HookWire("PreToolUse", "Read|Grep"),),
         codex_script="context-cache.py",
-        codex=(HookWire("PreToolUse", "mcp__filesystem__.*"),),
+        codex=(
+            HookWire("PreToolUse", "mcp__filesystem__.*|Bash"),
+            HookWire("PostToolUse", "Bash"),
+        ),
     ),
     HookSpec(
         name="post-edit-diff",
