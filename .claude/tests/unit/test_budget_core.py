@@ -95,6 +95,42 @@ def test_project_codex_budget_override_preserves_other_codex_caps(tmp_path):
     assert claude.hard_caps["directory_listing"] == 1000
 
 
+def test_project_claude_budget_override_preserves_codex_caps(tmp_path):
+    cfg_dir = tmp_path / ".less_tokens" / "config"
+    cfg_dir.mkdir(parents=True)
+    (cfg_dir / "budget.json").write_text(
+        json.dumps({
+            "agent_overrides": {
+                "claude": {
+                    "categories": {"retrieved_context": 6000, "tool_output": 2000},
+                    "hard_caps": {
+                        "full_file_read": 2000,
+                        "single_tool_output": 1500,
+                        "directory_listing": 600,
+                    },
+                },
+                "codex": {},
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    claude = load_budget_config(tmp_path, agent="claude")
+    codex = load_budget_config(tmp_path, agent="codex")
+
+    assert claude.category_limit("retrieved_context") == 6000
+    assert claude.category_limit("tool_output") == 2000
+    assert claude.hard_caps["full_file_read"] == 2000
+    assert claude.hard_caps["single_tool_output"] == 1500
+    assert claude.hard_caps["directory_listing"] == 600
+    assert codex.category_limit("retrieved_context") == 6000
+    assert codex.category_limit("tool_output") == 2000
+    assert codex.category_limit("diffs") == 1500
+    assert codex.hard_caps["full_file_read"] == 2000
+    assert codex.hard_caps["single_tool_output"] == 1500
+    assert codex.hard_caps["directory_listing"] == 600
+
+
 def test_score_explicit_path_beats_unmentioned_path():
     candidates = [
         ContextCandidate(candidate_id="file:a.py", category="retrieved_context", candidate_type="file", path="a.py", text="x"),

@@ -22,7 +22,17 @@
     "unscored_context": 1200
   },
   "agent_overrides": {
-    "claude": {},
+    "claude": {
+      "categories": {
+        "retrieved_context": 6000,
+        "tool_output": 2000
+      },
+      "hard_caps": {
+        "full_file_read": 2000,
+        "single_tool_output": 1500,
+        "directory_listing": 600
+      }
+    },
     "codex": {}
   }
 }

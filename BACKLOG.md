@@ -65,8 +65,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CL1 — Populate `agent_overrides.claude` with tighter caps** *(input/tool/output; Claude-only)* — `agent_overrides.claude` is empty `{}` today, so Claude runs the shared `hard_caps`/`categories`. Claude enforces deterministically (real PreToolUse blocks), unlike Codex best-effort, so tightening actually sticks. Push down `single_tool_output` (2500→~1500), `full_file_read` (3000→~2000), `directory_listing` (1000→~600), and `tool_output`/`retrieved_context`. Mirror of CX1 on the Claude side; deep-merge touches only the `claude` subtree. Tune in `observe` mode against budget telemetry before ratcheting (this repo dogfoods Claude — too tight hurts here first). Add tests proving `agent_overrides.codex` stays no-op and Claude gets the tighter effective budget.
-
 ### Medium Priority
 
 - **CL3 — Model-aware Claude thresholds** *(tool/meta; Claude-only)* — scale the truncate ceiling and compaction trigger to the active Claude model's context window via `model_profiles.py`/`toolcost.py` (tighter on Haiku, looser on Opus). Codex never calls that path, so it is Claude-only by construction. Builds on the prior `compact-trigger-model-aware` work. Test threshold selection per model id and prove the Codex code path is unchanged.
