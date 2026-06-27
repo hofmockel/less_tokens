@@ -1,4 +1,5 @@
-# less_tokens
+# less_tokens  
+![less_tokens logo](LT_logo_small.svg)
 
 **Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, a budget-native context control plane, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
