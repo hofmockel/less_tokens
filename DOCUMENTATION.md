@@ -45,7 +45,7 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
 | `--build` | Build the index immediately after install |
 | `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
-| `--caveman` | Back-compatible; also copy `.claude/rules/` (caveman output style) |
+| `--caveman` | Back-compatible; also copy `.claude/rules/` for terse output style |
 | `--truncate` | Back-compatible; truncation hook is wired by default |
 | `--compact` | Back-compatible; compaction trigger is wired by default |
 | `--no-caveman` / `--no-truncate` / `--no-compact` | Opt out of default savings hooks |
@@ -108,7 +108,7 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 
 This is feature parity, not identical enforcement parity. The shared source of truth is `agents/common/hooks/hook_manifest.py`; `agents/common/hooks/parity.json` records whether each strategy is shipped for Claude and Codex. Claude hooks are enforced directly by Claude Code. Codex hooks are adapter-based and best-effort through `.codex/hooks.json`, so they can lose enforcement if `.codex/` is not writable or Codex changes event payloads/matchers.
 
-**Parity is the floor, not the ceiling.** Every shipped strategy should reach both agents — that is the parity guarantee, and regressions below it are bugs. But Claude exposes more enforceable levers than Codex (direct PreToolUse/Stop hooks, per-agent `agent_overrides.claude`, model-aware thresholds), and we do not throttle Claude down to Codex's best-effort ceiling just to keep the two visually identical. Where a Claude-only lever cuts tokens with acceptable risk, take it: pushing Claude ahead is intended, not a parity violation. Claude-only headroom is tracked under *Claude Agent* in `BACKLOG.md` (CL-prefixed), with each item naming the Codex-safe isolation wall (`agent_overrides.claude`, `.claude/settings.json`) so advancing Claude never degrades Codex.
+**Parity is the floor, not the ceiling.** Every shipped strategy should reach both agents; regressions below that bar are bugs. Claude also has reliable controls that Codex does not expose, including direct PreToolUse/Stop hooks, per-agent `agent_overrides.claude`, and model-aware thresholds. When those Claude-only controls reduce tokens without changing Codex behavior, they are valid improvements rather than parity violations. The isolation boundaries are `agent_overrides.claude` for budget settings and `.claude/settings.json` for Claude-only hook wiring.
 
 **Why Claude is easier to enforce:**
 
@@ -121,7 +121,7 @@ Codex has the same strategy coverage, but it needs a translation layer. Filesyst
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
 - Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
-- Caveman output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
+- Terse output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
 See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
@@ -169,6 +169,7 @@ All variables:
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
 | `CODEX_MAX_TOOL_OUTPUT_CHARS` / `CODEX_MAX_FILESYSTEM_READ_CHARS` | Tighter Codex-only truncation ceilings; env overrides are `LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS` and `LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS` |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
+| `AGENT_MODEL` | Optional Claude model ID used for default search `k` and Claude-only threshold scaling |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
 
 `INDEXED_SOURCE_DIRS` also feeds JS/TS indexing for `.js`, `.jsx`, `.ts`, and `.tsx` files.
@@ -187,6 +188,29 @@ Configure it in `.less_tokens/config/budget.json`:
 | `strict` | Enforce plus block oversized unscored context |
 
 The default mode is `observe`. Events are appended to `.less_tokens/state/events.jsonl`; compact per-agent session snapshots are written beside it, such as `.less_tokens/state/claude-session.json` and `.less_tokens/state/codex-session.json`.
+
+`agent_overrides` lets one agent use tighter limits without changing the shared defaults or the other agent's effective budget. The shipped project config uses `agent_overrides.claude` for lower Claude limits on retrieved context, tool output, full-file reads, single tool outputs, and broad directory listings. Codex keeps its own effective profile through `agent_overrides.codex` and the built-in defaults in `agents/common/budget/config.py`.
+
+Example shape:
+
+```json
+{
+  "agent_overrides": {
+    "claude": {
+      "categories": {
+        "retrieved_context": 6000,
+        "tool_output": 2000
+      },
+      "hard_caps": {
+        "full_file_read": 2000,
+        "single_tool_output": 1500,
+        "directory_listing": 600
+      }
+    },
+    "codex": {}
+  }
+}
+```
 
 Inspect budget behavior with:
 
@@ -284,7 +308,7 @@ Also accessible as:
 
 Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text returned against the full size of matched files on disk.
 
-### Caveman mode
+### Terse output mode
 
 Append the terse-output rule to your `CLAUDE.md`:
 
@@ -292,7 +316,7 @@ Append the terse-output rule to your `CLAUDE.md`:
 cat .claude/rules/caveman.md >> CLAUDE.md
 ```
 
-Full spec — banned phrases and before/after examples: [.claude/rules/caveman.md](.claude/rules/caveman.md).
+Full spec, including banned filler phrases and before/after examples: [.claude/rules/caveman.md](.claude/rules/caveman.md). The installer flag is still named `--caveman` for backward compatibility.
 
 ---
 
@@ -336,7 +360,7 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
 }
 ```
 
-**Optional — caveman nudge hook** (fires if Claude uses verbose filler):
+**Optional — terse-output nudge hook** (fires if Claude uses verbose filler):
 
 ```json
 {
@@ -345,7 +369,7 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
 }
 ```
 
-**Optional — tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the caveman entry if both are present:
+**Optional — tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the terse-output entry if both are present:
 
 ```json
 {
@@ -354,7 +378,7 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
 }
 ```
 
-Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). Codex adapters use tighter defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
+Tune the base ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). If `AGENT_MODEL` is set to a known Claude model in `model_profiles.py`, Claude scales this ceiling at hook import time: Haiku is tighter, standard Sonnet keeps the configured default, and Opus or 1M Sonnet get more room. Codex adapters do not use `AGENT_MODEL`; they use separate defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
 
 **Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
 
@@ -365,7 +389,7 @@ Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS`
 }
 ```
 
-Tune in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). The hook has built-in hysteresis — once tripped it only re-fires after the transcript grows by another 25%.
+Tune the base threshold in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). Claude scales this value with `AGENT_MODEL` when the model is known, using the same model-profile scale as truncation. The hook also has built-in hysteresis: once tripped, it only re-fires after the transcript grows by another 25%.
 
 ### 3. Optional: session-start preflight
 
@@ -392,7 +416,7 @@ less_tokens/
     │   ├── truncate-output.py     # PostToolUse: cap oversized Bash/Read/WebFetch results
     │   └── compact-trigger.py     # PostToolUse: nudge /compact when transcript grows large
     ├── rules/                 # deployed to <host>/.claude/rules/
-    │   └── caveman.md             # CLAUDE.md snippet for caveman output style
+    │   └── caveman.md             # CLAUDE.md snippet for terse output style
     ├── schema/                # deployed to <host>/.claude/schema/
     │   └── index.sql              # documents table schema
     ├── skills/                # Claude Code skills (not deployed; dev tooling only)
@@ -418,7 +442,7 @@ less_tokens/
 │   ├── bin/python             # venv-backed launcher for Claude commands
 │   ├── hooks/                 # hook scripts (wired in settings.json)
 │   ├── index.db               # SQLite vector index (regenerable)
-│   ├── rules/                 # caveman.md (if --caveman was passed)
+│   ├── rules/                 # terse output rule file (if --caveman was passed)
 │   ├── schema/                # index.sql schema
 │   ├── state/                 # runtime state (last-search, logs)
 │   └── tools/                 # search_config.py, embeddings.py, search.py, …
@@ -511,7 +535,7 @@ The source tree has a Claude runtime, a Codex adapter layer, and shared hook log
 ```
 .claude/
   hooks/           ← PreToolUse / PostToolUse / Stop hooks
-  rules/           ← Output style rules (caveman.md)
+  rules/           ← Output style rules
   skills/          ← Claude Code skills (bug-hunt, claudemd)
   tools/           ← Core Python scripts deployed to host projects
   schema/          ← SQL schema deployed to host projects
@@ -526,7 +550,8 @@ agents/
 ### Layer split
 
 **Agent-agnostic core (`.claude/tools/` and `.claude/schema/`)**
-- `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold
+- `.claude/tools/search_config.py` — the single config file users edit; all runtime constants live here including `VENV_PY`, `INDEXED_SOURCE_DIRS`, `STATE_DIR`, truncation limits, compaction threshold, and optional `AGENT_MODEL`
+- `.claude/tools/model_profiles.py` — Claude model metadata used for default search `k` and Claude-only threshold scaling
 - `.claude/tools/embeddings.py` — chunks source files by structure (Python AST, markdown headings, SQL statements, JS/TS declarations), embeds with `BAAI/bge-small-en-v1.5` via `fastembed`, upserts into `.claude/index.db` with content-hash diffing
 - `.claude/tools/search.py` — cosine similarity search over stored float32 vectors; writes `STATE_DIR/last-search` on every run so the search-first gate knows a search occurred
 - `.claude/tools/db.py` — SQLite helpers; `connect_index()` opens `.claude/index.db`
@@ -547,9 +572,9 @@ agents/
 - `.claude/hooks/read-guard.py` — PreToolUse on `Read`; blocks an un-sliced Read of a noise file (lockfile/minified/binary/oversized data) per `READ_DENY_GLOBS` + `READ_DENY_DATA_MAX_LINES`; a Read with an `offset` is allowed
 - `.claude/hooks/auto-slice.py` — PreToolUse on `Read`; if the file was a hit in the last (recent) search, blocks an un-sliced Read with the exact `Read(offset, limit)` for the matched range (`STATE_DIR/last-search.json`, written by `search.py`); pass `offset` to override
 - `.claude/hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
-- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split). Codex's adapter uses separate `CODEX_MAX_*` caps.
-- `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; 25% hysteresis via `.claude/state/compact-trigger-last`
-- `.claude/hooks/caveman-reminder.py` — Stop hook; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
+- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS`, scaled by `AGENT_MODEL` for Claude when configured. Bash uses head+tail lines; other tools use a 60/40 char split. Codex's adapter uses separate `CODEX_MAX_*` caps.
+- `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size against `MAX_SESSION_CHARS`, scaled by `AGENT_MODEL` for Claude when configured; 25% hysteresis via `.claude/state/compact-trigger-last`
+- `.claude/hooks/caveman-reminder.py` — Stop hook for terse output; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
 - `.claude/hooks/claudemd-budget.py` — PostToolUse on `Edit|Write`; blocks when CLAUDE.md exceeds `CLAUDE_MD_TOKEN_BUDGET` or gains a stale ref
 
 **Codex hook layer (`agents/codex/hooks/`)**
@@ -562,7 +587,7 @@ agents/
 - Event matchers and optional/default status live in `agents/common/hooks/hook_manifest.py`; shipped/missing parity lives in `agents/common/hooks/parity.json`.
 
 **Rules (`.claude/rules/`)**
-- `.claude/rules/caveman.md` — caveman output style guide; append to `CLAUDE.md` with `--caveman` install flag
+- `.claude/rules/caveman.md` — terse output style guide; append to `CLAUDE.md` with the backward-compatible `--caveman` install flag
 - Audit always-loaded or appendable rule files with `.claude/bin/python .claude/tools/claudemd_audit.py --rules`; the per-file default cap is `RULES_TOKEN_BUDGET`.
 
 **Skills (`.claude/skills/`)**
@@ -576,13 +601,13 @@ Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.p
 The mission is fewer tokens. Every token falls in one of three buckets, and each lever targets one:
 
 - **Input** — files read, search results, history. Biggest lever (5–10×). Attacked by search-first, auto-slice, grep-first, the symbol index.
-- **Output** — assistant prose. Attacked by the caveman Stop hook.
+- **Output** — assistant prose. Attacked by the terse-output Stop hook.
 - **Tool** — raw Bash/Read/WebFetch dumps. Attacked by truncation and the lean-output parsers.
 
 Two principles decide *how*:
 
 - **Code over reasoning.** When a deterministic script can produce the answer, don't make the model read and think to get there — locate a symbol, slice a file, parse test output in code.
-- **A hook is law; a CLAUDE.md sentence is a suggestion.** PreToolUse blocks the wasteful action; PostToolUse rewrites or trims the result. A rule nobody enforces gets ignored.
+- **Hooks enforce what prose can only request.** PreToolUse blocks the wasteful action; PostToolUse rewrites or trims the result. Unenforced instructions are useful guidance, but they are less reliable than an executable hook.
 
 Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
 
@@ -591,7 +616,7 @@ Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
 | S8 | input | symbol index + `/def` locate | PreToolUse Read/Grep → `symbols.py` |
 | S9 | input | auto-slice Read to the searched range | PreToolUse Read → `auto-slice.py` |
 | S10 | input | post-Edit diff, block the verify re-Read | Pre+PostToolUse Edit |
-| S11 | output | caveman check on the assistant turn | Stop → `caveman-reminder.py` |
+| S11 | output | terse-output check on the assistant turn | Stop → `caveman-reminder.py` |
 | S12 | tool | structured parsers (pytest/ruff/eslint/git) | PostToolUse Bash → `lean-output.py` |
 | S13 | input | grep-first: block oversized Read, route to search/symbol | PreToolUse Read |
 

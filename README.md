@@ -19,12 +19,16 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Vector search + symbols** | Pre-embeds source files; exact `/def` lookup for Python and JS/TS symbols | 5–10× fewer input tokens | always on |
 | **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
 | **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars | always on |
-| **Caveman / terse mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens | default; opt out with `--no-caveman` |
+| **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens | default; opt out with `--no-caveman` |
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | default; opt out with `--no-truncate` |
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent; use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of the formerly optional savings hooks. Claude and Codex have feature parity for the shipped strategies, but Codex enforcement is best-effort through `.codex/hooks.json` while Claude hooks are enforced directly. Parity is the floor, not the ceiling: every shipped strategy reaches both agents, but Claude has more enforceable levers (direct hooks, `agent_overrides.claude`, model-aware thresholds) and we deliberately push Claude ahead where a Claude-only lever cuts tokens at acceptable risk rather than throttle it to Codex's best-effort ceiling — Claude-only headroom is tracked as CL-prefixed items in `BACKLOG.md`, each isolated so it never degrades Codex. A built-in **savings tracker** (`.claude/tools/stats.py` for Claude; `.less_tokens/tools/stats.py` shim for Codex) measures chars and estimated tokens saved per strategy; always on and local-only (written to the active state dir: `.claude/state/savings.jsonl` for Claude, `.less_tokens/state/savings.jsonl` for Codex), never transmitted, disable with `LESS_TOKENS_NO_STATS=1`. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
+Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent. Use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of those default savings hooks.
+
+Claude and Codex have feature parity for shipped strategies, but they do not have identical enforcement. Claude hooks are enforced directly. Codex enforcement is best-effort through `.codex/hooks.json`. That difference is intentional: Claude has extra reliable levers, including direct hooks, `agent_overrides.claude`, and model-aware thresholds. Those Claude-only settings are isolated so they can cut Claude token use without changing Codex behavior.
+
+A built-in **savings tracker** (`.claude/tools/stats.py` for Claude; `.less_tokens/tools/stats.py` shim for Codex) measures chars and estimated tokens saved per strategy. Tracking is always on, local-only, and written to the active state directory: `.claude/state/savings.jsonl` for Claude and `.less_tokens/state/savings.jsonl` for Codex. Nothing is transmitted. Disable tracking with `LESS_TOKENS_NO_STATS=1`. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
 **Claude vs Codex support**
 
@@ -86,7 +90,7 @@ python3 install.py --update                # safe re-copy of hooks + tools
 
 See [DOCUMENTATION.md](DOCUMENTATION.md) for full installation, configuration, usage, hook wiring instructions, and the Claude/Codex parity matrix. The hook manifest lives in [`agents/common/hooks/hook_manifest.py`](agents/common/hooks/hook_manifest.py), with CI-checked parity data in [`agents/common/hooks/parity.json`](agents/common/hooks/parity.json).
 
-Budget behavior is controlled by `.less_tokens/config/budget.json`. Modes are `observe` (record only), `advise` (print concise suggestions), `enforce` (block actionable waste with a replacement or bypass), and `strict` (also blocks oversized unscored context). Inspect recent decisions with:
+Budget behavior is controlled by `.less_tokens/config/budget.json`. Modes are `observe` (record only), `advise` (print concise suggestions), `enforce` (block actionable waste with a replacement or bypass), and `strict` (also blocks oversized unscored context). The project config also supports per-agent overrides; Claude and Codex can use different category limits and hard caps without changing the shared defaults. Inspect recent decisions with:
 
 ```bash
 .claude/bin/python .less_tokens/tools/budget_report.py

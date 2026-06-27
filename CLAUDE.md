@@ -2,20 +2,20 @@
 
 Guidance for Claude Code in this repo. Architecture, internals, and the full install/verify walkthrough live in `DOCUMENTATION.md` — it is indexed, so search it instead of bloating this file.
 
-## Output style — Caveman Mode
+## Output style
 
-Talk like caveman. Short sentence. No filler. No "certainly", "I'd be happy to", "Great question". No padding. No summary at end. Noun, verb, skip article. Say what need saying. Stop.
+Use concise, direct prose. Avoid filler such as "certainly", "I'd be happy to", and "Great question". Do not add padding or a recap when the answer is already complete. Say what is needed, then stop.
 
 Good: "File not found. Check path."
 Bad: "I apologize, but I was unable to locate the file you specified."
 
-Code blocks stay normal — only prose go caveman. Full spec: `.claude/rules/caveman.md`.
+Code blocks should stay idiomatic and readable. The full terse-output spec is in `.claude/rules/caveman.md`.
 
 ## Project purpose
 
 A **toolkit** whose job is to be installed *into other projects*: `install.py` targets a host project's parent dir and deploys `.claude/` (tools, hooks, schema, venv, `index.db`); re-run after `git pull` to upgrade in place. That is the primary mission.
 
-But it is also developed **and dogfooded here** — this repo runs its own hooks, search, and skills to spend fewer tokens while building less_tokens. When working in this repo, use the installed tooling (search before Read, the skills, the budget hooks), not just edit it. Strategies: vector search, caveman mode, tool-output truncation, session compaction. Deploy mechanics: `DOCUMENTATION.md`.
+But it is also developed **and dogfooded here** — this repo runs its own hooks, search, and skills to spend fewer tokens while building less_tokens. When working in this repo, use the installed tooling (search before Read, the skills, the budget hooks), not just edit it. Strategies include vector search, terse-output enforcement, tool-output truncation, session compaction, and per-agent budget controls. Deploy mechanics: `DOCUMENTATION.md`.
 
 ## Test commands
 
