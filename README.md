@@ -6,6 +6,13 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Claude Code](https://img.shields.io/badge/Claude-Code-orange)
 ![Codex](https://img.shields.io/badge/Codex-supported-green)
+[![Tests](https://github.com/hofmockel/less_tokens/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/hofmockel/less_tokens/actions/workflows/tests.yml)
+[![Install E2E](https://github.com/hofmockel/less_tokens/actions/workflows/install-e2e.yml/badge.svg?branch=main)](https://github.com/hofmockel/less_tokens/actions/workflows/install-e2e.yml)
+[![Stats](https://github.com/hofmockel/less_tokens/actions/workflows/stats.yml/badge.svg?branch=main)](https://github.com/hofmockel/less_tokens/actions/workflows/stats.yml)
+[![CodeQL](https://github.com/hofmockel/less_tokens/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/hofmockel/less_tokens/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Local Only](https://img.shields.io/badge/data-local--only-2ea44f)
+[![Made by Human](https://madebyhuman.iamjarl.com/badges/made-white.svg)](https://madebyhuman.iamjarl.com)
 
 ---
 
@@ -113,7 +120,7 @@ Agent reads the README, clones the repo, and runs the installer. No manual steps
 
 ## Contributing
 
-Fork, add an entry to [BACKLOG.md](BACKLOG.md), open a PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
+Fork, add an entry to [BACKLOG.md](BACKLOG.md), and open a PR. Code-changing PRs should also add an `[Unreleased]` entry to `CHANGELOG.md`.
 
 ---
 
