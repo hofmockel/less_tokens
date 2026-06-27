@@ -2,6 +2,7 @@
 
 **Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, a budget-native context control plane, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
+[![Made by Human](https://madebyhuman.iamjarl.com/badges/made-white.svg)](https://madebyhuman.iamjarl.com)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Claude Code](https://img.shields.io/badge/Claude-Code-orange)
@@ -12,7 +13,6 @@
 [![CodeQL](https://github.com/hofmockel/less_tokens/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/hofmockel/less_tokens/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Local Only](https://img.shields.io/badge/data-local--only-2ea44f)
-[![Made by Human](https://madebyhuman.iamjarl.com/badges/made-white.svg)](https://madebyhuman.iamjarl.com)
 
 ---
 
