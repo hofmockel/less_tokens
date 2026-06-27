@@ -1,4 +1,5 @@
-# less_tokens
+# less_tokens  
+![less_tokens logo](https://github.com/hofmockel/less_tokens/blob/main/LT_logo_small.png)
 
 **Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, a budget-native context control plane, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
