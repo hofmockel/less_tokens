@@ -94,6 +94,7 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout or "omitted" in stderr
+        assert len(stdout) < 2_000
 
     def test_passes_non_targeted_tool(self):
         code, _, _ = run_hook_with_env("truncate-output.py", {
@@ -109,6 +110,25 @@ class TestCodexTruncateOutput:
         })
         assert code == 2
         assert "omitted" in stdout
+        assert len(stdout) < 1_600
+
+    def test_env_override_sets_bash_cap(self):
+        code, stdout, _ = run_hook_with_env("truncate-output.py", {
+            "tool_name": "Bash",
+            "tool_response": "x" * 10_000,
+        }, extra_env={"LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS": "900"})
+        assert code == 2
+        assert "omitted" in stdout
+        assert len(stdout) < 1_200
+
+    def test_env_override_sets_filesystem_read_cap(self):
+        code, stdout, _ = run_hook_with_env("truncate-output.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_response": "x" * 10_000,
+        }, extra_env={"LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS": "700"})
+        assert code == 2
+        assert "omitted" in stdout
+        assert len(stdout) < 1_000
 
     def test_logs_measured_savings(self, tmp_path):
         state_dir = tmp_path / "state"
@@ -409,6 +429,43 @@ class TestCodexBashAndCacheAdapters:
         assert code == 2
         assert "listing-guard" in stdout
 
+    def test_listing_guard_rewrites_bare_find(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "find ."},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "rg --files" in stdout
+
+    def test_listing_guard_blocks_broad_git_diff(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "git diff"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "git diff --stat" in stdout
+        assert "git diff --name-only" in stdout
+
+    def test_listing_guard_blocks_verbose_pytest(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest -vv"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "pytest -q" in stdout
+
+    def test_listing_guard_blocks_broad_cat(self):
+        code, stdout, _ = run_hook_with_env("listing-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "cat README.md"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "sed -n" in stdout
+
     def test_lean_output_parses_pytest_failure(self):
         raw = (
             "\n".join(f"noise line {i}" for i in range(40))
@@ -440,6 +497,27 @@ class TestCodexBashAndCacheAdapters:
         assert code1 == 0
         assert code2 == 2
         assert "context-cache" in stderr2
+
+    def test_context_cache_blocks_repeat_bash_after_posttool_record(self, tmp_path):
+        state_dir = tmp_path / "state"
+        post = {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pwd"},
+            "tool_response": str(tmp_path),
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        pre = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pwd"},
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        code1, _, _ = run_hook_with_env("context-cache.py", post, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code2, _, stderr2 = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code1 == 0
+        assert code2 == 2
+        assert "Bash `pwd` already ran" in stderr2
 
     def test_filesystem_read_of_indexed_file_is_checked(self, tmp_path):
         """mcp__filesystem__read_file on an indexed file with no recent search is blocked."""

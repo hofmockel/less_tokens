@@ -12,11 +12,16 @@ import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
+from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
 from install import (
     _dir_is_writable,
     _foreign_files,
     _install_specs,
+    CODEX_AGGRESSIVE_BUDGET_OVERRIDE,
+    CODEX_BALANCED_BUDGET_OVERRIDE,
+    apply_codex_savings_profile,
     build_codex_hook_entries,
+    codex_agents_fragment,
     copy_tree,
     handle_agents_md,
     handle_search_config,
@@ -181,7 +186,7 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 17
+        assert len(entries) == sum(len(spec.codex) for spec in HOOK_SPECS)
         assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
         assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)
@@ -231,6 +236,40 @@ class TestBuildCodexHookEntries:
         assert not any("compact-trigger.py" in cmd for cmd in commands)
         assert not any("terse-reminder.py" in cmd for cmd in commands)
 
+    def test_aggressive_profile_marks_hook_commands(self, tmp_path):
+        entries = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(
+                truncate=False,
+                compact=False,
+                caveman=False,
+                codex_savings="aggressive",
+            ),
+        )
+        commands = [cmd for _, _, cmd in entries]
+        assert commands
+        assert all("LESS_TOKENS_CODEX_SAVINGS=aggressive" in cmd for cmd in commands)
+
+    def test_aggressive_profile_enables_optional_hooks_despite_opt_outs(self, tmp_path):
+        entries = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(
+                truncate=False,
+                compact=False,
+                caveman=False,
+                no_truncate=True,
+                no_compact=True,
+                no_caveman=True,
+                codex_savings="aggressive",
+            ),
+        )
+        commands = [cmd for _, _, cmd in entries]
+        assert any("truncate-output.py" in cmd for cmd in commands)
+        assert any("compact-trigger.py" in cmd for cmd in commands)
+        assert any("terse-reminder.py" in cmd for cmd in commands)
+
 
 # ---------------------------------------------------------------------------
 # AGENTS.md creation
@@ -246,10 +285,12 @@ class TestCodexAgentsMd:
         content = (tmp_path / "AGENTS.md").read_text()
         assert "Token Discipline" in content
 
-    def test_agents_md_contains_search_command(self, tmp_path):
+    def test_agents_md_points_to_less_tokens_skill(self, tmp_path):
         handle_agents_md(FRAGMENT, tmp_path)
         content = (tmp_path / "AGENTS.md").read_text()
-        assert "search.py" in content
+        assert "large or indexed files" in content
+        assert "use the `less-tokens` skill" in content
+        assert "search.py" not in content
 
     def test_agents_md_dry_run_does_not_write(self, tmp_path):
         handle_agents_md(FRAGMENT, tmp_path, dry_run=True)
@@ -263,6 +304,69 @@ class TestCodexAgentsMd:
         assert "Intro" in content
         assert "old" not in content
         assert "Token Discipline" in content
+
+    def test_balanced_agents_fragment_matches_source(self):
+        source = FRAGMENT.read_text(encoding="utf-8").strip()
+        assert codex_agents_fragment(source, "balanced") == source
+
+    def test_aggressive_agents_fragment_adds_profile_note(self):
+        source = FRAGMENT.read_text(encoding="utf-8")
+        fragment = codex_agents_fragment(source, "aggressive")
+        assert "Token Discipline" in fragment
+        assert "Aggressive Codex savings" in fragment
+
+
+# ---------------------------------------------------------------------------
+# Codex savings profile
+# ---------------------------------------------------------------------------
+
+class TestCodexSavingsProfile:
+    def test_balanced_profile_writes_current_codex_budget_override(self, tmp_path):
+        config_dir = tmp_path / ".less_tokens" / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "budget.json").write_text(
+            json.dumps({"agent_overrides": {"claude": {}, "codex": {}}}),
+            encoding="utf-8",
+        )
+
+        changed = apply_codex_savings_profile(tmp_path, "balanced")
+
+        data = json.loads((config_dir / "budget.json").read_text(encoding="utf-8"))
+        assert changed == 1
+        assert data["agent_overrides"]["codex"] == CODEX_BALANCED_BUDGET_OVERRIDE
+        assert data["agent_overrides"]["claude"] == {}
+
+    def test_aggressive_profile_only_changes_codex_override(self, tmp_path):
+        config_dir = tmp_path / ".less_tokens" / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "budget.json").write_text(
+            json.dumps({
+                "mode": "advise",
+                "agent_overrides": {
+                    "claude": {"hard_caps": {"single_tool_output": 1111}},
+                    "codex": CODEX_BALANCED_BUDGET_OVERRIDE,
+                },
+            }),
+            encoding="utf-8",
+        )
+
+        changed = apply_codex_savings_profile(tmp_path, "aggressive")
+
+        data = json.loads((config_dir / "budget.json").read_text(encoding="utf-8"))
+        assert changed == 1
+        assert data["mode"] == "advise"
+        assert data["agent_overrides"]["claude"] == {"hard_caps": {"single_tool_output": 1111}}
+        assert data["agent_overrides"]["codex"] == CODEX_AGGRESSIVE_BUDGET_OVERRIDE
+
+    def test_profile_write_is_idempotent(self, tmp_path):
+        config_dir = tmp_path / ".less_tokens" / "config"
+        config_dir.mkdir(parents=True)
+        (config_dir / "budget.json").write_text(
+            json.dumps({"agent_overrides": {"codex": CODEX_AGGRESSIVE_BUDGET_OVERRIDE}}),
+            encoding="utf-8",
+        )
+
+        assert apply_codex_savings_profile(tmp_path, "aggressive") == 0
 
 
 # ---------------------------------------------------------------------------

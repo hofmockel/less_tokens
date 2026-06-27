@@ -27,6 +27,7 @@ class TestHandleAgentsMd:
         handle_agents_md(FRAGMENT, tmp_path)
         content = (tmp_path / "AGENTS.md").read_text()
         assert "Token Discipline" in content
+        assert "less-tokens" in content
 
     def test_appends_to_existing_file_preserving_content(self, tmp_path):
         agents_md = tmp_path / "AGENTS.md"
@@ -61,6 +62,12 @@ class TestHandleAgentsMd:
         agents_md.write_text(f"{_BEGIN}\nOLD\n{_END}\n")
         handle_agents_md(FRAGMENT, tmp_path)
         assert "Token Discipline" in agents_md.read_text()
+
+    def test_fixed_context_points_to_skill_not_command_examples(self, tmp_path):
+        handle_agents_md(FRAGMENT, tmp_path)
+        content = (tmp_path / "AGENTS.md").read_text()
+        assert "use the `less-tokens` skill" in content
+        assert ".less_tokens/bin/python" not in content
 
     def test_dry_run_does_not_create_file(self, tmp_path):
         handle_agents_md(FRAGMENT, tmp_path, dry_run=True)

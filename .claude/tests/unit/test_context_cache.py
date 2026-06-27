@@ -205,6 +205,63 @@ def test_blocked_read_chars_full_file_is_exact(hook, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Bash cache — Codex-only wiring, shared logic
+# ---------------------------------------------------------------------------
+
+def test_bash_repeat_blocks_with_measured_savings(hook, tmp_path):
+    captured = []
+    post = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "git status --short"},
+        "tool_result": " M app.py\n",
+        "transcript_path": "t1",
+    }
+    pre = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "git status --short"},
+        "transcript_path": "t1",
+    }
+
+    code, _, _ = hook.check_context_cache(
+        hook.normalize_claude(post), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PostToolUse",
+        log=captured.append, session=("sess-1", "payload"))
+    assert code == 0 and captured == []
+
+    code, _, msg = hook.check_context_cache(
+        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PreToolUse",
+        log=captured.append, session=("sess-1", "payload"))
+    assert code == 2
+    assert "Bash `git status --short` already ran" in msg
+    assert captured[0]["strategy"] == "context-cache-bash"
+    assert captured[0]["elided_chars"] == len(" M app.py\n")
+    assert captured[0]["where"] == "git status --short"
+
+
+def test_bash_non_cacheable_command_is_not_blocked(hook, tmp_path):
+    post = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls -la"},
+        "tool_result": "total 0\n",
+        "transcript_path": "t1",
+    }
+    pre = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls -la"},
+        "transcript_path": "t1",
+    }
+    hook.check_context_cache(
+        hook.normalize_claude(post), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PostToolUse")
+    code, _, msg = hook.check_context_cache(
+        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+    assert code == 0
+    assert msg == ""
+
+
+# ---------------------------------------------------------------------------
 # None transcript_path must not share state across sessions
 # ---------------------------------------------------------------------------
 

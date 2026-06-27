@@ -81,20 +81,30 @@ python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 
 **Compatibility:**
 
-| Feature | Claude | Codex |
-|---|---|---|
-| Vector search + index | ✓ stable | ✓ stable |
-| Search-before-read | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Auto-sliced reads | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Noise-file and large-read guards | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Context-cache reread guard | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Post-edit diff and reread block | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Recursive listing guard | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Structured Bash output parsers | ✓ enforced via hook | best-effort via `.codex/hooks.json` |
-| Tool-output truncation | ✓ default hook | best-effort default hook |
-| Compaction trigger | ✓ default hook | best-effort default hook |
-| Symbol lookup | ✓ Python + JS/TS | ✓ Python + JS/TS |
-| AGENTS.md / CLAUDE.md pruning | ✓ | ✓ (`agentsmd_audit.py`) |
+<!-- hook-parity: begin -->
+
+Feature parity means the same strategy is shipped for both agents. Enforcement parity is intentionally different: Claude hooks are direct enforcement, while Codex hooks are best-effort adapters through `.codex/hooks.json`.
+
+| Strategy | Feature parity | Claude enforcement | Codex enforcement |
+|---|---|---|---|
+| `budget-observer` | yes | enforced; `.claude/hooks/budget-observer.py`; PreToolUse `Read|Grep|Glob|Bash`, PostToolUse `Read|Grep|Glob|Bash|Edit|Write` | best-effort; `.codex/hooks/budget-observer.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash|mcp__filesystem__.*|apply_patch|Edit|Write` |
+| `search-first` | yes | enforced; `.claude/hooks/search-first.py`; PreToolUse `Read`, PreToolUse `Grep` | best-effort; `.codex/hooks/search-first.py`; PreToolUse `mcp__filesystem__.*` |
+| `read-guard` | yes | enforced; `.claude/hooks/read-guard.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-guard.py`; PreToolUse `mcp__filesystem__.*` |
+| `auto-slice` | yes | enforced; `.claude/hooks/auto-slice.py`; PreToolUse `Read` | best-effort; `.codex/hooks/auto-slice.py`; PreToolUse `mcp__filesystem__.*` |
+| `grep-first-read` | yes | enforced; `.claude/hooks/grep-first-read.py`; PreToolUse `Read` | best-effort; `.codex/hooks/grep-first-read.py`; PreToolUse `mcp__filesystem__.*` |
+| `read-after-edit` | yes | enforced; `.claude/hooks/read-after-edit.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-after-edit.py`; PreToolUse `mcp__filesystem__.*` |
+| `context-cache` | yes | enforced; `.claude/hooks/context-cache.py`; PreToolUse `Read|Grep` | best-effort; `.codex/hooks/context-cache.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash` |
+| `post-edit-diff` | yes | enforced; `.claude/hooks/post-edit-diff.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/post-edit-diff.py`; PostToolUse `apply_patch|Edit|Write` |
+| `index-refresh` | yes | enforced; `.claude/hooks/index-refresh.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/index-refresh.py`; PostToolUse `apply_patch|Edit|Write` |
+| `agent-md-budget` | yes | enforced; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write` |
+| `lean-output` | yes | enforced; `.claude/hooks/lean-output.py`; PostToolUse `Bash` | best-effort; `.codex/hooks/lean-output.py`; PostToolUse `Bash` |
+| `listing-guard` | yes | enforced; `.claude/hooks/listing-guard.py`; PreToolUse `Bash` | best-effort; `.codex/hooks/listing-guard.py`; PreToolUse `Bash` |
+| `truncate-output` | yes; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | best-effort; `.codex/hooks/truncate-output.py`; PostToolUse `Bash|mcp__filesystem__.*` |
+| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PostToolUse `.*` |
+| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*` | best-effort; `.codex/hooks/terse-reminder.py`; PostToolUse `.*` |
+| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*` | best-effort; `.codex/hooks/savings-html.py`; PostToolUse `.*` |
+
+<!-- hook-parity: end -->
 
 This is feature parity, not identical enforcement parity. The shared source of truth is `agents/common/hooks/hook_manifest.py`; `agents/common/hooks/parity.json` records whether each strategy is shipped for Claude and Codex. Claude hooks are enforced directly by Claude Code. Codex hooks are adapter-based and best-effort through `.codex/hooks.json`, so they can lose enforcement if `.codex/` is not writable or Codex changes event payloads/matchers.
 
@@ -115,6 +125,11 @@ Codex has the same strategy coverage, but it needs a translation layer. Filesyst
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
 See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
+Audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
+
+```bash
+.less_tokens/bin/python .less_tokens/tools/codex_parity_audit.py
+```
 
 For repeatable savings checks, run:
 
@@ -152,6 +167,7 @@ All variables:
 | `MAX_TOOL_OUTPUT_CHARS` | Truncation ceiling for Bash/Read/WebFetch results (set 0 to disable) |
 | `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
 | `TOOL_OUTPUT_TAIL_LINES` | Bash tail lines kept on truncation (errors live here) |
+| `CODEX_MAX_TOOL_OUTPUT_CHARS` / `CODEX_MAX_FILESYSTEM_READ_CHARS` | Tighter Codex-only truncation ceilings; env overrides are `LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS` and `LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS` |
 | `MAX_SESSION_CHARS` | Session transcript size that triggers a `/compact` reminder (set 0 to disable) |
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
 
@@ -338,7 +354,7 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
 }
 ```
 
-Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable).
+Tune the ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). Codex adapters use tighter defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
 
 **Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
 
@@ -531,7 +547,7 @@ agents/
 - `.claude/hooks/read-guard.py` — PreToolUse on `Read`; blocks an un-sliced Read of a noise file (lockfile/minified/binary/oversized data) per `READ_DENY_GLOBS` + `READ_DENY_DATA_MAX_LINES`; a Read with an `offset` is allowed
 - `.claude/hooks/auto-slice.py` — PreToolUse on `Read`; if the file was a hit in the last (recent) search, blocks an un-sliced Read with the exact `Read(offset, limit)` for the matched range (`STATE_DIR/last-search.json`, written by `search.py`); pass `offset` to override
 - `.claude/hooks/index-refresh.py` — PostToolUse on `Edit|Write`; fires `embeddings.py refresh` as a detached background process; logs to `.claude/state/index-refresh.log`
-- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split)
+- `.claude/hooks/truncate-output.py` — PostToolUse on `Bash|Read|WebFetch`; caps output at `MAX_TOOL_OUTPUT_CHARS` (Bash uses head+tail lines; others use 60/40 char split). Codex's adapter uses separate `CODEX_MAX_*` caps.
 - `.claude/hooks/compact-trigger.py` — PostToolUse on `.*`; checks `transcript_path` size; 25% hysteresis via `.claude/state/compact-trigger-last`
 - `.claude/hooks/caveman-reminder.py` — Stop hook; reads the last assistant turn from `transcript_path` and exits 2 if it contains filler or exceeds `MAX_RESPONSE_WORDS` (code fences exempt); `stop_hook_active` guard prevents loops
 - `.claude/hooks/claudemd-budget.py` — PostToolUse on `Edit|Write`; blocks when CLAUDE.md exceeds `CLAUDE_MD_TOKEN_BUDGET` or gains a stale ref

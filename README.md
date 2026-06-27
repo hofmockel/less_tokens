@@ -28,14 +28,30 @@ Core search/read guards, lean-output hooks, truncation, compaction nudges, terse
 
 **Claude vs Codex support**
 
-| Area | Claude Code | Codex |
-|---|---|---|
-| Hook wiring | `.claude/settings.json` or `.claude/settings.local.json` points directly at `.claude/hooks/` | `.codex/hooks.json` points at thin adapters in `.codex/hooks/` |
-| Enforcement strength | Direct hook enforcement on Claude `Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`, and `Stop` events | Best-effort adapter enforcement; depends on Codex event payloads and writable `.codex/` |
-| Runtime layout | Primary tools, hooks, rules, state, and index live under `.claude/` | Codex uses `.less_tokens/` shims/runtime, `.codex/hooks/`, `AGENTS.md`, and the shared `.claude/index.db` |
-| Output style hook | `Stop` hook can inspect the assistant turn before it finishes | Terse reminder runs through Codex hook events, so it is advisory/best-effort |
-| Edit handling | `Edit|Write` events name a target file | Codex may use `apply_patch`, so adapters parse patch payloads to recover touched paths |
-| Docs loaded every turn | `CLAUDE.md` budget/audit | `AGENTS.md` budget/audit |
+<!-- hook-parity: begin -->
+
+Feature parity means the same strategy is shipped for both agents. Enforcement parity is intentionally different: Claude hooks are direct enforcement, while Codex hooks are best-effort adapters through `.codex/hooks.json`.
+
+| Strategy | Feature parity | Claude enforcement | Codex enforcement |
+|---|---|---|---|
+| `budget-observer` | yes | enforced; `.claude/hooks/budget-observer.py`; PreToolUse `Read|Grep|Glob|Bash`, PostToolUse `Read|Grep|Glob|Bash|Edit|Write` | best-effort; `.codex/hooks/budget-observer.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash|mcp__filesystem__.*|apply_patch|Edit|Write` |
+| `search-first` | yes | enforced; `.claude/hooks/search-first.py`; PreToolUse `Read`, PreToolUse `Grep` | best-effort; `.codex/hooks/search-first.py`; PreToolUse `mcp__filesystem__.*` |
+| `read-guard` | yes | enforced; `.claude/hooks/read-guard.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-guard.py`; PreToolUse `mcp__filesystem__.*` |
+| `auto-slice` | yes | enforced; `.claude/hooks/auto-slice.py`; PreToolUse `Read` | best-effort; `.codex/hooks/auto-slice.py`; PreToolUse `mcp__filesystem__.*` |
+| `grep-first-read` | yes | enforced; `.claude/hooks/grep-first-read.py`; PreToolUse `Read` | best-effort; `.codex/hooks/grep-first-read.py`; PreToolUse `mcp__filesystem__.*` |
+| `read-after-edit` | yes | enforced; `.claude/hooks/read-after-edit.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-after-edit.py`; PreToolUse `mcp__filesystem__.*` |
+| `context-cache` | yes | enforced; `.claude/hooks/context-cache.py`; PreToolUse `Read|Grep` | best-effort; `.codex/hooks/context-cache.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash` |
+| `post-edit-diff` | yes | enforced; `.claude/hooks/post-edit-diff.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/post-edit-diff.py`; PostToolUse `apply_patch|Edit|Write` |
+| `index-refresh` | yes | enforced; `.claude/hooks/index-refresh.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/index-refresh.py`; PostToolUse `apply_patch|Edit|Write` |
+| `agent-md-budget` | yes | enforced; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write` |
+| `lean-output` | yes | enforced; `.claude/hooks/lean-output.py`; PostToolUse `Bash` | best-effort; `.codex/hooks/lean-output.py`; PostToolUse `Bash` |
+| `listing-guard` | yes | enforced; `.claude/hooks/listing-guard.py`; PreToolUse `Bash` | best-effort; `.codex/hooks/listing-guard.py`; PreToolUse `Bash` |
+| `truncate-output` | yes; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | best-effort; `.codex/hooks/truncate-output.py`; PostToolUse `Bash|mcp__filesystem__.*` |
+| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PostToolUse `.*` |
+| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*` | best-effort; `.codex/hooks/terse-reminder.py`; PostToolUse `.*` |
+| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*` | best-effort; `.codex/hooks/savings-html.py`; PostToolUse `.*` |
+
+<!-- hook-parity: end -->
 
 ```
 Without less_tokens:           With less_tokens:

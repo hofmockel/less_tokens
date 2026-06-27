@@ -31,8 +31,9 @@ from context_cache import check_context_cache  # noqa: E402
 from payload import normalize_codex  # noqa: E402
 
 try:
-    from search_config import CONTEXT_CACHE_ENABLED, CONTEXT_CACHE_GREP_TTL, active_state_dir  # noqa: E402
+    from search_config import CONTEXT_CACHE_BASH_TTL, CONTEXT_CACHE_ENABLED, CONTEXT_CACHE_GREP_TTL, active_state_dir  # noqa: E402
 except Exception:
+    CONTEXT_CACHE_BASH_TTL = 120
     CONTEXT_CACHE_ENABLED = True
     CONTEXT_CACHE_GREP_TTL = 300
 
@@ -61,6 +62,8 @@ def main() -> int:
         state_dir=active_state_dir(),
         enabled=CONTEXT_CACHE_ENABLED,
         grep_ttl=CONTEXT_CACHE_GREP_TTL,
+        bash_ttl=CONTEXT_CACHE_BASH_TTL,
+        event_name=str(raw.get("hook_event_name") or raw.get("hookEventName") or "PreToolUse"),
     )
     if stdout:
         print(stdout)

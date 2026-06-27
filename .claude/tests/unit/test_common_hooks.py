@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import time
 from pathlib import Path
@@ -15,6 +16,9 @@ sys.path.insert(0, str(REPO / ".claude" / "tools"))
 from agents.common.hooks.payload import HookPayload, extract_apply_patch_paths, normalize_claude, normalize_codex
 import agents.common.hooks.search_first as search_first_mod
 from agents.common.hooks.index_refresh import check_index_refresh
+from agents.common.hooks.listing_guard import is_bare_listing
+import agents.common.hooks.post_edit_diff as post_edit_diff_mod
+from agents.common.hooks.post_edit_diff import check_post_edit_diff
 from agents.common.hooks.search_first import check_search_first, is_indexed, search_was_recent
 from agents.common.hooks.truncate_output import check_truncate_output
 from agents.common.hooks.compact_trigger import check_compact_trigger
@@ -118,6 +122,108 @@ class TestNormalizeCodex:
 
 
 # ---------------------------------------------------------------------------
+# post-edit-diff
+# ---------------------------------------------------------------------------
+
+class TestPostEditDiff:
+    def _apply_patch_payload(self) -> HookPayload:
+        return HookPayload(
+            agent="codex",
+            tool_name="apply_patch",
+            tool_input={},
+            tool_output="",
+            transcript_path=None,
+            touched_files=(Path("src/app.py"),),
+        )
+
+    def test_apply_patch_context_starts_with_touched_files_and_summary(self, tmp_path, monkeypatch):
+        diff = [
+            "diff --git a/src/app.py b/src/app.py\n",
+            "--- a/src/app.py\n",
+            "+++ b/src/app.py\n",
+            "@@ -1,2 +1,2 @@\n",
+            "-old\n",
+            "+new\n",
+        ]
+        monkeypatch.setattr(post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff)
+
+        code, stdout, stderr = check_post_edit_diff(
+            self._apply_patch_payload(),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            max_diff_lines=60,
+            include_apply_patch=True,
+            apply_patch_max_chars=10_000,
+            message="Diff in context.",
+        )
+
+        assert code == 0
+        assert stderr == ""
+        ctx = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+        assert "apply_patch touched files:\n- src/app.py" in ctx
+        assert "compact hunk summary:\n- src/app.py: 1 hunk(s), +1 -1" in ctx
+        assert "full diff:" in ctx
+        assert "+new" in ctx
+        recorded = json.loads((tmp_path / "state" / "last-edit.json").read_text())
+        assert str(tmp_path / "src/app.py") in recorded
+
+    def test_apply_patch_omits_full_diff_over_codex_cap(self, tmp_path, monkeypatch):
+        diff = [
+            "diff --git a/src/app.py b/src/app.py\n",
+            "--- a/src/app.py\n",
+            "+++ b/src/app.py\n",
+            "@@ -1,1 +1,1 @@\n",
+            "-old\n",
+            "+" + ("x" * 200) + "\n",
+        ]
+        monkeypatch.setattr(post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff)
+
+        _, stdout, _ = check_post_edit_diff(
+            self._apply_patch_payload(),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            max_diff_lines=60,
+            include_apply_patch=True,
+            apply_patch_max_chars=80,
+            message="Diff in context.",
+        )
+
+        ctx = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+        assert "compact hunk summary" in ctx
+        assert "full diff omitted" in ctx
+        assert "x" * 80 not in ctx
+
+    def test_claude_edit_diff_ignores_apply_patch_cap(self, tmp_path):
+        payload = HookPayload(
+            agent="claude",
+            tool_name="Edit",
+            tool_input={
+                "file_path": str(tmp_path / "app.py"),
+                "old_string": "old\n",
+                "new_string": "new\n",
+            },
+            tool_output="",
+            transcript_path=None,
+            touched_files=(tmp_path / "app.py",),
+        )
+
+        _, stdout, _ = check_post_edit_diff(
+            payload,
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            max_diff_lines=60,
+            include_apply_patch=False,
+            apply_patch_max_chars=1,
+            message="Diff in context.",
+        )
+
+        ctx = json.loads(stdout)["hookSpecificOutput"]["additionalContext"]
+        assert "-old" in ctx
+        assert "+new" in ctx
+        assert "apply_patch touched files" not in ctx
+
+
+# ---------------------------------------------------------------------------
 # is_indexed
 # ---------------------------------------------------------------------------
 
@@ -182,6 +288,10 @@ class TestSearchWasRecent:
     def test_returns_true_when_recent(self, tmp_path):
         (tmp_path / "last-search").touch()
         assert search_was_recent(tmp_path, 300)
+
+    def test_zero_window_is_never_recent(self, tmp_path):
+        (tmp_path / "last-search").touch()
+        assert not search_was_recent(tmp_path, 0)
 
     def test_returns_false_when_stale(self, tmp_path):
         f = tmp_path / "last-search"
@@ -467,6 +577,16 @@ class TestCheckTruncateOutput:
             max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
         assert code == 2
         assert len(stdout) <= 5000
+
+
+# ---------------------------------------------------------------------------
+# listing_guard
+# ---------------------------------------------------------------------------
+
+class TestListingGuard:
+    def test_broad_git_diff_is_not_shared_claude_listing_rule(self):
+        intercepted, _ = is_bare_listing("git diff")
+        assert not intercepted
 
 
 # ---------------------------------------------------------------------------

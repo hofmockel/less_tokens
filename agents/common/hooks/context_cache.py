@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -33,10 +34,11 @@ def save_state(state_dir: Path, state: dict) -> None:
 
 def get_state(state_dir: Path, transcript_path: str | None) -> dict:
     if transcript_path is None:
-        return {"session": None, "call": 0, "reads": {}, "greps": {}}
+        return {"session": None, "call": 0, "reads": {}, "greps": {}, "bash": {}}
     state = load_state(state_dir)
     if state.get("session") != transcript_path:
-        return {"session": transcript_path, "call": 0, "reads": {}, "greps": {}}
+        return {"session": transcript_path, "call": 0, "reads": {}, "greps": {}, "bash": {}}
+    state.setdefault("bash", {})
     return state
 
 
@@ -136,18 +138,65 @@ def record_grep(state: dict, inp: dict) -> None:
     }
 
 
+def bash_command(inp: dict) -> str:
+    return str(inp.get("command", "")).strip()
+
+
+def cacheable_bash_command(command: str) -> bool:
+    if not command:
+        return False
+    return bool(
+        command == "pwd"
+        or re.fullmatch(r"git\s+status\b.*", command)
+        or re.fullmatch(r"rg\b.*", command)
+        or re.fullmatch(r"(?:python(?:3)?\s+-m\s+)?pytest\b.*", command)
+    )
+
+
+def check_bash(state: dict, inp: dict, ttl: int) -> tuple[str | None, int]:
+    command = bash_command(inp)
+    if not cacheable_bash_command(command):
+        return None, 0
+    entry = state.get("bash", {}).get(command)
+    if not entry:
+        return None, 0
+    age = time.time() - entry["ts"]
+    if age > ttl:
+        return None, 0
+    age_str = f"{int(age)}s ago" if age < 120 else f"{int(age) // 60}m ago"
+    saved = int(entry.get("output_chars", 0) or 0)
+    return (
+        f"context-cache: Bash `{command}` already ran "
+        f"(call #{entry['call']}, {age_str}). Output is already in context — skip repeat.",
+        saved,
+    )
+
+
+def record_bash(state: dict, inp: dict, output_chars: int) -> None:
+    command = bash_command(inp)
+    if not cacheable_bash_command(command):
+        return
+    state.setdefault("bash", {})[command] = {
+        "ts": time.time(),
+        "call": state.get("call", 0),
+        "output_chars": max(0, output_chars),
+    }
+
+
 def check_context_cache(
     payload: HookPayload,
     *,
     state_dir: Path,
     enabled: bool,
     grep_ttl: int,
+    bash_ttl: int | None = None,
+    event_name: str = "PreToolUse",
     log=None,
     session: tuple[str, str] | None = None,
 ) -> tuple[int, str, str]:
     if not enabled:
         return 0, "", ""
-    if payload.tool_name not in {"Read", "Grep"}:
+    if payload.tool_name not in {"Read", "Grep", "Bash"}:
         return 0, "", ""
 
     sid, ssrc = session or ("local-session", "local")
@@ -159,7 +208,27 @@ def check_context_cache(
     state["call"] = state.get("call", 0) + 1
     inp = payload.tool_input or {}
 
-    if payload.tool_name == "Read":
+    if payload.tool_name == "Bash":
+        if event_name == "PostToolUse":
+            record_bash(state, inp, len(payload.tool_output or ""))
+            save_state(state_dir, state)
+            return 0, "", ""
+        msg, saved_chars = check_bash(state, inp, bash_ttl if bash_ttl is not None else grep_ttl)
+        if msg:
+            if log:
+                log({
+                    "strategy": "context-cache-bash",
+                    "basis": "measured",
+                    "kept_chars": 0,
+                    "elided_chars": saved_chars,
+                    "content_kind": "cached_bash",
+                    "where": bash_command(inp),
+                    "session_id": sid,
+                    "session_source": ssrc,
+                })
+            save_state(state_dir, state)
+            return 2, "", msg
+    elif payload.tool_name == "Read":
         file_path = str(inp.get("file_path", ""))
         if not file_path:
             save_state(state_dir, state)

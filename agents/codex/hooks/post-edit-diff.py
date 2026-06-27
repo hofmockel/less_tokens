@@ -31,8 +31,9 @@ from payload import normalize_codex  # noqa: E402
 from post_edit_diff import cap as _cap, check_post_edit_diff, diff_edit as _diff_edit, diff_repo, diff_write, record_edit  # noqa: E402
 
 try:
-    from search_config import MAX_DIFF_LINES, active_state_dir  # noqa: E402
+    from search_config import CODEX_APPLY_PATCH_DIFF_CHARS, MAX_DIFF_LINES, active_state_dir  # noqa: E402
 except Exception:
+    CODEX_APPLY_PATCH_DIFF_CHARS = 1200
     MAX_DIFF_LINES = 60
 
     def active_state_dir() -> Path:  # type: ignore[misc]
@@ -58,6 +59,7 @@ def main() -> int:
         state_dir=active_state_dir(),
         max_diff_lines=MAX_DIFF_LINES,
         include_apply_patch=True,
+        apply_patch_max_chars=CODEX_APPLY_PATCH_DIFF_CHARS,
         message="Diff in context — skip whole-file rereads unless you need unrelated lines.",
     )
     if stdout:

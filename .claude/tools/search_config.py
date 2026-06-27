@@ -79,6 +79,13 @@ MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
 TOOL_OUTPUT_HEAD_LINES: int = 50    # Bash: lines kept from output start
 TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors live here)
 
+# Codex adapters use tighter output caps; LESS_TOKENS_CODEX_* env vars override.
+CODEX_MAX_TOOL_OUTPUT_CHARS: int = 1500
+CODEX_MAX_FILESYSTEM_READ_CHARS: int = 1200
+CODEX_TOOL_OUTPUT_HEAD_LINES: int = 30
+CODEX_TOOL_OUTPUT_TAIL_LINES: int = 20
+CODEX_APPLY_PATCH_DIFF_CHARS: int = 1200
+
 # --- Strategy 5: Conversation Compaction Trigger ---
 MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
 
@@ -169,6 +176,7 @@ MAX_DIFF_LINES: int = 60
 # --- G2: In-session re-read/re-search cache (context-cache.py) --- Set False to disable.
 CONTEXT_CACHE_ENABLED: bool = True
 CONTEXT_CACHE_GREP_TTL: int = 300  # seconds; mirrors WINDOW_SECONDS
+CONTEXT_CACHE_BASH_TTL: int = 120
 
 # --- G3: Directory listing dump control (listing-guard.py + lean-ls.py) --- Set False to disable.
 LISTING_GUARD_ENABLED: bool = True
