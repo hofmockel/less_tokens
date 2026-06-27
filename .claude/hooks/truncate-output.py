@@ -42,9 +42,11 @@ except Exception:
     from truncate_output import check_truncate_output, truncate_bash, truncate_chars, truncate_glob  # type: ignore[no-redef]
 
 try:
-    from search_config import MAX_GLOB_RESULTS, MAX_TOOL_OUTPUT_CHARS, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES  # noqa: E402
+    from search_config import AGENT_MODEL, MAX_GLOB_RESULTS, MAX_TOOL_OUTPUT_CHARS, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES  # noqa: E402
+    from model_profiles import scaled_tool_output_chars  # noqa: E402
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
+    MAX_TOOL_OUTPUT_CHARS = scaled_tool_output_chars(MAX_TOOL_OUTPUT_CHARS, AGENT_MODEL)
 except Exception:
     MAX_TOOL_OUTPUT_CHARS = 4000
     MAX_GLOB_RESULTS = 100

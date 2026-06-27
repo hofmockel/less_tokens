@@ -67,8 +67,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### Medium Priority
 
-- **CL3 — Model-aware Claude thresholds** *(tool/meta; Claude-only)* — scale the truncate ceiling and compaction trigger to the active Claude model's context window via `model_profiles.py`/`toolcost.py` (tighter on Haiku, looser on Opus). Codex never calls that path, so it is Claude-only by construction. Builds on the prior `compact-trigger-model-aware` work. Test threshold selection per model id and prove the Codex code path is unchanged.
-
 ---
 
 ## Codex Agent

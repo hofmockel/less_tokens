@@ -12,27 +12,47 @@ from __future__ import annotations
 
 # context_window: total tokens the model accepts.
 # recommended_k: default `k` for tools/search.py when AGENT_MODEL is set.
-MODEL_PROFILES: dict[str, dict[str, int]] = {
+# threshold_scale: multiplier for Claude-only output/compaction hook thresholds.
+MODEL_PROFILES: dict[str, dict[str, int | float]] = {
     # Haiku — fast, small window: keep search lean.
-    "claude-haiku-3-5":   {"context_window": 200_000, "recommended_k": 3},
-    "claude-haiku-4-5":   {"context_window": 200_000, "recommended_k": 3},
+    "claude-haiku-3-5":   {"context_window": 200_000, "recommended_k": 3, "threshold_scale": 0.75},
+    "claude-haiku-4-5":   {"context_window": 200_000, "recommended_k": 3, "threshold_scale": 0.75},
     # Sonnet — balanced, our common default.
-    "claude-sonnet-3-5":  {"context_window": 200_000, "recommended_k": 5},
-    "claude-sonnet-3-7":  {"context_window": 200_000, "recommended_k": 5},
-    "claude-sonnet-4-0":  {"context_window": 200_000, "recommended_k": 5},
-    "claude-sonnet-4-5":  {"context_window": 200_000, "recommended_k": 5},
-    "claude-sonnet-4-6":  {"context_window": 1_000_000, "recommended_k": 8},
+    "claude-sonnet-3-5":  {"context_window": 200_000, "recommended_k": 5, "threshold_scale": 1.0},
+    "claude-sonnet-3-7":  {"context_window": 200_000, "recommended_k": 5, "threshold_scale": 1.0},
+    "claude-sonnet-4-0":  {"context_window": 200_000, "recommended_k": 5, "threshold_scale": 1.0},
+    "claude-sonnet-4-5":  {"context_window": 200_000, "recommended_k": 5, "threshold_scale": 1.0},
+    "claude-sonnet-4-6":  {"context_window": 1_000_000, "recommended_k": 8, "threshold_scale": 1.5},
     # Opus — biggest budget, can afford a wider funnel.
-    "claude-opus-3":      {"context_window": 200_000, "recommended_k": 8},
-    "claude-opus-4-0":    {"context_window": 200_000, "recommended_k": 8},
-    "claude-opus-4-5":    {"context_window": 200_000, "recommended_k": 8},
-    "claude-opus-4-7":    {"context_window": 200_000, "recommended_k": 8},
-    "claude-opus-4-8":    {"context_window": 200_000, "recommended_k": 8},
+    "claude-opus-3":      {"context_window": 200_000, "recommended_k": 8, "threshold_scale": 1.25},
+    "claude-opus-4-0":    {"context_window": 200_000, "recommended_k": 8, "threshold_scale": 1.25},
+    "claude-opus-4-5":    {"context_window": 200_000, "recommended_k": 8, "threshold_scale": 1.25},
+    "claude-opus-4-7":    {"context_window": 200_000, "recommended_k": 8, "threshold_scale": 1.25},
+    "claude-opus-4-8":    {"context_window": 200_000, "recommended_k": 8, "threshold_scale": 1.25},
 }
 
 
-def profile(model: str | None) -> dict[str, int] | None:
+def profile(model: str | None) -> dict[str, int | float] | None:
     """Return the profile dict for `model`, or None if unknown/unset."""
     if not model:
         return None
     return MODEL_PROFILES.get(model)
+
+
+def scaled_threshold(default: int, model: str | None) -> int:
+    """Return a Claude-only hook threshold scaled for the active model."""
+    if default <= 0:
+        return default
+    prof = profile(model)
+    if not prof:
+        return default
+    scale = float(prof.get("threshold_scale", 1.0))
+    return max(1, int(default * scale))
+
+
+def scaled_tool_output_chars(default: int, model: str | None) -> int:
+    return scaled_threshold(default, model)
+
+
+def scaled_compact_chars(default: int, model: str | None) -> int:
+    return scaled_threshold(default, model)

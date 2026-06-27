@@ -42,7 +42,9 @@ except Exception:
     from payload import normalize_claude  # type: ignore[no-redef]
 
 try:
-    from search_config import MAX_SESSION_CHARS, active_state_dir  # noqa: E402
+    from search_config import AGENT_MODEL, MAX_SESSION_CHARS, active_state_dir  # noqa: E402
+    from model_profiles import scaled_compact_chars  # noqa: E402
+    MAX_SESSION_CHARS = scaled_compact_chars(MAX_SESSION_CHARS, AGENT_MODEL)
 except Exception:
     MAX_SESSION_CHARS = 500_000
 

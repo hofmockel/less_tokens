@@ -12,6 +12,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
+from tests.conftest import REPO_ROOT, load_hook  # noqa: E402
+
 
 def test_profile_returns_none_when_unset():
     from model_profiles import profile
@@ -70,3 +72,38 @@ def test_search_cli_explicit_k_overrides_profile(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["search.py", "anything", "-k", "2"])
     search_mod.main()
     assert captured["k"] == 2
+
+
+def test_model_profiles_scale_claude_hook_thresholds():
+    from model_profiles import scaled_compact_chars, scaled_tool_output_chars
+
+    assert scaled_tool_output_chars(4000, None) == 4000
+    assert scaled_tool_output_chars(4000, "unknown-model") == 4000
+    assert scaled_tool_output_chars(0, "claude-haiku-4-5") == 0
+    assert scaled_tool_output_chars(4000, "claude-haiku-4-5") == 3000
+    assert scaled_tool_output_chars(4000, "claude-sonnet-4-5") == 4000
+    assert scaled_tool_output_chars(4000, "claude-opus-4-8") == 5000
+    assert scaled_compact_chars(500_000, "claude-sonnet-4-6") == 750_000
+
+
+def test_claude_hooks_apply_model_scaled_thresholds(monkeypatch):
+    import search_config
+
+    monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-haiku-4-5")
+    truncate = load_hook(REPO_ROOT / ".claude" / "hooks" / "truncate-output.py")
+    compact = load_hook(REPO_ROOT / ".claude" / "hooks" / "compact-trigger.py")
+
+    assert truncate.MAX_TOOL_OUTPUT_CHARS == 3000
+    assert compact.MAX_SESSION_CHARS == 375_000
+
+
+def test_codex_hooks_do_not_use_claude_model_thresholds():
+    codex_hooks = [
+        REPO_ROOT / "agents" / "codex" / "hooks" / "truncate-output.py",
+        REPO_ROOT / "agents" / "codex" / "hooks" / "compact-trigger.py",
+    ]
+
+    for hook in codex_hooks:
+        src = hook.read_text(encoding="utf-8")
+        assert "model_profiles" not in src
+        assert "AGENT_MODEL" not in src
