@@ -76,6 +76,22 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ---
 
+## README Accuracy
+
+### Inaccurate
+
+- **README says `/def` lookup is installed user-facing behavior** *(docs / correctness)* — [README.md:30](README.md) advertises "exact `/def` lookup for Python and JS/TS symbols," but installer deployment does not include `.claude/commands/` today. Source has `.claude/commands/def.md`, but `_install_specs()` deploys `.less_tokens/config`, `.less_tokens/tools`, shared budget hooks, `.claude/tools`, `.claude/schema`, `.claude/skills/claudemd`, and selected hooks/skills only; no commands directory is copied. Fix either the implementation (install `.claude/commands/{def,search,build-index}.md`) or the README wording (say `symbols.py` lookup, with `/def` only when commands are installed). Acceptance: README, DOCUMENTATION.md command layout, installer specs, and tests agree on whether slash commands are installed.
+
+- **README implies Codex hooks are always wired by default** *(docs / correctness)* — [README.md:38](README.md) says core hooks are wired by default for the selected agent, but Codex hook wiring is conditional on `.codex/` being writable. If not writable, install skips `.codex/hooks.json` and installs only `AGENTS.md` + skills. Fix wording to "wired by default when the target hook location is writable; Codex remains best-effort." Acceptance: README quick-start text matches `install.py` behavior and DOCUMENTATION.md's Codex best-effort caveat.
+
+- **README mischaracterizes Codex install artifacts as only adapter hooks plus `AGENTS.md`** *(docs / correctness)* — [README.md:93](README.md) says Claude artifacts land under `.claude/`, shared budget under `.less_tokens/`, and Codex adds adapter hooks plus `AGENTS.md`. In reality, even Codex installs deploy `.claude/tools/`, `.claude/schema/`, `.claude/skills/claudemd`, and use `.claude/index.db` as the shared index; `.less_tokens/tools/*.py` are shims to the `.claude/tools` implementation. Fix README to explain that `.claude/` contains shared implementation/index artifacts, not only Claude-agent artifacts. Acceptance: README quick-start artifact summary matches DOCUMENTATION.md "Codex support" and installer copy steps.
+
+### Language / Precision
+
+- **README compaction row says `/compact` for both agents** *(docs / precision)* — [README.md:35](README.md) says the PostToolUse hook nudges `/compact` when the transcript grows large. That is precise for Claude, but Codex has no Claude slash-command path and `agents/codex/hooks/compact-trigger.py` tells the user to start a fresh or compacted Codex session. Fix the row to split agent behavior: Claude nudges `/compact` or fresh session; Codex nudges fresh/compacted Codex session. Acceptance: no README prose implies Codex can run Claude's `/compact` command.
+
+---
+
 ## Claude Agent
 
 Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_tokens/config/budget.json` (deep-merged per-agent at `agents/common/budget/config.py:82-84`, so Codex never sees it) and `.claude/settings.json` hook wiring (separate file from `.codex/hooks.json`). Touch only those and Codex is unaffected by construction.
