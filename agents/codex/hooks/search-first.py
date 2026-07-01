@@ -34,7 +34,10 @@ from search_first import check_search_first  # noqa: E402
 try:
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
+    from savings_log import STRATEGY_SEARCH_BLOCKED  # noqa: E402
 except Exception:
+    STRATEGY_SEARCH_BLOCKED = "search-blocked"
+
     def _log_savings(_r: dict) -> None:
         pass
 
@@ -85,7 +88,7 @@ if code == 2:
         saved = 0
     sid, ssrc = resolve_session(raw)
     _log_savings({
-        "strategy": "search-blocked",
+        "strategy": STRATEGY_SEARCH_BLOCKED,
         "basis": "upper_bound",
         "kept_chars": 0,
         "elided_chars": saved,

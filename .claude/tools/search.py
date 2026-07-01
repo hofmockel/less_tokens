@@ -42,6 +42,7 @@ from search_config import (  # noqa: E402
 )
 from savings_log import append as _log_savings  # noqa: E402
 from savings_log import resolve_session as _resolve_session  # noqa: E402
+from savings_log import STRATEGY_SEARCH  # noqa: E402
 
 DEFAULT_K = 3
 CODEX_DEFAULT_K = 2
@@ -344,7 +345,7 @@ def main() -> int:
                 pass
         sid, ssrc = _resolve_session(None)
         _log_savings({
-            "strategy": "search",
+            "strategy": STRATEGY_SEARCH,
             "basis": "upper_bound",
             "kept_chars": chunk_chars,
             "elided_chars": max(0, full_file_chars - chunk_chars),

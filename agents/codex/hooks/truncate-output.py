@@ -31,7 +31,10 @@ from truncate_output import check_truncate_output  # noqa: E402
 try:
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
+    from savings_log import STRATEGY_TRUNCATION  # noqa: E402
 except Exception:
+    STRATEGY_TRUNCATION = "truncation"
+
     def _log_savings(_r: dict) -> None:
         pass
 
@@ -87,7 +90,7 @@ code, stdout, stderr = check_truncate_output(
 if stdout:
     sid, ssrc = resolve_session(raw)
     _log_savings({
-        "strategy": "truncation",
+        "strategy": STRATEGY_TRUNCATION,
         "basis": "measured",
         "kept_chars": len(stdout),
         "elided_chars": max(0, len(payload.tool_output) - len(stdout)),
