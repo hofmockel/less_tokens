@@ -850,10 +850,11 @@ def wire_settings(
             print(f"  + {event_type} {matcher!r} already wired")
             already_present += 1
         else:
-            event_list.append({
-                "matcher": matcher,
-                "hooks": [{"type": "command", "command": command}],
-            })
+            if not dry_run:
+                event_list.append({
+                    "matcher": matcher,
+                    "hooks": [{"type": "command", "command": command}],
+                })
             print(f"  {'+ (would wire)' if dry_run else '+'} {event_type} {matcher!r}")
             added += 1
 
@@ -1623,7 +1624,8 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
     venv_py: Path | None = None
     if config_path.exists():
         try:
-            import importlib.util, types
+            import importlib.util
+            import types
             spec = importlib.util.spec_from_file_location("_sc_check", config_path)
             assert spec and spec.loader
             sc: types.ModuleType = importlib.util.module_from_spec(spec)
@@ -1636,7 +1638,7 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         except Exception as exc:
             _fail(f"Could not load search_config.py: {exc}")
     else:
-        _fail(f".claude/tools/search_config.py missing — install not complete")
+        _fail(".claude/tools/search_config.py missing — install not complete")
 
     # fastembed importable
     if venv_py and venv_py.exists():
@@ -2197,7 +2199,7 @@ def main() -> int:
     if "codex" in agents:
         codex_hooks_json = target_root / ".codex" / "hooks.json"
         if _dir_is_writable(target_root, ".codex"):
-            print(f"  → .codex/hooks.json")
+            print("  → .codex/hooks.json")
             codex_entries = build_codex_hook_entries(venv_py, target_root, args)
             c_added, c_present = wire_codex_hooks_json(codex_hooks_json, codex_entries, dry_run=dry)
             print(f"  {c_added} codex hook(s) {'would be ' if dry else ''}wired, "
