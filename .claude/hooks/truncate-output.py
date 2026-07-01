@@ -46,12 +46,14 @@ try:
     from model_profiles import scaled_tool_output_chars  # noqa: E402
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
+    from savings_log import STRATEGY_TRUNCATION  # noqa: E402
     MAX_TOOL_OUTPUT_CHARS = scaled_tool_output_chars(MAX_TOOL_OUTPUT_CHARS, AGENT_MODEL)
 except Exception:
     MAX_TOOL_OUTPUT_CHARS = 4000
     MAX_GLOB_RESULTS = 100
     TOOL_OUTPUT_HEAD_LINES = 50
     TOOL_OUTPUT_TAIL_LINES = 20
+    STRATEGY_TRUNCATION = "truncation"
 
     def _log_savings(_r: dict) -> None:
         pass
@@ -77,7 +79,7 @@ def main() -> int:
         sid, ssrc = resolve_session(raw)
         kept = len(stdout)
         _log_savings({
-            "strategy": "truncation",
+            "strategy": STRATEGY_TRUNCATION,
             "basis": "measured",
             "kept_chars": kept,
             "elided_chars": max(0, len(payload.tool_output) - kept),

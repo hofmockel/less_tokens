@@ -10,6 +10,15 @@ try:
 except ImportError:
     from payload import HookPayload  # type: ignore[no-redef]
 
+# Best-effort import of the canonical strategy key. This module is agent-neutral
+# (shared by Claude and Codex hooks) and must not hard-depend on the Claude-only
+# .claude/tools/savings_log path, so fall back to the literal if it isn't on
+# sys.path — the literal must stay in sync with savings_log.STRATEGY_COMPACTION.
+try:
+    from savings_log import STRATEGY_COMPACTION  # noqa: PLC0415
+except Exception:
+    STRATEGY_COMPACTION = "compaction"
+
 # Post-compaction transcript must be below this fraction of its peak for the
 # shrink to count as a compaction (rather than within-session noise).
 _COMPACTION_RATIO = 0.5
@@ -106,7 +115,7 @@ def measure_compaction(
         sid, ssrc = session
         try:
             log({
-                "strategy": "compaction",
+                "strategy": STRATEGY_COMPACTION,
                 "basis": "measured",
                 "kept_chars": cur,
                 "elided_chars": max(0, peak - cur),

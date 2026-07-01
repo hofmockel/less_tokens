@@ -11,6 +11,21 @@ try:
 except ImportError:
     from payload import HookPayload  # type: ignore[no-redef]
 
+# Best-effort import of the canonical strategy keys. This module is agent-neutral
+# (shared by Claude and Codex hooks) and must not hard-depend on the Claude-only
+# .claude/tools/savings_log path, so fall back to the literals if it isn't on
+# sys.path — the literals must stay in sync with savings_log's STRATEGY_* names.
+try:
+    from savings_log import (  # noqa: PLC0415
+        STRATEGY_CONTEXT_CACHE_BASH,
+        STRATEGY_CONTEXT_CACHE_GREP,
+        STRATEGY_CONTEXT_CACHE_READ,
+    )
+except Exception:
+    STRATEGY_CONTEXT_CACHE_BASH = "context-cache-bash"
+    STRATEGY_CONTEXT_CACHE_GREP = "context-cache-grep"
+    STRATEGY_CONTEXT_CACHE_READ = "context-cache-read"
+
 
 def cache_file(state_dir: Path) -> Path:
     return state_dir / "context-cache.json"
@@ -217,7 +232,7 @@ def check_context_cache(
         if msg:
             if log:
                 log({
-                    "strategy": "context-cache-bash",
+                    "strategy": STRATEGY_CONTEXT_CACHE_BASH,
                     "basis": "measured",
                     "kept_chars": 0,
                     "elided_chars": saved_chars,
@@ -240,7 +255,7 @@ def check_context_cache(
             if log:
                 saved_chars = blocked_read_chars(file_path, offset, limit)
                 log({
-                    "strategy": "context-cache-read",
+                    "strategy": STRATEGY_CONTEXT_CACHE_READ,
                     "basis": "measured",
                     "kept_chars": 0,
                     "elided_chars": saved_chars,
@@ -257,7 +272,7 @@ def check_context_cache(
         if msg:
             if log:
                 log({
-                    "strategy": "context-cache-grep",
+                    "strategy": STRATEGY_CONTEXT_CACHE_GREP,
                     "basis": "measured",
                     "kept_chars": 0,
                     "elided_chars": 0,

@@ -62,8 +62,10 @@ def _load_config() -> bool:
     try:
         from savings_log import append as _log  # noqa: PLC0415
         from savings_log import resolve_session  # noqa: PLC0415
+        from savings_log import STRATEGY_SEARCH_BLOCKED  # noqa: PLC0415
         _config["log"] = _log
         _config["resolve_session"] = resolve_session
+        _config["strategy_search_blocked"] = STRATEGY_SEARCH_BLOCKED
     except Exception:
         pass
     return True
@@ -107,7 +109,7 @@ def main() -> int:
         _resolve = _config.get("resolve_session", lambda _r: ("local-session", "local"))
         sid, ssrc = _resolve(raw)
         _config.get("log", lambda _: None)({
-            "strategy": "search-blocked",
+            "strategy": _config.get("strategy_search_blocked", "search-blocked"),
             "basis": "upper_bound",
             "kept_chars": 0,
             "elided_chars": saved,

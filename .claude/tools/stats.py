@@ -95,20 +95,34 @@ def _calibration_badge() -> str:
 # Module-level snapshot for callers/tests that read the constant directly.
 TOKEN_FOOTER = _token_footer()
 
-_STRATEGY_LABELS = {
-    "truncation":          "Truncation",
-    "compaction":          "Compaction",
-    "context-cache-read":  "Cached read (repeat)",
-    "context-cache-grep":  "Cached grep (repeat)",
-    "search-blocked":      "Search-first block",
-    "search":              "Search (vs full file)",
-}
+# Label map and measured/upper-bound partition are *derived* from savings_log's
+# _KNOWN_STRATEGIES — the single canonical registry every emitter writes against
+# (see savings_log.py). Do not hand-add a key here; add it to _KNOWN_STRATEGIES
+# and it flows through automatically. This is what keeps emit and consume from
+# drifting apart again (see CHANGELOG: context-cache-read/-grep were once silently
+# dropped here after being added to the emitter but not to this map).
+try:
+    from savings_log import _KNOWN_STRATEGIES
+except Exception:
+    # Legacy fallback so stats.py still works if savings_log can't be imported
+    # (e.g. isolated test import order). Mirrors the registry as of this write.
+    _KNOWN_STRATEGIES = {
+        "truncation":          ("Truncation", "measured"),
+        "compaction":          ("Compaction", "measured"),
+        "context-cache-read":  ("Cached read (repeat)", "measured"),
+        "context-cache-grep":  ("Cached grep (repeat)", "measured"),
+        "context-cache-bash":  ("Cached bash (repeat)", "measured"),
+        "search-blocked":      ("Search-first block", "upper_bound"),
+        "search":              ("Search (vs full file)", "upper_bound"),
+    }
+
+_STRATEGY_LABELS = {k: v[0] for k, v in _KNOWN_STRATEGIES.items()}
 
 # Measured vs upper-bound is the report's central honesty axis. Measured rows were
 # actually removed before reaching the model; upper-bound rows are counterfactual
 # avoided cost. The two are rendered in separate panels and never cross-summed.
-_MEASURED_STRATEGIES = ("truncation", "compaction", "context-cache-read", "context-cache-grep")
-_UPPER_BOUND_STRATEGIES = ("search-blocked", "search")
+_MEASURED_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "measured")
+_UPPER_BOUND_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "upper_bound")
 
 
 def _normalize_record(r: dict) -> dict:

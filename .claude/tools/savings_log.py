@@ -35,6 +35,30 @@ except Exception:
 
 _LOG_FILE = STATE_DIR / "savings.jsonl"
 
+# Canonical strategy registry — the single source of truth for every ``strategy``
+# value an emitter is allowed to write. ``stats.py`` derives its label map and
+# measured/upper-bound partition from this dict instead of hand-maintaining a
+# second list, so emit (here) and consume (stats.py) cannot drift apart again.
+# basis: "measured" — bytes actually removed before reaching the model (exact).
+#        "upper_bound" — counterfactual/avoided cost, not an exact removal.
+STRATEGY_TRUNCATION = "truncation"
+STRATEGY_COMPACTION = "compaction"
+STRATEGY_CONTEXT_CACHE_READ = "context-cache-read"
+STRATEGY_CONTEXT_CACHE_GREP = "context-cache-grep"
+STRATEGY_CONTEXT_CACHE_BASH = "context-cache-bash"
+STRATEGY_SEARCH_BLOCKED = "search-blocked"
+STRATEGY_SEARCH = "search"
+
+_KNOWN_STRATEGIES: dict[str, tuple[str, str]] = {
+    STRATEGY_TRUNCATION:           ("Truncation", "measured"),
+    STRATEGY_COMPACTION:           ("Compaction", "measured"),
+    STRATEGY_CONTEXT_CACHE_READ:   ("Cached read (repeat)", "measured"),
+    STRATEGY_CONTEXT_CACHE_GREP:   ("Cached grep (repeat)", "measured"),
+    STRATEGY_CONTEXT_CACHE_BASH:   ("Cached bash (repeat)", "measured"),
+    STRATEGY_SEARCH_BLOCKED:       ("Search-first block", "upper_bound"),
+    STRATEGY_SEARCH:               ("Search (vs full file)", "upper_bound"),
+}
+
 
 def _stats_disabled() -> bool:
     """True when the user opted out via LESS_TOKENS_NO_STATS."""

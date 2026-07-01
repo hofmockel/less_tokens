@@ -160,10 +160,40 @@ def test_normalize_legacy_context_cache_read_is_measured():
 
 def test_context_cache_strategies_live_in_measured_panel():
     stats = _import_stats()
-    for key in ("context-cache-read", "context-cache-grep"):
+    for key in ("context-cache-read", "context-cache-grep", "context-cache-bash"):
         assert key in stats._MEASURED_STRATEGIES
         assert key in stats._STRATEGY_LABELS
         assert key not in stats._UPPER_BOUND_STRATEGIES
+
+
+def test_strategy_labels_derive_from_savings_log_registry():
+    """2.6 coverage check: stats.py must not hand-maintain a second key list that
+    can drift from savings_log._KNOWN_STRATEGIES. Every registered key needs a label
+    and exactly one basis bucket; every label/bucket key must be a registered key."""
+    stats = _import_stats()
+    import savings_log
+    registered = set(savings_log._KNOWN_STRATEGIES)
+
+    # No gaps: every registered key has a label.
+    assert registered <= set(stats._STRATEGY_LABELS), (
+        f"stats.py is missing labels for: {registered - set(stats._STRATEGY_LABELS)}"
+    )
+    # No stragglers: stats.py doesn't know about a label with no registry entry.
+    assert set(stats._STRATEGY_LABELS) <= registered, (
+        f"stats.py has labels with no registry entry: {set(stats._STRATEGY_LABELS) - registered}"
+    )
+
+    # Every registered key lands in exactly one basis bucket, matching its declared basis.
+    measured = set(stats._MEASURED_STRATEGIES)
+    upper_bound = set(stats._UPPER_BOUND_STRATEGIES)
+    assert not (measured & upper_bound), "a key cannot be both measured and upper_bound"
+    assert measured | upper_bound == registered, (
+        "every registered key must be in exactly one basis bucket "
+        f"(uncovered: {registered - measured - upper_bound})"
+    )
+    for key, (_label, basis) in savings_log._KNOWN_STRATEGIES.items():
+        bucket = measured if basis == "measured" else upper_bound
+        assert key in bucket, f"{key} declared basis={basis} but missing from that bucket"
 
 
 def test_summarize_counts_context_cache():
