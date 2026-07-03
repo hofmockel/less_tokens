@@ -188,6 +188,12 @@ class TestCodexTerseReminder:
         })
         assert code == 0
 
+    def test_document_draft_sentinel_exempts_response(self):
+        code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "response": "<!-- less-tokens: document-draft -->\nCertainly. Of course, I hope this helps.",
+        })
+        assert code == 0
+
 
 # ---------------------------------------------------------------------------
 # compact-trigger.py

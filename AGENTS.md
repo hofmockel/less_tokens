@@ -22,4 +22,7 @@ AGENTS.md hygiene audit:
 Directory navigation — prefer `rg --files` over `find . -R` or `ls -R`.
 
 Response budget: direct findings, exact file:line references, no filler.
+
+Terse mode does not apply to a document/report/proposal the user asked for — see the
+`less-tokens` skill for the exemption marker.
 <!-- less_tokens: end -->

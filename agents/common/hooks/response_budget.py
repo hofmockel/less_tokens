@@ -32,6 +32,11 @@ _FENCE = re.compile(r"```.*?(?:```|\Z)", re.DOTALL)
 _INLINE = re.compile(r"`[^`]*`")
 _QUOTED = re.compile(r'"[^"]*"|\'[^\']*\'')
 
+# Explicit, user-requested exemption for a document/report/proposal draft pasted directly in
+# the reply (not fenced, not written via Write/Edit). Set only when the user's own message
+# asked for one — never on the assistant's own judgment of its output's length or importance.
+DOCUMENT_DRAFT_SENTINEL = "<!-- less-tokens: document-draft -->"
+
 
 def last_assistant_text(transcript_path: str) -> str:
     try:
@@ -65,6 +70,8 @@ def last_assistant_text(transcript_path: str) -> str:
 
 def analyze(text: str, *, max_response_words: int, min_filler_hits: int = 1) -> list[str]:
     if not text:
+        return []
+    if DOCUMENT_DRAFT_SENTINEL in text:
         return []
     prose = _QUOTED.sub(" ", _INLINE.sub(" ", _FENCE.sub(" ", text)))
     problems = []

@@ -35,6 +35,18 @@ Checks AGENTS.md token budget, stale line references, and verbosity. Run before 
 
 Prefer `rg --files` over `find . -R` or `ls -R`. Keep replies to direct findings with exact `file:line` references and no filler.
 
+### Document-draft exemption
+
+Terse mode holds for ordinary replies only. If the user's message asked for a document, report,
+or proposal draft and you're pasting it directly in your reply (not a file write, not fenced),
+include this exact line anywhere in the response:
+
+    <!-- less-tokens: document-draft -->
+
+`terse-reminder.py` detects it and skips the word cap and filler check for that response. Set it
+only because the user's message asked for a document — never on your own judgment that a
+response is long or important.
+
 ### Rebuild the index
 
     .less_tokens/bin/python .less_tokens/tools/embeddings.py refresh

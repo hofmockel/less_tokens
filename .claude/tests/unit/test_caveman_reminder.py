@@ -81,6 +81,21 @@ def test_unquoted_filler_still_flagged(hook):
     assert any("filler" in p for p in problems)
 
 
+def test_document_draft_sentinel_exempts_response(hook):
+    """A user-requested document draft is fully exempt, regardless of length or filler."""
+    long_filler = "I apologize. " * (hook.MAX_RESPONSE_WORDS + 50)
+    text = f"<!-- less-tokens: document-draft -->\n{long_filler}"
+    assert hook.analyze(text) == []
+
+
+def test_document_draft_sentinel_absent_still_enforced(hook):
+    """Without the sentinel, the same long filler-laden text is flagged as usual."""
+    long_filler = "I apologize. " * (hook.MAX_RESPONSE_WORDS + 50)
+    problems = hook.analyze(long_filler)
+    assert any("filler" in p for p in problems)
+    assert any("budget" in p for p in problems)
+
+
 def test_unclosed_fence_words_not_counted(hook, monkeypatch):
     """Words in an unclosed code fence must not count toward the word budget."""
     monkeypatch.setattr(hook, "MAX_RESPONSE_WORDS", 5)
