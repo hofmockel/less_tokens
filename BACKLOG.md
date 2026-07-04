@@ -122,6 +122,8 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### Low Priority
 
+- **Investigate Graphify + Claude Code Integration** — evaluate whether Graphify can improve Claude Code workflows for this repo, what integration points exist, and whether any token-saving or navigation benefits are concrete enough to justify implementation work.
+
 - **Bugfix skill: add same-pattern propagation step** *(process)* — After fixing any bug, require a codebase-wide search for the same pattern before closing. Add explicit checklist step to `.claude/skills/bugfix/SKILL.md`: grep for the root-cause construct (e.g. `endswith`, `offset`) across all `.py` files; open a backlog row for each additional hit. Prevents `endswith` and `offset=0` class of duplicates.
 
 - **Consider GitHub self-hosted runners for the perf job** — the `perf` CI job downloads the fastembed model (~130 MB `BAAI/bge-small-en-v1.5`) and relies on `actions/cache`; a cold cache miss adds wall-clock time and network variance to timing results. A self-hosted runner with the model pre-installed in `~/.cache/huggingface` would remove both and give stable CPU baselines. Trade-off: infra maintenance + runner registration; only worth it if perf run times become a bottleneck or variance produces false failures. (Demoted: not on the token-reduction mission.)
