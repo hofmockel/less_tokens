@@ -29,6 +29,7 @@ DEFAULT_BUDGET_CONFIG: dict[str, Any] = {
         "directory_listing": 1000,
         "unscored_context": 1200,
     },
+    "category_modes": {},
     "agent_overrides": {
         "claude": {},
         "codex": {
@@ -58,10 +59,17 @@ class BudgetConfig:
     replacement_required_for_blocks: bool
     categories: dict[str, int]
     hard_caps: dict[str, int]
+    category_modes: dict[str, str]
     agent_overrides: dict[str, dict[str, Any]]
 
     def category_limit(self, category: str) -> int:
         return int(self.categories.get(category, self.hard_caps.get("unscored_context", 1200)))
+
+    def effective_mode(self, category: str) -> str:
+        """Per-category mode override, falling back to the global mode. Lets a
+        single narrow category (e.g. unscored_context) move to advise/enforce
+        without changing behavior anywhere else — see eb_plan_4jul26.md Strategy 2."""
+        return self.category_modes.get(category, self.mode)
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -104,5 +112,6 @@ def load_budget_config(root: Path, *, agent: str | None = None) -> BudgetConfig:
         replacement_required_for_blocks=bool(data.get("replacement_required_for_blocks", True)),
         categories={str(k): int(v) for k, v in dict(data.get("categories", {})).items()},
         hard_caps={str(k): int(v) for k, v in dict(data.get("hard_caps", {})).items()},
+        category_modes={str(k): str(v) for k, v in dict(data.get("category_modes", {})).items()},
         agent_overrides=dict(data.get("agent_overrides", {})),
     )

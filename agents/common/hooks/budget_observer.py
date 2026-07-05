@@ -9,12 +9,12 @@ def budget_hook_outcome(raw: dict, *, repo: Path, agent: str):
     try:
         from agents.common.budget import HookBudgetOutcome, evaluate_budget_input, load_budget_config, normalize_budget_input, outcome_for_mode
         from agents.common.budget.advice import best_advice
-        from agents.common.budget.state import should_emit_advice
+        from agents.common.budget.state import resolve_state_root, should_emit_advice
     except Exception:
         try:
             from budget import HookBudgetOutcome, evaluate_budget_input, load_budget_config, normalize_budget_input, outcome_for_mode  # type: ignore[no-redef]
             from budget.advice import best_advice  # type: ignore[no-redef]
-            from budget.state import should_emit_advice  # type: ignore[no-redef]
+            from budget.state import resolve_state_root, should_emit_advice  # type: ignore[no-redef]
         except Exception:
             return None
     try:
@@ -22,12 +22,19 @@ def budget_hook_outcome(raw: dict, *, repo: Path, agent: str):
             return HookBudgetOutcome(exit_code=0)
         budget_input = normalize_budget_input(raw, agent=agent)
         config = load_budget_config(repo, agent=agent)
-        decisions = evaluate_budget_input(repo, budget_input, config)
-        outcome = outcome_for_mode(decisions, mode=config.mode)
-        if config.mode == "advise" and outcome.message:
+        # Telemetry/session state (events, advice rate-limits) is written under
+        # resolve_state_root, which honors LESS_TOKENS_STATE_DIR — repo stays the
+        # config source of truth and is never redirected by that override.
+        state_root = resolve_state_root(repo)
+        decisions = evaluate_budget_input(state_root, budget_input, config)
+        outcome = outcome_for_mode(decisions, mode=config.mode, category_modes=config.category_modes)
+        # Rate-limit any advisory message (exit_code 0 + message), not just
+        # ones from the global mode — a category_modes override can produce
+        # advice while the global mode stays "observe".
+        if outcome.exit_code == 0 and outcome.message:
             decision = best_advice(decisions)
             key = f"{agent}:{budget_input.phase}:{budget_input.tool_name}:{decision.candidate_id if decision else outcome.message}"
-            if not should_emit_advice(repo, key):
+            if not should_emit_advice(state_root, key):
                 return HookBudgetOutcome(exit_code=0)
         return outcome
     except Exception:

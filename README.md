@@ -28,8 +28,8 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Budget control plane** | Scores, replaces, defers, or blocks context before it enters the agent transcript; writes v2 telemetry and reports | avoids irrelevant context before it is paid for | always on |
 | **Vector search + symbols** | Pre-embeds source files; exact `/def` lookup for Python and JS/TS symbols | 5–10× fewer input tokens | always on |
 | **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
-| **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars | always on |
-| **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens | default; opt out with `--no-caveman` |
+| **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars (not telemetry-backed — no savings.jsonl category) | always on |
+| **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens (not telemetry-backed — no baseline to diff against) | default; opt out with `--no-caveman` |
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | default; opt out with `--no-truncate` |
 | **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |

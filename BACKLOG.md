@@ -43,12 +43,27 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **F4 — Consolidate overlapping tools** *(meta)* — `search.py`/`search_config.py`/`symbols.py`/`parse.py` have distinct jobs (search runtime / config / symbol index / AST parse). Merging is pure refactor: zero token saving, real regression risk across both agents. Not worth it.
 - **G10 — Bound subagent search breadth** *(input)* — the harness Explore agent already exposes a breadth knob (medium / very thorough); less_tokens adds nothing and cannot hook-enforce a sub-process's search scope. Owned by the harness, not this toolkit. Skip. **Dual scope:** Explore's breadth knob is a Claude harness feature. Codex has `agent_type="explorer"` but no repo-owned breadth knob; narrowness must come from the delegated prompt ("answer only X, inspect only paths matching Y"). Skip hook/config work for both — distinct reasons, recorded so neither agent re-proposes it.
 - **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus via a tier matrix + flag. No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% saving is unverified. The shipped caveman Stop hook already captures output-token savings deterministically. Skip.
+- **Graphify integration** *(input)* — evaluated 2026-07-04 (`eb_eval_4jul26.md`, `tect` review). Graphify's structural (AST) extraction is free, but its semantic extraction — the part that actually builds the knowledge graph — dispatches parallel Claude subagents that spend real input/output tokens unless a Gemini/Google API key is configured. Adopting the default build path means spending tokens to build the thing meant to save tokens: a direct inversion of this repo's mission, same reasoning already applied to reject the query/result cache (F4's neighbor ruling above — "saves embedding compute, not tokens"). The capability gap (cross-entity relationship queries, community/"god node" detection) is real but is a navigation feature, not a token-reduction lever, so it's out of scope for this repo's mission as specified. No artifact/state collision either way (`graphify-out/` doesn't touch `.claude/state/` or `.less_tokens/`) — the rejection is entirely economic. Skip. Reopen only if graphify ships a Gemini-only build mode this repo can hard-gate to, and only as an optional add-on for *host* repos this toolkit installs into, never for this repo's own dogfooding.
 
 ---
 
 ## Vector Search & Indexing
 
 ### High Priority
+
+- **Same-session `search.py` repeated-query cache** *(input)* — reopened 2026-07-04
+  (`eb_plan_4jul26.md` Strategy 5), correcting `DOCUMENTATION.md`'s prior "query/result cache"
+  rejection: that ruling was about caching *embeddings* (compute, not tokens — still correctly
+  rejected) and never actually distinguished the separate claim that skipping an *identical
+  repeated `search.py` invocation* within a session would also skip its tool-output round-trip
+  re-entering the transcript — a real, `basis="measured"` context-token saving, same shape as
+  `context-cache-read`/`-grep`/`-bash`. Not yet built or measured either way. **Do not implement
+  the cache yet** — first add near-miss instrumentation to `search.py`'s query path (same
+  `near_misses.jsonl` mechanism already shipped for cached-bash/cached-grep/compaction-threshold,
+  see `agents/common/hooks/context_cache.py`'s `record_near_miss`) to find out how often an
+  identical query is actually repeated within a session before building anything. If the real
+  data shows repeats are rare, this stays periphery for a different, evidenced reason; if they're
+  common, build the cache against that evidence.
 
 ---
 
@@ -121,8 +136,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 ## Developer Experience
 
 ### Low Priority
-
-- **Investigate Graphify + Claude Code Integration** — evaluate whether Graphify can improve Claude Code workflows for this repo, what integration points exist, and whether any token-saving or navigation benefits are concrete enough to justify implementation work.
 
 - **Bugfix skill: add same-pattern propagation step** *(process)* — After fixing any bug, require a codebase-wide search for the same pattern before closing. Add explicit checklist step to `.claude/skills/bugfix/SKILL.md`: grep for the root-cause construct (e.g. `endswith`, `offset`) across all `.py` files; open a backlog row for each additional hit. Prevents `endswith` and `offset=0` class of duplicates.
 

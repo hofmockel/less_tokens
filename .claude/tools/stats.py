@@ -124,6 +124,79 @@ _STRATEGY_LABELS = {k: v[0] for k, v in _KNOWN_STRATEGIES.items()}
 _MEASURED_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "measured")
 _UPPER_BOUND_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "upper_bound")
 
+# Expected firing frequency per strategy — a human judgment recorded once per
+# strategy, not inferred at runtime. This is what lets --audit-liveness tell a
+# structurally-dead strategy (frequent, but never fires — e.g. cached-bash's
+# exact-string cache key) from one that's rare by design (compaction fires once
+# in months, and that's fine). See eb_eval_4jul26.md / eb_plan_4jul26.md.
+#   "frequent"      — should show real events regularly; zero over the window is
+#                      worth investigating (the gate/cache key may be too narrow).
+#   "rare-but-real" — expected to go long stretches with no events; flag only
+#                      as informational, never as a problem.
+#   "experimental"  — newly added, no expectation recorded yet.
+_FREQUENCY_CLASS: dict[str, str] = {
+    "truncation":          "frequent",
+    "compaction":          "rare-but-real",
+    "context-cache-read":  "frequent",
+    "context-cache-grep":  "frequent",
+    "context-cache-bash":  "frequent",
+    "search-blocked":      "frequent",
+    "search":              "frequent",
+}
+
+DEFAULT_LIVENESS_WINDOW_DAYS = 90
+
+
+def audit_liveness(records: list[dict], *, now: float | None = None, window_days: int = DEFAULT_LIVENESS_WINDOW_DAYS) -> list[dict]:
+    """Per-strategy liveness classification against real telemetry.
+
+    Returns one row per _KNOWN_STRATEGIES entry: whether it has fired within
+    `window_days`, how long since its last event (or never), and a verdict.
+    Pure function over `records` — callers pass real `_load_all()` output for
+    a real audit, or a hand-built fixture in tests (see stats_plan.md: tests
+    cover classification logic, never assert a real savings magnitude).
+    """
+    now = time.time() if now is None else now
+    last_ts: dict[str, float] = {}
+    for r in records:
+        strategy = r.get("strategy", "")
+        if strategy not in _KNOWN_STRATEGIES:
+            continue
+        ts = r.get("ts", 0) or 0
+        if ts > last_ts.get(strategy, float("-inf")):
+            last_ts[strategy] = ts
+
+    rows = []
+    for strategy, (label, _basis) in _KNOWN_STRATEGIES.items():
+        freq_class = _FREQUENCY_CLASS.get(strategy, "experimental")
+        ts = last_ts.get(strategy)
+        days_since = None if ts is None else (now - ts) / 86400
+        if ts is None:
+            verdict = "dead lever, investigate the gate" if freq_class == "frequent" else "no events yet, informational"
+        elif freq_class == "frequent" and days_since > window_days:
+            verdict = "dead lever, investigate the gate"
+        else:
+            verdict = "rare by design, informational" if freq_class != "frequent" else "live"
+        rows.append({
+            "strategy": strategy,
+            "label": label,
+            "frequency_class": freq_class,
+            "days_since_last_event": days_since,
+            "verdict": verdict,
+        })
+    return rows
+
+
+def _run_audit_liveness(window_days: int = DEFAULT_LIVENESS_WINDOW_DAYS) -> int:
+    rows = audit_liveness(_load_all(), window_days=window_days)
+    print(f"## Strategy liveness audit (window: {window_days}d)\n")
+    print(f"{'Strategy':<24} {'Class':<14} {'Last event':<16} Verdict")
+    for row in rows:
+        days = row["days_since_last_event"]
+        last = "never" if days is None else f"{days:.1f}d ago"
+        print(f"{row['label']:<24} {row['frequency_class']:<14} {last:<16} {row['verdict']}")
+    return 0
+
 
 def _normalize_record(r: dict) -> dict:
     """Map any record — new-schema or legacy — to the canonical shape.
@@ -662,10 +735,19 @@ def main() -> int:
                     help="Model for --calibrate count_tokens (default: %(default)s)")
     ap.add_argument("--all", dest="all_time", action="store_true",
                     help="Show all-time totals instead of session")
+    ap.add_argument("--audit-liveness", action="store_true",
+                    help="Periodic health check: flag strategies that are wired but haven't "
+                         "fired in real telemetry recently (manual/periodic, not a CI gate — "
+                         "see eb_plan_4jul26.md)")
+    ap.add_argument("--liveness-window-days", type=int, default=DEFAULT_LIVENESS_WINDOW_DAYS,
+                    help="Window for --audit-liveness (default: %(default)s days)")
     args = ap.parse_args()
 
     if args.calibrate:
         return _run_calibrate(args.model)
+
+    if args.audit_liveness:
+        return _run_audit_liveness(args.liveness_window_days)
 
     if args.oneliner:
         print(_measured_oneliner(_load_records(all_time=False)))

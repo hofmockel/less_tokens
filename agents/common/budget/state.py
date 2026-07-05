@@ -2,9 +2,21 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
+
+
+def resolve_state_root(repo: Path) -> Path:
+    """Resolve the root that v2 budget-plane state (events, sessions, advice
+    rate-limits) is written under. Honors LESS_TOKENS_STATE_DIR the same way
+    search_config.active_state_dir() does for the v1 hooks, so contract/unit
+    tests that set the override never write real telemetry into `repo` itself.
+    `repo` still governs config (.less_tokens/config/budget.json), which is a
+    real repo artifact and must not be redirected by this override."""
+    override = os.environ.get("LESS_TOKENS_STATE_DIR")
+    return Path(override) if override else repo
 
 
 def state_dir(root: Path) -> Path:

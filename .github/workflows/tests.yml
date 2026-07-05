@@ -49,3 +49,15 @@ jobs:
 
       - name: Check CHANGELOG [Unreleased] for code changes
         run: python .claude/tools/changelog_gate.py
+
+  # ---------------------------------------------------------------------------
+  # Merge gate: README savings claims must be registry-backed or marked unverified
+  # ---------------------------------------------------------------------------
+  label-consistency-gate:
+    name: "Label consistency gate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check README claims against the savings_log registry
+        run: python .claude/tools/label_consistency_gate.py

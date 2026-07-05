@@ -622,7 +622,9 @@ Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
 
 S6 (tiered effort by model) stays an opt-in rule, not a hook — no hook can force a per-turn model downshift, so its saving is unverified; tracked in `BACKLOG.md`.
 
-Deliberately rejected as periphery (no effect on context tokens): a search REPL / file-watcher, a query/result cache (saves embedding compute, not tokens), and search-quality logging. The live savings HTML artifact is intentionally included because it reports the measured local savings log; it is not a separate optimization lever.
+Deliberately rejected as periphery (no effect on context tokens): a search REPL / file-watcher, an *embedding-result* cache (saves embedding compute, not tokens), and search-quality logging. The live savings HTML artifact is intentionally included because it reports the measured local savings log; it is not a separate optimization lever.
+
+**Reopened 2026-07-04** (`eb_plan_4jul26.md` Strategy 5): the "query/result cache" line above conflated two different things. Caching *embeddings* is correctly rejected — it saves local compute, not context tokens. But a same-session cache of *identical repeated `search.py` invocations* is a different claim: skipping the rerun would also skip its tool-output round-trip re-entering the transcript, which **is** a context-token saving with both sides of the cut known (`basis="measured"`, same as `context-cache-read`/`-grep`/`-bash`). This was never actually built or measured either way — see `BACKLOG.md`'s "Vector Search & Indexing" section for the narrowly-scoped, instrument-first follow-up.
 
 ### State directory
 

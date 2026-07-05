@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 try:
@@ -22,6 +23,24 @@ except Exception:
 # Post-compaction transcript must be below this fraction of its peak for the
 # shrink to count as a compaction (rather than within-session noise).
 _COMPACTION_RATIO = 0.5
+
+
+def record_session_size_sample(state_dir: Path, *, size: int, threshold: int) -> None:
+    """Additive-only telemetry: transcript size at every invocation, whether or
+    not the compact trigger actually fired. Compaction fired once in this
+    repo's entire recorded history — this is the real distribution of session
+    sizes needed to judge whether MAX_SESSION_CHARS is set well, rather than
+    guessing (see eb_plan_4jul26.md Strategy 4). Never read by any hook,
+    fail-open, same discipline as savings_log.append()."""
+    path = state_dir / "near_misses.jsonl"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "kind": "session_size", "size": size, "threshold": threshold, "ts": time.time(),
+            }) + "\n")
+    except OSError:
+        pass
 
 
 def check_compact_trigger(
@@ -44,6 +63,8 @@ def check_compact_trigger(
         size = os.path.getsize(transcript_path)
     except OSError:
         return 0, "", ""
+
+    record_session_size_sample(state_dir, size=size, threshold=max_session_chars)
 
     if size <= max_session_chars:
         return 0, "", ""

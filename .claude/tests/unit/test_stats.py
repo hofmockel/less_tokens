@@ -633,3 +633,65 @@ def test_write_config_divisor_rewrites_only_the_line(tmp_path):
     assert "X = 1" in out and "Y = 2" in out
     # exactly one CHARS_PER_TOKEN assignment remains
     assert out.count("CHARS_PER_TOKEN") == 1
+
+
+# ---------------------------------------------------------------------------
+# stats.audit_liveness — classification logic only, hand-built fixtures.
+# Per stats_plan.md: tests guard the measurement pipe, never assert a real
+# savings magnitude. These records are synthetic on purpose; audit_liveness
+# is a pure function over whatever records it's given, and a real audit run
+# (stats.py --audit-liveness) is a manual/periodic command, never a CI gate,
+# because CI has no accumulated production telemetry to check against.
+# ---------------------------------------------------------------------------
+
+def test_liveness_flags_frequent_strategy_with_zero_events_as_dead():
+    stats = _import_stats()
+    rows = stats.audit_liveness([], now=1_000_000.0)
+    by_strategy = {r["strategy"]: r for r in rows}
+    assert by_strategy["context-cache-bash"]["days_since_last_event"] is None
+    assert by_strategy["context-cache-bash"]["verdict"] == "dead lever, investigate the gate"
+
+
+def test_liveness_rare_but_real_strategy_never_flagged_dead_regardless_of_age():
+    stats = _import_stats()
+    now = 1_000_000.0
+    # Compaction fired once, 200 days ago — far outside any reasonable window.
+    old_event = {"strategy": "compaction", "ts": now - 200 * 86400}
+    rows = stats.audit_liveness([old_event], now=now, window_days=90)
+    by_strategy = {r["strategy"]: r for r in rows}
+    assert by_strategy["compaction"]["verdict"] == "rare by design, informational"
+    # And with zero events at all, still not flagged as a dead lever.
+    rows_empty = stats.audit_liveness([], now=now, window_days=90)
+    by_strategy_empty = {r["strategy"]: r for r in rows_empty}
+    assert by_strategy_empty["compaction"]["verdict"] == "no events yet, informational"
+
+
+def test_liveness_frequent_strategy_within_window_is_live():
+    stats = _import_stats()
+    now = 1_000_000.0
+    recent_event = {"strategy": "truncation", "ts": now - 2 * 86400}
+    rows = stats.audit_liveness([recent_event], now=now, window_days=90)
+    by_strategy = {r["strategy"]: r for r in rows}
+    assert by_strategy["truncation"]["verdict"] == "live"
+    assert by_strategy["truncation"]["days_since_last_event"] == 2.0
+
+
+def test_liveness_frequent_strategy_outside_window_is_dead():
+    stats = _import_stats()
+    now = 1_000_000.0
+    stale_event = {"strategy": "truncation", "ts": now - 200 * 86400}
+    rows = stats.audit_liveness([stale_event], now=now, window_days=90)
+    by_strategy = {r["strategy"]: r for r in rows}
+    assert by_strategy["truncation"]["verdict"] == "dead lever, investigate the gate"
+
+
+def test_liveness_uses_most_recent_event_per_strategy():
+    stats = _import_stats()
+    now = 1_000_000.0
+    records = [
+        {"strategy": "truncation", "ts": now - 100 * 86400},
+        {"strategy": "truncation", "ts": now - 1 * 86400},
+    ]
+    rows = stats.audit_liveness(records, now=now, window_days=90)
+    by_strategy = {r["strategy"]: r for r in rows}
+    assert by_strategy["truncation"]["days_since_last_event"] == 1.0

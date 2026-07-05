@@ -16,3 +16,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: label-consistency-gate
+        name: measured-vs-asserted README label gate
+        entry: python .claude/tools/label_consistency_gate.py
+        language: system
+        pass_filenames: false
+        always_run: true

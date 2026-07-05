@@ -24,8 +24,10 @@ sys.path[:0] = [str(REPO), str(REPO / ".less_tokens" / "hooks")]
 
 try:
     from agents.common.budget.events import load_events  # noqa: E402
+    from agents.common.budget.state import resolve_state_root  # noqa: E402
 except Exception:
     from budget.events import load_events  # type: ignore[no-redef]  # noqa: E402
+    from budget.state import resolve_state_root  # type: ignore[no-redef]  # noqa: E402
 
 
 def _int(value: object) -> int:
@@ -46,7 +48,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=1000, help="read the most recent N events")
     args = parser.parse_args()
 
-    events = load_events(REPO, limit=args.limit)
+    events = load_events(resolve_state_root(REPO), limit=args.limit)
     if not events:
         print("less_tokens budget report\n")
         print("No v2 budget telemetry found yet.")

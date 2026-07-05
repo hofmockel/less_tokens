@@ -119,20 +119,25 @@ def _replacement_for(candidate: ContextCandidate, config: BudgetConfig, signals:
     return candidate.replacement
 
 
-def _forced_decision(candidate: ContextCandidate, config: BudgetConfig, signals: BudgetSignals | None) -> tuple[str, int, str, str | None] | None:
+def _forced_decision(candidate: ContextCandidate, config: BudgetConfig, signals: BudgetSignals | None) -> tuple[str, int, str, str | None, str | None] | None:
     replacement = _replacement_for(candidate, config, signals)
     if signals and candidate.metadata.get("read_key") in signals.repeated_read_keys:
-        return "block", 0, "repeated unchanged read already in context", replacement or "Skip this read; unchanged content is already in context."
+        return "block", 0, "repeated unchanged read already in context", replacement or "Skip this read; unchanged content is already in context.", None
     if signals and candidate.metadata.get("search_key") in signals.repeated_search_keys:
-        return "block", 0, "repeated search already in context", "Skip this search; recent results are already in context."
+        return "block", 0, "repeated search already in context", "Skip this search; recent results are already in context.", None
     if candidate.candidate_type == "directory_listing":
-        return "block", 0, "broad directory listing would produce low-value output", replacement
+        return "block", 0, "broad directory listing would produce low-value output", replacement, None
+    # unscored_context has its own effective_mode, independent of the global
+    # mode: a repo can move just this narrow (irrelevant + oversized) case to
+    # advise/enforce without touching any other category's behavior.
+    unscored_mode = config.effective_mode("unscored_context")
     if (
-        config.mode == "strict"
+        unscored_mode in {"advise", "enforce", "strict"}
         and candidate.relevance_score <= 0
         and candidate.estimated_tokens > config.hard_caps.get("unscored_context", 1200)
     ):
-        return "block", 0, "unscored context exceeds hard cap", replacement or "Search or narrow the request before adding this context."
+        action = "block" if unscored_mode in {"enforce", "strict"} else "defer"
+        return action, 0, "unscored context exceeds hard cap", replacement or "Search or narrow the request before adding this context.", "unscored_context"
     return None
 
 
@@ -155,9 +160,12 @@ def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, 
         forced = _forced_decision(candidate, config, signals)
 
         oversized_tool_output = candidate.candidate_type == "tool_output" and candidate.estimated_tokens > hard_cap
+        decision_category = candidate.category
 
         if forced:
-            action, after, reason, replacement = forced
+            action, after, reason, replacement, category_override = forced
+            if category_override:
+                decision_category = category_override
         elif oversized_tool_output:
             action = "replace" if replacement else "trim"
             after = min(estimate_tokens(replacement or "", content_type="logs"), hard_cap) if replacement else hard_cap
@@ -186,7 +194,7 @@ def select_candidates(candidates: list[ContextCandidate], config: BudgetConfig, 
             used_by_category[candidate.category] = used_before + after
         decisions.append(BudgetDecision(
             action=action,
-            category=candidate.category,
+            category=decision_category,
             candidate_id=candidate.candidate_id,
             estimated_tokens_before=candidate.estimated_tokens,
             estimated_tokens_after=after,

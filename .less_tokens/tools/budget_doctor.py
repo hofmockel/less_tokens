@@ -24,8 +24,10 @@ sys.path[:0] = [str(REPO), str(REPO / ".less_tokens" / "hooks")]
 
 try:
     from agents.common.budget import load_budget_config, load_events  # noqa: E402
+    from agents.common.budget.state import resolve_state_root  # noqa: E402
 except Exception:
     from budget import load_budget_config, load_events  # type: ignore[no-redef]  # noqa: E402
+    from budget.state import resolve_state_root  # type: ignore[no-redef]  # noqa: E402
 
 
 def _int(value: object) -> int:
@@ -48,7 +50,7 @@ def main() -> int:
     args = parser.parse_args()
 
     config = load_budget_config(REPO, agent=args.agent)
-    events = load_events(REPO, limit=args.limit)
+    events = load_events(resolve_state_root(REPO), limit=args.limit)
     pressure: dict[str, tuple[int, int]] = {}
     decisions: collections.Counter[str] = collections.Counter()
     risk: collections.Counter[str] = collections.Counter()

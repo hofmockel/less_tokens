@@ -49,3 +49,42 @@ def load_hook(hook_path: Path):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+# The v2 budget-plane event log only. It is meant to be redirected via
+# LESS_TOKENS_STATE_DIR by every hook test (a broken override left it 100%
+# pytest artifacts — see eb_eval_4jul26.md finding #4 / eb_plan_4jul26.md
+# Strategy 2). savings.jsonl is deliberately excluded here: test_hooks_protocol.py
+# intentionally runs real hooks (truncate-output.py etc.) against the real repo
+# without isolation, same accepted pattern as its compact-trigger-last handling,
+# and "always on" savings tracking (stats_plan.md) means that's real, correctly
+# recorded behavior, not a leak — flagging it here would be a false positive.
+_WATCHED_TELEMETRY_LOGS = [
+    REPO_ROOT / ".less_tokens" / "state" / "events.jsonl",
+]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _no_production_telemetry_writes():
+    """Regression net for the events.jsonl contamination bug: fail the run if
+    any test writes a real line into production telemetry instead of isolating
+    state via LESS_TOKENS_STATE_DIR. Deterministic byte-count diff, no fixtures,
+    can't be fabricated or flaky."""
+    def _sizes() -> dict[str, int]:
+        return {
+            str(p.relative_to(REPO_ROOT)): p.stat().st_size
+            for p in _WATCHED_TELEMETRY_LOGS
+            if p.exists()
+        }
+
+    before = _sizes()
+    yield
+    after = _sizes()
+
+    grown = {path: (before.get(path, 0), size) for path, size in after.items() if size != before.get(path, 0)}
+    if grown:
+        details = "; ".join(f"{path} ({b} -> {a} bytes)" for path, (b, a) in grown.items())
+        pytest.fail(
+            "Production telemetry changed during the test run — a hook wrote "
+            f"real events instead of honoring LESS_TOKENS_STATE_DIR: {details}"
+        )

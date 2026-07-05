@@ -103,3 +103,46 @@ def test_new_session_path_resets_without_emitting(tmp_path):
 def test_missing_transcript_path_is_noop(tmp_path):
     events, _ = _run(tmp_path, None)
     assert events == []
+
+
+# ---------------------------------------------------------------------------
+# Near-miss instrumentation (Strategy 4 Phase 0) — additive only, no behavior
+# change. Compaction fired once in this repo's entire history; this samples
+# every invocation's transcript size so a real distribution exists before any
+# threshold decision is made.
+# ---------------------------------------------------------------------------
+
+from agents.common.hooks.compact_trigger import check_compact_trigger, record_session_size_sample  # noqa: E402
+
+
+def test_record_session_size_sample_appends_jsonl(tmp_path):
+    record_session_size_sample(tmp_path, size=12345, threshold=THRESHOLD)
+    log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 1
+    entry = json.loads(log[0])
+    assert entry == {"kind": "session_size", "size": 12345, "threshold": THRESHOLD, "ts": entry["ts"]}
+
+
+def test_check_compact_trigger_samples_size_even_when_under_threshold(tmp_path):
+    transcript = _write(tmp_path / "t.jsonl", 1000)
+    code, _, _ = check_compact_trigger(
+        _payload(str(transcript)), state_dir=tmp_path,
+        max_session_chars=THRESHOLD, message="compact now",
+    )
+    assert code == 0
+    log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 1
+    entry = json.loads(log[0])
+    assert entry["size"] == 1000 and entry["threshold"] == THRESHOLD
+
+
+def test_check_compact_trigger_samples_size_when_over_threshold_too(tmp_path):
+    transcript = _write(tmp_path / "t.jsonl", THRESHOLD + 1000)
+    code, _, _ = check_compact_trigger(
+        _payload(str(transcript)), state_dir=tmp_path,
+        max_session_chars=THRESHOLD, message="compact now",
+    )
+    assert code == 2
+    log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 1
+    assert json.loads(log[0])["size"] == THRESHOLD + 1000

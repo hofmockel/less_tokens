@@ -465,6 +465,7 @@ def test_strict_blocks_oversized_unscored_context(tmp_path):
         replacement_required_for_blocks=cfg.replacement_required_for_blocks,
         categories=cfg.categories,
         hard_caps={**cfg.hard_caps, "unscored_context": 10},
+        category_modes=cfg.category_modes,
         agent_overrides=cfg.agent_overrides,
     )
     candidate = ContextCandidate(
@@ -477,6 +478,45 @@ def test_strict_blocks_oversized_unscored_context(tmp_path):
     decision = select_candidates([candidate], cfg)[0]
     assert decision.action == "block"
     assert "unscored context" in decision.reason
+
+
+def test_category_modes_advise_unscored_context_without_global_mode_change(tmp_path):
+    """A category_modes override surfaces advice for just that category while
+    the global mode stays observe (silent) for everything else."""
+    cfg = load_budget_config(tmp_path)
+    cfg = type(cfg)(
+        version=cfg.version,
+        mode="observe",
+        token_estimator=cfg.token_estimator,
+        total_context_tokens=cfg.total_context_tokens,
+        reserved_response_tokens=cfg.reserved_response_tokens,
+        relevance_threshold=cfg.relevance_threshold,
+        replacement_required_for_blocks=cfg.replacement_required_for_blocks,
+        categories=cfg.categories,
+        hard_caps={**cfg.hard_caps, "unscored_context": 10},
+        category_modes={"unscored_context": "advise"},
+        agent_overrides=cfg.agent_overrides,
+    )
+    candidate = ContextCandidate(
+        candidate_id="tool_output:unknown",
+        category="tool_output",
+        candidate_type="tool_output",
+        text="x" * 1000,
+        relevance_score=0,
+    )
+    decisions = select_candidates([candidate], cfg)
+    decision = decisions[0]
+    assert decision.action == "defer"
+    assert decision.category == "unscored_context"
+    assert "unscored context" in decision.reason
+
+    outcome = outcome_for_mode(decisions, mode=cfg.mode, category_modes=cfg.category_modes)
+    assert outcome.exit_code == 0
+    assert outcome.message and outcome.message.startswith("less_tokens budget: defer")
+
+    silent = outcome_for_mode(decisions, mode=cfg.mode)
+    assert silent.exit_code == 0
+    assert silent.message is None
 
 
 def test_tool_output_summary_preserves_failure_signal():
@@ -525,6 +565,7 @@ def test_compaction_snapshot_fits_session_summary_budget(tmp_path):
         replacement_required_for_blocks=cfg.replacement_required_for_blocks,
         categories={**cfg.categories, "session_summary": 80},
         hard_caps=cfg.hard_caps,
+        category_modes=cfg.category_modes,
         agent_overrides=cfg.agent_overrides,
     )
     state = {

@@ -262,6 +262,72 @@ def test_bash_non_cacheable_command_is_not_blocked(hook, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Near-miss instrumentation (Strategy 3 Phase 0) — additive only, no behavior
+# change, never read by any hook.
+# ---------------------------------------------------------------------------
+
+def test_near_miss_signature_is_first_token():
+    hook = load_hook(HOOK)
+    assert hook.near_miss_signature("pytest -v tests/foo.py") == "pytest"
+    assert hook.near_miss_signature("pytest tests/bar.py") == "pytest"
+    assert hook.near_miss_signature("") == ""
+    assert hook.near_miss_signature("   ") == ""
+
+
+def test_record_near_miss_appends_jsonl_without_reading_it_back(tmp_path):
+    hook = load_hook(HOOK)
+    hook.record_near_miss(tmp_path, kind="bash", signature="pytest")
+    hook.record_near_miss(tmp_path, kind="grep", signature="foo bar")
+    log = tmp_path / "near_misses.jsonl"
+    lines = log.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    import json as _json
+    first = _json.loads(lines[0])
+    assert first["kind"] == "bash" and first["signature"] == "pytest" and "ts" in first
+
+
+def test_record_near_miss_is_a_noop_for_empty_signature(tmp_path):
+    hook = load_hook(HOOK)
+    hook.record_near_miss(tmp_path, kind="bash", signature="")
+    assert not (tmp_path / "near_misses.jsonl").exists()
+
+
+def test_bash_miss_records_near_miss_by_signature(tmp_path):
+    hook = load_hook(HOOK)
+    pre = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "pytest tests/unit/test_x.py -v"},
+        "transcript_path": "t1",
+    }
+    code, _, msg = hook.check_context_cache(
+        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+    assert code == 0 and msg == ""
+    log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 1
+    import json as _json
+    assert _json.loads(log[0])["signature"] == "pytest"
+
+
+def test_grep_miss_records_near_miss_by_pattern(tmp_path):
+    hook = load_hook(HOOK)
+    pre = {
+        "tool_name": "Grep",
+        "tool_input": {"pattern": "def check_bash"},
+        "transcript_path": "t1",
+    }
+    code, _, msg = hook.check_context_cache(
+        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+    assert code == 0 and msg == ""
+    log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(log) == 1
+    import json as _json
+    entry = _json.loads(log[0])
+    assert entry["kind"] == "grep" and entry["signature"] == "def check_bash"
+
+
+# ---------------------------------------------------------------------------
 # None transcript_path must not share state across sessions
 # ---------------------------------------------------------------------------
 

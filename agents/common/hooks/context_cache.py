@@ -198,6 +198,31 @@ def record_bash(state: dict, inp: dict, output_chars: int) -> None:
     }
 
 
+def near_miss_signature(command: str) -> str:
+    """Coarse grouping key for near-miss analysis: base command only, so
+    `pytest -v foo.py` and `pytest bar.py` share a signature even though
+    the exact-string cache in check_bash/record_bash treats them as unrelated."""
+    parts = command.split()
+    return parts[0] if parts else ""
+
+
+def record_near_miss(state_dir: Path, *, kind: str, signature: str) -> None:
+    """Additive-only telemetry: a Bash/Grep call that missed the exact-string
+    cache, logged by coarse signature. Never read by any hook and never
+    changes hook behavior — purely observational data for a later, real
+    decision about widening cacheable_bash_command()/grep_key() (see
+    eb_plan_4jul26.md Strategy 3). Fail-open, same as savings_log.append()."""
+    if not signature:
+        return
+    path = state_dir / "near_misses.jsonl"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"kind": kind, "signature": signature, "ts": time.time()}) + "\n")
+    except OSError:
+        pass
+
+
 def check_context_cache(
     payload: HookPayload,
     *,
@@ -243,6 +268,7 @@ def check_context_cache(
                 })
             save_state(state_dir, state)
             return 2, "", msg
+        record_near_miss(state_dir, kind="bash", signature=near_miss_signature(bash_command(inp)))
     elif payload.tool_name == "Read":
         file_path = str(inp.get("file_path", ""))
         if not file_path:
@@ -283,6 +309,7 @@ def check_context_cache(
                 })
             save_state(state_dir, state)
             return 2, "", msg
+        record_near_miss(state_dir, kind="grep", signature=str(inp.get("pattern") or inp.get("query") or "")[:80])
         record_grep(state, inp)
 
     save_state(state_dir, state)

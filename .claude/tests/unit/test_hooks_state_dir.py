@@ -135,3 +135,58 @@ class TestSearchFirstStateDirIsolation:
             extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
         )
         assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# v2 budget-plane state dir isolation (events.jsonl contamination regression)
+# ---------------------------------------------------------------------------
+
+class TestBudgetObserverStateDirIsolation:
+    """Pins the bug where events_path() derived .less_tokens/state from the
+    repo root regardless of LESS_TOKENS_STATE_DIR, writing real telemetry
+    events into the production repo's events.jsonl during every test run."""
+
+    REAL_EVENTS_LOG = REPO / ".less_tokens" / "state" / "events.jsonl"
+
+    def _real_log_line_count(self) -> int:
+        if not self.REAL_EVENTS_LOG.exists():
+            return 0
+        return len(self.REAL_EVENTS_LOG.read_text(encoding="utf-8").splitlines())
+
+    def test_claude_budget_observer_writes_events_to_custom_dir(self, tmp_path):
+        """budget-observer.py must write v2 events under LESS_TOKENS_STATE_DIR, never repo state."""
+        state_dir = tmp_path / "state"
+        before = self._real_log_line_count()
+
+        run_hook(
+            CLAUDE_HOOKS / "budget-observer.py",
+            {"tool_name": "Bash", "tool_input": {"command": "pwd"}, "tool_result": "some output"},
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
+
+        after = self._real_log_line_count()
+        assert after == before, (
+            "budget-observer.py wrote to the production events.jsonl instead of "
+            "LESS_TOKENS_STATE_DIR — state-dir override was ignored"
+        )
+        custom_events = state_dir / ".less_tokens" / "state" / "events.jsonl"
+        assert custom_events.exists(), "expected v2 event to land under the overridden state dir"
+
+    def test_codex_budget_observer_writes_events_to_custom_dir(self, tmp_path):
+        """Codex's budget-observer.py shares budget_hook_outcome — same fix, same coverage."""
+        state_dir = tmp_path / "state"
+        before = self._real_log_line_count()
+
+        run_hook(
+            CODEX_HOOKS / "budget-observer.py",
+            {"tool_name": "Bash", "tool_input": {"command": "pwd"}, "tool_response": "some output"},
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir), "LESS_TOKENS_AGENT": "codex"},
+        )
+
+        after = self._real_log_line_count()
+        assert after == before, (
+            "Codex budget-observer.py wrote to the production events.jsonl instead of "
+            "LESS_TOKENS_STATE_DIR — state-dir override was ignored"
+        )
+        custom_events = state_dir / ".less_tokens" / "state" / "events.jsonl"
+        assert custom_events.exists(), "expected v2 event to land under the overridden state dir"

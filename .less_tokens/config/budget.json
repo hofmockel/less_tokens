@@ -21,6 +21,9 @@
     "directory_listing": 1000,
     "unscored_context": 1200
   },
+  "category_modes": {
+    "unscored_context": "advise"
+  },
   "agent_overrides": {
     "claude": {
       "categories": {
