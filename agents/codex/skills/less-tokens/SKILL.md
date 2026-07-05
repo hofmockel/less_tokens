@@ -46,7 +46,10 @@ edits. Require the return shape: `files changed`, `findings`, `verification`,
 
 Skip spawning for a single `rg`, one small file read, or a short test command.
 Consider it for independent exploration, noisy verification loops, or large-source
-summaries where discarded child context is worth the startup cost.
+summaries where discarded child context is worth the startup cost. Use
+`fork_context=true` only when the child truly needs prior conversation; a manual
+Codex comparison on 2026-07-05 found the full-history fork did extra discovery on
+a task the cold `fork_context=false` explorer answered from pointers alone.
 
 Prompt shape:
 

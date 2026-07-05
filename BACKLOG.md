@@ -117,8 +117,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### Low Priority
 
-- **CX15 — Measure Codex spawn break-even manually** *(fixed/meta)* — Run a small manual benchmark in Codex app: one parent-only exploration, one `fork_context=false` explorer, and one `fork_context=true` explorer over the same task. Record approximate transcript/tool-output deltas and update the skill's spawn/no-spawn rule if the fixed startup tax is larger than expected. Keep this manual unless Codex exposes token/accounting telemetry for subagents.
-
 ---
 
 ## Developer Experience
