@@ -75,7 +75,7 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 
 ## Hooks & Caveman Mode
 
-- **context-cache trusts mtime as proof of "unchanged"** *(tool / correctness)* — `check_read` ([agents/common/hooks/context_cache.py:88-97](agents/common/hooks/context_cache.py)) blocks a re-Read when `Path(file_path).stat().st_mtime` equals the recorded mtime, and the block message asserts "file unchanged. Skip this Read; content is still valid in context." mtime equality is **not** content equality: coarse filesystem mtime granularity, mtime-preserving writes (`cp -p`, `git checkout`/revert, `rsync --times`, editors that restore mtime), or clock skew can change the bytes while leaving mtime untouched. The hook then tells the agent stale content is current — and any `Edit` built on that cached view matches against the wrong text, silently. Likelihood is low and the upside (token saving) is real, but the failure mode lands on **edit correctness**, not just tokens, and is invisible when it happens. *Fix options, cheapest first: (a) add `st_size` to the cache entry + comparison (one extra field, catches most same-mtime content changes); (b) soften the message from "file unchanged" to "likely unchanged — re-read if you need exact bytes"; (c) key on a content hash for full correctness (most expensive, defeats some of the saving). Observed 2026-06-26 — fell back to `cat` to get exact strings for an Edit because the Read was cache-blocked.*
+(context-cache mtime-staleness bug moved to the **Bugs** table above, 2026-07-04 — confirmed defect, not periphery.)
 
 ---
 

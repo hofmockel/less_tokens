@@ -1,6 +1,7 @@
 """Unit tests for the context-cache PreToolUse hook (G2)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,25 @@ def test_read_allowed_after_file_change(hook, tmp_path):
     # Mutate mtime to simulate file change
     entry_key = hook._read_key(str(p), None, None)
     state["reads"][entry_key]["mtime"] -= 1.0
+    assert hook.check_read(state, str(p), None, None) is None
+
+
+# ---------------------------------------------------------------------------
+# Read cache — mtime-preserving write that changes content must not be served
+# as "unchanged" (BACKLOG.md: context-cache trusts mtime as proof of unchanged)
+# ---------------------------------------------------------------------------
+
+def test_read_same_mtime_different_size_not_blocked(hook, tmp_path):
+    p = tmp_path / "resized.py"
+    p.write_text("x = 1")
+    state = {"session": "", "call": 4, "reads": {}, "greps": {}}
+    hook.record_read(state, str(p), None, None)
+    entry_key = hook._read_key(str(p), None, None)
+    original_mtime = state["reads"][entry_key]["mtime"]
+    # Simulate a mtime-preserving write (cp -p, rsync --times, coarse fs
+    # granularity) that changes the file's content/size but not its mtime.
+    p.write_text("x = 1\ny = 2\nz = 3\n")
+    os.utime(p, (original_mtime, original_mtime))
     assert hook.check_read(state, str(p), None, None) is None
 
 

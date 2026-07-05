@@ -100,10 +100,10 @@ def check_read(state: dict, file_path: str, offset: object, limit: object) -> st
     if not entry:
         return None
     try:
-        current_mtime = Path(file_path).stat().st_mtime
+        st = Path(file_path).stat()
     except OSError:
         return None
-    if current_mtime != entry.get("mtime"):
+    if st.st_mtime != entry.get("mtime") or st.st_size != entry.get("size"):
         return None
     age = int(time.time() - entry["ts"])
     age_str = f"{age}s ago" if age < 120 else f"{age // 60}m ago"
@@ -116,11 +116,13 @@ def check_read(state: dict, file_path: str, offset: object, limit: object) -> st
 
 def record_read(state: dict, file_path: str, offset: object, limit: object) -> None:
     try:
-        mtime = Path(file_path).stat().st_mtime
+        st = Path(file_path).stat()
+        mtime, size = st.st_mtime, st.st_size
     except OSError:
-        mtime = 0.0
+        mtime, size = 0.0, -1
     state.setdefault("reads", {})[read_key(file_path, offset, limit)] = {
         "mtime": mtime,
+        "size": size,
         "ts": time.time(),
         "call": state.get("call", 0),
     }
