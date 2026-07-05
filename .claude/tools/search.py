@@ -14,6 +14,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -134,6 +135,41 @@ def _log_history(query: str, results: list[dict]) -> None:
         }
         with (sd / "search-history.log").open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec) + "\n")
+    except OSError:
+        pass
+
+
+def _search_session_cache_file(state_dir: Path) -> Path:
+    return state_dir / "search-session-cache.json"
+
+
+def _record_search_near_miss(state_dir: Path, query: str, session_id: str) -> None:
+    """Additive-only telemetry: logs whether this exact query already ran
+    earlier in the same session, to measure real repeat-query frequency before
+    deciding whether to build a query cache (BACKLOG.md "Same-session
+    search.py repeated-query cache"). Never blocks, never changes search()
+    output — same discipline as context_cache.record_near_miss. Fail-open."""
+    cache_path = _search_session_cache_file(state_dir)
+    try:
+        cache = json.loads(cache_path.read_text())
+    except (OSError, ValueError):
+        cache = {}
+    seen = cache.get(session_id, [])
+    if query in seen:
+        try:
+            with (state_dir / "near_misses.jsonl").open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps({
+                    "kind": "search", "signature": query[:80],
+                    "session_id": session_id, "ts": time.time(),
+                }) + "\n")
+        except OSError:
+            pass
+        return
+    seen.append(query)
+    cache[session_id] = seen[-50:]  # cap growth — recent queries are what matter
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(cache))
     except OSError:
         pass
 
@@ -314,6 +350,9 @@ def main() -> int:
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
+    sid, ssrc = _resolve_session(None)
+    _record_search_near_miss(sd, args.query, sid)
+
     # Resolve k: explicit -k wins; Codex gets a tighter default; Claude keeps
     # the model profile/default behavior.
     prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))
@@ -343,7 +382,6 @@ def main() -> int:
                 full_file_chars += (BASE / fp).stat().st_size
             except OSError:
                 pass
-        sid, ssrc = _resolve_session(None)
         _log_savings({
             "strategy": STRATEGY_SEARCH,
             "basis": "upper_bound",

@@ -57,13 +57,15 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
   rejected) and never actually distinguished the separate claim that skipping an *identical
   repeated `search.py` invocation* within a session would also skip its tool-output round-trip
   re-entering the transcript — a real, `basis="measured"` context-token saving, same shape as
-  `context-cache-read`/`-grep`/`-bash`. Not yet built or measured either way. **Do not implement
-  the cache yet** — first add near-miss instrumentation to `search.py`'s query path (same
-  `near_misses.jsonl` mechanism already shipped for cached-bash/cached-grep/compaction-threshold,
-  see `agents/common/hooks/context_cache.py`'s `record_near_miss`) to find out how often an
-  identical query is actually repeated within a session before building anything. If the real
-  data shows repeats are rare, this stays periphery for a different, evidenced reason; if they're
-  common, build the cache against that evidence.
+  `context-cache-read`/`-grep`/`-bash`. **Instrumentation shipped 2026-07-05**:
+  `_record_search_near_miss()` in `.claude/tools/search.py` appends a `kind: "search"` record to
+  `near_misses.jsonl` whenever a query exactly repeats an earlier query in the same
+  `resolve_session()` session (tracked via `state/search-session-cache.json`, capped at the last
+  50 queries per session). Same fail-open, additive-only, never-blocks discipline as
+  `context_cache.record_near_miss`. **Still do not implement the cache** — let this run and
+  accumulate real `near_misses.jsonl` data first. If it shows repeats are rare, this stays
+  periphery for a different, evidenced reason; if they're common, build the cache against that
+  evidence.
 
 ---
 
