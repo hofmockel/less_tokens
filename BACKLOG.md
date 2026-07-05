@@ -113,8 +113,6 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CX13 — Codex hook inheritance smoke check for nested cwd** *(meta / correctness)* — Add an install/check test or diagnostic that runs representative Codex hook wrappers from a nested project directory and proves they resolve repo root, `.less_tokens/bin/python`, `.less_tokens/tools/`, `.codex/hooks/`, and `LESS_TOKENS_AGENT=codex` correctly. This does not prove product-level `spawn_agent` inheritance, but it covers the part less_tokens owns and reduces G15 risk. Acceptance: failures are actionable ("hooks.json missing", "wrapper cannot import payload", "venv launcher missing") and do not require a live Codex subagent in CI.
-
 ### Medium Priority
 
 ### Low Priority

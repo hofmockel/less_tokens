@@ -1616,6 +1616,76 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         ok = False
         print(f"  [✗] {msg}")
 
+    def _smoke_codex_nested_hooks(codex_launcher: Path) -> None:
+        nested_cwd = target_root / ".less_tokens" / "tools"
+        if not nested_cwd.is_dir():
+            _fail(".less_tokens/tools/ missing — cannot run Codex hook wrapper smoke check from nested cwd")
+            return
+
+        if not codex_launcher.exists():
+            _fail(".less_tokens/bin/python missing — venv launcher missing for Codex hook smoke check")
+            return
+        hooks_dir = target_root / ".codex" / "hooks"
+        if not hooks_dir.is_dir():
+            _fail(".codex/hooks/ missing — cannot run Codex hook wrapper smoke check")
+            return
+
+        samples = [
+            (
+                "read-guard.py",
+                {
+                    "tool_name": "mcp__filesystem__read_file",
+                    "tool_input": {"path": str(target_root / "README.md"), "offset": 1, "limit": 1},
+                },
+            ),
+            (
+                "truncate-output.py",
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "printf ok"},
+                    "tool_output": "ok\n",
+                },
+            ),
+            (
+                "listing-guard.py",
+                {
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "pwd"},
+                },
+            ),
+        ]
+        env = {**os.environ, "LESS_TOKENS_AGENT": "codex"}
+        for script_name, payload in samples:
+            script = hooks_dir / script_name
+            if not script.exists():
+                _fail(f".codex/hooks/{script_name} missing — re-run install.py --agent codex")
+                return
+            try:
+                r = subprocess.run(
+                    [str(codex_launcher), str(script)],
+                    input=json.dumps(payload),
+                    capture_output=True,
+                    text=True,
+                    cwd=str(nested_cwd),
+                    env=env,
+                    timeout=10,
+                )
+            except OSError as exc:
+                _fail(f".codex/hooks/{script_name} wrapper could not start from nested cwd: {exc}")
+                return
+            except subprocess.TimeoutExpired:
+                _fail(f".codex/hooks/{script_name} timed out from nested cwd")
+                return
+            if r.returncode != 0:
+                stderr = (r.stderr or r.stdout or "").strip().splitlines()
+                detail = stderr[-1] if stderr else f"exit {r.returncode}"
+                if "ModuleNotFoundError" in detail or "ImportError" in detail:
+                    _fail(f".codex/hooks/{script_name} wrapper cannot import payload/shared modules: {detail}")
+                else:
+                    _fail(f".codex/hooks/{script_name} failed from nested cwd: {detail}")
+                return
+        _pass("Codex hook wrappers run from nested cwd with LESS_TOKENS_AGENT=codex")
+
     print(f"Checking less_tokens install in {target_root} ({', '.join(sorted(agents))})\n")
 
     # --- venv / interpreter ---
@@ -1787,6 +1857,8 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                 _fail(f"Could not parse .codex/hooks.json: {exc}")
         else:
             _fail(".codex/hooks.json missing — Codex hooks are not wired")
+
+        _smoke_codex_nested_hooks(codex_launcher)
 
         agents_md = target_root / "AGENTS.md"
         if agents_md.exists():

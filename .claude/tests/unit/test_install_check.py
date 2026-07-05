@@ -119,6 +119,16 @@ class TestDoCheckAllPass:
         assert ".codex/hooks.json has all" in out
         assert "AGENTS.md contains managed less_tokens block" in out
         assert ".less_tokens/config/budget.json present" in out
+        assert "Codex hook wrappers run from nested cwd" in out
+        hook_calls = [
+            call for call in mock_run.call_args_list
+            if call.args and str(root / ".codex" / "hooks") in str(call.args[0])
+        ]
+        assert len(hook_calls) == 3
+        for call in hook_calls:
+            expected_cwd = root / ".less_tokens" / "tools"
+            assert call.kwargs["cwd"] == str(expected_cwd)
+            assert call.kwargs["env"]["LESS_TOKENS_AGENT"] == "codex"
 
     def test_codex_check_does_not_require_claude_hooks(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
