@@ -93,15 +93,7 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### Inaccurate
 
-- **README says `/def` lookup is installed user-facing behavior** *(docs / correctness)* — [README.md:30](README.md) advertises "exact `/def` lookup for Python and JS/TS symbols," but installer deployment does not include `.claude/commands/` today. Source has `.claude/commands/def.md`, but `_install_specs()` deploys `.less_tokens/config`, `.less_tokens/tools`, shared budget hooks, `.claude/tools`, `.claude/schema`, `.claude/skills/claudemd`, and selected hooks/skills only; no commands directory is copied. Fix either the implementation (install `.claude/commands/{def,search,build-index}.md`) or the README wording (say `symbols.py` lookup, with `/def` only when commands are installed). Acceptance: README, DOCUMENTATION.md command layout, installer specs, and tests agree on whether slash commands are installed.
-
-- **README implies Codex hooks are always wired by default** *(docs / correctness)* — [README.md:38](README.md) says core hooks are wired by default for the selected agent, but Codex hook wiring is conditional on `.codex/` being writable. If not writable, install skips `.codex/hooks.json` and installs only `AGENTS.md` + skills. Fix wording to "wired by default when the target hook location is writable; Codex remains best-effort." Acceptance: README quick-start text matches `install.py` behavior and DOCUMENTATION.md's Codex best-effort caveat.
-
-- **README mischaracterizes Codex install artifacts as only adapter hooks plus `AGENTS.md`** *(docs / correctness)* — [README.md:93](README.md) says Claude artifacts land under `.claude/`, shared budget under `.less_tokens/`, and Codex adds adapter hooks plus `AGENTS.md`. In reality, even Codex installs deploy `.claude/tools/`, `.claude/schema/`, `.claude/skills/claudemd`, and use `.claude/index.db` as the shared index; `.less_tokens/tools/*.py` are shims to the `.claude/tools` implementation. Fix README to explain that `.claude/` contains shared implementation/index artifacts, not only Claude-agent artifacts. Acceptance: README quick-start artifact summary matches DOCUMENTATION.md "Codex support" and installer copy steps.
-
 ### Language / Precision
-
-- **README compaction row says `/compact` for both agents** *(docs / precision)* — [README.md:35](README.md) says the PostToolUse hook nudges `/compact` when the transcript grows large. That is precise for Claude, but Codex has no Claude slash-command path and `agents/codex/hooks/compact-trigger.py` tells the user to start a fresh or compacted Codex session. Fix the row to split agent behavior: Claude nudges `/compact` or fresh session; Codex nudges fresh/compacted Codex session. Acceptance: no README prose implies Codex can run Claude's `/compact` command.
 
 ---
 
@@ -119,17 +111,13 @@ Claude-only token savings. Isolation walls: `agent_overrides.claude` in `.less_t
 
 ### High Priority
 
-- **CX12 — Codex delegated-work prompt templates** *(input/tool/meta)* — Add a short, optional section to `agents/codex/skills/less-tokens/SKILL.md` for user-authorized `multi_agent_v1.spawn_agent` use. It should cover the Codex-specific constraints discovered during backlog review: spawn only when the user asks for delegation/parallelism; default `fork_context=false`; pass pointers/search commands instead of pasted files; choose `explorer` for specific read-only questions and `worker` only with disjoint write ownership; tell workers not to revert unrelated edits; require compact returns (`files changed`, `findings`, `verification`, `blockers`); close completed agents. Acceptance: skill text stays small enough that `AGENTS.md` only points to it, and examples avoid full payloads.
-
 - **CX13 — Codex hook inheritance smoke check for nested cwd** *(meta / correctness)* — Add an install/check test or diagnostic that runs representative Codex hook wrappers from a nested project directory and proves they resolve repo root, `.less_tokens/bin/python`, `.less_tokens/tools/`, `.codex/hooks/`, and `LESS_TOKENS_AGENT=codex` correctly. This does not prove product-level `spawn_agent` inheritance, but it covers the part less_tokens owns and reduces G15 risk. Acceptance: failures are actionable ("hooks.json missing", "wrapper cannot import payload", "venv launcher missing") and do not require a live Codex subagent in CI.
 
 ### Medium Priority
 
-- **CX14 — Document Codex subagent support boundary** *(meta / docs)* — Update `DOCUMENTATION.md` near the Codex best-effort hook section to say Codex subagents are available through the app's `multi_agent_v1` tool surface, not installed by less_tokens, and may only be used when the user explicitly asks for delegation/parallelism. State that `.codex/hooks.json` cannot intercept arbitrary parent reasoning and re-route it into a child; less_tokens can only provide prompt templates, installed tools, hook wrappers, and smoke checks. Acceptance: avoids claims of automatic Codex subagent token savings.
-
 ### Low Priority
 
-- **CX15 — Measure Codex spawn break-even manually** *(fixed/meta)* — Once CX12 exists, run a small manual benchmark in Codex app: one parent-only exploration, one `fork_context=false` explorer, and one `fork_context=true` explorer over the same task. Record approximate transcript/tool-output deltas and update the skill's spawn/no-spawn rule if the fixed startup tax is larger than expected. Keep this manual unless Codex exposes token/accounting telemetry for subagents.
+- **CX15 — Measure Codex spawn break-even manually** *(fixed/meta)* — Run a small manual benchmark in Codex app: one parent-only exploration, one `fork_context=false` explorer, and one `fork_context=true` explorer over the same task. Record approximate transcript/tool-output deltas and update the skill's spawn/no-spawn rule if the fixed startup tax is larger than expected. Keep this manual unless Codex exposes token/accounting telemetry for subagents.
 
 ---
 

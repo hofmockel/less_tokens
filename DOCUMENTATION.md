@@ -116,6 +116,8 @@ Claude Code exposes stable hook events for the token-heavy operations less_token
 
 Codex has the same strategy coverage, but it needs a translation layer. Filesystem activity often arrives through MCP-style tool names such as `mcp__filesystem__.*`, edits can arrive as `apply_patch` instead of a single file-oriented `Edit|Write`, and output-style enforcement does not have Claude's exact `Stop` hook shape. The `.codex/hooks.json` file may also be absent or unwritable in some installs. For that reason, Codex support installs thin adapters in `.codex/hooks/`, shared logic in `.less_tokens/hooks/`, command shims in `.less_tokens/tools/`, and state under `.less_tokens/state/`. Those adapters normalize Codex payloads into the shared hook checks where possible, and fail open when the Codex event shape cannot be trusted.
 
+Codex subagents are a Codex app tool surface, not an installed `less_tokens` feature. Use them only when the user explicitly asks for delegation or parallelism. `.codex/hooks.json` cannot intercept broad parent reasoning and move it into a child automatically; `less_tokens` can only provide small prompt templates, installed search/read tools, hook wrappers, and smoke checks for those wrappers. The Codex `less-tokens` skill documents the prompt shape: prefer `fork_context=false`, pass pointers/search commands instead of payloads, use `explorer` for read-only questions, reserve `worker` for disjoint file ownership, and require compact returns.
+
 **Known limitations:**
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.

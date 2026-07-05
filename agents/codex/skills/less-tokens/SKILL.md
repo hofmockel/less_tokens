@@ -35,6 +35,26 @@ Checks AGENTS.md token budget, stale line references, and verbosity. Run before 
 
 Prefer `rg --files` over `find . -R` or `ls -R`. Keep replies to direct findings with exact `file:line` references and no filler.
 
+### Delegated Codex work
+
+Use Codex subagents only when the user explicitly asks for delegation, subagents,
+or parallel work. Default to `fork_context=false`; pass pointers, search queries,
+and commands instead of pasted files. Use `explorer` for read-only questions and
+`worker` only for disjoint file ownership. Tell workers not to revert unrelated
+edits. Require the return shape: `files changed`, `findings`, `verification`,
+`blockers`. Close completed agents.
+
+Skip spawning for a single `rg`, one small file read, or a short test command.
+Consider it for independent exploration, noisy verification loops, or large-source
+summaries where discarded child context is worth the startup cost.
+
+Prompt shape:
+
+    Task: answer <specific question>.
+    Context pointers: <path:line>, search query "<query>", run <command if needed>.
+    Constraints: fork_context=false; do not paste full files; do not revert unrelated edits.
+    Return only: files changed, findings, verification, blockers.
+
 ### Document-draft exemption
 
 Terse mode holds for ordinary replies only. If the user's message asked for a document, report,

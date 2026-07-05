@@ -26,15 +26,15 @@ Agent token waste comes from several sources: reading entire files when only a f
 | Strategy | How | Savings | Flag |
 |---|---|---|---|
 | **Budget control plane** | Scores, replaces, defers, or blocks context before it enters the agent transcript; writes v2 telemetry and reports | avoids irrelevant context before it is paid for | always on |
-| **Vector search + symbols** | Pre-embeds source files; exact `/def` lookup for Python and JS/TS symbols | 5–10× fewer input tokens | always on |
+| **Vector search + symbols** | Pre-embeds source files; exact symbol lookup for Python and JS/TS via `symbols.py` (`/def` only when slash commands are installed) | 5–10× fewer input tokens | always on |
 | **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
 | **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars (not telemetry-backed — no savings.jsonl category) | always on |
 | **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens (not telemetry-backed — no baseline to diff against) | default; opt out with `--no-caveman` |
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | default; opt out with `--no-truncate` |
-| **Compaction trigger** | PostToolUse hook nudges `/compact` when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
+| **Compaction trigger** | PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 
-Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent. Use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of those default savings hooks.
+Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent when the target hook location is writable; Codex wiring remains best-effort and falls back to `AGENTS.md` + skills if `.codex/` isn't writable. Use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of those default savings hooks.
 
 Claude and Codex have feature parity for shipped strategies, but they do not have identical enforcement. Claude hooks are enforced directly. Codex enforcement is best-effort through `.codex/hooks.json`. That difference is intentional: Claude has extra reliable levers, including direct hooks, `agent_overrides.claude`, and model-aware thresholds. Those Claude-only settings are isolated so they can cut Claude token use without changing Codex behavior.
 
@@ -89,7 +89,7 @@ python3 less_tokens/install.py --agent codex   # Codex
 python3 less_tokens/install.py --agent both    # both simultaneously
 ```
 
-Claude artifacts land under `.claude/`, the shared budget control plane under `.less_tokens/`, and Codex support adds adapter hooks plus `AGENTS.md`. Full directory tree: [DOCUMENTATION.md → Repository layout](DOCUMENTATION.md#repository-layout).
+`.claude/` holds shared implementation and index artifacts (tools, schema, `index.db`) used by both agents, not just Claude-only files; the shared budget control plane lives under `.less_tokens/`, and Codex support adds adapter hooks under `.codex/` (when writable) plus `AGENTS.md`. Full directory tree: [DOCUMENTATION.md → Repository layout](DOCUMENTATION.md#repository-layout).
 
 Upgrade an existing install the same way:
 
