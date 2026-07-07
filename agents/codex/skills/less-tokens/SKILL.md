@@ -76,6 +76,16 @@ Subagent output contract:
 Reject pasted file bodies, long logs, full diffs, broad summaries, and speculative
 next steps. Ask for exact line references when a child reports a code finding.
 
+Noisy verification delegation:
+
+    Task: run <test/lint/build command> and summarize only failures.
+    Constraints: fork_context=false; do not edit files; do not paste full logs.
+    Return only: pass/fail, failing command, top failure cause, file:line refs, blockers.
+
+Use this only when the verification loop is likely to emit noisy output and the
+parent can continue non-overlapping work while the child runs. Keep short
+checks local; the child startup cost is not worth moving a quick command.
+
 Context pack shape for spawned agents:
 
     Objective: <one bounded result>.
