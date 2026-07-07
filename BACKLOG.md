@@ -2,7 +2,7 @@
 
 Planned work not yet started. Maintainer: add `CHANGELOG.md` entry + delete item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) / [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol.
 
-Token-reduction strategy and rationale live in [DOCUMENTATION.md](DOCUMENTATION.md) → *Token-reduction strategy*. Shipped strategies use stable IDs (S8–S13).
+Token-reduction strategy and rationale live in [DOCUMENTATION.md](DOCUMENTATION.md) → *Token-reduction strategy*. Shipped strategies use stable IDs (S8–S13). Rejected or resolved proposals move to [DECISIONS.md](DECISIONS.md) — don't re-propose without new evidence.
 
 ---
 
@@ -32,34 +32,15 @@ Primary mission: fewer tokens. Ordered by impact × enforceability. Each item na
 - **G16 — Slim the per-agent fixed bucket** *(fixed)* — each child re-pays system/developer prompt + AGENTS/CLAUDE instructions + tool schemas, multiplied by agent count; ship subagents trimmed instructions where the agent product allows it. *Verdict: real fixed-bucket win at fan-out; implementation depends on spawn-config levers.* **Dual scope:** Claude *cannot* slim `CLAUDE.md` per child — it loads once per session; the Claude lever is an agent-definition file (`.claude/agents/<name>.md`) with its own system prompt + a narrow `tools:` allowlist (fewer schemas = smaller fixed tax), none of which exist in this repo yet. Codex currently has no repo-level way to provide a child-specific `AGENTS.md` or disable tool schemas for spawned agents; the viable Codex work is to keep the normal installed `AGENTS.md` tiny (CX5), move detail to the `less-tokens` skill, avoid `fork_context=true` by default, and add a break-even warning to the skill.
 - **G17 — Spawn/no-spawn decision rule** *(meta)* — a child costs a full fixed startup tax (system/developer prompt + instruction files + schemas); only spawn when the tokens the child discards exceed that tax. *Verdict: heuristic for a doc/skill, not hook-enforceable.* **Dual scope:** heuristic for both agents' skills, but the break-even constant differs. Codex rule of thumb: do not spawn for a single `rg`, one small file read, or a short test command; consider spawning only for independent exploration, noisy verification, or large-source summarization where the discarded transcript/logs would materially exceed a fresh child startup and the user asked for delegation/parallelism. **Claude side:** Claude's break-even is lower — children start cold (no transcript copy) and parallelize natively, so the startup tax is just system prompt + `CLAUDE.md` + schemas; still skip spawning for a single read/grep/short test.
 
-### Decided against (record to prevent re-proposal)
+### Decided against
 
-- **F4 — Consolidate overlapping tools** *(meta)* — `search.py`/`search_config.py`/`symbols.py`/`parse.py` have distinct jobs (search runtime / config / symbol index / AST parse). Merging is pure refactor: zero token saving, real regression risk across both agents. Not worth it.
-- **G10 — Bound subagent search breadth** *(input)* — the harness Explore agent already exposes a breadth knob (medium / very thorough); less_tokens adds nothing and cannot hook-enforce a sub-process's search scope. Owned by the harness, not this toolkit. Skip. **Dual scope:** Explore's breadth knob is a Claude harness feature. Codex has `agent_type="explorer"` but no repo-owned breadth knob; narrowness must come from the delegated prompt ("answer only X, inspect only paths matching Y"). Skip hook/config work for both — distinct reasons, recorded so neither agent re-proposes it.
-- **S6 — Tiered effort** *(output)* — route tasks to Haiku/Sonnet/Opus via a tier matrix + flag. No hook can force a per-turn model downshift, so enforcement is weak and the claimed 50–70% saving is unverified. The shipped caveman Stop hook already captures output-token savings deterministically. Skip.
-- **Graphify integration** *(input)* — evaluated 2026-07-04 (`eb_eval_4jul26.md`, `tect` review). Graphify's structural (AST) extraction is free, but its semantic extraction — the part that actually builds the knowledge graph — dispatches parallel Claude subagents that spend real input/output tokens unless a Gemini/Google API key is configured. Adopting the default build path means spending tokens to build the thing meant to save tokens: a direct inversion of this repo's mission, same reasoning already applied to reject the query/result cache (F4's neighbor ruling above — "saves embedding compute, not tokens"). The capability gap (cross-entity relationship queries, community/"god node" detection) is real but is a navigation feature, not a token-reduction lever, so it's out of scope for this repo's mission as specified. No artifact/state collision either way (`graphify-out/` doesn't touch `.claude/state/` or `.less_tokens/`) — the rejection is entirely economic. Skip. Reopen only if graphify ships a Gemini-only build mode this repo can hard-gate to, and only as an optional add-on for *host* repos this toolkit installs into, never for this repo's own dogfooding.
+Rejected proposals moved to [DECISIONS.md](DECISIONS.md) → *Rejected* — record a verdict there before re-proposing.
 
 ---
 
 ## Vector Search & Indexing
 
 ### High Priority
-
-- **Same-session `search.py` repeated-query cache** *(input)* — reopened 2026-07-04
-  (`eb_plan_4jul26.md` Strategy 5), correcting `DOCUMENTATION.md`'s prior "query/result cache"
-  rejection: that ruling was about caching *embeddings* (compute, not tokens — still correctly
-  rejected) and never actually distinguished the separate claim that skipping an *identical
-  repeated `search.py` invocation* within a session would also skip its tool-output round-trip
-  re-entering the transcript — a real, `basis="measured"` context-token saving, same shape as
-  `context-cache-read`/`-grep`/`-bash`. **Instrumentation shipped 2026-07-05**:
-  `_record_search_near_miss()` in `.claude/tools/search.py` appends a `kind: "search"` record to
-  `near_misses.jsonl` whenever a query exactly repeats an earlier query in the same
-  `resolve_session()` session (tracked via `state/search-session-cache.json`, capped at the last
-  50 queries per session). Same fail-open, additive-only, never-blocks discipline as
-  `context_cache.record_near_miss`. **Still do not implement the cache** — let this run and
-  accumulate real `near_misses.jsonl` data first. If it shows repeats are rare, this stays
-  periphery for a different, evidenced reason; if they're common, build the cache against that
-  evidence.
 
 ---
 
