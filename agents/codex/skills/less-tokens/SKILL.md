@@ -58,6 +58,18 @@ Prompt shape:
     Constraints: fork_context=false; do not paste full files; do not revert unrelated edits.
     Return only: files changed, findings, verification, blockers.
 
+Context pack shape for spawned agents:
+
+    Objective: <one bounded result>.
+    Start with: .less_tokens/bin/python .less_tokens/tools/search.py "<query>"
+    Pointers: <path:line>, <path:line>.
+    Allowed reads: only slices needed to answer the objective.
+    Return only: file:line findings, verification, blockers.
+
+Do not paste source bodies, diffs, logs, or previous search output into a spawn
+prompt. Pass the query and pointers so the child pays only for the slices it
+chooses to inspect.
+
 ### Document-draft exemption
 
 Terse mode holds for ordinary replies only. If the user's message asked for a document, report,
