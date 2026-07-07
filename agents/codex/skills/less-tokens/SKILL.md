@@ -58,6 +58,24 @@ Prompt shape:
     Constraints: fork_context=false; do not paste full files; do not revert unrelated edits.
     Return only: files changed, findings, verification, blockers.
 
+Parallel dispatch checklist:
+
+    Spawn only independent tasks that can finish without sharing context.
+    Use explorer for read-only questions; use worker only with disjoint file ownership.
+    Keep fork_context=false unless prior conversation is required.
+    While agents run, continue local work that does not overlap their task.
+    Close every completed agent after collecting the result.
+
+Subagent output contract:
+
+    files changed: <paths or none>
+    findings: <file:line bullets only>
+    verification: <commands or checks run>
+    blockers: <none or concrete blocker>
+
+Reject pasted file bodies, long logs, full diffs, broad summaries, and speculative
+next steps. Ask for exact line references when a child reports a code finding.
+
 Context pack shape for spawned agents:
 
     Objective: <one bounded result>.
