@@ -98,6 +98,16 @@ Do not paste source bodies, diffs, logs, or previous search output into a spawn
 prompt. Pass the query and pointers so the child pays only for the slices it
 chooses to inspect.
 
+Large-source digest delegation:
+
+    Task: summarize <source path> into .less_tokens/state/<name>.md.
+    Constraints: fork_context=false; parent must not read the source first.
+    Return only: digest path, source path, line refs used, verification, blockers.
+
+Use this for one-off large docs or logs where the parent only needs the distilled
+answer. The digest should be short, source-linked, and agent-neutral so another
+Claude or Codex session can verify it without re-reading the whole source.
+
 ### Document-draft exemption
 
 Terse mode holds for ordinary replies only. If the user's message asked for a document, report,
