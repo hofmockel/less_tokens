@@ -1198,6 +1198,17 @@ def _install_specs(
     if "claude" in agents:
         specs.append((".claude/hooks", ".claude/hooks", frozenset()))
         specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset()))
+        claude_skills_src = SOURCE / "agents" / "claude" / "skills"
+        if claude_skills_src.exists():
+            for skill_dir in sorted(claude_skills_src.iterdir()):
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    specs.append((
+                        f"agents/claude/skills/{skill_dir.name}",
+                        f".claude/skills/{skill_dir.name}",
+                        frozenset(),
+                    ))
+        if (SOURCE / "agents" / "claude" / "agents").exists():
+            specs.append(("agents/claude/agents", ".claude/agents", frozenset()))
     if caveman and "claude" in agents:
         specs.append((".claude/rules", ".claude/rules", frozenset()))
     if "codex" in agents:
@@ -1224,9 +1235,10 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool, agents: set[s
     """Host-owned files sitting in a tree we would merge into.
 
     Only runs on a fresh install (no install.json yet) — on re-install the
-    files in tools/schema are ours. .claude/hooks/ and .claude/rules/ are
-    intentionally NOT gated: they are shared directories where we add our
-    files alongside the host's own, and copy_tree already skips existing ones.
+    files in tools/schema are ours. .claude/hooks/, .claude/rules/, and
+    .claude/agents/ are intentionally NOT gated: they are shared directories
+    where we add our files alongside the host's own, and copy_tree already
+    skips existing ones.
     """
     # Previously installed — all files in those dirs are ours.
     if (target_root / _INSTALL_STATE_PATH).exists():
@@ -1234,7 +1246,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool, agents: set[s
 
     foreign: list[str] = []
     for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
-        if any(seg in sub for seg in ("hooks", "rules", "skills")):
+        if any(seg in sub for seg in ("hooks", "rules", "skills", "agents/claude/agents")):
             continue  # shared dirs — host files allowed
         dst_base = target_root / dst_rel
         if not dst_base.is_dir():
@@ -1561,7 +1573,10 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
             ".less_tokens/hooks", ".less_tokens",
         ]
     if "claude" in agents:
-        prune_dirs += [".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules"]
+        prune_dirs += [
+            ".claude/tools", ".claude/schema", ".claude/hooks", ".claude/rules",
+            ".claude/skills/less-tokens", ".claude/agents",
+        ]
     if "codex" in agents:
         prune_dirs += [".codex/hooks", ".codex",
                        ".less_tokens/schema", ".less_tokens/hooks",
@@ -2142,6 +2157,19 @@ def main() -> int:
         if args.caveman:
             changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
                       target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
+        claude_skills_src = SOURCE / "agents" / "claude" / "skills"
+        if claude_skills_src.exists():
+            for claude_skill_src in sorted(claude_skills_src.iterdir()):
+                if not claude_skill_src.is_dir() or not (claude_skill_src / "SKILL.md").exists():
+                    continue
+                skill_tgt = target_root / ".claude" / "skills" / claude_skill_src.name
+                changes += copy_tree(claude_skill_src, skill_tgt,
+                          target_root, force_tools, overwrite_modified,
+                          str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
+        claude_agents_src = SOURCE / "agents" / "claude" / "agents"
+        if claude_agents_src.exists():
+            changes += copy_tree(claude_agents_src, target_root / ".claude" / "agents",
+                      target_root, force_tools, overwrite_modified, ".claude/agents/", dry_run=dry)
     if "codex" in agents:
         changes += write_codex_tool_shims(
             SOURCE / ".claude" / "tools",

@@ -27,10 +27,12 @@ def _cmds(tmp_path, **kwargs):
 class TestBuildClaudeHookEntries:
     def test_core_hook_set_does_not_regress(self, tmp_path):
         # CL2: Claude installs wire the optional savings hooks by default, so a
-        # flagless install now yields the full 18-hook set.
+        # flagless install now yields the full 18-hook set. G15: terse-output
+        # and savings-html each gained a SubagentStop wire alongside Stop, so
+        # the count is 20.
         entries = _cmds(tmp_path)
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 18
+        assert len(entries) == 20
         for name in [
             "budget-observer.py",
             "search-first.py",
@@ -61,7 +63,14 @@ class TestBuildClaudeHookEntries:
         default = _cmds(tmp_path)
         explicit = _cmds(tmp_path, truncate=True, compact=True, caveman=True)
         assert default == explicit
-        assert len(explicit) == 18
+        assert len(explicit) == 20
+
+    def test_subagent_stop_wired_for_terse_and_savings(self, tmp_path):
+        # G15: a Claude child's final turn fires SubagentStop, not Stop.
+        entries = _cmds(tmp_path)
+        for name in ("caveman-reminder.py", "savings-html.py"):
+            events = {ev for ev, _, cmd in entries if name in cmd}
+            assert events == {"Stop", "SubagentStop"}, f"{name}: {events}"
 
     def test_claudemd_budget_wired_as_post_tool_use(self, tmp_path):
         entries = _cmds(tmp_path)

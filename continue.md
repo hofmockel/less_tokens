@@ -43,10 +43,11 @@ Since the last handoff (`45e2e27`, 2026-07-04), in order:
    item has rich prose but no explicit "Acceptance:" line in the format other items use (e.g. G15's
    two-sentence criterion). Needs a measurable statement like "near_misses.jsonl records N
    identical-query events per session; repeat rate reported" before it's gradable pass/fail.
-5. **G15 — propagate hooks into subagents (Claude side)** — the review flagged this as
-   mis-bucketed Low ("buildable today, real gap"); not re-bucketed or built yet. Concretely: wire
-   `SubagentStop` so `caveman`/`savings-html` reach a Claude child (currently only `Stop`-wired, so
-   they don't compound in spawned agents the way `PreToolUse`/`PostToolUse` levers already do).
+5. **G15 — propagate hooks into subagents (Claude side)** — done 2026-07-07: `SubagentStop` now
+   wired alongside `Stop` for `caveman`/`savings-html` in `hook_manifest.py`. G14/G16/G17 also
+   shipped the same day (new Claude `less-tokens` skill + `.claude/agents/{explorer,verifier}.md`).
+   G15's Codex half found a real bug (relative-path hook commands break from a nested cwd) —
+   filed to `BACKLOG.md`'s Bugs table, deferred to a Codex-context session.
 6. **Separately flagged, not part of any plan above**: `test_hooks_protocol.py` grows real
    `.claude/state/savings.jsonl` on every run (`task_1b13bd51` if still live — check before
    re-flagging).

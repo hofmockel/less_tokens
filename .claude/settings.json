@@ -149,6 +149,26 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/caveman-reminder.py"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/.venv-tokens/bin/python .claude/hooks/savings-html.py"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

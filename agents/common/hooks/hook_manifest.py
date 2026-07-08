@@ -135,7 +135,11 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         name="terse-output",
         optional_flag="caveman",
         claude_script="caveman-reminder.py",
-        claude=(HookWire("Stop", ""),),
+        # SubagentStop (G15): a Claude child's final turn fires SubagentStop, not
+        # Stop. Both wires point at the same script — it reads transcript_path/
+        # stop_hook_active off stdin and never inspects hook_event_name, so it
+        # behaves identically for a subagent's own transcript.
+        claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="terse-reminder.py",
         codex=(HookWire("PostToolUse", ".*"),),
     ),
@@ -144,7 +148,8 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
     HookSpec(
         name="savings-html",
         claude_script="savings-html.py",
-        claude=(HookWire("Stop", ""),),
+        # SubagentStop (G15): same reasoning as terse-output above.
+        claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="savings-html.py",
         codex=(HookWire("PostToolUse", ".*"),),
     ),
