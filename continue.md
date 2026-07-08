@@ -1,52 +1,77 @@
 # Continue: less_tokens
 
-> **Next focus:** everything actionable right now is either instrument-first (blocked on real
-> `near_misses.jsonl` usage data) or handed off to a Codex-context session (the nested-cwd hook bug).
-> No open Claude-side code work — remaining items are pure docs/BACKLOG edits or data review.
+> **Next focus:** fix the nested-cwd hook bug (now confirmed universal — all 16 Codex hooks share
+> the bug, not just one), triage the newly-solved savings.html cause, de-noise Strategy 4's
+> near-miss data before touching its threshold, and run Strategy 1 (calibration).
 
 ## Current state
-HEAD is `be7eddc`, repo clean, 914/914 tests pass. G14-G17 (the Claude-side subagent
-token-reduction items) shipped this session — Codex already had its equivalents (G7-G13,
-CX12-CX15) from the prior session ending at `f9214c8`.
+HEAD is `b7b6841`, working tree has uncommitted changes (see below) — nothing pushed/committed
+this pass. Governance-run team review (`program`+`tect`+`backend`+`qa`, T2, commissioned via
+`ever_better`) completed 2026-07-08: `eb_review_8jul26.md` (new) is the third team document in
+this repo, following `eb_eval_4jul26.md`/`eb_plan_4jul26.md` (2026-07-04).
 
 ## What happened this session
-- **G15** — wired `SubagentStop` alongside `Stop` for `caveman-reminder.py`/`savings-html.py` in
-  `agents/common/hooks/hook_manifest.py` (single source of truth feeding both `install.py` and this
-  repo's own dogfooded `.claude/settings.json`). Both scripts already read `transcript_path` off
-  stdin without inspecting `hook_event_name`, so no script changes were needed — just the wire.
-- **G14/G16/G17** — built a full Claude-side `less-tokens` skill
-  (`agents/claude/skills/less-tokens/SKILL.md`, mirrors the existing Codex one) plus two narrow
-  agent-definition files, `.claude/agents/explorer.md` (Read/Grep/Glob only) and `verifier.md`
-  (Bash/Read only), installed via new `install.py` copy steps. This closes the "Claude has no
-  skill to hang subagent guidance on" gap the three items shared.
-- **Found, filed, not fixed**: `.codex/hooks.json` commands use a relative path
-  (`.less_tokens/bin/python ...`) that resolves from repo root but fails silently (exit 127) from
-  any other cwd — confirmed by installing into a scratch repo and invoking the command from a
-  nested subdirectory. Per hofmockel's explicit call, this is Codex's fix to make, not this
-  session's — filed to `BACKLOG.md`'s Bugs table instead of touched.
-- Also: moved F3 (terse hook block messages, already marginal) from `BACKLOG.md` to `DECISIONS.md`
-  as rejected, closing a low-priority item with no path to closure otherwise.
+- **Team review** (`eb_review_8jul26.md`) re-checked enforceability/reliability/measurability for
+  Claude and Codex against live repo state, not just the 07-04 plan's assumptions. Corrected one
+  stale premise (Strategy 5's ruling was already written 2026-07-07 in `DECISIONS.md` — done, no
+  action needed). New findings: the nested-cwd hook bug is universal across all 16 wired Codex hook
+  commands, not scoped to one hook (severity raised); the untriaged "savings.html shows nothing"
+  BACKLOG item is root-caused to this repo's own stale local Codex install, most likely the same
+  nested-cwd bug's visible symptom (Claude's copy has real, just-stale data — probably no
+  Claude-side bug); Strategy 4's near-miss threshold data is ~25% contaminated by hardcoded
+  test-fixture round numbers (`600000`/`650000` in 4 test files), invisible to the existing CI
+  isolation gate, so its threshold call still isn't ready.
+- **Ran the fix the review recommended**: this repo's own dogfooded `.codex/` install was stale —
+  predated the commit that widened `context-cache` to cover Codex Bash calls, so zero real
+  cached-bash/grep telemetry had ever fired on the Codex side here. Verified the installer itself
+  was correct (self-target install is intentionally guarded — see `install.py`'s Scenario E test —
+  so refreshed via a throwaway nested clone: `git clone --local . .lt-bootstrap-tmp`, ran
+  `install.py --agent codex --update --skip-deps --no-build` from inside it targeting the repo
+  root, then deleted the clone). Result: `.codex/hooks.json` now has all 16 hooks (was missing 2:
+  `context-cache`'s Bash `PostToolUse`, and one `.*` `PostToolUse`); 5 stale `.codex/hooks/*.py`
+  files refreshed (`context-cache.py`, `truncate-output.py`, `search-first.py`,
+  `post-edit-diff.py`, `listing-guard.py`); `AGENTS.md`'s less_tokens block pruned to match the
+  current instruction-pruning pattern; `.gitignore` gained generated-state exclusions;
+  `.less_tokens/config/budget.json`'s `agent_overrides.codex` went from `{}` to populated defaults
+  (was empty, so nothing custom was clobbered). **This does not fix the nested-cwd bug itself** —
+  it only brings this repo's own install current; the underlying relative-path defect in
+  `install.py`'s Codex command generation is still open and still Codex's fix to make.
+- Uncommitted from before this session (not touched): `BACKLOG.md` already had a manual
+  one-line note about the savings.html symptom, no status — the review's root-cause finding above
+  should be folded into that row rather than left as a bare note.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md). Nothing here is Claude-side-blocked:
-1. **Codex nested-cwd bug** (Bugs table) — needs a Codex-context session; likely fix is
-   absolute-path `.codex/hooks.json` commands (Claude's `.claude/settings.json` stays relative,
-   the harness already resets Bash cwd to repo root between calls).
-2. **Strategy 1** — run `stats.py --calibrate` once `ANTHROPIC_API_KEY` is available.
-3. **Strategy 3/4/5 + search.py-cache item** — all wait for `near_misses.jsonl` to accumulate more
-   real usage. Do not guess at the numbers.
-4. **G10 ID collision** and **missing acceptance criterion** on the search-cache item — both pure
-   docs/BACKLOG edits, low effort, no data dependency.
+See [BACKLOG.md](BACKLOG.md) and `eb_review_8jul26.md`'s prioritized action list.
+1. **Codex nested-cwd bug** (Bugs table) — now confirmed to disable all 16 hooks, not one; needs a
+   Codex-context session. Likely fix: absolute-path `.codex/hooks.json` commands (Claude's
+   `.claude/settings.json` stays relative — harness resets Bash cwd to repo root between calls,
+   Codex has no such guarantee).
+2. **Fold the savings.html root-cause into `BACKLOG.md`'s bare note** — turn "research into why...
+   showing nothing" into a proper Bugs-table row pointing at the nested-cwd bug as likely cause,
+   now that this session's Codex install refresh isolated it to a local-install-staleness /
+   nested-cwd interaction rather than a code defect in the regeneration script itself.
+3. **Strategy 1** — run `stats.py --calibrate` once `ANTHROPIC_API_KEY` is available.
+4. **Strategy 3/4** — de-noise `near_misses.jsonl` first (the 07-04 tests hardcoding
+   `600000`/`650000` pollute Strategy 4's threshold data by ~25%; the CI isolation gate doesn't
+   catch this because it only watches `.less_tokens/state/events.jsonl`, not the near-miss log).
+   Do not guess at threshold numbers until the contamination is fixed or filtered.
+5. **G10 ID collision** and **missing acceptance criterion** on the search-cache item — still open,
+   pure docs/BACKLOG edits, no data dependency.
+6. **Commit this session's changes** — `.codex/` refresh is gitignored (no commit needed there),
+   but `.gitignore`, `AGENTS.md`, `.less_tokens/config/budget.json`, `BACKLOG.md`, and the new
+   `eb_review_8jul26.md` are real tracked changes still uncommitted.
 
 ## Suggested skills
-- `/bugfix` if the Codex nested-cwd bug gets picked up, or a `near_misses.jsonl` review turns into
-  an atomic fix.
-- `/continue` — rewrite this once the Codex bug lands, calibration runs, or near-miss data is reviewed.
+- `/bugfix` for the nested-cwd bug (Codex-context session) or the near_misses.jsonl contamination.
+- `/continue` — rewrite this once the nested-cwd bug lands, calibration runs, or near-miss
+  contamination is resolved.
 
 ## Start here
-If in a Codex-context session: fix the nested-cwd hook-command bug (`BACKLOG.md` Bugs table has
-full repro). Otherwise: check `.claude/state/near_misses.jsonl` for accumulated data before
-touching Strategy 3/4/5, or pick up G10/acceptance-criterion (no data dependency, safe any time).
+If in a Codex-context session: fix the nested-cwd hook-command bug — it's now known to be
+universal, not single-hook (`BACKLOG.md` Bugs table + `eb_review_8jul26.md` have the full case).
+Otherwise: commit the pending tracked changes first (item 6 above), then either fold the
+savings.html finding into `BACKLOG.md` (item 2, quick) or start de-noising `near_misses.jsonl`
+before touching Strategy 3/4.
 
 ---
-_Last updated at HEAD `be7eddc` on 2026-07-07._
+_Last updated at HEAD `b7b6841` (working tree dirty) on 2026-07-08._

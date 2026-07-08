@@ -1,0 +1,18 @@
+{
+  "budget-observer": {"claude": "shipped", "codex": "shipped"},
+  "search-first": {"claude": "shipped", "codex": "shipped"},
+  "read-guard": {"claude": "shipped", "codex": "shipped"},
+  "auto-slice": {"claude": "shipped", "codex": "shipped"},
+  "grep-first-read": {"claude": "shipped", "codex": "shipped"},
+  "read-after-edit": {"claude": "shipped", "codex": "shipped"},
+  "context-cache": {"claude": "shipped", "codex": "shipped"},
+  "post-edit-diff": {"claude": "shipped", "codex": "shipped"},
+  "index-refresh": {"claude": "shipped", "codex": "shipped"},
+  "agent-md-budget": {"claude": "shipped", "codex": "shipped"},
+  "lean-output": {"claude": "shipped", "codex": "shipped"},
+  "listing-guard": {"claude": "shipped", "codex": "shipped"},
+  "truncate-output": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "compact-trigger": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "terse-output": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "savings-html": {"claude": "shipped", "codex": "shipped"}
+}

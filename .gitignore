@@ -29,3 +29,11 @@ app/.venv/
 .codex/
 .fuse_hidden*
 --upgrade/
+
+# >>> less_tokens (generated artifacts) >>>
+/.claude/index.db
+/.claude/index.db-wal
+/.claude/index.db-shm
+/.claude/state/
+/.less_tokens/state/
+# <<< less_tokens <<<

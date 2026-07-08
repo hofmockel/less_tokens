@@ -6,7 +6,79 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/listing-guard.py"
+            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',d).get('command',''))\" 2>/dev/null || true); case \"$CMD\" in *grep*|*rg\\ *|*ripgrep*|*find\\ *|*fd\\ *|*ack\\ *|*ag\\ *)   [ -f graphify-out/graph.json ] &&   echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"graphify: knowledge graph at graphify-out/. For focused questions, run `graphify query \\\"<question>\\\"` (scoped subgraph, usually much smaller than GRAPH_REPORT.md) instead of grepping raw files. Read GRAPH_REPORT.md only for broad architecture context.\"}}'   || true ;; esac"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/budget-observer.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/search-first.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/search-first.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/read-guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/auto-slice.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/grep-first-read.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/read-after-edit.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/context-cache.py"
           }
         ]
       },
@@ -15,90 +87,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',d).get('command',''))\" 2>/dev/null || true); case \"$CMD\" in *grep*|*rg\\ *|*ripgrep*|*find\\ *|*fd\\ *|*ack\\ *|*ag\\ *)   [ -f graphify-out/graph.json ] &&   echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"graphify: knowledge graph at graphify-out/. For focused questions, run `graphify query \\\"<question>\\\"` (scoped subgraph, usually much smaller than GRAPH_REPORT.md) instead of grepping raw files. Read GRAPH_REPORT.md only for broad architecture context.\"}}'   || true ;; esac"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/search-first.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/read-guard.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/read-after-edit.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/search-first.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/auto-slice.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/grep-first-read.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/context-cache.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/context-cache.py"
+            "command": ".claude/bin/python .claude/hooks/listing-guard.py"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Read|Grep|Glob|Bash|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/post-edit-diff.py"
+            "command": ".claude/bin/python .claude/hooks/budget-observer.py"
           }
         ]
       },
@@ -107,7 +107,34 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/index-refresh.py"
+            "command": ".claude/bin/python .claude/hooks/post-edit-diff.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/index-refresh.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/claudemd-budget.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/lean-output.py"
           }
         ]
       },
@@ -116,7 +143,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/truncate-output.py"
+            "command": ".claude/bin/python .claude/hooks/truncate-output.py"
           }
         ]
       },
@@ -125,7 +152,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/compact-trigger.py"
+            "command": ".claude/bin/python .claude/hooks/compact-trigger.py"
           }
         ]
       }
@@ -136,7 +163,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/caveman-reminder.py"
+            "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"
           }
         ]
       },
@@ -145,7 +172,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/savings-html.py"
+            "command": ".claude/bin/python .claude/hooks/savings-html.py"
           }
         ]
       }
@@ -156,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/caveman-reminder.py"
+            "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"
           }
         ]
       },
@@ -165,7 +192,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/.venv-tokens/bin/python .claude/hooks/savings-html.py"
+            "command": ".claude/bin/python .claude/hooks/savings-html.py"
           }
         ]
       }
@@ -173,7 +200,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": ".claude/.venv-tokens/bin/python .claude/tools/stats.py --oneliner",
+    "command": ".claude/bin/python .claude/tools/stats.py --oneliner",
     "padding": 0
   }
 }
