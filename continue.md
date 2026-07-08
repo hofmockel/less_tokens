@@ -1,67 +1,52 @@
 # Continue: less_tokens
 
-> **Next focus:** everything actionable right now is instrument-first and blocked on real usage
-> data. `BACKLOG.md`'s "Same-session `search.py` repeated-query cache" and the Strategy 3/4
-> near-miss items (cached-bash, cached-grep, compaction threshold) all wait for `near_misses.jsonl`
-> to accumulate from normal use before any further code change — do not guess at the numbers.
-> `stats.py --calibrate` (Strategy 1) still just needs a session with `ANTHROPIC_API_KEY` present.
+> **Next focus:** everything actionable right now is either instrument-first (blocked on real
+> `near_misses.jsonl` usage data) or handed off to a Codex-context session (the nested-cwd hook bug).
+> No open Claude-side code work — remaining items are pure docs/BACKLOG edits or data review.
 
 ## Current state
-HEAD is `f9214c8`, repo clean — everything below is committed, nothing pushed status checked.
+HEAD is `be7eddc`, repo clean, 914/914 tests pass. G14-G17 (the Claude-side subagent
+token-reduction items) shipped this session — Codex already had its equivalents (G7-G13,
+CX12-CX15) from the prior session ending at `f9214c8`.
 
-Since the last handoff (`45e2e27`, 2026-07-04), in order:
-1. **`f95a963`** — Strategy 2 fixes from `eb_plan_4jul26.md` (v2 budget-plane telemetry isolation,
-   per-category budget modes), `stats.py --audit-liveness`, `label_consistency_gate.py`. This was
-   the "uncommitted changes" the prior continue.md described as in-progress; it's committed now.
-2. **`cad26af`** — fixed the context-cache mtime bug found by `ever_better`'s cross-repo
-   `2026-07-04-less-tokens-backlog-review` (`tect`+`qa`): `check_read`/`record_read` now require
-   `st_size` to match alongside `st_mtime`, closing the "unchanged" false-positive from
-   `cp -p`/`rsync --times`/coarse fs granularity. Filed to `BACKLOG.md`'s Bugs table and cleared
-   same commit, per protocol.
-3. **`2f38b8b`** — near-miss instrumentation for `search.py`'s repeated-query path
-   (`_record_search_near_miss()`, `state/search-session-cache.json`), same fail-open/additive
-   discipline as the existing cached-bash/-grep instrumentation. Still does not build the cache
-   itself — waits for data.
-4. **`c11446e` → `f9214c8`** (six commits, 2026-07-05/06) — closed out the Codex-side dual-scope
-   backlog items: G7-G13 (context packs, parallel dispatch, noisy-verification delegation,
-   large-source digest paths), CX12-CX15 (Codex skill guidance + install smoke test + spawn
-   break-even note), and the README-accuracy fixes (`/def` claim, Codex hook-wiring fallback,
-   `.claude/` artifact ownership). All landed as `agents/codex/skills/less-tokens/SKILL.md` /
-   `DOCUMENTATION.md` guidance plus one install-check test — no hook-enforced behavior changed.
-   `BACKLOG.md` rows deleted, `CHANGELOG.md` entries added, per protocol.
+## What happened this session
+- **G15** — wired `SubagentStop` alongside `Stop` for `caveman-reminder.py`/`savings-html.py` in
+  `agents/common/hooks/hook_manifest.py` (single source of truth feeding both `install.py` and this
+  repo's own dogfooded `.claude/settings.json`). Both scripts already read `transcript_path` off
+  stdin without inspecting `hook_event_name`, so no script changes were needed — just the wire.
+- **G14/G16/G17** — built a full Claude-side `less-tokens` skill
+  (`agents/claude/skills/less-tokens/SKILL.md`, mirrors the existing Codex one) plus two narrow
+  agent-definition files, `.claude/agents/explorer.md` (Read/Grep/Glob only) and `verifier.md`
+  (Bash/Read only), installed via new `install.py` copy steps. This closes the "Claude has no
+  skill to hang subagent guidance on" gap the three items shared.
+- **Found, filed, not fixed**: `.codex/hooks.json` commands use a relative path
+  (`.less_tokens/bin/python ...`) that resolves from repo root but fails silently (exit 127) from
+  any other cwd — confirmed by installing into a scratch repo and invoking the command from a
+  nested subdirectory. Per hofmockel's explicit call, this is Codex's fix to make, not this
+  session's — filed to `BACKLOG.md`'s Bugs table instead of touched.
+- Also: moved F3 (terse hook block messages, already marginal) from `BACKLOG.md` to `DECISIONS.md`
+  as rejected, closing a low-priority item with no path to closure otherwise.
 
 ## Open work
-1. **Strategy 1 — calibrate the token estimate.** Run `stats.py --calibrate` once
-   `ANTHROPIC_API_KEY` is available. Zero behavior risk, just needs the key.
-2. **Strategy 3 Phase 1-2 / Strategy 4's threshold decision / the search.py-cache item** — all
-   wait for real `near_misses.jsonl` data to accumulate from normal use. Do not guess at the
-   numbers.
-3. **G10 ID collision** — "G10" is reused for two unrelated entries across `BACKLOG.md` (declined
-   "bound subagent search breadth") and `CHANGELOG.md` (shipped "search.py cross-file semantic
-   dedup"). Confusing for anyone grepping by ID; needs one of them renamed. Low effort, still open.
-4. **Missing acceptance criterion** — the "Same-session `search.py` repeated-query cache" backlog
-   item has rich prose but no explicit "Acceptance:" line in the format other items use (e.g. G15's
-   two-sentence criterion). Needs a measurable statement like "near_misses.jsonl records N
-   identical-query events per session; repeat rate reported" before it's gradable pass/fail.
-5. **G15 — propagate hooks into subagents (Claude side)** — done 2026-07-07: `SubagentStop` now
-   wired alongside `Stop` for `caveman`/`savings-html` in `hook_manifest.py`. G14/G16/G17 also
-   shipped the same day (new Claude `less-tokens` skill + `.claude/agents/{explorer,verifier}.md`).
-   G15's Codex half found a real bug (relative-path hook commands break from a nested cwd) —
-   filed to `BACKLOG.md`'s Bugs table, deferred to a Codex-context session.
-6. **Separately flagged, not part of any plan above**: `test_hooks_protocol.py` grows real
-   `.claude/state/savings.jsonl` on every run (`task_1b13bd51` if still live — check before
-   re-flagging).
+See [BACKLOG.md](BACKLOG.md). Nothing here is Claude-side-blocked:
+1. **Codex nested-cwd bug** (Bugs table) — needs a Codex-context session; likely fix is
+   absolute-path `.codex/hooks.json` commands (Claude's `.claude/settings.json` stays relative,
+   the harness already resets Bash cwd to repo root between calls).
+2. **Strategy 1** — run `stats.py --calibrate` once `ANTHROPIC_API_KEY` is available.
+3. **Strategy 3/4/5 + search.py-cache item** — all wait for `near_misses.jsonl` to accumulate more
+   real usage. Do not guess at the numbers.
+4. **G10 ID collision** and **missing acceptance criterion** on the search-cache item — both pure
+   docs/BACKLOG edits, low effort, no data dependency.
 
 ## Suggested skills
-- `/bugfix` if a `near_misses.jsonl` review turns into an atomic fix.
-- `/continue` — update this handoff again once calibration runs, the near-miss data is reviewed,
-  or the G10/acceptance-criterion/G15 items move.
+- `/bugfix` if the Codex nested-cwd bug gets picked up, or a `near_misses.jsonl` review turns into
+  an atomic fix.
+- `/continue` — rewrite this once the Codex bug lands, calibration runs, or near-miss data is reviewed.
 
 ## Start here
-Check `.claude/state/near_misses.jsonl` for accumulated real usage data before touching Strategy
-3/4/5 again. If you're picking up G10 or the acceptance-criterion gap instead, those are pure
-docs/BACKLOG edits — no data dependency, safe to do any time.
+If in a Codex-context session: fix the nested-cwd hook-command bug (`BACKLOG.md` Bugs table has
+full repro). Otherwise: check `.claude/state/near_misses.jsonl` for accumulated data before
+touching Strategy 3/4/5, or pick up G10/acceptance-criterion (no data dependency, safe any time).
 
 ---
-_Last updated at HEAD `f9214c8` on 2026-07-06, all work described above committed, nothing
-pushed-status verified beyond local HEAD._
+_Last updated at HEAD `be7eddc` on 2026-07-07._
