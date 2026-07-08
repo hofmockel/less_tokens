@@ -44,6 +44,28 @@ Rejected proposals moved to [DECISIONS.md](DECISIONS.md) → *Rejected* — reco
 
 ---
 
+## Architecture Simplification
+
+Claude/Codex platform split review. Prefer shared core plus thin adapters; keep divergent paths only where hook surfaces genuinely differ (`Read|Grep|Stop` vs `mcp__filesystem__.*|apply_patch|PostToolUse`).
+
+### High Priority
+
+- **Codex hook wrappers: collapse repeated adapter boilerplate** *(architecture / platform parity)* — Most Codex wrappers still inline repo discovery, `sys.path` setup, stdin JSON parsing, result printing, and `mcp__filesystem__read_file` -> `Read` mapping (example: `agents/codex/hooks/search-first.py:14-29`, `agents/codex/hooks/search-first.py:71-80`; same pattern appears in `auto-slice.py`, `read-guard.py`, `budget-observer.py`, `compact-trigger.py`, `truncate-output.py`). Shared helpers already exist in `agents/common/hooks/runtime.py:10-68` but are only partially adopted. Move wrappers toward a tiny `main(check_fn, maps, config_loader, native_output)` shape so the remaining Codex-specific code is only event translation, fallback config, and platform-specific message text. Acceptance: no wrapper defines its own `_resolve_repo`, direct `json.loads(sys.stdin.read())`, or local read-tool mapper unless it has a documented exception; smoke tests still cover nested cwd.
+
+- **Installer: make deployment spec executable, not duplicated prose-in-code** *(architecture / drift prevention)* — `_install_specs()` says it mirrors `main()` (`install.py:1180-1182`) and encodes install trees at `install.py:1190-1231`, while actual copy behavior is hand-written again at `install.py:2127-2204`. Codex now adds shims, schema copies, shared hooks, optional `.codex/hooks`, and skill-root selection, so mirror drift is likely. Promote install specs into typed operations (`copy_tree`, `generated_shims`, `search_config`, `codex_budget_profile`, `agents_md_fragment`) and have both foreign-file checks and `main()` execute/filter the same plan. Acceptance: adding a new platform artifact requires one plan entry, not edits in both `_install_specs()` and `main()`.
+
+- **Native hook output naming: separate Claude JSON shape from generic budget advice** *(architecture / readability)* — `agents/common/budget/advice.py:83-89` exposes `claude_hook_output()`, but Codex `budget-observer` imports and prints it for Codex advice (`agents/codex/hooks/budget-observer.py:29-52`). The JSON shape may currently work, but the name encodes a platform-specific assumption inside shared budget advice and invites future misuse. Rename/split into `hook_additional_context_output(event_name=...)` plus thin `claude_*`/`codex_*` call sites where needed. Acceptance: shared budget code has no function name that implies one target platform unless the function is actually platform-specific.
+
+### Medium Priority
+
+- **less-tokens skill: generate shared command manual with platform overlays** *(redundant prose / fixed context)* — The Claude and Codex `less-tokens` skills duplicate the same search/symbol/read-guard/directory/document-draft/rebuild prose with only paths and AGENTS/CLAUDE nouns changed (`agents/claude/skills/less-tokens/SKILL.md:8-36`, `agents/codex/skills/less-tokens/SKILL.md:8-36`, `agents/claude/skills/less-tokens/SKILL.md:117-133`, `agents/codex/skills/less-tokens/SKILL.md:111-127`). Keep one shared source for common command docs, then render platform overlays for command prefix, audit command, state path, reminder hook name, and subagent guidance. Acceptance: common sections are edited once and generated outputs stay byte-stable except for declared platform variables.
+
+- **Subagent guidance: split shared contract from platform-specific mechanics** *(redundant prose / divergent paths)* — Both skills carry the same output contract, prompt shape, noisy-verification pattern, and large-source digest guidance (`agents/claude/skills/less-tokens/SKILL.md:61-115`, `agents/codex/skills/less-tokens/SKILL.md:54-109`), while the real divergence is Claude agent definitions/tool allowlists versus Codex `fork_context`/`explorer`/`worker` behavior. Factor the shared contract into a common snippet and render only the platform mechanics separately. Acceptance: edits to return shape or "do not paste full files/logs/diffs" happen in one source; platform files retain explicit divergent rules.
+
+- **Parity docs: stop hand-maintaining long platform matrix blocks in multiple docs** *(redundant prose / doc drift)* — The Claude/Codex hook parity matrix is repeated in `README.md:43-68` and `DOCUMENTATION.md:82-107`, while both say the source of truth is `agents/common/hooks/hook_manifest.py` / `parity.json` (`README.md:101`, `DOCUMENTATION.md:109`). Generate these bounded sections from the manifest as part of the existing parity audit/doc update flow. Acceptance: README and documentation matrices are produced from one command and CI fails when generated blocks differ from the manifest.
+
+---
+
 ## Hooks & Caveman Mode
 
 (context-cache mtime-staleness bug moved to the **Bugs** table above, 2026-07-04 — confirmed defect, not periphery.)
