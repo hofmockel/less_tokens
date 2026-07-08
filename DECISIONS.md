@@ -11,6 +11,8 @@ Each entry: **what was proposed**, **the verdict**, **why**, and **what would re
 
 ## Rejected
 
+- **F3 — Terse hook block messages** *(output)* — block/reminder messages are output tokens, but paid only **on trigger**, not every turn; already trimmed once. Short learned codes (`S9: slice 51-3`) save bytes but need a legend (new fixed cost) and hurt readability. Marginal — only worth it for a hook that fires constantly. Skip. Reopen only if a hook starts firing on most turns and the block-message tokens become a measurable share of output.
+
 - **F4 — Consolidate overlapping tools** *(meta)* — `search.py`/`search_config.py`/`symbols.py`/`parse.py` have distinct jobs (search runtime / config / symbol index / AST parse). Merging is pure refactor: zero token saving, real regression risk across both agents. Not worth it.
 
 - **G10 — Bound subagent search breadth** *(input)* — the harness Explore agent already exposes a breadth knob (medium / very thorough); less_tokens adds nothing and cannot hook-enforce a sub-process's search scope. Owned by the harness, not this toolkit. Skip. **Dual scope:** Explore's breadth knob is a Claude harness feature. Codex has `agent_type="explorer"` but no repo-owned breadth knob; narrowness must come from the delegated prompt ("answer only X, inspect only paths matching Y"). Skip hook/config work for both — distinct reasons, recorded so neither agent re-proposes it.
