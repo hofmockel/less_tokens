@@ -212,8 +212,8 @@ def record_near_miss(state_dir: Path, *, kind: str, signature: str) -> None:
     """Additive-only telemetry: a Bash/Grep call that missed the exact-string
     cache, logged by coarse signature. Never read by any hook and never
     changes hook behavior — purely observational data for a later, real
-    decision about widening cacheable_bash_command()/grep_key() (see
-    eb_plan_4jul26.md Strategy 3). Fail-open, same as savings_log.append()."""
+    decision about widening cacheable_bash_command()/grep_key() — see
+    BACKLOG.md's Token-Reduction Strategies. Fail-open, same as savings_log.append()."""
     if not signature:
         return
     path = state_dir / "near_misses.jsonl"

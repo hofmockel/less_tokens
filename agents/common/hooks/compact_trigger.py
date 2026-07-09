@@ -30,7 +30,7 @@ def record_session_size_sample(state_dir: Path, *, size: int, threshold: int) ->
     not the compact trigger actually fired. Compaction fired once in this
     repo's entire recorded history — this is the real distribution of session
     sizes needed to judge whether MAX_SESSION_CHARS is set well, rather than
-    guessing (see eb_plan_4jul26.md Strategy 4). Never read by any hook,
+    guessing — see BACKLOG.md's Token-Reduction Strategies. Never read by any hook,
     fail-open, same discipline as savings_log.append()."""
     path = state_dir / "near_misses.jsonl"
     try:

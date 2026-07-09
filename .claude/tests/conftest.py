@@ -52,9 +52,9 @@ def load_hook(hook_path: Path):
 
 
 # The v2 budget-plane event log only. It is meant to be redirected via
-# LESS_TOKENS_STATE_DIR by every hook test (a broken override left it 100%
-# pytest artifacts — see eb_eval_4jul26.md finding #4 / eb_plan_4jul26.md
-# Strategy 2). savings.jsonl is deliberately excluded here: test_hooks_protocol.py
+# LESS_TOKENS_STATE_DIR by every hook test (a broken override once left it 100%
+# pytest artifacts, fixed in resolve_state_root() — see CHANGELOG.md).
+# savings.jsonl is deliberately excluded here: test_hooks_protocol.py
 # intentionally runs real hooks (truncate-output.py etc.) against the real repo
 # without isolation, same accepted pattern as its compact-trigger-last handling,
 # and "always on" savings tracking (stats_plan.md) means that's real, correctly

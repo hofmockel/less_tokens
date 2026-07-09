@@ -13,7 +13,7 @@ magnitude claim (a percentage or "N×") must either:
 
 This is what stops a future contributor from adding a new unverified savings
 percentage the way "Terse output mode" (30-60%) and "Lean tool output"
-(40-90%) shipped without one — see eb_eval_4jul26.md finding #3.
+(40-90%) shipped without one.
 
 Row -> registry-key mapping is a small hardcoded table below, maintained by
 hand alongside the README (same spirit as changelog_gate.py's ID regexes):

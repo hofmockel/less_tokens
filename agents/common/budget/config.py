@@ -68,7 +68,7 @@ class BudgetConfig:
     def effective_mode(self, category: str) -> str:
         """Per-category mode override, falling back to the global mode. Lets a
         single narrow category (e.g. unscored_context) move to advise/enforce
-        without changing behavior anywhere else — see eb_plan_4jul26.md Strategy 2."""
+        without changing behavior anywhere else."""
         return self.category_modes.get(category, self.mode)
 
 

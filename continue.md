@@ -7,11 +7,12 @@
 ## Current state
 HEAD is `b7b6841`, working tree has uncommitted changes (see below) — nothing pushed/committed
 this pass. Governance-run team review (`program`+`tect`+`backend`+`qa`, T2, commissioned via
-`ever_better`) completed 2026-07-08: `eb_review_8jul26.md` (new) is the third team document in
-this repo, following `eb_eval_4jul26.md`/`eb_plan_4jul26.md` (2026-07-04).
+`ever_better`) completed 2026-07-08 — the third such review of this repo, following ones on
+2026-07-04. Its durable findings are folded into `BACKLOG.md`/`DECISIONS.md` directly (the
+dated review documents themselves were working fodder, since deleted).
 
 ## What happened this session
-- **Team review** (`eb_review_8jul26.md`) re-checked enforceability/reliability/measurability for
+- **Team review** re-checked enforceability/reliability/measurability for
   Claude and Codex against live repo state, not just the 07-04 plan's assumptions. Corrected one
   stale premise (Strategy 5's ruling was already written 2026-07-07 in `DECISIONS.md` — done, no
   action needed). New findings: the nested-cwd hook bug is universal across all 16 wired Codex hook
@@ -41,7 +42,7 @@ this repo, following `eb_eval_4jul26.md`/`eb_plan_4jul26.md` (2026-07-04).
   should be folded into that row rather than left as a bare note.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md) and `eb_review_8jul26.md`'s prioritized action list.
+See [BACKLOG.md](BACKLOG.md).
 1. **Codex nested-cwd bug** (Bugs table) — now confirmed to disable all 16 hooks, not one; needs a
    Codex-context session. Likely fix: absolute-path `.codex/hooks.json` commands (Claude's
    `.claude/settings.json` stays relative — harness resets Bash cwd to repo root between calls,
@@ -58,8 +59,8 @@ See [BACKLOG.md](BACKLOG.md) and `eb_review_8jul26.md`'s prioritized action list
 5. **G10 ID collision** and **missing acceptance criterion** on the search-cache item — still open,
    pure docs/BACKLOG edits, no data dependency.
 6. **Commit this session's changes** — `.codex/` refresh is gitignored (no commit needed there),
-   but `.gitignore`, `AGENTS.md`, `.less_tokens/config/budget.json`, `BACKLOG.md`, and the new
-   `eb_review_8jul26.md` are real tracked changes still uncommitted.
+   but `.gitignore`, `AGENTS.md`, `.less_tokens/config/budget.json`, and `BACKLOG.md` are real
+   tracked changes still uncommitted.
 
 ## Suggested skills
 - `/bugfix` for the nested-cwd bug (Codex-context session) or the near_misses.jsonl contamination.
@@ -68,7 +69,7 @@ See [BACKLOG.md](BACKLOG.md) and `eb_review_8jul26.md`'s prioritized action list
 
 ## Start here
 If in a Codex-context session: fix the nested-cwd hook-command bug — it's now known to be
-universal, not single-hook (`BACKLOG.md` Bugs table + `eb_review_8jul26.md` have the full case).
+universal, not single-hook (`BACKLOG.md` Bugs table has the full case).
 Otherwise: commit the pending tracked changes first (item 6 above), then either fold the
 savings.html finding into `BACKLOG.md` (item 2, quick) or start de-noising `near_misses.jsonl`
 before touching Strategy 3/4.

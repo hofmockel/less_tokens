@@ -128,7 +128,7 @@ _UPPER_BOUND_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] 
 # strategy, not inferred at runtime. This is what lets --audit-liveness tell a
 # structurally-dead strategy (frequent, but never fires — e.g. cached-bash's
 # exact-string cache key) from one that's rare by design (compaction fires once
-# in months, and that's fine). See eb_eval_4jul26.md / eb_plan_4jul26.md.
+# in months, and that's fine).
 #   "frequent"      — should show real events regularly; zero over the window is
 #                      worth investigating (the gate/cache key may be too narrow).
 #   "rare-but-real" — expected to go long stretches with no events; flag only
@@ -738,7 +738,7 @@ def main() -> int:
     ap.add_argument("--audit-liveness", action="store_true",
                     help="Periodic health check: flag strategies that are wired but haven't "
                          "fired in real telemetry recently (manual/periodic, not a CI gate — "
-                         "see eb_plan_4jul26.md)")
+                         "liveness is a property of production telemetry, not a fresh checkout)")
     ap.add_argument("--liveness-window-days", type=int, default=DEFAULT_LIVENESS_WINDOW_DAYS,
                     help="Window for --audit-liveness (default: %(default)s days)")
     args = ap.parse_args()
