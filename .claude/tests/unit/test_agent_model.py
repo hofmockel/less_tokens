@@ -39,7 +39,7 @@ def test_search_config_exposes_agent_model_none_by_default():
     assert search_config.AGENT_MODEL is None
 
 
-def test_search_cli_uses_profile_k_when_unset(monkeypatch):
+def test_search_cli_uses_profile_k_when_unset(monkeypatch, tmp_path):
     import search as search_mod
     import search_config
     captured: dict = {}
@@ -52,13 +52,16 @@ def test_search_cli_uses_profile_k_when_unset(monkeypatch):
     monkeypatch.delenv("LESS_TOKENS_AGENT", raising=False)
     monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-opus-4-7")
     monkeypatch.setattr(search_mod, "_index_is_stale", lambda: False)
+    # main() also records a search near-miss sample into near_misses.jsonl via
+    # active_state_dir(); left unpatched it leaks into the repo's real log.
+    monkeypatch.setattr(search_mod, "active_state_dir", lambda: tmp_path)
     monkeypatch.setattr(sys, "argv", ["search.py", "anything"])
     search_mod.main()
     # Opus profile recommends >3.
     assert captured["k"] >= 5
 
 
-def test_search_cli_explicit_k_overrides_profile(monkeypatch):
+def test_search_cli_explicit_k_overrides_profile(monkeypatch, tmp_path):
     import search as search_mod
     import search_config
     captured: dict = {}
@@ -69,6 +72,7 @@ def test_search_cli_explicit_k_overrides_profile(monkeypatch):
     monkeypatch.delenv("LESS_TOKENS_AGENT", raising=False)
     monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-opus-4-7")
     monkeypatch.setattr(search_mod, "_index_is_stale", lambda: False)
+    monkeypatch.setattr(search_mod, "active_state_dir", lambda: tmp_path)
     monkeypatch.setattr(sys, "argv", ["search.py", "anything", "-k", "2"])
     search_mod.main()
     assert captured["k"] == 2

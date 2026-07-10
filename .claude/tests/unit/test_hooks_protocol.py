@@ -19,24 +19,14 @@ HOOKS = REPO / ".claude" / "hooks"
 
 _ENV = {**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")}
 
-# compact-trigger.py computes REPO by climbing up to find CLAUDE.md or .git.
-# When run from the source tree that resolves to REPO.
-_HOOK_REPO = REPO
-_COMPACT_STATE = _HOOK_REPO / ".claude" / "state" / "compact-trigger-last"
 
-
-def _clear_compact_state() -> None:
-    """Remove the compact-trigger state file so hysteresis cannot suppress a fire."""
-    _COMPACT_STATE.unlink(missing_ok=True)
-
-
-def run_hook(hook_name: str, payload: dict) -> tuple[int, str, str]:
+def run_hook(hook_name: str, payload: dict, extra_env: dict | None = None) -> tuple[int, str, str]:
     result = subprocess.run(
         [sys.executable, str(HOOKS / hook_name)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env=_ENV,
+        env={**_ENV, **(extra_env or {})},
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -109,63 +99,70 @@ class TestTruncateOutput:
 # ---------------------------------------------------------------------------
 
 class TestCompactTrigger:
+    """Every case redirects LESS_TOKENS_STATE_DIR to tmp_path — compact-trigger.py
+    also appends a session_size sample to near_misses.jsonl on every invocation
+    (BACKLOG.md's compaction-threshold instrumentation), and this suite used to
+    run unisolated, seeding the real repo's telemetry with round-number fixture
+    sizes (600_000 etc.) that don't reflect real session sizes."""
+
     def test_passes_when_under_limit(self, tmp_path):
         transcript = tmp_path / "t.jsonl"
         transcript.write_text("x" * 1000)
+        state_dir = tmp_path / "state"
         code, _, _ = run_hook("compact-trigger.py", {
             "tool_name": "Bash",
             "transcript_path": str(transcript),
-        })
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 0
 
     def test_fires_when_over_limit(self, tmp_path):
-        _clear_compact_state()
         transcript = tmp_path / "t.jsonl"
         transcript.write_text("x" * 600_000)
+        state_dir = tmp_path / "state"
         code, _, stderr = run_hook("compact-trigger.py", {
             "tool_name": "Bash",
             "transcript_path": str(transcript),
-        })
-        _clear_compact_state()
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 2
         assert "compact" in stderr.lower()
 
-    def test_no_transcript_path_passes(self):
-        code, _, _ = run_hook("compact-trigger.py", {"tool_name": "Bash"})
+    def test_no_transcript_path_passes(self, tmp_path):
+        state_dir = tmp_path / "state"
+        code, _, _ = run_hook("compact-trigger.py", {"tool_name": "Bash"},
+                               extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 0
 
     def test_nonexistent_transcript_passes(self, tmp_path):
+        state_dir = tmp_path / "state"
         code, _, _ = run_hook("compact-trigger.py", {
             "tool_name": "Bash",
             "transcript_path": str(tmp_path / "nonexistent.jsonl"),
-        })
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code == 0
 
-    def test_malformed_json_exits_zero(self):
+    def test_malformed_json_exits_zero(self, tmp_path):
+        state_dir = tmp_path / "state"
         result = subprocess.run(
             [sys.executable, str(HOOKS / "compact-trigger.py")],
             input="{{bad",
             capture_output=True,
             text=True,
-            env=_ENV,
+            env={**_ENV, "LESS_TOKENS_STATE_DIR": str(state_dir)},
         )
         assert result.returncode == 0
 
     def test_hysteresis_suppresses_repeat_fire(self, tmp_path):
         transcript = tmp_path / "t.jsonl"
         transcript.write_text("x" * 600_000)
-        # Write state at the path the hook actually reads (HOOK_REPO, not REPO)
-        _COMPACT_STATE.parent.mkdir(parents=True, exist_ok=True)
-        _COMPACT_STATE.write_text("600000")
-        try:
-            code, _, _ = run_hook("compact-trigger.py", {
-                "tool_name": "Bash",
-                "transcript_path": str(transcript),
-            })
-            # Within hysteresis window — should not re-fire
-            assert code == 0
-        finally:
-            _clear_compact_state()
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / "compact-trigger-last").write_text("600000")
+        code, _, _ = run_hook("compact-trigger.py", {
+            "tool_name": "Bash",
+            "transcript_path": str(transcript),
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        # Within hysteresis window — should not re-fire
+        assert code == 0
 
 
 # ---------------------------------------------------------------------------

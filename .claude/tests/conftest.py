@@ -51,9 +51,13 @@ def load_hook(hook_path: Path):
     return mod
 
 
-# The v2 budget-plane event log only. It is meant to be redirected via
-# LESS_TOKENS_STATE_DIR by every hook test (a broken override once left it 100%
-# pytest artifacts, fixed in resolve_state_root() — see CHANGELOG.md).
+# The v2 budget-plane event log, plus near_misses.jsonl (session_size samples
+# feeding the compaction-threshold decision — BACKLOG.md). Both are meant to be
+# redirected via LESS_TOKENS_STATE_DIR by every hook test (a broken override
+# once left events.jsonl 100% pytest artifacts, fixed in resolve_state_root() —
+# see CHANGELOG.md; near_misses.jsonl had the same class of bug via two
+# compact-trigger tests that isolated STATE_FILE but not active_state_dir(),
+# fixed alongside this gate addition).
 # savings.jsonl is deliberately excluded here: test_hooks_protocol.py
 # intentionally runs real hooks (truncate-output.py etc.) against the real repo
 # without isolation, same accepted pattern as its compact-trigger-last handling,
@@ -61,6 +65,7 @@ def load_hook(hook_path: Path):
 # recorded behavior, not a leak — flagging it here would be a false positive.
 _WATCHED_TELEMETRY_LOGS = [
     REPO_ROOT / ".less_tokens" / "state" / "events.jsonl",
+    REPO_ROOT / ".claude" / "state" / "near_misses.jsonl",
 ]
 
 
