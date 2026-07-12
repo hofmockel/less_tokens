@@ -44,12 +44,17 @@ class TestTruncateOutput:
         assert code == 0
 
     def test_blocks_when_over_limit(self):
-        code, stdout, stderr = run_hook("truncate-output.py", {
+        # PostToolUse exit code 2 only shows stderr (tool already ran) — it
+        # never replaces the delivered output. Actually reducing what Claude
+        # sees requires hookSpecificOutput.updatedToolOutput on exit 0 (see
+        # code.claude.com/docs/en/hooks.md#posttooluse-decision-control).
+        code, stdout, _ = run_hook("truncate-output.py", {
             "tool_name": "Bash",
             "tool_result": "x" * 10_000,
         })
-        assert code == 2
-        assert "omitted" in stdout
+        assert code == 0
+        out = json.loads(stdout)["hookSpecificOutput"]
+        assert "omitted" in out["additionalContext"]
 
     def test_bash_keeps_head_and_tail(self):
         # Each line ~110 chars; 200 lines = ~22 000 chars, well above the 4 000 ceiling
@@ -58,10 +63,11 @@ class TestTruncateOutput:
             "tool_name": "Bash",
             "tool_result": "\n".join(lines),
         })
-        assert code == 2
-        assert "line 0000" in stdout
-        assert "line 0199" in stdout
-        assert "omitted" in stdout
+        assert code == 0
+        out = json.loads(stdout)["hookSpecificOutput"]
+        assert "line 0000" in out["updatedToolOutput"]
+        assert "line 0199" in out["updatedToolOutput"]
+        assert "omitted" in out["additionalContext"]
 
     def test_read_uses_char_split(self):
         large = "A" * 3000 + "B" * 3000
@@ -69,8 +75,9 @@ class TestTruncateOutput:
             "tool_name": "Read",
             "tool_result": large,
         })
-        assert code == 2
-        assert "omitted" in stdout
+        assert code == 0
+        out = json.loads(stdout)["hookSpecificOutput"]
+        assert "omitted" in out["additionalContext"]
 
     def test_ignored_for_unknown_tool(self):
         code, _, _ = run_hook("truncate-output.py", {

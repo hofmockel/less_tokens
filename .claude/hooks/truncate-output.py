@@ -76,6 +76,11 @@ def main() -> int:
         max_glob_results=MAX_GLOB_RESULTS,
     )
     if code == 2:
+        # PostToolUse exit code 2 only shows stderr to Claude — the tool
+        # already ran, and the original (untruncated) output still reaches
+        # the model unchanged. Actually replacing what Claude sees requires
+        # hookSpecificOutput.updatedToolOutput on a normal (exit 0) return;
+        # see https://code.claude.com/docs/en/hooks.md#posttooluse-decision-control.
         sid, ssrc = resolve_session(raw)
         kept = len(stdout)
         _log_savings({
@@ -88,10 +93,14 @@ def main() -> int:
             "session_id": sid,
             "session_source": ssrc,
         })
-    if stdout:
-        print(stdout)
-    if stderr:
-        print(stderr, file=sys.stderr)
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "updatedToolOutput": stdout,
+                "additionalContext": stderr,
+            }
+        }))
+        return 0
     return code
 
 

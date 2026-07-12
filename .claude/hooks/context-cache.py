@@ -124,6 +124,7 @@ def main() -> int:
         state_dir=_active_state_dir(),
         enabled=CONTEXT_CACHE_ENABLED,
         grep_ttl=CONTEXT_CACHE_GREP_TTL,
+        event_name=str(raw.get("hook_event_name") or raw.get("hookEventName") or "PreToolUse"),
         log=_log,
         session=resolve_session(raw),
     )

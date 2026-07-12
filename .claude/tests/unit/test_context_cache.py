@@ -176,13 +176,19 @@ def test_blocked_read_emits_measured_savings_schema(hook, tmp_path):
     base = {"tool_name": "Read", "tool_input": {"file_path": str(p)},
             "transcript_path": "t1"}
 
-    # First call records the read (allowed, no savings event).
+    # First call is allowed (PreToolUse, no prior record); the read then
+    # actually executes and PostToolUse records it as served.
     code, _, _ = hook.check_context_cache(
         hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
         grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
     assert code == 0 and captured == []
+    code, _, _ = hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, event_name="PostToolUse",
+        log=captured.append, session=("sess-1", "payload"))
+    assert code == 0 and captured == []
 
-    # Repeat call is blocked and must log the new schema.
+    # Repeat PreToolUse call is blocked and must log the new schema.
     code, _, msg = hook.check_context_cache(
         hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
         grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
@@ -210,10 +216,15 @@ def test_blocked_partial_read_credits_only_the_slice(hook, tmp_path):
     base = {"tool_name": "Read",
             "tool_input": {"file_path": str(p), "offset": 10, "limit": 10},
             "transcript_path": "t1"}
-    for _ in range(2):
-        _, _, _ = hook.check_context_cache(
-            hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-            grep_ttl=300, log=captured.append, session=("s", "payload"))
+    hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, log=captured.append, session=("s", "payload"))
+    hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, event_name="PostToolUse", log=captured.append, session=("s", "payload"))
+    hook.check_context_cache(
+        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
+        grep_ttl=300, log=captured.append, session=("s", "payload"))
     assert len(captured) == 1
     assert captured[0]["elided_chars"] == slice_chars
 
@@ -369,3 +380,45 @@ def test_none_transcript_path_does_not_share_state(hook, tmp_path):
     assert state2["reads"] == {}, (
         "_get_state(None) returned stale reads from a previous None-keyed session"
     )
+
+
+# ---------------------------------------------------------------------------
+# Regression: a search-first-denied Read must never be recorded as served
+# (BACKLOG.md: "context-cache hook counts hook-denied Reads as 'in context'")
+# ---------------------------------------------------------------------------
+
+def test_denied_read_is_not_recorded_as_served(hook, tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks"))
+    from search_first import check_search_first  # noqa: E402
+
+    f = tmp_path / "indexed.md"
+    f.write_text("content the model never actually receives")
+    repo = tmp_path
+    state_dir = tmp_path / "state"
+    config = {
+        "excluded_prefixes": (), "excluded_names": None, "dirs": (),
+        "root_globs": ("*.md",), "window_seconds": 300,
+    }
+
+    payload = hook.normalize_claude({
+        "tool_name": "Read", "tool_input": {"file_path": str(f)}, "transcript_path": "t1",
+    })
+
+    # Call 1: search-first denies (never searched yet), so the Read never runs
+    # and PostToolUse never fires for it.
+    sf_code, _, _ = check_search_first(payload, repo=repo, state_dir=state_dir, config=config)
+    assert sf_code == 2
+
+    # context-cache's PreToolUse pass on the same denied call must not record it.
+    hook.check_context_cache(payload, state_dir=state_dir, enabled=True, grep_ttl=300)
+
+    # Call 2, after the required search: search-first would now allow it, and
+    # context-cache must allow it too — it was never actually served.
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "last-search").touch()
+    sf_code_2, _, _ = check_search_first(payload, repo=repo, state_dir=state_dir, config=config)
+    assert sf_code_2 == 0
+
+    cc_code, _, _ = hook.check_context_cache(payload, state_dir=state_dir, enabled=True, grep_ttl=300)
+    assert cc_code == 0, "context-cache must not treat a denied read as served"

@@ -489,20 +489,52 @@ class TestCodexBashAndCacheAdapters:
         assert "FAILED tests/test_x.py::test_y" in stdout
 
     def test_context_cache_blocks_repeat_read(self, tmp_path):
+        # Record happens only on PostToolUse (BACKLOG.md: a PreToolUse-only
+        # record falsely marks a sibling-hook-denied Read as served), so the
+        # actual-execution Post call must run between the two Pre checks.
         state_dir = tmp_path / "state"
         target = tmp_path / "app.py"
         target.write_text("print(1)\n")
-        payload = {
+        pre = {
+            "hook_event_name": "PreToolUse",
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": str(target)},
-            "tool_response": "",
             "transcript_path": str(tmp_path / "transcript.jsonl"),
         }
-        code1, _, _ = run_hook_with_env("context-cache.py", payload, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-        code2, _, stderr2 = run_hook_with_env("context-cache.py", payload, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        post = {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(target)},
+            "tool_response": "print(1)\n",
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        code1, _, _ = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code_post, _, _ = run_hook_with_env("context-cache.py", post, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code2, _, stderr2 = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
         assert code1 == 0
+        assert code_post == 0
         assert code2 == 2
         assert "context-cache" in stderr2
+
+    def test_context_cache_denied_read_is_not_recorded_as_served(self, tmp_path):
+        """A Read denied by a sibling PreToolUse hook (never executed) must
+        not be recorded — PostToolUse never fires for a denied call, so a
+        repeat PreToolUse check must still pass (BACKLOG.md)."""
+        state_dir = tmp_path / "state"
+        target = tmp_path / "app.py"
+        target.write_text("print(1)\n")
+        pre = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(target)},
+            "transcript_path": str(tmp_path / "transcript.jsonl"),
+        }
+        # Only the PreToolUse pass runs (simulating a sibling hook's deny —
+        # the tool never executes, so PostToolUse never fires).
+        code1, _, _ = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code2, _, _ = run_hook_with_env("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code1 == 0
+        assert code2 == 0, "a denied Read must not be recorded as served"
 
     def test_context_cache_blocks_repeat_bash_after_posttool_record(self, tmp_path):
         state_dir = tmp_path / "state"

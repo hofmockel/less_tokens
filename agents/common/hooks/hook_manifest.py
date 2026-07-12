@@ -73,11 +73,15 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
     HookSpec(
         name="context-cache",
         claude_script="context-cache.py",
-        claude=(HookWire("PreToolUse", "Read|Grep"),),
+        claude=(
+            HookWire("PreToolUse", "Read|Grep"),
+            HookWire("PostToolUse", "Read|Grep"),
+        ),
         codex_script="context-cache.py",
         codex=(
             HookWire("PreToolUse", "mcp__filesystem__.*|Bash"),
             HookWire("PostToolUse", "Bash"),
+            HookWire("PostToolUse", "mcp__filesystem__.*"),
         ),
     ),
     HookSpec(

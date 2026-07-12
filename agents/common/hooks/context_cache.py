@@ -278,6 +278,15 @@ def check_context_cache(
             return 0, "", ""
         offset = inp.get("offset") or None
         limit = inp.get("limit") or None
+        if event_name == "PostToolUse":
+            # Record only once the Read actually executed. Recording at
+            # PreToolUse time is wrong: a sibling PreToolUse hook (e.g.
+            # search-first) can still deny this same call, and PostToolUse
+            # never fires for a denied call — so gating the record on
+            # PostToolUse means a denied Read is never falsely marked served.
+            record_read(state, file_path, offset, limit)
+            save_state(state_dir, state)
+            return 0, "", ""
         msg = check_read(state, file_path, offset, limit)
         if msg:
             if log:
@@ -294,8 +303,11 @@ def check_context_cache(
                 })
             save_state(state_dir, state)
             return 2, "", msg
-        record_read(state, file_path, offset, limit)
     else:
+        if event_name == "PostToolUse":
+            record_grep(state, inp)
+            save_state(state_dir, state)
+            return 0, "", ""
         msg = check_grep(state, inp, grep_ttl)
         if msg:
             if log:
@@ -312,7 +324,6 @@ def check_context_cache(
             save_state(state_dir, state)
             return 2, "", msg
         record_near_miss(state_dir, kind="grep", signature=str(inp.get("pattern") or inp.get("query") or "")[:80])
-        record_grep(state, inp)
 
     save_state(state_dir, state)
     return 0, "", ""
