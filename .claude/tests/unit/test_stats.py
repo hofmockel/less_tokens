@@ -501,6 +501,82 @@ def test_html_escapes_session_id(tmp_path):
     assert "&lt;img" in html
 
 
+def test_doctor_html_reports_paths_counts_and_hook_checks(tmp_path):
+    stats = _import_stats()
+    state = tmp_path / "state"
+    state.mkdir()
+    log = state / "savings.jsonl"
+    html = state / "savings.html"
+    log.write_text(
+        "\n".join([
+            json.dumps({
+                "strategy": "truncation",
+                "basis": "measured",
+                "elided_chars": 400,
+                "ts": 100.0,
+                "session_id": "s1",
+                "session_source": "payload",
+            }),
+            json.dumps({
+                "strategy": "search",
+                "basis": "upper_bound",
+                "elided_chars": 900,
+                "ts": 200.0,
+                "session_id": "s1",
+                "session_source": "payload",
+            }),
+            "{not-json",
+        ]),
+        encoding="utf-8",
+    )
+    html.write_text("<html></html>", encoding="utf-8")
+
+    with (
+        patch("stats.BASE", tmp_path),
+        patch("stats.STATE_DIR", state),
+        patch("stats.LOG_FILE", log),
+        patch("stats.HTML_FILE", html),
+        patch.dict(os.environ, {"LESS_TOKENS_AGENT": "codex"}),
+        patch("stats._run_html_hook_check", return_value={
+            "ok": True, "returncode": 0, "stdout": "", "stderr": "",
+        }) as run_hook,
+    ):
+        lines = stats._doctor_html_lines()
+
+    assert f"agent: codex" in lines
+    assert f"state dir: {state}" in lines
+    assert f"log path: {log}" in lines
+    assert "log events: 2" in lines
+    assert "log malformed lines: 1" in lines
+    assert f"html path: {html}" in lines
+    assert "session records: 2" in lines
+    assert "all-time records: 2" in lines
+    assert "session measured chars: 400" in lines
+    assert "session upper-bound chars: 900" in lines
+    assert "hook regeneration (repo root): ok" in lines
+    assert "hook regeneration (nested cwd): ok" in lines
+    assert run_hook.call_count == 2
+
+
+def test_doctor_html_reports_missing_files(tmp_path):
+    stats = _import_stats()
+    with (
+        patch("stats.BASE", tmp_path),
+        patch("stats.STATE_DIR", tmp_path / "state"),
+        patch("stats.LOG_FILE", tmp_path / "state" / "savings.jsonl"),
+        patch("stats.HTML_FILE", tmp_path / "state" / "savings.html"),
+        patch("stats._run_html_hook_check", return_value={
+            "ok": False, "returncode": 1, "stdout": "", "stderr": "boom",
+        }),
+    ):
+        text = "\n".join(stats._doctor_html_lines())
+
+    assert "log exists: False" in text
+    assert "newest log ts: none" in text
+    assert "html mtime: missing" in text
+    assert "hook regeneration (repo root): failed rc=1 stderr='boom'" in text
+
+
 # --- Phase 5 surfacing helpers ---------------------------------------------
 
 def test_fmt_tokens_scales():

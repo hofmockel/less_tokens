@@ -13,9 +13,12 @@ from __future__ import annotations
 import argparse
 import html as _html
 import json
+import os
 import re
+import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent.parent
@@ -550,6 +553,139 @@ def _write_html_report(session_records: list[dict], all_records: list[dict]) -> 
     return HTML_FILE
 
 
+def _active_agent_name() -> str:
+    agent = os.environ.get("LESS_TOKENS_AGENT", "").strip().lower()
+    return agent if agent in {"claude", "codex"} else "claude"
+
+
+def _fmt_mtime(path: Path) -> str:
+    if not path.exists():
+        return "missing"
+    return time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(path.stat().st_mtime))
+
+
+def _scan_log_file() -> dict:
+    """Cheap raw-log scan for doctor output, separate from report normalization."""
+    info = {"exists": LOG_FILE.exists(), "events": 0, "malformed": 0, "newest_ts": None}
+    if not LOG_FILE.exists():
+        return info
+    for line in LOG_FILE.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except Exception:
+            info["malformed"] += 1
+            continue
+        info["events"] += 1
+        ts = record.get("ts")
+        if isinstance(ts, (int, float)):
+            newest = info["newest_ts"]
+            info["newest_ts"] = ts if newest is None else max(newest, ts)
+    return info
+
+
+def _fmt_log_ts(ts: object) -> str:
+    if not isinstance(ts, (int, float)):
+        return "none"
+    return time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(ts))
+
+
+def _basis_totals(records: list[dict]) -> tuple[int, int]:
+    data = _summarize(records)
+    measured = sum(data[k]["saved_chars"] for k in _MEASURED_STRATEGIES)
+    upper = sum(data[k]["saved_chars"] for k in _UPPER_BOUND_STRATEGIES)
+    return measured, upper
+
+
+def _html_hook_path(agent: str) -> Path:
+    if agent == "codex":
+        return BASE / "agents" / "codex" / "hooks" / "savings-html.py"
+    return BASE / ".claude" / "hooks" / "savings-html.py"
+
+
+def _run_html_hook_check(cwd: Path, agent: str) -> dict:
+    hook = _html_hook_path(agent)
+    env = dict(os.environ)
+    env.setdefault("LESS_TOKENS_REPO", str(BASE))
+    env["LESS_TOKENS_AGENT"] = agent
+    before_mtime = HTML_FILE.stat().st_mtime_ns if HTML_FILE.exists() else None
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(hook)],
+            input="{}\n",
+            text=True,
+            capture_output=True,
+            cwd=str(cwd),
+            env=env,
+            timeout=10,
+            check=False,
+        )
+    except Exception as e:
+        return {"ok": False, "returncode": "error", "stdout": "", "stderr": str(e)}
+    after_mtime = HTML_FILE.stat().st_mtime_ns if HTML_FILE.exists() else None
+    refreshed = after_mtime is not None and after_mtime != before_mtime
+    return {
+        "ok": proc.returncode == 0 and refreshed,
+        "returncode": proc.returncode,
+        "stdout": proc.stdout.strip(),
+        "stderr": proc.stderr.strip(),
+    }
+
+
+def _hook_result_line(label: str, result: dict) -> str:
+    status = "ok" if result["ok"] else f"failed rc={result['returncode']}"
+    detail = ""
+    if result.get("stderr"):
+        detail = f" stderr={result['stderr'][:160]!r}"
+    elif result.get("stdout"):
+        detail = f" stdout={result['stdout'][:160]!r}"
+    return f"hook regeneration ({label}): {status}{detail}"
+
+
+def _doctor_html_lines() -> list[str]:
+    agent = _active_agent_name()
+    log_info = _scan_log_file()
+    session_records = _load_records(all_time=False)
+    all_records = _load_records(all_time=True)
+    session_measured, session_upper = _basis_totals(session_records)
+    all_measured, all_upper = _basis_totals(all_records)
+
+    lines = [
+        "Savings HTML doctor",
+        f"agent: {agent}",
+        f"state dir: {STATE_DIR}",
+        f"log path: {LOG_FILE}",
+        f"log exists: {log_info['exists']}",
+        f"log events: {log_info['events']}",
+        f"log malformed lines: {log_info['malformed']}",
+        f"newest log ts: {_fmt_log_ts(log_info['newest_ts'])}",
+        f"html path: {HTML_FILE}",
+        f"html mtime: {_fmt_mtime(HTML_FILE)}",
+        f"session records: {len(session_records)}",
+        f"all-time records: {len(all_records)}",
+        f"session measured chars: {session_measured:,}",
+        f"session upper-bound chars: {session_upper:,}",
+        f"all-time measured chars: {all_measured:,}",
+        f"all-time upper-bound chars: {all_upper:,}",
+    ]
+
+    root_result = _run_html_hook_check(BASE, agent)
+    lines.append(_hook_result_line("repo root", root_result))
+    with tempfile.TemporaryDirectory(prefix=".doctor-html-", dir=BASE) as tmp:
+        nested = Path(tmp) / "nested"
+        nested.mkdir()
+        nested_result = _run_html_hook_check(nested, agent)
+    lines.append(_hook_result_line("nested cwd", nested_result))
+    lines.append(f"html mtime after hook: {_fmt_mtime(HTML_FILE)}")
+    return lines
+
+
+def _run_doctor_html() -> int:
+    print("\n".join(_doctor_html_lines()))
+    return 0
+
+
 # --- Phase 5 surfacing: glanceable one-liner + clickable link ---------------
 #
 # Both surfaces (Claude Stop-hook transcript line, Claude Code statusline) read
@@ -726,6 +862,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
     ap.add_argument("--html", action="store_true", help="Write savings.html")
+    ap.add_argument("--doctor-html", action="store_true",
+                    help="Diagnose savings.html state, log counts, paths, and hook refresh")
     ap.add_argument("--oneliner", action="store_true",
                     help="Print one measured savings line (for statusline) and exit")
     ap.add_argument("--calibrate", action="store_true",
@@ -748,6 +886,9 @@ def main() -> int:
 
     if args.audit_liveness:
         return _run_audit_liveness(args.liveness_window_days)
+
+    if args.doctor_html:
+        return _run_doctor_html()
 
     if args.oneliner:
         print(_measured_oneliner(_load_records(all_time=False)))
