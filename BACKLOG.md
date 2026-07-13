@@ -12,7 +12,6 @@ Confirmed defects found by code inspection. Each has a specific file and line re
 
 | **Bug** | **Details** | **Status** |
 |---|---|---|
-| Installed `.less_tokens/hooks/budget/config.py` still references a deleted doc file | `2d2efbb` ("Fold eb_*.md team-review docs into BACKLOG/DECISIONS/DOCUMENTATION, then delete them") updated the docstring comment in the source at `agents/common/budget/config.py:71` but missed the installed copy at `.less_tokens/hooks/budget/config.py:71`, which still reads "...without changing behavior anywhere else — see eb_plan_4jul26.md Strategy 2." (file already deleted). Cosmetic only — no behavior difference, confirmed via `diff`. Self-heals on the next real `install.py --update` (dry-run against live repo, 2026-07-09, showed this as the one pending file change: `↺ .less_tokens/hooks/budget/config.py (+1 -1 lines vs source, would overwrite)`). Found while re-verifying `ecf45ff`'s hook-dedup fix. | Open |
 
 ---
 
