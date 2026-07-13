@@ -440,6 +440,8 @@ def launcher_cmd(agent: str, target_root: Path) -> str:
     rel = launcher_rel(agent)
     if sys.platform == "win32":
         rel = rel.with_suffix(".cmd")
+    if agent == "codex":
+        return (target_root / rel).resolve().as_posix()
     return rel.as_posix()
 
 
@@ -817,8 +819,16 @@ def build_codex_hook_entries(
             "no_compact": False,
             "no_caveman": False,
         })
-    prefix = f"{env} {py}"
-    return hook_entries("codex", prefix, args)
+    prefix = f"{env} {shlex.quote(py)}"
+    entries = hook_entries("codex", prefix, args)
+    rewritten = []
+    for event, matcher, command in entries:
+        prefix_part, script = command.rsplit(" ", 1)
+        normalized_script = script.replace("\\", "/")
+        if normalized_script.startswith(".codex/hooks/"):
+            script = shlex.quote(str((target_root / normalized_script).resolve()))
+        rewritten.append((event, matcher, f"{prefix_part} {script}"))
+    return rewritten
 
 
 def wire_settings(
@@ -1864,7 +1874,7 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                         if not any(h.get("event") == ev and h.get("command") == cmd for h in hooks)
                     ]
                     if missing:
-                        names = ", ".join(Path(cmd.split()[-1]).name for _, _, cmd in missing[:5])
+                        names = ", ".join(Path(shlex.split(cmd)[-1]).name for _, _, cmd in missing[:5])
                         _fail(f".codex/hooks.json missing {len(missing)} less_tokens hook(s): {names}")
                     else:
                         _pass(f".codex/hooks.json has all {len(expected)} expected less_tokens hook(s)")

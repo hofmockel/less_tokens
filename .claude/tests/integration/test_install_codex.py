@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import shlex
 import subprocess
 import sys
 from argparse import Namespace
@@ -179,15 +180,20 @@ class TestCodexWritabilityProbe:
 # ---------------------------------------------------------------------------
 
 class TestBuildCodexHookEntries:
-    def test_core_entries_use_codex_launcher_and_agent_env(self, tmp_path):
+    def test_core_entries_use_absolute_codex_launcher_and_agent_env(self, tmp_path):
         entries = build_codex_hook_entries(
             tmp_path / ".venv" / "bin" / "python",
             tmp_path,
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
+        launcher = (tmp_path / ".less_tokens" / "bin" / ("python.cmd" if sys.platform == "win32" else "python")).resolve().as_posix()
+        hooks_dir = str((tmp_path / ".codex" / "hooks").resolve())
         assert len(entries) == sum(len(spec.codex) for spec in HOOK_SPECS)
-        assert all(cmd.startswith("LESS_TOKENS_AGENT=codex .less_tokens/bin/python") for cmd in commands)
+        assert all(cmd.startswith(f"LESS_TOKENS_AGENT=codex {launcher}") for cmd in commands)
+        assert all(hooks_dir in cmd for cmd in commands)
+        assert all(" .less_tokens/bin/python" not in cmd for cmd in commands)
+        assert all(" .codex/hooks/" not in cmd for cmd in commands)
         assert any("budget-observer.py" in cmd for cmd in commands)
         assert any("search-first.py" in cmd for cmd in commands)
         assert any("read-guard.py" in cmd for cmd in commands)
@@ -269,6 +275,39 @@ class TestBuildCodexHookEntries:
         assert any("truncate-output.py" in cmd for cmd in commands)
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("terse-reminder.py" in cmd for cmd in commands)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="Codex hook env prefix is POSIX shell syntax")
+    def test_generated_hook_command_runs_from_nested_cwd(self, tmp_path):
+        entries = build_codex_hook_entries(
+            tmp_path / ".venv" / "bin" / "python",
+            tmp_path,
+            Namespace(truncate=False, compact=False, caveman=False),
+        )
+        command = next(cmd for _, _, cmd in entries if "savings-html.py" in cmd)
+
+        launcher = tmp_path / ".less_tokens" / "bin" / "python"
+        launcher.parent.mkdir(parents=True)
+        launcher.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n", encoding="utf-8")
+        launcher.chmod(0o755)
+
+        hook = tmp_path / ".codex" / "hooks" / "savings-html.py"
+        hook.parent.mkdir(parents=True)
+        hook.write_text("import os\nprint(os.environ.get('LESS_TOKENS_AGENT'))\n", encoding="utf-8")
+
+        nested = tmp_path / "subdir"
+        nested.mkdir()
+        result = subprocess.run(
+            command,
+            cwd=nested,
+            input="{}",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "codex"
 
 
 # ---------------------------------------------------------------------------

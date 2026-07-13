@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sqlite3
 import sys
 from pathlib import Path
@@ -83,7 +84,7 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     codex_hooks.mkdir(parents=True)
     entries = build_codex_hook_entries(venv_py, root, _args(agent="codex"))
     for _, _, cmd in entries:
-        (codex_hooks / Path(cmd.split()[-1]).name).touch()
+        (codex_hooks / Path(shlex.split(cmd)[-1]).name).touch()
     (root / ".codex" / "hooks.json").write_text(json.dumps({
         "hooks": [
             {"event": ev, "matcher": matcher, "command": cmd}

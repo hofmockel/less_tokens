@@ -96,12 +96,13 @@ class TestInstallSpecsAgentSelector:
 
 
 class TestLauncherCommands:
-    def test_codex_launcher_command_is_less_tokens_python(self, tmp_path):
+    def test_codex_launcher_command_is_absolute_less_tokens_python(self, tmp_path):
         import sys as _sys
-        expected = ".less_tokens/bin/python.cmd" if _sys.platform == "win32" else ".less_tokens/bin/python"
+        rel = Path(".less_tokens") / "bin" / ("python.cmd" if _sys.platform == "win32" else "python")
+        expected = (tmp_path / rel).resolve().as_posix()
         assert launcher_cmd("codex", tmp_path) == expected
 
-    def test_codex_hooks_use_launcher_not_raw_venv(self, tmp_path):
+    def test_codex_hooks_use_absolute_launcher_not_raw_venv(self, tmp_path):
         entries = build_codex_hook_entries(
             tmp_path / ".venv" / "bin" / "python",
             tmp_path,
@@ -109,5 +110,7 @@ class TestLauncherCommands:
         )
         commands = [cmd for _, _, cmd in entries]
         assert commands
-        assert all(".less_tokens/bin/python" in cmd for cmd in commands)
+        expected = (tmp_path / ".less_tokens" / "bin" / "python").resolve().as_posix()
+        assert all(expected in cmd for cmd in commands)
         assert all(".venv/bin/python" not in cmd for cmd in commands)
+        assert all(str((tmp_path / ".codex" / "hooks").resolve()) in cmd for cmd in commands)
