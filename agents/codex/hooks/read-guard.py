@@ -2,28 +2,11 @@
 """Codex PreToolUse hook: block whole-file reads of noisy files."""
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
-sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
-sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
+bootstrap()
 
 from read_guard import check_read_guard  # noqa: E402
 
@@ -43,9 +26,8 @@ def _file_input(raw: dict) -> tuple[str, object]:
 
 
 def main() -> int:
-    try:
-        raw = json.loads(sys.stdin.read())
-    except Exception:
+    raw = load_json_stdin()
+    if not raw:
         return 0
     if raw.get("tool_name") not in {"Read", "mcp__filesystem__read_file"}:
         return 0

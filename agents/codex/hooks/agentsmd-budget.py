@@ -8,26 +8,12 @@ install.py wires this into .codex/hooks.json.
 """
 from __future__ import annotations
 
-import json
-import os
 import sys
 from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+REPO = bootstrap()
 
 try:
     from search_config import AGENTS_MD_TOKEN_BUDGET, AGENTS_MD_OVERFLOW_DOC
@@ -41,9 +27,8 @@ except Exception:
 def main() -> int:
     if AGENTS_MD_TOKEN_BUDGET == 0 or cma is None:
         return 0
-    try:
-        payload = json.load(sys.stdin)
-    except Exception:
+    payload = load_json_stdin()
+    if not payload:
         return 0
     if payload.get("tool_name", "") not in {"Edit", "Write"}:
         return 0

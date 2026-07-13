@@ -2,34 +2,18 @@
 """Codex PreToolUse hook: replace recursive directory listings with lean-ls."""
 from __future__ import annotations
 
-import json
-import os
 import re
 import shlex
 import sys
 from pathlib import Path
 
-
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
+from _codex_runtime import bootstrap, load_json_stdin, print_result
 
 
-REPO = _resolve_repo()
-sys.path[:0] = [
-    str(REPO / "agents" / "common" / "hooks"),
-    str(REPO / ".less_tokens" / "hooks"),
-]
+REPO = bootstrap()
 TOOLS = REPO / ".less_tokens" / "tools"
 if not TOOLS.exists():
     TOOLS = REPO / ".claude" / "tools"
-sys.path.append(str(TOOLS))
 
 from listing_guard import check_listing_guard, is_bare_listing, run_lean_ls  # noqa: E402
 
@@ -89,9 +73,8 @@ def _run_lean_ls(path: str) -> str:
 
 
 def main() -> int:
-    try:
-        payload = json.loads(sys.stdin.read())
-    except Exception:
+    payload = load_json_stdin()
+    if not payload:
         return 0
     if payload.get("tool_name") != "Bash":
         return 0
@@ -107,11 +90,7 @@ def main() -> int:
         lean_ls=TOOLS / "lean-ls.py",
         tip_prefix=".less_tokens/tools",
     )
-    if stdout:
-        print(stdout)
-    if stderr:
-        print(stderr, file=sys.stderr)
-    return code
+    return print_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

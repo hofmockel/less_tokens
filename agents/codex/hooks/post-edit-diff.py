@@ -2,30 +2,12 @@
 """Codex PostToolUse hook: emit compact diffs and record edited files."""
 from __future__ import annotations
 
-import json
-import os
 import sys
 from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin, print_result
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path[:0] = [
-    str(REPO / "agents" / "common" / "hooks"),
-    str(REPO / ".less_tokens" / "hooks"),
-    str(REPO / ".less_tokens" / "tools"),
-    str(REPO / ".claude" / "tools"),
-]
+REPO = bootstrap()
 
 from payload import normalize_codex  # noqa: E402
 from post_edit_diff import cap as _cap, check_post_edit_diff, diff_edit as _diff_edit, diff_repo, diff_write, record_edit  # noqa: E402
@@ -49,9 +31,8 @@ def _record_edit(file_path: str) -> None:
 
 
 def main() -> int:
-    try:
-        payload = json.loads(sys.stdin.read())
-    except Exception:
+    payload = load_json_stdin()
+    if not payload:
         return 0
     code, stdout, stderr = check_post_edit_diff(
         normalize_codex(payload),
@@ -62,11 +43,7 @@ def main() -> int:
         apply_patch_max_chars=CODEX_APPLY_PATCH_DIFF_CHARS,
         message="Diff in context — skip whole-file rereads unless you need unrelated lines.",
     )
-    if stdout:
-        print(stdout)
-    if stderr:
-        print(stderr, file=sys.stderr)
-    return code
+    return print_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

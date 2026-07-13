@@ -2,28 +2,11 @@
 """Codex PostToolUse hook: re-embed indexed files after apply_patch/Edit/Write."""
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin, print_result
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
-sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+REPO = bootstrap()
 
 from payload import normalize_codex  # noqa: E402
 from index_refresh import check_index_refresh  # noqa: E402
@@ -50,11 +33,14 @@ except Exception:
     config = {}
     state_dir = REPO / ".less_tokens" / "state"
 
-raw = json.loads(sys.stdin.read())
-payload = normalize_codex(raw)
-code, stdout, stderr = check_index_refresh(payload, repo=REPO, state_dir=state_dir, config=config)
-if stdout:
-    print(stdout)
-if stderr:
-    print(stderr, file=sys.stderr)
-sys.exit(code)
+def main() -> int:
+    raw = load_json_stdin()
+    if not raw:
+        return 0
+    payload = normalize_codex(raw)
+    code, stdout, stderr = check_index_refresh(payload, repo=REPO, state_dir=state_dir, config=config)
+    return print_result(code, stdout, stderr)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

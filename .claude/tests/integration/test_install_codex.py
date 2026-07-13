@@ -166,6 +166,16 @@ class TestCodexWritabilityProbe:
         dest_dirs = [s[1] for s in specs]
         assert any(".codex/hooks" in d for d in dest_dirs)
 
+    def test_codex_hook_runtime_helper_copied(self, tmp_path):
+        changed = copy_tree(
+            REPO / "agents" / "codex" / "hooks",
+            tmp_path / ".codex" / "hooks",
+            tmp_path,
+            force=True, overwrite_modified=True, label=".codex/hooks/",
+        )
+        assert changed > 0
+        assert (tmp_path / ".codex" / "hooks" / "_codex_runtime.py").exists()
+
     def test_dir_is_writable_helper_on_existing_dir(self, tmp_path):
         d = tmp_path / "sub"
         d.mkdir()

@@ -2,28 +2,11 @@
 """Codex PreToolUse hook: redirect whole-file reads to last-search slices."""
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin, map_read, print_result
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
-sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+REPO = bootstrap()
 
 from payload import normalize_codex  # noqa: E402
 from auto_slice import check_auto_slice  # noqa: E402
@@ -36,18 +19,9 @@ except Exception:
     state_dir = REPO / ".less_tokens" / "state"
 
 
-def _map_read(raw: dict) -> dict:
-    if raw.get("tool_name") == "mcp__filesystem__read_file":
-        inp = raw.setdefault("tool_input", {})
-        raw["tool_name"] = "Read"
-        inp["file_path"] = inp.get("path", "")
-    return raw
-
-
 def main() -> int:
-    try:
-        raw = _map_read(json.loads(sys.stdin.read()))
-    except Exception:
+    raw = load_json_stdin(map_read)
+    if not raw:
         return 0
     payload = normalize_codex(raw)
     code, stdout, stderr = check_auto_slice(
@@ -56,11 +30,7 @@ def main() -> int:
         window_seconds=WINDOW_SECONDS,
         read_example="Read file_path={file_path!r} offset={start} limit={limit}",
     )
-    if stdout:
-        print(stdout)
-    if stderr:
-        print(stderr, file=sys.stderr)
-    return code
+    return print_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

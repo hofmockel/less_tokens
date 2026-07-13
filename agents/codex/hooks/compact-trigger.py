@@ -2,28 +2,11 @@
 """Codex PostToolUse hook: nudge to start a fresh session when transcript grows large."""
 from __future__ import annotations
 
-import json
-import os
 import sys
-from pathlib import Path
 
+from _codex_runtime import bootstrap, load_json_stdin, print_result
 
-def _resolve_repo() -> Path:
-    if os.environ.get("LESS_TOKENS_REPO"):
-        return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
-    curr = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (curr / ".git").exists() or (curr / "AGENTS.md").exists():
-            return curr
-        curr = curr.parent
-    return Path(__file__).resolve().parent.parent.parent.parent
-
-
-REPO = _resolve_repo()
-sys.path.insert(0, str(REPO / ".less_tokens" / "hooks"))
-sys.path.insert(0, str(REPO / "agents" / "common" / "hooks"))
-sys.path.insert(0, str(REPO / ".less_tokens" / "tools"))
-sys.path.insert(0, str(REPO / ".claude" / "tools"))
+REPO = bootstrap()
 
 from payload import normalize_codex  # noqa: E402
 from compact_trigger import check_compact_trigger, measure_compaction  # noqa: E402
@@ -45,29 +28,32 @@ except Exception:
     MAX_SESSION_CHARS = 500_000
     state_dir = REPO / ".less_tokens" / "state"
 
-raw = json.loads(sys.stdin.read())
-payload = normalize_codex(raw)
-try:
-    measure_compaction(
+def main() -> int:
+    raw = load_json_stdin()
+    if not raw:
+        return 0
+    payload = normalize_codex(raw)
+    try:
+        measure_compaction(
+            payload,
+            state_dir=state_dir,
+            max_session_chars=MAX_SESSION_CHARS,
+            log=_log_savings,
+            session=resolve_session(raw),
+        )
+    except Exception:
+        pass
+    code, stdout, stderr = check_compact_trigger(
         payload,
         state_dir=state_dir,
         max_session_chars=MAX_SESSION_CHARS,
-        log=_log_savings,
-        session=resolve_session(raw),
+        message=(
+            "Session transcript is now {size:,} chars (threshold {threshold:,}). "
+            "Start a fresh or compacted Codex session if context pressure is high."
+        ),
     )
-except Exception:
-    pass
-code, stdout, stderr = check_compact_trigger(
-    payload,
-    state_dir=state_dir,
-    max_session_chars=MAX_SESSION_CHARS,
-    message=(
-        "Session transcript is now {size:,} chars (threshold {threshold:,}). "
-        "Start a fresh or compacted Codex session if context pressure is high."
-    ),
-)
-if stdout:
-    print(stdout)
-if stderr:
-    print(stderr, file=sys.stderr)
-sys.exit(code)
+    return print_result(code, stdout, stderr)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
