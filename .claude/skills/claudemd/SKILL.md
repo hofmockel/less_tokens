@@ -33,25 +33,18 @@ FIX: stale `path:line` refs. TRIM: filler + long sentences → caveman.
 
    Reports per-section tokens, a verdict (`KEEP / CUT→doc / TRIM / REVIEW`), stale refs (`FIX-REF`), and total vs budget. With a built index it adds a duplication % per section; without one it falls back to size-based `REVIEW`.
 
-2. For each `CUT→doc` / `REVIEW`: append the section to the overflow doc (it is indexed), then delete from CLAUDE.md. Leave a one-line pointer only if it's a standing rule.
-
-3. For each `FIX-REF`: repair or drop. Prefer symbol names over line numbers — line numbers rot, names don't.
-
-4. For each `TRIM`: rewrite caveman (see `.claude/rules/caveman.md`).
-
-5. Re-audit. Confirm under budget:
+2. Move + re-audit + verify recall for every `CUT→doc`/`REVIEW` section in one command:
 
    ```bash
-   python .claude/tools/claudemd_audit.py --strict   # exit 1 if over budget or dead refs
+   python .claude/tools/instruction_prune.py --agent claude                      # dry run: shows the plan
+   python .claude/tools/instruction_prune.py --agent claude --apply --verify-recall
    ```
 
-6. **Verify recall** — the safety net. For each moved section, search for its topic:
+   `--apply` appends each section to the overflow doc and leaves a one-line pointer at its old spot (delete the pointer by hand later if the section wasn't actually a standing rule; skip it entirely with `--no-pointer`). `--verify-recall` searches for each moved topic afterward and prints PASS/FAIL. **Safety rule: if verify-recall reports FAIL for a topic, restore that section to CLAUDE.md by hand** — the tool never auto-restores, since a FAIL means the content isn't reachable by the mechanism that justified cutting it, and auto-restoring risks clobbering a concurrent edit.
 
-   ```bash
-   .claude/.venv-tokens/bin/python .claude/tools/search.py "<moved topic>"
-   ```
+3. For each `FIX-REF` the dry run lists: repair or drop by hand. Prefer symbol names over line numbers — line numbers rot, names don't.
 
-   If it does not come back, the cut was unsafe — restore it to CLAUDE.md. "Cut" only holds if the content is still reachable by the mechanism that justified cutting it. If the overflow doc isn't indexed yet, run `embeddings.py refresh` first.
+4. For each `TRIM` the dry run lists: rewrite caveman by hand (see `.claude/rules/caveman.md`). Rewriting prose is a judgment call the tool doesn't attempt.
 
 ## Enforcement
 

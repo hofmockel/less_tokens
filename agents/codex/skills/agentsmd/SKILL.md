@@ -31,29 +31,18 @@ Fix stale `path:line` refs. Prefer symbol names over line numbers.
    .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py
    ```
 
-2. For each `CUT->doc` or `REVIEW`, move the content to the overflow doc and leave only a short pointer if the pointer is itself a standing rule.
-
-3. For each `FIX-REF`, repair or remove the stale reference.
-
-4. For each `TRIM`, rewrite directly and remove filler.
-
-5. Re-audit strictly:
+2. Move + re-audit + verify recall for every `CUT->doc`/`REVIEW` section in one command:
 
    ```bash
-   .less_tokens/bin/python .less_tokens/tools/agentsmd_audit.py --strict
+   .less_tokens/bin/python .less_tokens/tools/instruction_prune.py --agent codex
+   .less_tokens/bin/python .less_tokens/tools/instruction_prune.py --agent codex --apply --verify-recall
    ```
 
-6. Verify recall for moved topics:
+   `--apply` appends each section to the overflow doc and leaves a one-line pointer at its old spot (delete it by hand if the section wasn't a standing rule; skip it entirely with `--no-pointer`). `--verify-recall` searches for each moved topic and prints PASS/FAIL. Safety rule: if verify-recall FAILs, restore that section to AGENTS.md by hand -- the tool never auto-restores.
 
-   ```bash
-   .less_tokens/bin/python .less_tokens/tools/search.py "<moved topic>"
-   ```
+3. For each `FIX-REF` the dry run lists, repair or remove the stale reference by hand.
 
-   If search cannot find the moved content, restore it or refresh the index first:
-
-   ```bash
-   .less_tokens/bin/python .less_tokens/tools/embeddings.py refresh
-   ```
+4. For each `TRIM` the dry run lists, rewrite directly and remove filler by hand.
 
 ## Enforcement
 

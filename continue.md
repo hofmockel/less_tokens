@@ -1,78 +1,67 @@
 # Continue: less_tokens
 
-> **Next focus:** fix the nested-cwd hook bug (now confirmed universal — all 16 Codex hooks share
-> the bug, not just one), triage the newly-solved savings.html cause, de-noise Strategy 4's
-> near-miss data before touching its threshold, and run Strategy 1 (calibration).
+> **Next focus:** decide whether to harden `instruction_prune.py --verify-recall`'s missing-numpy
+> failure mode now or backlog it, then commit this session's uncommitted pruning-automation work.
 
 ## Current state
-HEAD is `b7b6841`, working tree has uncommitted changes (see below) — nothing pushed/committed
-this pass. Governance-run team review (`program`+`tect`+`backend`+`qa`, T2, commissioned via
-`ever_better`) completed 2026-07-08 — the third such review of this repo, following ones on
-2026-07-04. Its durable findings are folded into `BACKLOG.md`/`DECISIONS.md` directly (the
-dated review documents themselves were working fodder, since deleted).
+HEAD is `02e10ef`, working tree has uncommitted changes (see below), nothing committed/pushed this
+pass. This session built and *ran for real* the BACKLOG "Automate CLAUDE.md/AGENTS.md pruning
+workflow" item: `.claude/tools/instruction_prune.py` now exists, is tested, and has already been
+applied against this repo's own `CLAUDE.md` and `AGENTS.md` — both are currently smaller, with
+pointers into `DOCUMENTATION.md`, and both passed a manual verify-recall check.
 
 ## What happened this session
-- **Team review** re-checked enforceability/reliability/measurability for
-  Claude and Codex against live repo state, not just the 07-04 plan's assumptions. Corrected one
-  stale premise (Strategy 5's ruling was already written 2026-07-07 in `DECISIONS.md` — done, no
-  action needed). New findings: the nested-cwd hook bug is universal across all 16 wired Codex hook
-  commands, not scoped to one hook (severity raised); the untriaged "savings.html shows nothing"
-  BACKLOG item is root-caused to this repo's own stale local Codex install, most likely the same
-  nested-cwd bug's visible symptom (Claude's copy has real, just-stale data — probably no
-  Claude-side bug); Strategy 4's near-miss threshold data is ~25% contaminated by hardcoded
-  test-fixture round numbers (`600000`/`650000` in 4 test files), invisible to the existing CI
-  isolation gate, so its threshold call still isn't ready.
-- **Ran the fix the review recommended**: this repo's own dogfooded `.codex/` install was stale —
-  predated the commit that widened `context-cache` to cover Codex Bash calls, so zero real
-  cached-bash/grep telemetry had ever fired on the Codex side here. Verified the installer itself
-  was correct (self-target install is intentionally guarded — see `install.py`'s Scenario E test —
-  so refreshed via a throwaway nested clone: `git clone --local . .lt-bootstrap-tmp`, ran
-  `install.py --agent codex --update --skip-deps --no-build` from inside it targeting the repo
-  root, then deleted the clone). Result: `.codex/hooks.json` now has all 16 hooks (was missing 2:
-  `context-cache`'s Bash `PostToolUse`, and one `.*` `PostToolUse`); 5 stale `.codex/hooks/*.py`
-  files refreshed (`context-cache.py`, `truncate-output.py`, `search-first.py`,
-  `post-edit-diff.py`, `listing-guard.py`); `AGENTS.md`'s less_tokens block pruned to match the
-  current instruction-pruning pattern; `.gitignore` gained generated-state exclusions;
-  `.less_tokens/config/budget.json`'s `agent_overrides.codex` went from `{}` to populated defaults
-  (was empty, so nothing custom was clobbered). **This does not fix the nested-cwd bug itself** —
-  it only brings this repo's own install current; the underlying relative-path defect in
-  `install.py`'s Codex command generation is still open and still Codex's fix to make.
-- Uncommitted from before this session (not touched): `BACKLOG.md` already had a manual
-  one-line note about the savings.html symptom, no status — the review's root-cause finding above
-  should be folded into that row rather than left as a bare note.
+- Built `.claude/tools/instruction_prune.py` (`--agent claude|codex [--apply] [--verify-recall]
+  [--no-pointer]`) by importing `claudemd_audit.py`'s existing `audit()`/`parse_sections()`/
+  `verdict()` rather than re-deriving section/verdict logic. Dry run lists moves; `--apply` appends
+  sections to the overflow doc under a `## Moved from CLAUDE.md`/`AGENTS.md` marker, leaves a
+  pointer (opt out with `--no-pointer`), then re-runs the exact same `audit()` the budget hooks use
+  so "apply succeeded" and "the hook won't block the next edit" mean the same thing.
+- New tests: `.claude/tests/unit/test_instruction_prune.py` (9 cases). Full suite re-run clean
+  (830 passed; 13 pre-existing failures confirmed via `git stash` to predate this session, unrelated
+  — `test_agentsmd_budget_hook.py`, `test_bug7_chars_per_token.py`, `test_stats.py`,
+  `test_toolcost.py`, `test_bug_stats_total_tokens.py`).
+- Updated both `claudemd`/`agentsmd` SKILL.md files to collapse to command + safety rules; added a
+  CHANGELOG entry, DOCUMENTATION.md's shipped-strategy table gained **S14**; deleted the resolved
+  BACKLOG.md row (per this repo's own convention — delete + CHANGELOG entry, never mark "Done").
+- **Ran `--apply --verify-recall` for real** against this repo's own CLAUDE.md ("Project purpose"
+  moved) and AGENTS.md ("Token Discipline" moved) — both re-audits came back clean
+  (`over_budget=False`, `dead_refs=0`), both topics confirmed searchable in DOCUMENTATION.md
+  afterward (score 0.68 and 0.73 respectively, via `.claude/.venv-tokens/bin/python
+  .claude/tools/search.py` post-`embeddings.py refresh`).
+- **Found a rough edge**: `--verify-recall` crashes with a raw `ModuleNotFoundError: numpy`
+  traceback (exit 1, but ugly) when invoked via plain `python3` instead of the repo's own
+  `.claude/.venv-tokens/bin/python` — `search.py`/`embeddings.py` import numpy unconditionally at
+  module level, and `instruction_prune.py`'s lazy `_load_search_deps()` doesn't catch that. Worked
+  around it manually this session (ran verify-recall steps through the venv python instead). Not
+  yet fixed in the tool itself — undecided whether to catch-and-message now or backlog it.
+- Confirmed (did **not** commit) that `.less_tokens/tools/*.py` is gitignored — Codex-side shims are
+  local-only, regenerated by `install.py`'s `write_codex_tool_shims` (globs `.claude/tools/*.py`).
+  No hand-written shim was needed for the new tool; generated one manually once this session purely
+  to verify the mechanism works, but it's untracked and doesn't need committing.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md).
-1. **Codex nested-cwd bug** (Bugs table) — now confirmed to disable all 16 hooks, not one; needs a
-   Codex-context session. Likely fix: absolute-path `.codex/hooks.json` commands (Claude's
-   `.claude/settings.json` stays relative — harness resets Bash cwd to repo root between calls,
-   Codex has no such guarantee).
-2. **Fold the savings.html root-cause into `BACKLOG.md`'s bare note** — turn "research into why...
-   showing nothing" into a proper Bugs-table row pointing at the nested-cwd bug as likely cause,
-   now that this session's Codex install refresh isolated it to a local-install-staleness /
-   nested-cwd interaction rather than a code defect in the regeneration script itself.
-3. **Strategy 1** — run `stats.py --calibrate` once `ANTHROPIC_API_KEY` is available.
-4. **Strategy 3/4** — de-noise `near_misses.jsonl` first (the 07-04 tests hardcoding
-   `600000`/`650000` pollute Strategy 4's threshold data by ~25%; the CI isolation gate doesn't
-   catch this because it only watches `.less_tokens/state/events.jsonl`, not the near-miss log).
-   Do not guess at threshold numbers until the contamination is fixed or filtered.
-5. **G10 ID collision** and **missing acceptance criterion** on the search-cache item — still open,
-   pure docs/BACKLOG edits, no data dependency.
-6. **Commit this session's changes** — `.codex/` refresh is gitignored (no commit needed there),
-   but `.gitignore`, `AGENTS.md`, `.less_tokens/config/budget.json`, and `BACKLOG.md` are real
-   tracked changes still uncommitted.
+See [BACKLOG.md](BACKLOG.md) for anything unrelated to this session.
+1. **Decide on the numpy-crash fix** (see above) — catch `ModuleNotFoundError` in
+   `_load_search_deps()` and print "run via `.claude/.venv-tokens/bin/python`" instead of a raw
+   traceback, or leave it (the tool still exits nonzero either way, just uglier than it should be).
+2. **Commit this session's changes** — nothing has been committed yet. Tracked diff: `CLAUDE.md`,
+   `AGENTS.md`, `DOCUMENTATION.md`, `BACKLOG.md`, `CHANGELOG.md`, both SKILL.md files, plus two new
+   untracked files (`.claude/tools/instruction_prune.py`,
+   `.claude/tests/unit/test_instruction_prune.py`).
+3. CLAUDE.md's "Output style" section is still flagged `TRIM` (manual rewrite) — untouched by
+   design, the tool doesn't attempt prose rewrites.
+4. Everything in the prior handoff (nested-cwd nuance, Strategy 1 calibration, near-miss de-noising)
+   is likely resolved by the 15 commits since `b7b6841` — re-check `BACKLOG.md`'s current state
+   rather than trusting that old list.
 
 ## Suggested skills
-- `/bugfix` for the nested-cwd bug (Codex-context session) or the near_misses.jsonl contamination.
-- `/continue` — rewrite this once the nested-cwd bug lands, calibration runs, or near-miss
-  contamination is resolved.
+- `/bugfix` if you decide to harden the numpy-crash edge case (item 1) — small, well-scoped fix.
+- `/continue` — rewrite this once the above is committed or the crash-handling decision is made.
 
 ## Start here
-If in a Codex-context session: fix the nested-cwd hook-command bug — it's now known to be
-universal, not single-hook (`BACKLOG.md` Bugs table has the full case).
-Otherwise: commit the pending tracked changes first (item 6 above), then either fold the
-savings.html finding into `BACKLOG.md` (item 2, quick) or start de-noising `near_misses.jsonl`
-before touching Strategy 3/4.
+Decide item 1 (numpy crash handling), apply if yes, then commit everything from item 2 in one pass
+— the diff is coherent (one BACKLOG item, fully shipped and already exercised for real).
 
 ---
-_Last updated at HEAD `b7b6841` (working tree dirty) on 2026-07-08._
+_Last updated at HEAD `02e10ef` (working tree dirty) on 2026-07-14._

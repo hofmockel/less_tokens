@@ -621,6 +621,7 @@ Shipped strategies (IDs are stable across `CHANGELOG.md` / `BACKLOG.md`):
 | S11 | output | terse-output check on the assistant turn | Stop → `caveman-reminder.py` |
 | S12 | tool | structured parsers (pytest/ruff/eslint/git) | PostToolUse Bash → `lean-output.py` |
 | S13 | input | grep-first: block oversized Read, route to search/symbol | PreToolUse Read |
+| S14 | fixed | `instruction_prune.py`: move/pointer/re-audit/verify-recall CLAUDE.md/AGENTS.md sections | manual invocation via claudemd/agentsmd skills |
 
 S6 (tiered effort by model) was decided against — no hook can force a per-turn model downshift, so its saving is unverified and the shipped caveman Stop hook already captures output-token savings deterministically; see `DECISIONS.md` → *Rejected*.
 
@@ -660,3 +661,31 @@ python3 install.py --target /path/to/scratch --yes --build
 .claude/bin/python .claude/tools/embeddings.py health
 .claude/bin/python .claude/tools/db.py verify
 ```
+
+## Moved from CLAUDE.md
+
+## Project purpose
+
+A **toolkit** whose job is to be installed *into other projects*: `install.py` targets a host project's parent dir and deploys `.claude/` (tools, hooks, schema, venv, `index.db`); re-run after `git pull` to upgrade in place. That is the primary mission.
+
+But it is also developed **and dogfooded here** — this repo runs its own hooks, search, and skills to spend fewer tokens while building less_tokens. When working in this repo, use the installed tooling (search before Read, the skills, the budget hooks), not just edit it. Strategies include vector search, terse-output enforcement, tool-output truncation, session compaction, and per-agent budget controls. Deploy mechanics: `DOCUMENTATION.md`.
+
+## Moved from AGENTS.md
+
+## Token Discipline
+
+Use targeted context. Prefer `rg`, `rg --files`, semantic search, and file slices over full-file reads.
+
+Search before reading large or indexed files; use symbol lookup for definitions.
+
+Check lockfiles, generated bundles, binaries, and large data files before reading them in full.
+
+Directory navigation: prefer `rg --files` over recursive listings.
+
+Responses: direct findings, exact file:line references, no filler.
+
+Terse mode does not apply to a document/report/proposal the user asked for — see the
+`less-tokens` skill for the exemption marker.
+
+For installed commands and AGENTS.md hygiene, use the `less-tokens` skill.
+<!-- less_tokens: end -->
