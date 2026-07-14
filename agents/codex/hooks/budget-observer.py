@@ -11,9 +11,9 @@ REPO = bootstrap()
 from budget_observer import budget_hook_outcome  # noqa: E402
 
 try:
-    from agents.common.budget.advice import claude_hook_output  # noqa: E402
+    from agents.common.budget.advice import hook_additional_context_output  # noqa: E402
 except Exception:
-    from budget.advice import claude_hook_output  # type: ignore[no-redef]  # noqa: E402
+    from budget.advice import hook_additional_context_output  # type: ignore[no-redef]  # noqa: E402
 
 
 def main() -> int:
@@ -27,7 +27,7 @@ def main() -> int:
         if outcome.stream == "stderr":
             print(outcome.message, file=sys.stderr)
         else:
-            print(claude_hook_output(outcome.message))
+            print(hook_additional_context_output(outcome.message))
     return outcome.exit_code
 
 

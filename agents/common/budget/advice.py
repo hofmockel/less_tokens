@@ -80,10 +80,10 @@ def outcome_for_mode(
     return HookBudgetOutcome(exit_code=0)
 
 
-def claude_hook_output(message: str) -> str:
+def hook_additional_context_output(message: str, *, event_name: str = "PreToolUse") -> str:
     return json.dumps({
         "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
+            "hookEventName": event_name,
             "additionalContext": message,
         }
     })
