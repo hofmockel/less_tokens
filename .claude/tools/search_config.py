@@ -72,7 +72,7 @@ MAX_CHUNK_CHARS: int = 2000
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
 # Chars per token estimate for search.py cost display (prose ~4, code ~3).
-CHARS_PER_TOKEN: int = 4
+CHARS_PER_TOKEN: float = 2.4925  # calibrated 2026-07-13 vs claude-opus-4-8 (repo-sample); was 4 (prose ~4, code ~3)
 
 # --- Strategy 3: Tool Output Truncation ---
 MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
