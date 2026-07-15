@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620" role="img" aria-labelledby="read-stack-title read-stack-desc">
+  <title id="read-stack-title">Read Guard Stack concept map</title>
+  <desc id="read-stack-desc">Layered read guards catch different kinds of broad or stale context.</desc>
+  <style>
+    .bg{fill:#f7f8fa}.grid{stroke:#d8e0e7;stroke-width:1;opacity:.65}.title{font:700 28px system-ui;fill:#16202a}.caption{font:17px system-ui;fill:#5d6975}.node{fill:#fff;stroke:var(--tone);stroke-width:3}.node-label{font:700 15px system-ui;fill:#16202a}.flow{fill:none;stroke:#788690;stroke-width:3;stroke-linecap:round}.hub{fill:#16202a}.hub-text{font:700 13px system-ui;fill:#fff}.lane{font:700 13px system-ui;fill:#16202a}
+  </style>
+  <rect class="bg" x="0" y="0" width="980" height="620" rx="0"/>
+  <path class="grid" d="M80 112 H900 M80 390 H900 M80 530 H900 M120 80 V540 M860 80 V540"/>
+  <text x="60" y="72" class="title">Read Guard Stack</text>
+  <text x="60" y="110" class="caption">Layered read guards catch different kinds of broad or stale context.</text>
+  <circle cx="490" cy="168" r="42" class="hub"/>
+  <text x="490" y="164" class="hub-text" text-anchor="middle">TOKEN</text>
+  <text x="490" y="182" class="hub-text" text-anchor="middle">CONTROL</text>
+  <path d="M220 296 C254 266, 193 326, 227 296" class="flow"/><path d="M397 296 C431 266, 370 326, 404 296" class="flow"/><path d="M574 296 C608 266, 547 326, 581 296" class="flow"/><path d="M751 296 C785 266, 724 326, 758 296" class="flow"/>
+  <rect x="60" y="250" width="150" height="92" rx="8" class="node" style="--tone:#2f7d78"/><text x="135" y="300" class="node-label" text-anchor="middle">Search First</text><rect x="237" y="250" width="150" height="92" rx="8" class="node" style="--tone:#225f88"/><text x="312" y="300" class="node-label" text-anchor="middle">Auto Slice</text><rect x="414" y="250" width="150" height="92" rx="8" class="node" style="--tone:#9a5b20"/><text x="489" y="300" class="node-label" text-anchor="middle">Grep First</text><rect x="591" y="250" width="150" height="92" rx="8" class="node" style="--tone:#4c6f52"/><text x="666" y="300" class="node-label" text-anchor="middle">Noise Guard</text><rect x="768" y="250" width="150" height="92" rx="8" class="node" style="--tone:#725a9b"/><text x="843" y="300" class="node-label" text-anchor="middle">Reread Gate</text>
+  <g><rect x="120" y="462" width="130" height="36" rx="6" fill="#2f7d78" opacity=".14"/><text x="185" y="485" class="lane" text-anchor="middle">input</text></g><g><rect x="300" y="462" width="130" height="36" rx="6" fill="#225f88" opacity=".14"/><text x="365" y="485" class="lane" text-anchor="middle">tool</text></g><g><rect x="480" y="462" width="130" height="36" rx="6" fill="#9a5b20" opacity=".14"/><text x="545" y="485" class="lane" text-anchor="middle">output</text></g><g><rect x="660" y="462" width="130" height="36" rx="6" fill="#4c6f52" opacity=".14"/><text x="725" y="485" class="lane" text-anchor="middle">fixed</text></g>
+</svg>

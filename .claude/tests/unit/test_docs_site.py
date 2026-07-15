@@ -46,6 +46,25 @@ def test_strategy_matrix_links_to_strategy_pages():
     assert "lean-output-truncation" in slugs
 
 
+def test_every_slide_has_a_visual_definition():
+    build_docs = _load_build_docs()
+
+    slide_anchors = [anchor for anchor, _title, _text in build_docs.SLIDES]
+
+    assert len(slide_anchors) == 25
+    assert set(slide_anchors) == set(build_docs.SLIDE_VISUALS)
+
+
+def test_presentation_renders_one_image_per_slide():
+    build_docs = _load_build_docs()
+
+    html = build_docs.presentation_page("presentation.html")
+
+    assert html.count('<section class="slide"') == 25
+    assert html.count('<figure class="slide-visual">') == 25
+    assert html.count('assets/slides/') == 25
+
+
 def test_repo_link_uses_github_blob_when_publish_env_is_set(monkeypatch):
     build_docs = _load_build_docs()
     monkeypatch.setenv("LESS_TOKENS_DOCS_REPO_URL", "https://github.com/hofmockel/less_tokens")
