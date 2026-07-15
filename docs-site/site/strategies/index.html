@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Strategy Map - less_tokens docs</title>
+  <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="">
+  <header class="site-header">
+    <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><h1>Strategy Map</h1><p>Generated from <a href="../../../.claude/tools/strategy_registry.py">strategy_registry.py</a> plus <a href="../../../agents/common/hooks/hook_manifest.py">HOOK_SPECS</a>.</p></section>
+    <table><thead><tr><th>Strategy</th><th>Bucket</th><th>Savings Claim</th><th>Hooks</th><th>Canonical Source</th></tr></thead><tbody><tr><td><a href="../strategies/budget-control-plane.html">Budget control plane</a></td><td>input</td><td>avoids irrelevant context before it is paid for</td><td>budget-observer</td><td><a href="../../../agents/common/budget/policy.py">source</a></td></tr><tr><td><a href="../strategies/vector-search-symbols.html">Vector search + symbols</a></td><td>input</td><td>5–10× fewer input tokens</td><td>none</td><td><a href="../../../.claude/tools/search.py">source</a></td></tr><tr><td><a href="../strategies/read-guards.html">Read guards</a></td><td>input</td><td>large-file Reads become small slices</td><td>read-guard, auto-slice, grep-first-read, read-after-edit</td><td><a href="../../../agents/common/hooks/read_guard.py">source</a></td></tr><tr><td><a href="../strategies/lean-output-truncation.html">Lean tool output</a></td><td>tool</td><td>40–90% fewer tool-output chars (not telemetry-backed — no savings.jsonl category)</td><td>lean-output, listing-guard, truncate-output</td><td><a href="../../../agents/common/hooks/truncate_output.py">source</a></td></tr><tr><td><a href="../strategies/terse-output.html">Terse output mode</a></td><td>output</td><td>30–60% fewer output tokens (not telemetry-backed — no baseline to diff against)</td><td>terse-output</td><td><a href="../../../agents/common/hooks/response_budget.py">source</a></td></tr><tr><td><a href="../strategies/lean-output-truncation.html">Tool output truncation</a></td><td>tool</td><td>40–80% fewer tool-output tokens</td><td>lean-output, listing-guard, truncate-output</td><td><a href="../../../agents/common/hooks/truncate_output.py">source</a></td></tr><tr><td><a href="../strategies/compaction.html">Compaction trigger</a></td><td>input</td><td>50–70% fewer input tokens on long sessions</td><td>compact-trigger</td><td><a href="../../../agents/common/hooks/compact_trigger.py">source</a></td></tr><tr><td><a href="../strategies/instruction-pruning.html">Instruction pruning</a></td><td>fixed</td><td>eliminates per-turn always-loaded tax</td><td>agent-md-budget</td><td><a href="../../../.claude/tools/instruction_prune.py">source</a></td></tr><tr><td><a href="../strategies/search-first.html">Search First</a></td><td>input</td><td>Search-blocked savings are recorded in the legacy savings log when broad reads are prevented.</td><td>search-first</td><td><a href="../../../agents/common/hooks/search_first.py">source</a></td></tr><tr><td><a href="../strategies/context-cache.html">Context Cache</a></td><td>input</td><td>context-cache-read, context-cache-grep, and context-cache-bash savings are legacy log keys.</td><td>context-cache</td><td><a href="../../../agents/common/hooks/context_cache.py">source</a></td></tr></tbody></table>
+    <p class="note">Data contract: <a href="../generated/strategy-matrix.json">strategy-matrix.json</a></p>
+    
+  </main>
+</body>
+</html>

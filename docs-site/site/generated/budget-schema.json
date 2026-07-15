@@ -1,0 +1,40 @@
+{
+  "agent_overrides": {
+    "claude": {},
+    "codex": {
+      "categories": {
+        "diffs": 1500,
+        "retrieved_context": 6000,
+        "tool_output": 2000
+      },
+      "hard_caps": {
+        "directory_listing": 600,
+        "full_file_read": 2000,
+        "single_tool_output": 1500
+      }
+    }
+  },
+  "categories": {
+    "agent_state": 2000,
+    "current_request": 2000,
+    "diffs": 3000,
+    "instructions": 3000,
+    "retrieved_context": 10000,
+    "session_summary": 3000,
+    "tool_output": 4000
+  },
+  "category_modes": {},
+  "hard_caps": {
+    "directory_listing": 1000,
+    "full_file_read": 3000,
+    "single_tool_output": 2500,
+    "unscored_context": 1200
+  },
+  "mode": "observe",
+  "relevance_threshold": 0.35,
+  "replacement_required_for_blocks": true,
+  "reserved_response_tokens": 4000,
+  "token_estimator": "chars_div_4",
+  "total_context_tokens": 24000,
+  "version": 2
+}

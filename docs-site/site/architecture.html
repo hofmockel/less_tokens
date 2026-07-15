@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture - less_tokens docs</title>
+  <link rel="stylesheet" href="assets/site.css">
+  <script defer src="assets/site.js"></script>
+</head>
+<body class="">
+  <header class="site-header">
+    <a class="brand" href="index.html"><img src="assets/LT_logo_small.png" alt=""> less_tokens</a>
+    <nav><a href="index.html">Overview</a><a href="presentation.html">Presentation</a><a href="strategy-map.html">Strategies</a><a href="architecture.html">Architecture</a><a href="scaffolding/installer.html">Scaffolding</a><a href="reference/install.html">Reference</a><a href="privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><h1>Architecture</h1><p>The installed project has three visible runtimes: .claude for shared index and Claude hooks, .less_tokens for budget and Codex shims, and .codex for best-effort adapters.</p></section>
+    <div class="diagram">
+      <div>Source repo<br><small>install.py, agents/, .claude/tools</small></div>
+      <span>deploys</span>
+      <div>Host project<br><small>.claude, .less_tokens, .codex</small></div>
+      <span>emits</span>
+      <div>Local telemetry<br><small>savings.jsonl, events.jsonl, reports</small></div>
+    </div>
+    <section class="two-col">
+      <article><h2>Hook Execution</h2><ol><li>Agent emits a native tool event.</li><li>Wrapper normalizes the payload.</li><li>Shared hook or budget code evaluates it.</li><li>The wrapper exits allow, advise, or block.</li></ol></article>
+      <article><h2>Budget Sequence</h2><ol><li>Normalize candidates.</li><li>Build signals.</li><li>Score relevance.</li><li>Select decisions.</li><li>Emit telemetry and compaction snapshots.</li></ol></article>
+    </section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../agents/common/hooks/hook_manifest.py">Hook manifest</a></li><li><a href="../../agents/common/budget/policy.py">Budget policy</a></li><li><a href="../../agents/common/hooks/payload.py">Payload normalization</a></li><li><a href="../../agents/common/hooks/runtime.py">Runtime helpers</a></li></ul></aside>
+    
+  </main>
+</body>
+</html>

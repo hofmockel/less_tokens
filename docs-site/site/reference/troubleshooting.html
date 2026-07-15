@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting - less_tokens docs</title>
+  <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="">
+  <header class="site-header">
+    <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><h1>Troubleshooting</h1><p>Canonical operational detail remains in the root Markdown docs.</p></section>
+    
+        <section><h2>Common Failures</h2>
+        <ul>
+          <li><strong>fastembed or model download failure:</strong> rerun after network is available, or install dependencies with --skip-deps only when the venv already has them.</li>
+          <li><strong>Wrong venv path:</strong> pass --venv PATH or verify .less_tokens/bin/python and .claude/bin/python launch the intended interpreter.</li>
+          <li><strong>Empty index or search results:</strong> inspect search_config.py, run embeddings.py refresh, and check indexed source directories.</li>
+          <li><strong>Silent index refresh failure:</strong> inspect index-refresh.log and rerun the refresh command manually.</li>
+          <li><strong>Hook JSON mistakes:</strong> compare settings against generated hook-matrix.json and run install.py --check.</li>
+          <li><strong>Windows-safe paths:</strong> prefer the generated python launchers and quoted paths from install.py.</li>
+        </ul></section>
+        
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li></ul></aside>
+    
+  </main>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lean Output And Truncation - less_tokens docs</title>
+  <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="">
+  <header class="site-header">
+    <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><p class="eyebrow">tool bucket</p><h1>Lean Output And Truncation</h1><p>Test runs, recursive listings, and large command outputs can dwarf the useful signal.</p></section>
+    <section class="two-col">
+      <article><h2>Before</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
+      <article><h2>After</h2><p>Known command outputs are summarized, recursive listings are blocked, and oversized outputs keep useful head/tail context.</p></article>
+    </section>
+    <section><h2>Enforcement And Parity</h2><table><thead><tr><th>Hook</th><th>Claude</th><th>Codex</th><th>Claude parity</th><th>Codex parity</th></tr></thead><tbody><tr><td>lean-output</td><td>lean-output.py</td><td>lean-output.py</td><td>shipped</td><td>shipped</td></tr><tr><td>listing-guard</td><td>listing-guard.py</td><td>listing-guard.py</td><td>shipped</td><td>shipped</td></tr><tr><td>truncate-output</td><td>truncate-output.py</td><td>truncate-output.py</td><td>shipped</td><td>shipped</td></tr></tbody></table></section>
+    <section class="grid">
+      <article class="card"><h3>Bypass Or Failure Mode</h3><p>Errors should remain visible in tails; truncation can be opted out for debugging.</p></article>
+      <article class="card"><h3>Telemetry</h3><p>Truncation is measured in savings.jsonl; lean parsers are qualitative unless paired with truncation.</p></article>
+      <article class="card"><h3>Verification</h3><p>.claude/tests/unit/test_truncate_output_updated_tool_output.py and listing guard tests</p></article>
+    </section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../agents/common/hooks/truncate_output.py">Canonical source</a></li><li><a href="../../../agents/common/hooks/hook_manifest.py">Hook manifest</a></li><li><a href="../../../agents/common/hooks/parity.json">Parity JSON</a></li></ul></aside>
+    
+  </main>
+</body>
+</html>

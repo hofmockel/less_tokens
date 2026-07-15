@@ -1,0 +1,389 @@
+[
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read|Grep|Glob|Bash"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "Read|Grep|Glob|Bash|Edit|Write"
+      }
+    ],
+    "claude_script": "budget-observer.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*|Bash"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash|mcp__filesystem__.*|apply_patch|Edit|Write"
+      }
+    ],
+    "codex_script": "budget-observer.py",
+    "name": "budget-observer",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read"
+      },
+      {
+        "event": "PreToolUse",
+        "matcher": "Grep"
+      }
+    ],
+    "claude_script": "search-first.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "search-first.py",
+    "name": "search-first",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read"
+      }
+    ],
+    "claude_script": "read-guard.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "read-guard.py",
+    "name": "read-guard",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read"
+      }
+    ],
+    "claude_script": "auto-slice.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "auto-slice.py",
+    "name": "auto-slice",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read"
+      }
+    ],
+    "claude_script": "grep-first-read.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "grep-first-read.py",
+    "name": "grep-first-read",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read"
+      }
+    ],
+    "claude_script": "read-after-edit.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "read-after-edit.py",
+    "name": "read-after-edit",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Read|Grep"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "Read|Grep"
+      }
+    ],
+    "claude_script": "context-cache.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*|Bash"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "context-cache.py",
+    "name": "context-cache",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Edit|Write"
+      }
+    ],
+    "claude_script": "post-edit-diff.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": "apply_patch|Edit|Write"
+      }
+    ],
+    "codex_script": "post-edit-diff.py",
+    "name": "post-edit-diff",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Edit|Write"
+      }
+    ],
+    "claude_script": "index-refresh.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": "apply_patch|Edit|Write"
+      }
+    ],
+    "codex_script": "index-refresh.py",
+    "name": "index-refresh",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Edit|Write"
+      }
+    ],
+    "claude_script": "claudemd-budget.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Edit|Write"
+      }
+    ],
+    "codex_script": "agentsmd-budget.py",
+    "name": "agent-md-budget",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash"
+      }
+    ],
+    "claude_script": "lean-output.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash"
+      }
+    ],
+    "codex_script": "lean-output.py",
+    "name": "lean-output",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Bash"
+      }
+    ],
+    "claude_script": "listing-guard.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Bash"
+      }
+    ],
+    "codex_script": "listing-guard.py",
+    "name": "listing-guard",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash|Read|WebFetch|Glob"
+      }
+    ],
+    "claude_script": "truncate-output.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": "Bash|mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "truncate-output.py",
+    "name": "truncate-output",
+    "optional_flag": "truncate",
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped",
+      "optional": true
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
+        "matcher": ".*"
+      }
+    ],
+    "claude_script": "compact-trigger.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": ".*"
+      }
+    ],
+    "codex_script": "compact-trigger.py",
+    "name": "compact-trigger",
+    "optional_flag": "compact",
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped",
+      "optional": true
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "Stop",
+        "matcher": ""
+      },
+      {
+        "event": "SubagentStop",
+        "matcher": ""
+      }
+    ],
+    "claude_script": "caveman-reminder.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": ".*"
+      }
+    ],
+    "codex_script": "terse-reminder.py",
+    "name": "terse-output",
+    "optional_flag": "caveman",
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped",
+      "optional": true
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "Stop",
+        "matcher": ""
+      },
+      {
+        "event": "SubagentStop",
+        "matcher": ""
+      }
+    ],
+    "claude_script": "savings-html.py",
+    "codex": [
+      {
+        "event": "PostToolUse",
+        "matcher": ".*"
+      }
+    ],
+    "codex_script": "savings-html.py",
+    "name": "savings-html",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  }
+]

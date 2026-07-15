@@ -1,0 +1,46 @@
+{
+  "budget_pipeline": {
+    "compactions": 3364,
+    "decisions": 24852,
+    "estimated_tokens_saved": 9944538
+  },
+  "estimator": "chars / 4",
+  "label": "external dogfood data, not this repo production telemetry",
+  "legacy_savings": [
+    {
+      "chars_saved": 48033417,
+      "estimated_tokens": 12008354,
+      "events": 455,
+      "strategy": "search"
+    },
+    {
+      "chars_saved": 4271396,
+      "estimated_tokens": 1067849,
+      "events": 439,
+      "strategy": "context-cache-read"
+    },
+    {
+      "chars_saved": 2105311,
+      "estimated_tokens": 526327,
+      "events": 205,
+      "strategy": "search-blocked"
+    },
+    {
+      "chars_saved": 970157,
+      "estimated_tokens": 242539,
+      "events": 327,
+      "strategy": "truncation"
+    }
+  ],
+  "session_size": {
+    "count > 500,000 (this repo's threshold)": "1,077 (35.6%)",
+    "count > 625,000 (EB's own threshold)": "758 (25.1%)",
+    "max": "1,414,558 chars",
+    "min": "43,374 chars",
+    "n": "3,024",
+    "p50": "411,074 chars",
+    "p90": "890,614 chars",
+    "p99": "1,270,514 chars"
+  },
+  "source": "eb_telemetry_9jul26.md"
+}

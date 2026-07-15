@@ -1,0 +1,42 @@
+[
+  {
+    "destination": ".claude/hooks/common and .less_tokens/hooks",
+    "purpose": "shared hook implementation",
+    "source": "agents/common/hooks"
+  },
+  {
+    "destination": ".less_tokens/hooks/budget",
+    "purpose": "budget control plane",
+    "source": "agents/common/budget"
+  },
+  {
+    "destination": ".claude/hooks",
+    "purpose": "Claude direct hook wrappers",
+    "source": "agents/claude/hooks"
+  },
+  {
+    "destination": ".codex/hooks",
+    "purpose": "Codex best-effort adapters",
+    "source": "agents/codex/hooks"
+  },
+  {
+    "destination": ".claude/tools and .less_tokens/tools shims",
+    "purpose": "search, symbols, stats, reports",
+    "source": ".claude/tools"
+  },
+  {
+    "destination": ".less_tokens/skills and AGENTS.md links",
+    "purpose": "Codex fallback guidance",
+    "source": "agents/codex/skills"
+  },
+  {
+    "destination": ".claude/skills",
+    "purpose": "Claude workflow guidance",
+    "source": "agents/claude/skills"
+  },
+  {
+    "destination": ".claude/settings.json and .codex/hooks.json",
+    "purpose": "generated hook wiring",
+    "source": "agents/common/hooks/hook_manifest.py"
+  }
+]

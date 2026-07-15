@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hook Manifest - less_tokens docs</title>
+  <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="">
+  <header class="site-header">
+    <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><h1>Hook Manifest</h1><p>HOOK_SPECS is the source of truth for hook names, optional flags, event matchers, and parity generation.</p></section>
+    <section><h2>Hook Matrix</h2><table><thead><tr><th>Hook</th><th>Flag</th><th>Claude</th><th>Codex</th></tr></thead><tbody><tr><td>budget-observer</td><td>always</td><td>budget-observer.py</td><td>budget-observer.py</td></tr><tr><td>search-first</td><td>always</td><td>search-first.py</td><td>search-first.py</td></tr><tr><td>read-guard</td><td>always</td><td>read-guard.py</td><td>read-guard.py</td></tr><tr><td>auto-slice</td><td>always</td><td>auto-slice.py</td><td>auto-slice.py</td></tr><tr><td>grep-first-read</td><td>always</td><td>grep-first-read.py</td><td>grep-first-read.py</td></tr><tr><td>read-after-edit</td><td>always</td><td>read-after-edit.py</td><td>read-after-edit.py</td></tr><tr><td>context-cache</td><td>always</td><td>context-cache.py</td><td>context-cache.py</td></tr><tr><td>post-edit-diff</td><td>always</td><td>post-edit-diff.py</td><td>post-edit-diff.py</td></tr><tr><td>index-refresh</td><td>always</td><td>index-refresh.py</td><td>index-refresh.py</td></tr><tr><td>agent-md-budget</td><td>always</td><td>claudemd-budget.py</td><td>agentsmd-budget.py</td></tr><tr><td>lean-output</td><td>always</td><td>lean-output.py</td><td>lean-output.py</td></tr><tr><td>listing-guard</td><td>always</td><td>listing-guard.py</td><td>listing-guard.py</td></tr><tr><td>truncate-output</td><td>truncate</td><td>truncate-output.py</td><td>truncate-output.py</td></tr><tr><td>compact-trigger</td><td>compact</td><td>compact-trigger.py</td><td>compact-trigger.py</td></tr><tr><td>terse-output</td><td>caveman</td><td>caveman-reminder.py</td><td>terse-reminder.py</td></tr><tr><td>savings-html</td><td>always</td><td>savings-html.py</td><td>savings-html.py</td></tr></tbody></table><p class="note"><a href="../generated/hook-matrix.json">hook-matrix.json</a></p></section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../install.py">Install script</a></li><li><a href="../../../agents/common/hooks/hook_manifest.py">Hook manifest</a></li><li><a href="../../../agents/common/budget/policy.py">Budget package</a></li><li><a href="../../../HTML_DOCUMENTATION_PLAN.md">Documentation plan</a></li></ul></aside>
+    
+  </main>
+</body>
+</html>

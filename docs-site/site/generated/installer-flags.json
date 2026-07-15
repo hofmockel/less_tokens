@@ -1,0 +1,252 @@
+[
+  {
+    "action": null,
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--target"
+    ],
+    "help": "install into PATH instead of the parent of this less_tokens clone"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--yes"
+    ],
+    "help": "bypass the suspicious-target sanity check (parent == / or $HOME)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--force"
+    ],
+    "help": "shorthand for --force-hooks --force-tools --force-config"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--force-hooks"
+    ],
+    "help": "overwrite .claude/hooks/ files that match the source"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--force-tools"
+    ],
+    "help": "overwrite generated tool/schema files that match the source"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--force-config"
+    ],
+    "help": "overwrite search_config.py if it matches the source"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--overwrite-modified"
+    ],
+    "help": "also overwrite locally-modified files (requires a --force* flag)"
+  },
+  {
+    "action": null,
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--venv"
+    ],
+    "help": "path to virtualenv (auto-detected if omitted)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--skip-deps"
+    ],
+    "help": "skip pip install step"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--create-venv"
+    ],
+    "help": "if no venv is detected, create .claude/.venv-tokens and continue (single-pass install instead of the create-then-rerun dance)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--no-build"
+    ],
+    "help": "skip the default initial index build (defer the ~130 MB model download)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--caveman"
+    ],
+    "help": "accepted for back-compat; also appends the caveman block to CLAUDE.md"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--truncate"
+    ],
+    "help": "accepted for back-compat; truncation hook is wired by default"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--compact"
+    ],
+    "help": "accepted for back-compat; compaction trigger is wired by default"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--no-caveman"
+    ],
+    "help": "opt out of the terse-output hook (wired by default)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--no-truncate"
+    ],
+    "help": "opt out of the tool-output truncation hook (wired by default)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--no-compact"
+    ],
+    "help": "opt out of the compaction trigger hook (wired by default)"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--dry-run"
+    ],
+    "help": "show exactly what would change without writing anything"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--allow-merge"
+    ],
+    "help": "proceed even if .claude/tools/ or .claude/schema/ already contain non-less_tokens files"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--local"
+    ],
+    "help": "wire hooks into .claude/settings.local.json (personal / untracked) instead of the project-shared .claude/settings.json. Note: Claude Code rewrites settings.local.json when auto-adding Bash permissions, which can clobber the hooks block"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--no-gitignore"
+    ],
+    "help": "skip the default managed .gitignore block for generated artifacts (index.db, state dirs); useful if you commit them deliberately"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--update"
+    ],
+    "help": "safe upgrade: re-copy hook and tool files (implies --force-hooks --force-tools --overwrite-modified) but never touch .claude/tools/search_config.py or index.db. Incompatible with --force-config and --build."
+  },
+  {
+    "action": null,
+    "choices": [
+      "claude",
+      "codex",
+      "both"
+    ],
+    "default": "claude",
+    "flags": [
+      "--agent"
+    ],
+    "help": "agent(s) to install for: claude (default), codex, or both"
+  },
+  {
+    "action": null,
+    "choices": [
+      "balanced",
+      "aggressive"
+    ],
+    "default": "balanced",
+    "flags": [
+      "--codex-savings"
+    ],
+    "help": "Codex-only savings profile; aggressive tightens Codex caps and hooks"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--check"
+    ],
+    "help": "verify a previous install: venv, fastembed, index, hooks, settings"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--uninstall"
+    ],
+    "help": "remove a previous less_tokens deployment from the target"
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--purge-index"
+    ],
+    "help": "with --uninstall, also delete index.db and its WAL sidecars"
+  }
+]

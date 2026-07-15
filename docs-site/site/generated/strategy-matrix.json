@@ -1,0 +1,147 @@
+[
+  {
+    "bucket": "input",
+    "canonical_source": "agents/common/budget/policy.py",
+    "flag": "always on",
+    "hooks": [
+      "budget-observer"
+    ],
+    "how": "Scores, replaces, defers, or blocks context before it enters the agent transcript; writes v2 telemetry and reports",
+    "name": "Budget control plane",
+    "registry_key": null,
+    "savings": "avoids irrelevant context before it is paid for",
+    "slug": "budget-control-plane",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "input",
+    "canonical_source": ".claude/tools/search.py",
+    "flag": "always on",
+    "hooks": [],
+    "how": "Pre-embeds source files; exact symbol lookup for Python and JS/TS via `symbols.py` (`/def` only when slash commands are installed)",
+    "name": "Vector search + symbols",
+    "registry_key": "search",
+    "savings": "5\u201310\u00d7 fewer input tokens",
+    "slug": "vector-search-symbols",
+    "telemetry_label": "measured or estimated"
+  },
+  {
+    "bucket": "input",
+    "canonical_source": "agents/common/hooks/read_guard.py",
+    "flag": "always on",
+    "hooks": [
+      "read-guard",
+      "auto-slice",
+      "grep-first-read",
+      "read-after-edit"
+    ],
+    "how": "Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates",
+    "name": "Read guards",
+    "registry_key": null,
+    "savings": "large-file Reads become small slices",
+    "slug": "read-guards",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "tool",
+    "canonical_source": "agents/common/hooks/truncate_output.py",
+    "flag": "always on",
+    "hooks": [
+      "lean-output",
+      "listing-guard",
+      "truncate-output"
+    ],
+    "how": "Parses pytest/ruff/eslint/git output and blocks recursive listing dumps",
+    "name": "Lean tool output",
+    "registry_key": null,
+    "savings": "40\u201390% fewer tool-output chars (not telemetry-backed \u2014 no savings.jsonl category)",
+    "slug": "lean-output-truncation",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "output",
+    "canonical_source": "agents/common/hooks/response_budget.py",
+    "flag": "default; opt out with `--no-caveman`",
+    "hooks": [
+      "terse-output"
+    ],
+    "how": "Claude Stop hook and Codex terse reminder reduce filler prose",
+    "name": "Terse output mode",
+    "registry_key": null,
+    "savings": "30\u201360% fewer output tokens (not telemetry-backed \u2014 no baseline to diff against)",
+    "slug": "terse-output",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "tool",
+    "canonical_source": "agents/common/hooks/truncate_output.py",
+    "flag": "default; opt out with `--no-truncate`",
+    "hooks": [
+      "lean-output",
+      "listing-guard",
+      "truncate-output"
+    ],
+    "how": "PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results",
+    "name": "Tool output truncation",
+    "registry_key": "truncation",
+    "savings": "40\u201380% fewer tool-output tokens",
+    "slug": "lean-output-truncation",
+    "telemetry_label": "measured or estimated"
+  },
+  {
+    "bucket": "input",
+    "canonical_source": "agents/common/hooks/compact_trigger.py",
+    "flag": "default; opt out with `--no-compact`",
+    "hooks": [
+      "compact-trigger"
+    ],
+    "how": "PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large",
+    "name": "Compaction trigger",
+    "registry_key": "compaction",
+    "savings": "50\u201370% fewer input tokens on long sessions",
+    "slug": "compaction",
+    "telemetry_label": "measured or estimated"
+  },
+  {
+    "bucket": "fixed",
+    "canonical_source": ".claude/tools/instruction_prune.py",
+    "flag": "always on",
+    "hooks": [
+      "agent-md-budget"
+    ],
+    "how": "`CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small",
+    "name": "Instruction pruning",
+    "registry_key": null,
+    "savings": "eliminates per-turn always-loaded tax",
+    "slug": "instruction-pruning",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "input",
+    "canonical_source": "agents/common/hooks/search_first.py",
+    "flag": "generated reference",
+    "hooks": [
+      "search-first"
+    ],
+    "how": "A broad read is blocked until a recent search or targeted slice exists, nudging the agent toward semantic chunks first.",
+    "name": "Search First",
+    "registry_key": null,
+    "savings": "Search-blocked savings are recorded in the legacy savings log when broad reads are prevented.",
+    "slug": "search-first",
+    "telemetry_label": "qualitative or v2 aggregate"
+  },
+  {
+    "bucket": "input",
+    "canonical_source": "agents/common/hooks/context_cache.py",
+    "flag": "generated reference",
+    "hooks": [
+      "context-cache"
+    ],
+    "how": "Recent read, grep, and bash fingerprints are remembered so repeated context can be skipped or summarized.",
+    "name": "Context Cache",
+    "registry_key": null,
+    "savings": "context-cache-read, context-cache-grep, and context-cache-bash savings are legacy log keys.",
+    "slug": "context-cache",
+    "telemetry_label": "qualitative or v2 aggregate"
+  }
+]
