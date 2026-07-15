@@ -229,6 +229,42 @@ SCAFFOLDING_PAGES: dict[str, tuple[str, str]] = {
 }
 
 
+NOUN_PROJECT_ICONS: list[dict[str, str]] = [
+    {
+        "role": "Telemetry",
+        "title": "telemetry",
+        "creator": "Yuniarti Pahlevie",
+        "license": "CC BY 3.0",
+        "page": "https://thenounproject.com/icon/telemetry-8390723/",
+        "preview": "https://static.thenounproject.com/png/telemetry-icon-8390723-512.png",
+    },
+    {
+        "role": "Bug hunt",
+        "title": "bugfix",
+        "creator": "Robert Bjurshagen",
+        "license": "CC BY 3.0",
+        "page": "https://thenounproject.com/icon/bugfix-561728/",
+        "preview": "https://static.thenounproject.com/png/bugfix-icon-561728-512.png",
+    },
+    {
+        "role": "Bugfix",
+        "title": "Bug fix",
+        "creator": "kliwir art",
+        "license": "CC BY 3.0",
+        "page": "https://thenounproject.com/icon/bug-fix-6256599/",
+        "preview": "https://static.thenounproject.com/png/bug-fix-icon-6256599-512.png",
+    },
+    {
+        "role": "Continue",
+        "title": "continue",
+        "creator": "Yudhi Restu Pebriyanto",
+        "license": "CC BY 3.0",
+        "page": "https://thenounproject.com/icon/continue-5279312/",
+        "preview": "https://static.thenounproject.com/png/continue-icon-5279312-512.png",
+    },
+]
+
+
 def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
@@ -466,6 +502,21 @@ def card_grid(cards: list[tuple[str, str, str]]) -> str:
 def source_box(page: str, links: list[tuple[str, str]]) -> str:
     items = "".join(f'<li><a href="{e(repo_link(page, path))}">{e(label)}</a></li>' for label, path in links)
     return f'<aside class="trace"><h2>Trace It In Code</h2><ul>{items}</ul></aside>'
+
+
+def noun_project_gallery(*, compact: bool = False) -> str:
+    cards = []
+    for icon in NOUN_PROJECT_ICONS:
+        cards.append(f"""
+        <article class="np-icon">
+          <a href="{e(icon["page"])}"><img src="{e(icon["preview"])}" alt="{e(icon["title"])} icon by {e(icon["creator"])}"></a>
+          <h3>{e(icon["role"])}</h3>
+          <p><a href="{e(icon["page"])}">{e(icon["title"])}</a> by {e(icon["creator"])}</p>
+          <p class="note">{e(icon["license"])}. SVG available from the icon page.</p>
+        </article>
+        """)
+    class_name = "np-gallery compact" if compact else "np-gallery"
+    return f'<div class="{class_name}">{"".join(cards)}</div>'
 
 
 def svg_bar_chart(name: str, values: list[tuple[str, int]], title: str) -> str:
@@ -821,8 +872,9 @@ def privacy_page(page: str) -> str:
 def presentation_page(page: str) -> str:
     slides = []
     for index, (anchor, title, text) in enumerate(SLIDES, 1):
-        link = "strategy-map.html" if "Strategy" in title or "Matrix" in title else "architecture.html"
+        link = "scaffolding/skills.html" if anchor == "maintenance-skills" else ("strategy-map.html" if "Strategy" in title or "Matrix" in title else "architecture.html")
         caption, _nodes = SLIDE_VISUALS[anchor]
+        extra = "\n            " + noun_project_gallery(compact=True) if anchor == "maintenance-skills" else ""
         slides.append(f"""
         <section class="slide" id="{e(anchor)}" tabindex="-1">
           <div class="slide-copy">
@@ -833,7 +885,7 @@ def presentation_page(page: str) -> str:
           </div>
           <figure class="slide-visual">
             <img src="{e(site_link(page, f"assets/slides/{anchor}.svg"))}" alt="{e(caption)}">
-            <figcaption>{e(caption)}</figcaption>
+            <figcaption>{e(caption)}</figcaption>{extra}
           </figure>
         </section>
         """)
@@ -919,7 +971,10 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         <h2>Repo-Maintenance Skills</h2>
         <p>These are documented beside the scaffolding because they keep the repository maintainable. Only less-tokens is part of the primary token-saving mission; bug-hunt, bugfix, and continue are operational aids.</p>
         <div class="grid">{cards}</div>
-        <h2>Noun Project SVG Candidates</h2>
+        <h2>Noun Project Image Candidates</h2>
+        <p>These are real Noun Project candidates with public previews and attribution. The raw SVG download is not exposed as a stable unauthenticated static URL; use each icon page to obtain the SVG under the listed license.</p>
+        {noun_project_gallery()}
+        <h2>Additional Searches</h2>
         <p>Use bold black-and-white noun or verb icons. Prefer Public Domain SVGs where available; otherwise use CC BY 3.0 SVGs with visible creator attribution near the asset or in the slide notes.</p>
         <ul>{icon_items}</ul>
         <p class="note">Final downloaded assets should record icon title, creator, license, source URL, and attribution text.</p>
@@ -973,6 +1028,7 @@ def write_assets(check: bool) -> bool:
 :root{color-scheme:light;--ink:#16202a;--muted:#5d6975;--line:#d8e0e7;--bg:#f7f8fa;--panel:#ffffff;--accent:#2f7d78;--accent2:#9a5b20;--code:#eef3f5}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}a{color:#225f88;text-decoration:none}a:hover{text-decoration:underline}.site-header{position:sticky;top:0;z-index:10;display:flex;gap:24px;align-items:center;justify-content:space-between;padding:12px 28px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--ink)}.brand img{width:30px;height:30px}nav{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}main{max-width:1180px;margin:0 auto;padding:34px 24px 70px}.hero{min-height:72vh;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:48px;align-items:center}.hero h1,.page-title h1{font-size:clamp(34px,5vw,68px);line-height:1.02;margin:0 0 18px}.hero p,.page-title p{font-size:18px;color:var(--muted);max-width:780px}.hero img{width:100%;max-width:260px}.eyebrow{font-weight:800;letter-spacing:0;text-transform:uppercase;color:var(--accent);font-size:13px}.button{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--accent);background:var(--accent);color:white;border-radius:6px;font-weight:700;margin-right:8px}.button.secondary{background:transparent;color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}.card h3{margin-top:0}.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px}th{background:#eaf0f2}.trace{margin-top:28px;padding:18px;border:1px solid var(--line);background:var(--panel);border-radius:8px}.trace h2{margin-top:0}.diagram{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:14px;align-items:center;margin:24px 0}.diagram div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;text-align:center}.diagram span{font-weight:800;color:var(--accent2)}.note{color:var(--muted);font-size:14px}.chart{width:100%;max-width:900px;background:white;border:1px solid var(--line);border-radius:8px}pre{background:var(--code);padding:16px;border-radius:8px;overflow:auto}.slide{min-height:calc(100vh - 58px);display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);padding:8vh 2vw}.slide h1{font-size:clamp(40px,7vw,86px);line-height:1;margin:0 0 22px}.slide p{font-size:clamp(19px,2.4vw,30px);max-width:900px;color:var(--muted)}.slide-count{font-size:13px!important;color:var(--accent)!important;font-weight:800}.presentation-page main{max-width:none;padding-top:0}@media(max-width:760px){.site-header{position:static;align-items:flex-start;flex-direction:column}.hero{grid-template-columns:1fr;min-height:auto}.hero img{max-width:150px}.diagram{grid-template-columns:1fr}.diagram span{text-align:center}main{padding:24px 16px}.slide{min-height:auto;padding:56px 4px}}@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}@media print{.site-header{display:none}.slide{break-after:page;min-height:95vh}main{max-width:none}.card,.trace,table{break-inside:avoid}}
 .presentation-page .slide{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(360px,1fr);gap:42px;align-items:center;padding:7vh 4vw}.slide-copy{min-width:0}.slide-visual{margin:0;align-self:center}.slide-visual img{display:block;width:100%;max-height:70vh;object-fit:contain;border:1px solid var(--line);background:#f7f8fa;border-radius:8px}.slide-visual figcaption{margin-top:10px;color:var(--muted);font-size:14px}.slide-copy p:not(.slide-count){max-width:760px}@media(max-width:900px){.presentation-page .slide{grid-template-columns:1fr;gap:24px}.slide-visual img{max-height:none}}@media print{.slide-visual img{max-height:52vh}.slide-visual figcaption{font-size:12px}}
+.np-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:16px 0 22px}.np-icon{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.np-icon img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:6px;filter:grayscale(1) contrast(1.2)}.np-icon h3{margin:12px 0 4px;font-size:15px}.np-icon p{margin:4px 0;font-size:13px;color:var(--muted)}.np-gallery.compact{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.np-gallery.compact .np-icon{padding:8px}.np-gallery.compact .np-icon h3{font-size:12px;margin-top:7px}.np-gallery.compact .np-icon p{display:none}.np-gallery.compact .np-icon img{border-radius:5px}@media(max-width:900px){.np-gallery.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
 """
     js = """\
 document.addEventListener("keydown", event => {
