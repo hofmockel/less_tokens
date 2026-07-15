@@ -16,7 +16,11 @@
 
     <section class="page-title"><h1>Telemetry</h1><p>Savings and budget events are local-only by default; public docs use checked-in aggregates.</p></section>
     <section>
-        <h2>View Local Stats</h2>
+        <h2>What Users See</h2>
+        <p>The report below is the actual shipped HTML interface rendered with sanitized example events. It keeps measured removals separate from optimistic upper-bound estimates so users cannot accidentally add unlike claims.</p>
+        <iframe class="telemetry-frame telemetry-frame-full" src="../assets/telemetry-example.html" title="Representative user-facing Token Savings Report"></iframe>
+        <p class="note">Representative values only. The interface and labels come from the shipped renderer; no private local telemetry is published.</p>
+        <h2>Generate Your Local Report</h2>
         <p>The HTML stats view is generated locally from the active savings log. Claude writes <code>.claude/state/savings.html</code>; the Codex shim writes <code>.less_tokens/state/savings.html</code>.</p>
         <pre><code>.claude/bin/python .claude/tools/stats.py --html
 .less_tokens/bin/python .less_tokens/tools/stats.py --html</code></pre>

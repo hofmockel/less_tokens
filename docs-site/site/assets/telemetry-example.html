@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Savings Report — Representative Example</title>
+<style>:root { color-scheme: light dark; }
+body { font-family: -apple-system, system-ui, sans-serif; margin: 2rem auto;
+  max-width: 52rem; padding: 0 1rem; line-height: 1.5; }
+h1 { margin-bottom: .25rem; }
+.gen { color: #888; font-size: .85rem; margin-top: 0; }
+.intro { background: rgba(127,127,127,.08); border-radius: 8px; padding: .75rem 1rem; }
+h2 { margin-top: 2rem; border-bottom: 1px solid rgba(127,127,127,.3); padding-bottom: .25rem; }
+table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+th, td { padding: .35rem .6rem; text-align: right; border-bottom: 1px solid rgba(127,127,127,.2); }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child { font-weight: 600; border-top: 2px solid rgba(127,127,127,.4); }
+.measured h3 { color: #1a7f37; }
+.upper h3 { color: #9a6700; }
+.note, .footer { color: #888; font-size: .85rem; }
+.badge { font-size: .8rem; border: 1px solid rgba(127,127,127,.4); border-radius: 6px;
+  padding: .05rem .4rem; color: #888; }
+caption { display: none; }
+.demo{border-left:4px solid #2457e6;padding-left:.75rem}
+</style></head><body>
+<h1>Token Savings Report</h1>
+<p class="gen">Representative example · <span class="badge">chars÷4 uncalibrated</span></p>
+<p class="intro demo"><strong>This is the report users see.</strong> The values are sanitized example data; the structure, labels, separation of measured savings from optimistic upper bounds, and styling come from the shipped <code>stats.py --html</code> renderer.</p>
+<h2>Current session (8 events)</h2>
+<div class="measured"><h3>Measured — removed before reaching the model</h3>
+<table><thead><tr><th>Strategy</th><th>Events</th><th>Chars saved</th><th>~Tokens saved</th></tr></thead>
+<tbody><tr><td>Truncation</td><td>3</td><td>18,100</td><td>7,261</td></tr><tr><td>Compaction</td><td>1</td><td>42,000</td><td>16,849</td></tr><tr><td>Cached read (repeat)</td><td>1</td><td>9,000</td><td>3,610</td></tr><tr><td>Cached grep (repeat)</td><td>0</td><td>—</td><td>—</td></tr><tr><td>Cached bash (repeat)</td><td>0</td><td>—</td><td>—</td></tr><tr><td>Total</td><td></td><td>69,100</td><td>27,720</td></tr></tbody></table></div>
+<div class="upper"><h3>Upper bound — avoided cost, optimistic (≤)</h3>
+<table><thead><tr><th>Strategy</th><th>Events</th><th>Chars saved</th><th>~Tokens saved</th></tr></thead>
+<tbody><tr><td>Search-first block</td><td>2</td><td>≤22,600</td><td>≤9,066</td></tr><tr><td>Search (vs full file)</td><td>1</td><td>≤20,300</td><td>≤8,143</td></tr><tr><td>Total</td><td></td><td>≤42,900</td><td>≤17,210</td></tr></tbody></table></div>
+<p class="note">Upper-bound rows assume you would otherwise have read the whole file and do not subtract the search you ran instead. They are not added to the measured total.</p>
+<h2>All-time (11 events)</h2>
+<div class="measured"><h3>Measured — removed before reaching the model</h3>
+<table><thead><tr><th>Strategy</th><th>Events</th><th>Chars saved</th><th>~Tokens saved</th></tr></thead>
+<tbody><tr><td>Truncation</td><td>4</td><td>46,200</td><td>18,534</td></tr><tr><td>Compaction</td><td>1</td><td>42,000</td><td>16,849</td></tr><tr><td>Cached read (repeat)</td><td>2</td><td>26,200</td><td>10,510</td></tr><tr><td>Cached grep (repeat)</td><td>0</td><td>—</td><td>—</td></tr><tr><td>Cached bash (repeat)</td><td>0</td><td>—</td><td>—</td></tr><tr><td>Total</td><td></td><td>114,400</td><td>45,894</td></tr></tbody></table></div>
+<div class="upper"><h3>Upper bound — avoided cost, optimistic (≤)</h3>
+<table><thead><tr><th>Strategy</th><th>Events</th><th>Chars saved</th><th>~Tokens saved</th></tr></thead>
+<tbody><tr><td>Search-first block</td><td>2</td><td>≤22,600</td><td>≤9,066</td></tr><tr><td>Search (vs full file)</td><td>2</td><td>≤70,700</td><td>≤28,362</td></tr><tr><td>Total</td><td></td><td>≤93,300</td><td>≤37,429</td></tr></tbody></table></div>
+<p class="note">Upper-bound rows assume you would otherwise have read the whole file and do not subtract the search you ran instead. They are not added to the measured total.</p>
+<p class="footer">tokens est. at chars÷4 (uncalibrated)</p>
+</body></html>

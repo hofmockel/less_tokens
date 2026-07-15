@@ -20,6 +20,7 @@ DOCS = REPO / "docs-site"
 SITE = DOCS / "site"
 GENERATED = SITE / "generated"
 ASSETS = SITE / "assets"
+NOUN_ICON_SOURCE = DOCS / "assets" / "noun-icons"
 
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
@@ -37,6 +38,53 @@ def load_strategy_registry() -> Any:
     sys.modules["strategy_registry"] = module
     spec.loader.exec_module(module)
     return module.STRATEGIES
+
+
+def load_stats_module() -> Any:
+    """Load the shipped telemetry renderer without importing local telemetry."""
+    path = REPO / ".claude" / "tools" / "stats.py"
+    spec = importlib.util.spec_from_file_location("less_tokens_stats", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["less_tokens_stats"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def telemetry_example_html() -> str:
+    """Render sanitized example data through the real user-facing report UI."""
+    stats = load_stats_module()
+    session = [
+        {"strategy": "truncation", "elided_chars": 6200},
+        {"strategy": "truncation", "elided_chars": 5700},
+        {"strategy": "truncation", "elided_chars": 6200},
+        {"strategy": "context-cache-read", "elided_chars": 9000},
+        {"strategy": "compaction", "elided_chars": 42000},
+        {"strategy": "search-blocked", "elided_chars": 11300},
+        {"strategy": "search-blocked", "elided_chars": 11300},
+        {"strategy": "search", "elided_chars": 20300},
+    ]
+    all_time = session + [
+        {"strategy": "truncation", "elided_chars": 28100},
+        {"strategy": "context-cache-read", "elided_chars": 17200},
+        {"strategy": "search", "elided_chars": 50400},
+    ]
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Savings Report — Representative Example</title>
+<style>{stats._HTML_STYLE}
+.demo{{border-left:4px solid #2457e6;padding-left:.75rem}}
+</style></head><body>
+<h1>Token Savings Report</h1>
+<p class="gen">Representative example · <span class="badge">chars÷4 uncalibrated</span></p>
+<p class="intro demo"><strong>This is the report users see.</strong> The values are sanitized example data; the structure, labels, separation of measured savings from optimistic upper bounds, and styling come from the shipped <code>stats.py --html</code> renderer.</p>
+{stats._html_block("Current session (8 events)", session)}
+{stats._html_block("All-time (11 events)", all_time)}
+<p class="footer">tokens est. at chars÷4 (uncalibrated)</p>
+</body></html>
+"""
 
 
 STRATEGY_DETAILS: dict[str, dict[str, Any]] = {
@@ -229,40 +277,10 @@ SCAFFOLDING_PAGES: dict[str, tuple[str, str]] = {
 }
 
 
-NOUN_PROJECT_ICONS: list[dict[str, str]] = [
-    {
-        "role": "Telemetry",
-        "title": "telemetry",
-        "creator": "Yuniarti Pahlevie",
-        "license": "CC BY 3.0",
-        "page": "https://thenounproject.com/icon/telemetry-8390723/",
-        "preview": "https://static.thenounproject.com/png/telemetry-icon-8390723-512.png",
-    },
-    {
-        "role": "Bug hunt",
-        "title": "bugfix",
-        "creator": "Robert Bjurshagen",
-        "license": "CC BY 3.0",
-        "page": "https://thenounproject.com/icon/bugfix-561728/",
-        "preview": "https://static.thenounproject.com/png/bugfix-icon-561728-512.png",
-    },
-    {
-        "role": "Bugfix",
-        "title": "Bug fix",
-        "creator": "kliwir art",
-        "license": "CC BY 3.0",
-        "page": "https://thenounproject.com/icon/bug-fix-6256599/",
-        "preview": "https://static.thenounproject.com/png/bug-fix-icon-6256599-512.png",
-    },
-    {
-        "role": "Continue",
-        "title": "continue",
-        "creator": "Yudhi Restu Pebriyanto",
-        "license": "CC BY 3.0",
-        "page": "https://thenounproject.com/icon/continue-5279312/",
-        "preview": "https://static.thenounproject.com/png/continue-icon-5279312-512.png",
-    },
-]
+NOUN_PROJECT_ICONS: list[dict[str, str]] = json.loads(
+    (NOUN_ICON_SOURCE / "attributions.json").read_text(encoding="utf-8")
+)
+NOUN_ICON_BY_ANCHOR = {icon["anchor"]: icon for icon in NOUN_PROJECT_ICONS}
 
 
 def slugify(text: str) -> str:
@@ -504,17 +522,33 @@ def source_box(page: str, links: list[tuple[str, str]]) -> str:
     return f'<aside class="trace"><h2>Trace It In Code</h2><ul>{items}</ul></aside>'
 
 
-def noun_project_gallery(*, compact: bool = False) -> str:
+def noun_icon_credit(anchor: str) -> str:
+    icon = NOUN_ICON_BY_ANCHOR[anchor]
+    return (
+        f'Icon: <a href="{e(icon["page"])}">{e(icon["title"])}</a> by {e(icon["creator"])}'
+        f' · <a href="https://creativecommons.org/licenses/by/3.0/">{e(icon["license"])}</a>'
+    )
+
+
+def noun_project_gallery(page: str, *, compact: bool = False) -> str:
+    roles = {
+        "skill-less-tokens": "less-tokens",
+        "skill-bug-hunt": "Bug hunt",
+        "skill-bugfix": "Bugfix",
+        "skill-continue": "Continue",
+        "skill-handoff": "Handoff",
+    }
     cards = []
-    for icon in NOUN_PROJECT_ICONS:
+    for anchor, role in roles.items():
+        icon = NOUN_ICON_BY_ANCHOR[anchor]
         cards.append(f"""
         <article class="np-icon">
-          <a href="{e(icon["page"])}"><img src="{e(icon["preview"])}" alt="{e(icon["title"])} icon by {e(icon["creator"])}"></a>
-          <h3>{e(icon["role"])}</h3>
+          <a href="{e(icon["page"])}"><img src="{e(site_link(page, f'assets/slides/{anchor}.svg'))}" alt="{e(icon["title"])} icon by {e(icon["creator"])}"></a>
+          <h3>{e(role)}</h3>
           <p><a href="{e(icon["page"])}">{e(icon["title"])}</a> by {e(icon["creator"])}</p>
-          <p class="note">{e(icon["license"])}. SVG available from the icon page.</p>
+          <p class="note"><a href="https://creativecommons.org/licenses/by/3.0/">{e(icon["license"])}</a></p>
         </article>
-        """)
+        """.strip())
     class_name = "np-gallery compact" if compact else "np-gallery"
     return f'<div class="{class_name}">{"".join(cards)}</div>'
 
@@ -751,9 +785,10 @@ def write_slide_visuals(check: bool) -> bool:
     slide_dir = ASSETS / "slides"
     if not check:
         slide_dir.mkdir(parents=True, exist_ok=True)
-    titles = {anchor: title for anchor, title, _ in SLIDES}
-    for anchor, (caption, nodes) in SLIDE_VISUALS.items():
-        text = slide_visual_svg(anchor, titles[anchor], caption, nodes)
+    for icon in NOUN_PROJECT_ICONS:
+        anchor = icon["anchor"]
+        source = NOUN_ICON_SOURCE / f"{anchor}.svg"
+        text = source.read_text(encoding="utf-8")
         path = slide_dir / f"{anchor}.svg"
         if check:
             if not path.exists() or path.read_text(encoding="utf-8") != text:
@@ -919,7 +954,15 @@ def presentation_page(page: str) -> str:
     for index, (anchor, title, text) in enumerate(SLIDES, 1):
         link = "scaffolding/skills.html" if anchor == "maintenance-skills" else ("strategy-map.html" if "Strategy" in title or "Matrix" in title else "architecture.html")
         caption, _nodes = SLIDE_VISUALS[anchor]
-        extra = "\n            " + noun_project_gallery(compact=True) if anchor == "maintenance-skills" else ""
+        if anchor == "telemetry":
+            visual = f'<iframe class="telemetry-frame" src="{e(site_link(page, "assets/telemetry-example.html"))}" title="Representative user-facing Token Savings Report"></iframe>'
+            credit = "Representative sanitized values rendered through the shipped telemetry report UI."
+        elif anchor == "maintenance-skills":
+            visual = noun_project_gallery(page, compact=True)
+            credit = "Five attributed Noun Project icons map the maintenance skills."
+        else:
+            visual = f'<img src="{e(site_link(page, f"assets/slides/{anchor}.svg"))}" alt="{e(caption)}">'
+            credit = noun_icon_credit(anchor)
         slides.append(f"""
         <section class="slide" id="{e(anchor)}" tabindex="-1">
           <div class="slide-copy">
@@ -929,8 +972,8 @@ def presentation_page(page: str) -> str:
             <a href="{e(site_link(page, link))}">Deep link</a>
           </div>
           <figure class="slide-visual">
-            <img src="{e(site_link(page, f"assets/slides/{anchor}.svg"))}" alt="{e(caption)}">
-            <figcaption>{e(caption)}</figcaption>{extra}
+            {visual}
+            <figcaption>{e(caption)}<br>{credit}</figcaption>
           </figure>
         </section>
         """)
@@ -980,7 +1023,11 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         extra = f'<h2>Hook Matrix</h2>{table(["Hook", "Flag", "Claude", "Codex"], hook_rows)}<p class="note"><a href="{e(generated_link(page, "hook-matrix.json"))}">hook-matrix.json</a></p>'
     elif page.endswith("telemetry.html"):
         extra = f"""
-        <h2>View Local Stats</h2>
+        <h2>What Users See</h2>
+        <p>The report below is the actual shipped HTML interface rendered with sanitized example events. It keeps measured removals separate from optimistic upper-bound estimates so users cannot accidentally add unlike claims.</p>
+        <iframe class="telemetry-frame telemetry-frame-full" src="{e(site_link(page, "assets/telemetry-example.html"))}" title="Representative user-facing Token Savings Report"></iframe>
+        <p class="note">Representative values only. The interface and labels come from the shipped renderer; no private local telemetry is published.</p>
+        <h2>Generate Your Local Report</h2>
         <p>The HTML stats view is generated locally from the active savings log. Claude writes <code>.claude/state/savings.html</code>; the Codex shim writes <code>.less_tokens/state/savings.html</code>.</p>
         <pre><code>.claude/bin/python .claude/tools/stats.py --html
 .less_tokens/bin/python .less_tokens/tools/stats.py --html</code></pre>
@@ -1016,9 +1063,9 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         <h2>Repo-Maintenance Skills</h2>
         <p>These are documented beside the scaffolding because they keep the repository maintainable. Only less-tokens is part of the primary token-saving mission; bug-hunt, bugfix, and continue are operational aids.</p>
         <div class="grid">{cards}</div>
-        <h2>Noun Project Image Candidates</h2>
-        <p>These are real Noun Project candidates with public previews and attribution. The raw SVG download is not exposed as a stable unauthenticated static URL; use each icon page to obtain the SVG under the listed license.</p>
-        {noun_project_gallery()}
+        <h2>Noun Project Icons</h2>
+        <p>These bold Creative Commons silhouettes are checked in as local SVG paths. Every asset embeds its source metadata and keeps a visible creator, icon-page, and CC BY 3.0 credit here.</p>
+        {noun_project_gallery(page)}
         <h2>Additional Searches</h2>
         <p>Use bold black-and-white noun or verb icons. Prefer Public Domain SVGs where available; otherwise use CC BY 3.0 SVGs with visible creator attribution near the asset or in the slide notes.</p>
         <ul>{icon_items}</ul>
@@ -1072,8 +1119,8 @@ def write_assets(check: bool) -> bool:
     css = """\
 :root{color-scheme:light;--ink:#17233a;--muted:#677184;--line:#cbd0d5;--bg:#f4f1ea;--panel:#fffdf8;--accent:#2457e6;--accent2:#ff6b55;--code:#e8edf8;--green:#1d8060;--coral-soft:#ffe1da;--cobalt-soft:#dce5ff}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}a{color:#225f88;text-decoration:none}a:hover{text-decoration:underline}.site-header{position:sticky;top:0;z-index:10;display:flex;gap:24px;align-items:center;justify-content:space-between;padding:12px 28px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--ink)}.brand img{width:30px;height:30px}nav{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}main{max-width:1180px;margin:0 auto;padding:34px 24px 70px}.hero{min-height:72vh;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:48px;align-items:center}.hero h1,.page-title h1{font-size:clamp(34px,5vw,68px);line-height:1.02;margin:0 0 18px}.hero p,.page-title p{font-size:18px;color:var(--muted);max-width:780px}.hero img{width:100%;max-width:260px}.eyebrow{font-weight:800;letter-spacing:0;text-transform:uppercase;color:var(--accent);font-size:13px}.button{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--accent);background:var(--accent);color:white;border-radius:6px;font-weight:700;margin-right:8px}.button.secondary{background:transparent;color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}.card h3{margin-top:0}.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px}th{background:#eaf0f2}.trace{margin-top:28px;padding:18px;border:1px solid var(--line);background:var(--panel);border-radius:8px}.trace h2{margin-top:0}.diagram{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:14px;align-items:center;margin:24px 0}.diagram div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;text-align:center}.diagram span{font-weight:800;color:var(--accent2)}.note{color:var(--muted);font-size:14px}.chart{width:100%;max-width:900px;background:white;border:1px solid var(--line);border-radius:8px}pre{background:var(--code);padding:16px;border-radius:8px;overflow:auto}.slide{min-height:calc(100vh - 58px);display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);padding:8vh 2vw}.slide h1{font-size:clamp(40px,7vw,86px);line-height:1;margin:0 0 22px}.slide p{font-size:clamp(19px,2.4vw,30px);max-width:900px;color:var(--muted)}.slide-count{font-size:13px!important;color:var(--accent)!important;font-weight:800}.presentation-page main{max-width:none;padding-top:0}@media(max-width:760px){.site-header{position:static;align-items:flex-start;flex-direction:column}.hero{grid-template-columns:1fr;min-height:auto}.hero img{max-width:150px}.diagram{grid-template-columns:1fr}.diagram span{text-align:center}main{padding:24px 16px}.slide{min-height:auto;padding:56px 4px}}@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}@media print{.site-header{display:none}.slide{break-after:page;min-height:95vh}main{max-width:none}.card,.trace,table{break-inside:avoid}}
-.presentation-page .slide{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(360px,1fr);gap:42px;align-items:center;padding:7vh 4vw}.slide-copy{min-width:0}.slide-visual{margin:0;align-self:center}.slide-visual img{display:block;width:100%;max-height:70vh;object-fit:contain;border:1px solid var(--line);background:#f7f8fa;border-radius:8px}.slide-visual figcaption{margin-top:10px;color:var(--muted);font-size:14px}.slide-copy p:not(.slide-count){max-width:760px}@media(max-width:900px){.presentation-page .slide{grid-template-columns:1fr;gap:24px}.slide-visual img{max-height:none}}@media print{.slide-visual img{max-height:52vh}.slide-visual figcaption{font-size:12px}}
-.np-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:16px 0 22px}.np-icon{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.np-icon img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:6px;filter:grayscale(1) contrast(1.2)}.np-icon h3{margin:12px 0 4px;font-size:15px}.np-icon p{margin:4px 0;font-size:13px;color:var(--muted)}.np-gallery.compact{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.np-gallery.compact .np-icon{padding:8px}.np-gallery.compact .np-icon h3{font-size:12px;margin-top:7px}.np-gallery.compact .np-icon p{display:none}.np-gallery.compact .np-icon img{border-radius:5px}@media(max-width:900px){.np-gallery.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.presentation-page .slide{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(360px,1fr);gap:42px;align-items:center;padding:7vh 4vw}.slide-copy{min-width:0}.slide-visual{margin:0;align-self:center}.slide-visual img{display:block;width:100%;max-height:70vh;object-fit:contain;border:1px solid var(--line);background:#f7f8fa;border-radius:8px}.slide-visual figcaption{margin-top:10px;color:var(--muted);font-size:14px}.slide-copy p:not(.slide-count){max-width:760px}.telemetry-frame{display:block;width:100%;height:min(68vh,650px);border:1px solid var(--line);border-radius:8px;background:var(--panel)}.telemetry-frame-full{height:760px;margin:18px 0 8px}@media(max-width:900px){.presentation-page .slide{grid-template-columns:1fr;gap:24px}.slide-visual img{max-height:none}.telemetry-frame{height:620px}}@media print{.slide-visual img{max-height:52vh}.slide-visual figcaption{font-size:12px}.telemetry-frame{height:52vh}}
+.np-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:16px 0 22px}.np-icon{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.np-icon img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:6px;filter:grayscale(1) contrast(1.2)}.np-icon h3{margin:12px 0 4px;font-size:15px}.np-icon p{margin:4px 0;font-size:13px;color:var(--muted)}.np-gallery.compact{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px}.np-gallery.compact .np-icon{padding:8px}.np-gallery.compact .np-icon h3{font-size:12px;margin-top:7px}.np-gallery.compact .np-icon p{display:none}.np-gallery.compact .np-icon img{border-radius:5px}@media(max-width:900px){.np-gallery.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Selected homepage direction: systems-map explainer. */
 .home-page{background-color:var(--bg);background-image:radial-gradient(rgba(94,107,130,.22) 1px,transparent 1px);background-size:20px 20px}.home-page .site-header{background:rgba(244,241,234,.94);border-color:var(--ink);padding:14px max(24px,calc((100vw - 1450px)/2))}.home-page .brand{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px}.home-page .site-header nav{font-weight:700}.home-page main{max-width:1500px;padding:62px 32px 100px}.home-hero{display:grid;grid-template-columns:minmax(390px,.76fr) minmax(650px,1.24fr);gap:54px;align-items:center;min-height:760px}.home-kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--ink);border-radius:99px;padding:8px 12px;margin:0;background:var(--panel);font:800 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em}.home-kicker span{color:var(--accent2)}.home-intro h1{font-size:clamp(58px,5.6vw,88px);line-height:.92;letter-spacing:-.065em;max-width:700px;margin:28px 0 26px}.home-intro h1 em{font-style:normal;color:var(--accent)}.home-lede{font-size:20px;line-height:1.55;color:#505b6e;max-width:630px}.home-actions{display:flex;gap:12px;margin:30px 0}.home-button{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;border:1.5px solid var(--ink);border-radius:4px;background:var(--panel);color:var(--ink);box-shadow:4px 4px 0 var(--ink);font-weight:850}.home-button:hover{text-decoration:none;transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}.home-button.primary{background:var(--accent);color:white}.install-command{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:540px;padding:15px 18px;background:var(--ink);border-radius:5px;color:white}.install-command code{background:none;color:inherit}.install-command code:before{content:"$ ";color:var(--accent2)}.install-command button{border:0;background:transparent;color:#b9c2d3;font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer}.home-proof{display:flex;align-items:center;gap:16px;border-top:1px solid var(--line);margin-top:34px;padding-top:18px;font:850 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.1em}.home-proof i{width:54px;height:4px;background:linear-gradient(90deg,var(--accent) 0 31%,transparent 31% 36%,var(--accent2) 36% 66%,transparent 66% 71%,var(--green) 71%)}
@@ -1130,7 +1177,7 @@ document.querySelectorAll("[data-copy-command]").forEach(button => {
   });
 });
 """
-    files = {"site.css": css, "site.js": js}
+    files = {"site.css": css, "site.js": js, "telemetry-example.html": telemetry_example_html()}
     ASSETS.mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
         path = ASSETS / name
