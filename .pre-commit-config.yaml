@@ -22,3 +22,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: strategy-table-docs
+        name: README strategy table matches strategy_registry
+        entry: python .claude/tools/strategy_table_docs.py --check
+        language: system
+        pass_filenames: false
+        always_run: true

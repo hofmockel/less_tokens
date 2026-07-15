@@ -15,11 +15,11 @@ This is what stops a future contributor from adding a new unverified savings
 percentage the way "Terse output mode" (30-60%) and "Lean tool output"
 (40-90%) shipped without one.
 
-Row -> registry-key mapping is a small hardcoded table below, maintained by
-hand alongside the README (same spirit as changelog_gate.py's ID regexes):
-add a row, add a mapping entry (a real key, or None if the strategy is real
-but categorically unmeasurable, e.g. terse-output has no baseline to diff
-against). An unmapped row fails loudly rather than silently passing.
+Row -> registry-key mapping comes from strategy_registry.STRATEGIES, the same
+source strategy_table_docs.py renders README.md's table from: add or change a
+row there once and both the doc and this gate stay in sync. An unmapped row
+(one present in README.md's text but absent from the registry) fails loudly
+rather than silently passing.
 """
 from __future__ import annotations
 
@@ -33,17 +33,15 @@ STRATEGY_ROW = re.compile(r"^\|\s*\*\*(?P<name>[^*]+)\*\*\s*\|[^|]*\|(?P<savings
 MAGNITUDE = re.compile(r"\d+(?:\s*[\-–]\s*\d+)?\s*%|\d+\s*×")
 UNVERIFIED_MARKERS = ("not telemetry-backed", "not measured", "asserted only", "no telemetry")
 
+_tools_dir = Path(__file__).resolve().parent
+if str(_tools_dir) not in sys.path:
+    sys.path.insert(0, str(_tools_dir))
+from strategy_registry import STRATEGIES  # noqa: E402
+
 # README strategy display name -> savings_log strategy key, or None if the
 # strategy is real but has no savings.jsonl category by design.
 README_STRATEGY_REGISTRY_MAP: dict[str, str | None] = {
-    "Budget control plane": None,
-    "Vector search + symbols": "search",
-    "Read guards": None,
-    "Lean tool output": None,
-    "Terse output mode": None,
-    "Tool output truncation": "truncation",
-    "Compaction trigger": "compaction",
-    "Instruction pruning": None,
+    row.name: row.registry_key for row in STRATEGIES
 }
 
 

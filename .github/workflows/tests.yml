@@ -61,3 +61,6 @@ jobs:
 
       - name: Check README claims against the savings_log registry
         run: python .claude/tools/label_consistency_gate.py
+
+      - name: Check README strategy table matches strategy_registry
+        run: python .claude/tools/strategy_table_docs.py --check

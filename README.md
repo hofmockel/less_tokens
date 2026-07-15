@@ -23,6 +23,7 @@
 
 Agent token waste comes from several sources: reading entire files when only a few lines are relevant, rereading files already in context, dumping recursive directory listings or test output, verbose responses full of filler, conversation history that compounds turn after turn, and ever-growing `CLAUDE.md` / `AGENTS.md` files that are loaded on every turn. `less_tokens` attacks all of them.
 
+<!-- strategy-table: begin -->
 | Strategy | How | Savings | Flag |
 |---|---|---|---|
 | **Budget control plane** | Scores, replaces, defers, or blocks context before it enters the agent transcript; writes v2 telemetry and reports | avoids irrelevant context before it is paid for | always on |
@@ -33,6 +34,7 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | default; opt out with `--no-truncate` |
 | **Compaction trigger** | PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
+<!-- strategy-table: end -->
 
 Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent when the target hook location is writable; Codex wiring remains best-effort and falls back to `AGENTS.md` + skills if `.codex/` isn't writable. Use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of those default savings hooks.
 
