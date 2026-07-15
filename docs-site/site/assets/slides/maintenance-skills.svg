@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620" role="img" aria-labelledby="maintenance-skills-title maintenance-skills-desc">
+  <title id="maintenance-skills-title">Maintenance Skills concept map</title>
+  <desc id="maintenance-skills-desc">Repo-maintenance skills sit beside the token-control mission.</desc>
+  <style>
+    .bg{fill:#f7f8fa}.grain{fill:none;stroke:#d8e0e7;stroke-width:1;opacity:.45}.core{fill:#16202a}.token{fill:#2f7d78}.token.alt{fill:#225f88}.token.warm{fill:#9a5b20}.token.green{fill:#4c6f52}.stream,.rail,.loop,.spoke{fill:none;stroke:#2f7d78;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}.stream.muted,.beam.muted{stroke:#87929c;stroke-width:5}.stream.heavy,.fall.heavy{stroke-width:12}.altstroke{stroke:#225f88}.warmstroke{stroke:#9a5b20}.fall,.base,.gate,.scale{fill:none;stroke:#16202a;stroke-width:5;stroke-linecap:round}.bucket,.sat,.slice,.doc,.chunk,.terminal,.summary,.bubble,.meter,.accordion,.compact,.candidate,.decision,.step,.agent,.manifest,.report,.pan,.artifact,.station{fill:#fff;stroke:#16202a;stroke-width:4}.a{stroke:#2f7d78}.b{stroke:#225f88}.c{stroke:#9a5b20}.d{stroke:#4c6f52}.e{stroke:#725a9b}.mountain,.funnel,.lens,.radar,.vault,.gauge,.wheel{fill:#fff;stroke:#2f7d78;stroke-width:5}.mountain.inner,.radar.inner{fill:none;stroke:#225f88;stroke-width:4;opacity:.75}.handle,.beam,.cut,.scissor{fill:none;stroke:#9a5b20;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}.check{fill:none;stroke:#4c6f52;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}.check.small{stroke-width:7}.docline,.terminal-line{fill:none;stroke:#87929c;stroke-width:5;stroke-linecap:round}.matrix rect,.matrix path{fill:none;stroke:#16202a;stroke-width:4}.glyph,.symbol{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round}.symbol{font:700 52px ui-monospace,monospace;fill:#16202a;stroke:none}.mini{font:700 13px system-ui;fill:#16202a}.handle-dot{fill:#fff;stroke:#9a5b20;stroke-width:5}.basebox{fill:#16202a}.layer{fill:#fff;stroke:#16202a;stroke-width:4}.terminal{fill:#16202a}.terminal-line{stroke:#f7f8fa}.summary,.decision{fill:#edf6f5}.candidate{fill:#fff7ed}.bubble{fill:#fff}.meter{fill:#eef3f5}.manifest,.report{fill:#fff}.pan{fill:#fff7ed}.artifact{fill:#fff}.station{fill:#edf6f5}
+  </style>
+  <rect class="bg" x="0" y="0" width="980" height="620"/>
+  <path class="grain" d="M80 96 H900 M80 524 H900 M96 80 V540 M884 80 V540"/>
+  
+  <circle cx="490" cy="304" r="92" class="core"/>
+  <path d="M490 212 C410 150, 308 152, 232 232 M490 212 C570 150, 672 152, 748 232 M398 354 C312 430, 242 432, 166 372 M582 354 C668 430, 738 432, 814 372" class="stream"/>
+  <rect x="144" y="180" width="176" height="104" class="artifact"/>
+  <rect x="660" y="180" width="176" height="104" class="artifact"/>
+  <rect x="76" y="330" width="176" height="104" class="artifact"/>
+  <rect x="728" y="330" width="176" height="104" class="artifact"/>
+  <path d="M184 232 h96 M700 232 h96 M116 382 h96 M768 382 h96" class="docline"/>
+  <path d="M454 306 l28 28 l62 -84" class="check small"/>
+
+</svg>

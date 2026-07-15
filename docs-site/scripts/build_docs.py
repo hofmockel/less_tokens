@@ -164,6 +164,7 @@ SLIDES: list[tuple[str, str, str]] = [
     ("agent-split", "Agent Split", "Claude has direct hooks; Codex uses best-effort adapters and skills where hooks are not available."),
     ("hook-manifest", "Hook Manifest", "HOOK_SPECS is the shared registry for both agents and generated parity docs."),
     ("telemetry", "Telemetry Model", "Savings logs and budget events stay local; published docs use generated aggregates or checked-in dogfood notes."),
+    ("maintenance-skills", "Maintenance Skills", "Bug-hunt, bugfix, and continue are not token-saving strategies, but they help keep this repository healthy."),
     ("data-slide", "Data Caveats", "Chars divided by four are estimates, EB telemetry is external dogfood evidence, and qualitative claims stay labeled."),
     ("drift-prevention", "Drift Prevention", "Generated docs, parity JSON, tests, and source-link checks keep the HTML layer honest."),
     ("operations", "Operational Playbook", "Install, verify, report, troubleshoot, and update without needing a networked docs build."),
@@ -193,6 +194,7 @@ SLIDE_VISUALS: dict[str, tuple[str, tuple[str, ...]]] = {
     "agent-split": ("Shared strategy logic fans out to direct Claude hooks and Codex adapters.", ("HOOK_SPECS", "Claude Hooks", "Codex Adapters", "Shared Checks")),
     "hook-manifest": ("One manifest drives wiring, parity data, and generated docs.", ("Manifest", "Settings", "Parity JSON", "Docs")),
     "telemetry": ("Local event streams become aggregate reports without publishing raw state.", ("Savings Log", "Budget Events", "Reports", "Published Aggregates")),
+    "maintenance-skills": ("Repo-maintenance skills sit beside the token-control mission.", ("Bug Hunt", "Bugfix", "Continue", "Handoff")),
     "data-slide": ("Evidence labels distinguish estimates, measured logs, and dogfood notes.", ("Chars / 4", "Measured", "External Dogfood", "Qualitative")),
     "drift-prevention": ("Generated docs and tests keep the HTML layer tied to source truth.", ("Registries", "Generated Data", "Link Checks", "CI")),
     "operations": ("The operator loop is install, verify, report, troubleshoot, update.", ("Install", "Verify", "Report", "Troubleshoot", "Update")),
@@ -638,6 +640,16 @@ def _scene(anchor: str) -> str:
   <rect x="406" y="224" width="168" height="152" class="report"/>
   <path d="M444 270 h92 M444 316 h92" class="docline"/>
 """,
+        "maintenance-skills": """
+  <circle cx="490" cy="304" r="92" class="core"/>
+  <path d="M490 212 C410 150, 308 152, 232 232 M490 212 C570 150, 672 152, 748 232 M398 354 C312 430, 242 432, 166 372 M582 354 C668 430, 738 432, 814 372" class="stream"/>
+  <rect x="144" y="180" width="176" height="104" class="artifact"/>
+  <rect x="660" y="180" width="176" height="104" class="artifact"/>
+  <rect x="76" y="330" width="176" height="104" class="artifact"/>
+  <rect x="728" y="330" width="176" height="104" class="artifact"/>
+  <path d="M184 232 h96 M700 232 h96 M116 382 h96 M768 382 h96" class="docline"/>
+  <path d="M454 306 l28 28 l62 -84" class="check small"/>
+""",
         "data-slide": """
   <path d="M490 146 v270" class="scale"/>
   <path d="M332 216 h316" class="scale"/>
@@ -870,10 +882,48 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         hook_rows = [[e(row["name"]), e(row.get("optional_flag") or "always"), e(row["claude_script"]), e(row["codex_script"])] for row in hook_matrix()]
         extra = f'<h2>Hook Matrix</h2>{table(["Hook", "Flag", "Claude", "Codex"], hook_rows)}<p class="note"><a href="{e(generated_link(page, "hook-matrix.json"))}">hook-matrix.json</a></p>'
     elif page.endswith("telemetry.html"):
-        extra = f'<h2>External Dogfood Snapshot</h2><img class="chart" src="{e(generated_link(page, "legacy-savings.svg"))}" alt="External dogfood legacy savings chart"><p class="note">Source: <a href="{e(repo_link(page, "eb_telemetry_9jul26.md"))}">eb_telemetry_9jul26.md</a></p>'
+        extra = f"""
+        <h2>View Local Stats</h2>
+        <p>The HTML stats view is generated locally from the active savings log. Claude writes <code>.claude/state/savings.html</code>; the Codex shim writes <code>.less_tokens/state/savings.html</code>.</p>
+        <pre><code>.claude/bin/python .claude/tools/stats.py --html
+.less_tokens/bin/python .less_tokens/tools/stats.py --html</code></pre>
+        <p class="note">Renderer source: <a href="{e(repo_link(page, ".claude/tools/stats.py"))}">.claude/tools/stats.py</a>. The Codex command is a shim around the same reporting contract.</p>
+        <h2>External Dogfood Snapshot</h2>
+        <img class="chart" src="{e(generated_link(page, "legacy-savings.svg"))}" alt="External dogfood legacy savings chart">
+        <p class="note">Source: <a href="{e(repo_link(page, "eb_telemetry_9jul26.md"))}">eb_telemetry_9jul26.md</a></p>
+        """
     elif page.endswith("budget-plane.html"):
         cats = DEFAULT_BUDGET_CONFIG["categories"]
         extra = table(["Category", "Default tokens"], [[e(k), e(v)] for k, v in cats.items()])
+    elif page.endswith("skills.html"):
+        skill_rows = [
+            ["less-tokens", "Primary token-discipline workflow: search before broad reads, use symbol lookup, keep agent returns compact.", repo_link(page, ".agents/skills/less-tokens/SKILL.md")],
+            ["bug-hunt", "Maintenance workflow for structured repo bug rounds, severity scoring, stop rules, and round logs.", repo_link(page, "agents/common/bug-hunt-protocol.md")],
+            ["bugfix", "Optional operator workflow for focused diagnosis, patching, and verification. It is useful here, but it is not a less_tokens token-saving strategy.", ""],
+            ["continue", "Handoff workflow for preserving current state and next actions in continue.md when a fresh agent needs to resume.", repo_link(page, ".claude/skills/continue/SKILL.md")],
+        ]
+        cards = ""
+        for name, text, href in skill_rows:
+            source = f'<p><a href="{e(href)}">source</a></p>' if href else '<p class="note">User-level skill; no repo-owned source yet.</p>'
+            cards += f'<article class="card"><h3>{e(name)}</h3><p>{e(text)}</p>{source}</article>'
+        icon_links = [
+            ("Telemetry", "https://thenounproject.com/search/icons/?q=telemetry"),
+            ("Measure", "https://thenounproject.com/search/icons/?q=measure"),
+            ("Bug Hunt", "https://thenounproject.com/search/icons/?q=bug%20hunt"),
+            ("Bug Fix", "https://thenounproject.com/search/icons/?q=bug%20fix"),
+            ("Continue", "https://thenounproject.com/search/icons/?q=continue"),
+            ("Handoff", "https://thenounproject.com/search/icons/?q=handoff"),
+        ]
+        icon_items = "".join(f'<li><a href="{e(href)}">{e(label)}</a></li>' for label, href in icon_links)
+        extra = f"""
+        <h2>Repo-Maintenance Skills</h2>
+        <p>These are documented beside the scaffolding because they keep the repository maintainable. Only less-tokens is part of the primary token-saving mission; bug-hunt, bugfix, and continue are operational aids.</p>
+        <div class="grid">{cards}</div>
+        <h2>Noun Project SVG Candidates</h2>
+        <p>Use bold black-and-white noun or verb icons. Prefer Public Domain SVGs where available; otherwise use CC BY 3.0 SVGs with visible creator attribution near the asset or in the slide notes.</p>
+        <ul>{icon_items}</ul>
+        <p class="note">Final downloaded assets should record icon title, creator, license, source URL, and attribution text.</p>
+        """
     return layout(page, title, f"""
     <section class="page-title"><h1>{e(title)}</h1><p>{e(summary)}</p></section>
     <section>{extra}</section>

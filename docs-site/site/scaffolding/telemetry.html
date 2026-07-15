@@ -15,7 +15,16 @@
   <main>
 
     <section class="page-title"><h1>Telemetry</h1><p>Savings and budget events are local-only by default; public docs use checked-in aggregates.</p></section>
-    <section><h2>External Dogfood Snapshot</h2><img class="chart" src="../generated/legacy-savings.svg" alt="External dogfood legacy savings chart"><p class="note">Source: <a href="../../../eb_telemetry_9jul26.md">eb_telemetry_9jul26.md</a></p></section>
+    <section>
+        <h2>View Local Stats</h2>
+        <p>The HTML stats view is generated locally from the active savings log. Claude writes <code>.claude/state/savings.html</code>; the Codex shim writes <code>.less_tokens/state/savings.html</code>.</p>
+        <pre><code>.claude/bin/python .claude/tools/stats.py --html
+.less_tokens/bin/python .less_tokens/tools/stats.py --html</code></pre>
+        <p class="note">Renderer source: <a href="../../../.claude/tools/stats.py">.claude/tools/stats.py</a>. The Codex command is a shim around the same reporting contract.</p>
+        <h2>External Dogfood Snapshot</h2>
+        <img class="chart" src="../generated/legacy-savings.svg" alt="External dogfood legacy savings chart">
+        <p class="note">Source: <a href="../../../eb_telemetry_9jul26.md">eb_telemetry_9jul26.md</a></p>
+        </section>
     <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../install.py">Install script</a></li><li><a href="../../../agents/common/hooks/hook_manifest.py">Hook manifest</a></li><li><a href="../../../agents/common/budget/policy.py">Budget package</a></li><li><a href="../../../HTML_DOCUMENTATION_PLAN.md">Documentation plan</a></li></ul></aside>
     
   </main>
