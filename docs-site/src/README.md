@@ -15,3 +15,12 @@ as plain HTML or Markdown-like partials while preserving the same commands:
 python3 docs-site/scripts/build_docs.py
 python3 docs-site/scripts/check_docs.py
 ```
+
+For GitHub Pages or another published build, set both source-link variables so
+links to repository files become stable `blob/<commit>/...` URLs:
+
+```bash
+LESS_TOKENS_DOCS_REPO_URL=https://github.com/hofmockel/less_tokens \
+LESS_TOKENS_DOCS_COMMIT=<sha> \
+python3 docs-site/scripts/build_docs.py
+```

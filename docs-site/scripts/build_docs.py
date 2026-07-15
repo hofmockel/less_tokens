@@ -7,6 +7,7 @@ import ast
 import html
 import importlib.util
 import json
+import os
 import re
 import shutil
 import sys
@@ -211,6 +212,10 @@ def rel_from(page: str, target: str) -> str:
 
 
 def repo_link(page: str, repo_path: str) -> str:
+    repo_url = os.environ.get("LESS_TOKENS_DOCS_REPO_URL", "").rstrip("/")
+    commit = os.environ.get("LESS_TOKENS_DOCS_COMMIT", "").strip()
+    if repo_url and commit:
+        return f"{repo_url}/blob/{commit}/{repo_path}"
     depth = len(Path(page).parent.parts)
     prefix = "../" * (depth + 2)
     return f"{prefix}{repo_path}"
@@ -705,6 +710,13 @@ document.addEventListener("keydown", event => {
                 ok = False
         else:
             shutil.copyfile(src, dst)
+    nojekyll = SITE / ".nojekyll"
+    if check:
+        if not nojekyll.exists() or nojekyll.read_text(encoding="utf-8") != "":
+            print(f"stale root marker: {nojekyll.relative_to(REPO)}", file=sys.stderr)
+            ok = False
+    else:
+        nojekyll.write_text("", encoding="utf-8")
     return ok
 
 

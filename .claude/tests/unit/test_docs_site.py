@@ -44,3 +44,21 @@ def test_strategy_matrix_links_to_strategy_pages():
     assert "search-first" in slugs
     assert "budget-control-plane" in slugs
     assert "lean-output-truncation" in slugs
+
+
+def test_repo_link_uses_github_blob_when_publish_env_is_set(monkeypatch):
+    build_docs = _load_build_docs()
+    monkeypatch.setenv("LESS_TOKENS_DOCS_REPO_URL", "https://github.com/hofmockel/less_tokens")
+    monkeypatch.setenv("LESS_TOKENS_DOCS_COMMIT", "abc123")
+
+    assert build_docs.repo_link("strategies/search-first.html", "README.md") == (
+        "https://github.com/hofmockel/less_tokens/blob/abc123/README.md"
+    )
+
+
+def test_repo_link_stays_local_without_publish_env(monkeypatch):
+    build_docs = _load_build_docs()
+    monkeypatch.delenv("LESS_TOKENS_DOCS_REPO_URL", raising=False)
+    monkeypatch.delenv("LESS_TOKENS_DOCS_COMMIT", raising=False)
+
+    assert build_docs.repo_link("strategies/search-first.html", "README.md") == "../../../README.md"
