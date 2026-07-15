@@ -1187,27 +1187,34 @@ def _iter_tree_files(src: Path, exclude: frozenset[str] = frozenset()):
         yield rel
 
 
-# Trees the installer deploys, as (source_subdir, dest_relpath, exclude).
-# Mirrors the copy calls in main(); search_config.py is excluded from the
-# tools tree because it is handled (and, on uninstall, preserved) separately.
+# Trees the installer deploys, as (source_subdir, dest_relpath, exclude,
+# force_kind). force_kind selects which --force flag gates overwrites of an
+# existing file: "hooks" for the two top-level per-agent hook trees
+# (.claude/hooks, .codex/hooks), "tools" for everything else. This list is
+# the single source of truth for what gets copied where — main()'s Step 2
+# and _foreign_files()/_deployed_targets() all execute or filter this same
+# plan, so a new platform artifact needs one entry here, not a matching
+# hand-written copy_tree call in main() too. search_config.py is excluded
+# from the tools tree because it is handled (and, on uninstall, preserved)
+# separately via handle_search_config().
 def _install_specs(
     caveman: bool,
     agents: set[str] | None = None,
     target_root: Path | None = None,
-) -> list[tuple[str, str, frozenset[str]]]:
+) -> list[tuple[str, str, frozenset[str], str]]:
     if agents is None:
         agents = {"claude"}
-    specs: list[tuple[str, str, frozenset[str]]] = [
-        (".less_tokens/config", ".less_tokens/config", frozenset()),
-        (".less_tokens/tools", ".less_tokens/tools", frozenset()),
-        ("agents/common/budget", ".less_tokens/hooks/budget", frozenset()),
-        (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"})),
-        (".claude/schema", ".claude/schema", frozenset()),
-        (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset()),
+    specs: list[tuple[str, str, frozenset[str], str]] = [
+        (".less_tokens/config", ".less_tokens/config", frozenset(), "tools"),
+        (".less_tokens/tools", ".less_tokens/tools", frozenset(), "tools"),
+        ("agents/common/budget", ".less_tokens/hooks/budget", frozenset(), "tools"),
+        (".claude/tools",  ".claude/tools",  frozenset({"search_config.py"}), "tools"),
+        (".claude/schema", ".claude/schema", frozenset(), "tools"),
+        (".claude/skills/claudemd", ".claude/skills/claudemd", frozenset(), "tools"),
     ]
     if "claude" in agents:
-        specs.append((".claude/hooks", ".claude/hooks", frozenset()))
-        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset()))
+        specs.append((".claude/hooks", ".claude/hooks", frozenset(), "hooks"))
+        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset(), "tools"))
         claude_skills_src = SOURCE / "agents" / "claude" / "skills"
         if claude_skills_src.exists():
             for skill_dir in sorted(claude_skills_src.iterdir()):
@@ -1216,16 +1223,17 @@ def _install_specs(
                         f"agents/claude/skills/{skill_dir.name}",
                         f".claude/skills/{skill_dir.name}",
                         frozenset(),
+                        "tools",
                     ))
         if (SOURCE / "agents" / "claude" / "agents").exists():
-            specs.append(("agents/claude/agents", ".claude/agents", frozenset()))
+            specs.append(("agents/claude/agents", ".claude/agents", frozenset(), "tools"))
     if caveman and "claude" in agents:
-        specs.append((".claude/rules", ".claude/rules", frozenset()))
+        specs.append((".claude/rules", ".claude/rules", frozenset(), "tools"))
     if "codex" in agents:
-        specs.append((".claude/schema", ".less_tokens/schema", frozenset()))
-        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset()))
+        specs.append((".claude/schema", ".less_tokens/schema", frozenset(), "tools"))
+        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset(), "tools"))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
-            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset()))
+            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset(), "hooks"))
         skill_root = (
             ".agents/skills"
             if target_root is not None and _dir_is_writable(target_root, ".agents")
@@ -1237,6 +1245,7 @@ def _install_specs(
                     f"agents/codex/skills/{skill_dir.name}",
                     f"{skill_root}/{skill_dir.name}",
                     frozenset(),
+                    "tools",
                 ))
     return specs
 
@@ -1255,7 +1264,7 @@ def _foreign_files(source: Path, target_root: Path, caveman: bool, agents: set[s
         return []
 
     foreign: list[str] = []
-    for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
+    for sub, dst_rel, excl, _force_kind in _install_specs(caveman, agents, target_root):
         if any(seg in sub for seg in ("hooks", "rules", "skills", "agents/claude/agents")):
             continue  # shared dirs — host files allowed
         dst_base = target_root / dst_rel
@@ -1280,7 +1289,7 @@ def _deployed_targets(source: Path, target_root: Path, caveman: bool, agents: se
     """Destination files less_tokens deploys (excludes user-owned search_config.py)."""
     out: list[Path] = []
     selected = agents if agents is not None else {"claude"}
-    for sub, dst_rel, excl in _install_specs(caveman, agents, target_root):
+    for sub, dst_rel, excl, _force_kind in _install_specs(caveman, agents, target_root):
         src_dir = source / sub
         if not src_dir.exists():
             continue
@@ -2134,16 +2143,27 @@ def main() -> int:
     # Step 2: Copy files
     # ------------------------------------------------------------------
     print(f"\n{tag}[2/5] Copying files...")
-    changes += copy_tree(SOURCE / ".less_tokens" / "config", target_root / ".less_tokens" / "config",
-              target_root, force_tools, overwrite_modified, ".less_tokens/config/", dry_run=dry)
+    # _install_specs() is the single plan of trees to deploy; this loop is
+    # the sole executor (see its docstring). .less_tokens/config is copied
+    # first and separately because apply_codex_savings_profile() must merge
+    # into an already-populated budget.json, not write a bare one that a
+    # later same-tree copy would then skip (target already exists).
+    specs = _install_specs(args.caveman, agents, target_root)
+
+    def _copy_spec(src: str, dst: str, excl: frozenset[str], force_kind: str) -> int:
+        force = force_hooks if force_kind == "hooks" else force_tools
+        return copy_tree(SOURCE / src, target_root / dst, target_root, force,
+                  overwrite_modified, dst + "/", exclude=excl, dry_run=dry)
+
+    config_spec = next(s for s in specs if s[1] == ".less_tokens/config")
+    changes += _copy_spec(*config_spec)
     if "codex" in agents:
         changes += apply_codex_savings_profile(target_root, codex_savings_profile(args), dry_run=dry)
-    changes += copy_tree(SOURCE / ".less_tokens" / "tools", target_root / ".less_tokens" / "tools",
-              target_root, force_tools, overwrite_modified, ".less_tokens/tools/", dry_run=dry)
-    changes += copy_tree(SOURCE / "agents" / "common" / "budget", target_root / ".less_tokens" / "hooks" / "budget",
-              target_root, force_tools, overwrite_modified, ".less_tokens/hooks/budget/", dry_run=dry)
-    changes += copy_tree(SOURCE / ".claude" / "tools",  target_root / ".claude" / "tools", target_root, force_tools,  overwrite_modified,
-              ".claude/tools/", exclude=frozenset({"search_config.py"}), dry_run=dry)
+    for spec in specs:
+        if spec is config_spec:
+            continue
+        changes += _copy_spec(*spec)
+
     if args.update and (target_root / ".claude" / "tools" / "search_config.py").exists():
         print("  + .claude/tools/search_config.py (preserved — --update never touches it)")
     else:
@@ -2153,33 +2173,6 @@ def main() -> int:
             target_root,
             force_config, overwrite_modified, dry_run=dry,
         )
-    changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".claude" / "schema", target_root, force_tools,  overwrite_modified, ".claude/schema/", dry_run=dry)
-    changes += copy_tree(SOURCE / ".claude" / "skills" / "claudemd",
-              target_root / ".claude" / "skills" / "claudemd",
-              target_root, force_tools, overwrite_modified, ".claude/skills/claudemd/", dry_run=dry)
-    if "claude" in agents:
-        changes += copy_tree(SOURCE / ".claude" / "hooks",  target_root / ".claude" / "hooks",
-                  target_root, force_hooks, overwrite_modified, ".claude/hooks/", dry_run=dry)
-        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
-                  target_root / ".claude" / "hooks" / "common",
-                  target_root, force_tools, overwrite_modified,
-                  ".claude/hooks/common/", dry_run=dry)
-        if args.caveman:
-            changes += copy_tree(SOURCE / ".claude" / "rules", target_root / ".claude" / "rules",
-                      target_root, force_tools, overwrite_modified, ".claude/rules/", dry_run=dry)
-        claude_skills_src = SOURCE / "agents" / "claude" / "skills"
-        if claude_skills_src.exists():
-            for claude_skill_src in sorted(claude_skills_src.iterdir()):
-                if not claude_skill_src.is_dir() or not (claude_skill_src / "SKILL.md").exists():
-                    continue
-                skill_tgt = target_root / ".claude" / "skills" / claude_skill_src.name
-                changes += copy_tree(claude_skill_src, skill_tgt,
-                          target_root, force_tools, overwrite_modified,
-                          str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
-        claude_agents_src = SOURCE / "agents" / "claude" / "agents"
-        if claude_agents_src.exists():
-            changes += copy_tree(claude_agents_src, target_root / ".claude" / "agents",
-                      target_root, force_tools, overwrite_modified, ".claude/agents/", dry_run=dry)
     if "codex" in agents:
         changes += write_codex_tool_shims(
             SOURCE / ".claude" / "tools",
@@ -2188,30 +2181,6 @@ def main() -> int:
             overwrite_modified,
             dry_run=dry,
         )
-        changes += copy_tree(SOURCE / ".claude" / "schema", target_root / ".less_tokens" / "schema",
-                  target_root, force_tools, overwrite_modified, ".less_tokens/schema/", dry_run=dry)
-        changes += copy_tree(SOURCE / "agents" / "common" / "hooks",
-                  target_root / ".less_tokens" / "hooks",
-                  target_root, force_tools, overwrite_modified,
-                  ".less_tokens/hooks/", dry_run=dry)
-        codex_hooks_src = SOURCE / "agents" / "codex" / "hooks"
-        if codex_hooks_src.exists() and _dir_is_writable(target_root, ".codex"):
-            changes += copy_tree(codex_hooks_src, target_root / ".codex" / "hooks",
-                      target_root, force_hooks, overwrite_modified, ".codex/hooks/", dry_run=dry)
-        skill_root = (
-            target_root / ".agents" / "skills"
-            if _dir_is_writable(target_root, ".agents")
-            else target_root / ".less_tokens" / "skills"
-        )
-        codex_skills_src = SOURCE / "agents" / "codex" / "skills"
-        if codex_skills_src.exists():
-            for codex_skill_src in sorted(codex_skills_src.iterdir()):
-                if not codex_skill_src.is_dir() or not (codex_skill_src / "SKILL.md").exists():
-                    continue
-                skill_tgt = skill_root / codex_skill_src.name
-                changes += copy_tree(codex_skill_src, skill_tgt,
-                          target_root, force_tools, overwrite_modified,
-                          str(skill_tgt.relative_to(target_root)) + "/", dry_run=dry)
 
     # Auto-patch VENV_PY in search_config.py to match the detected venv.
     # Conservative: only fires when the existing value is the source default,

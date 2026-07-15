@@ -49,10 +49,6 @@ Rejected proposals moved to [DECISIONS.md](DECISIONS.md) → *Rejected* — reco
 
 Claude/Codex platform split review. Prefer shared core plus thin adapters; keep divergent paths only where hook surfaces genuinely differ (`Read|Grep|Stop` vs `mcp__filesystem__.*|apply_patch|PostToolUse`).
 
-### High Priority
-
-- **Installer: make deployment spec executable, not duplicated prose-in-code** *(architecture / drift prevention)* — `_install_specs()` says it mirrors `main()` (`install.py:1180-1182`) and encodes install trees at `install.py:1190-1231`, while actual copy behavior is hand-written again at `install.py:2127-2204`. Codex now adds shims, schema copies, shared hooks, optional `.codex/hooks`, and skill-root selection, so mirror drift is likely. Promote install specs into typed operations (`copy_tree`, `generated_shims`, `search_config`, `codex_budget_profile`, `agents_md_fragment`) and have both foreign-file checks and `main()` execute/filter the same plan. Acceptance: adding a new platform artifact requires one plan entry, not edits in both `_install_specs()` and `main()`.
-
 ### Medium Priority
 
 - **less-tokens skill: generate shared command manual with platform overlays** *(redundant prose / fixed context)* — The Claude and Codex `less-tokens` skills duplicate the same search/symbol/read-guard/directory/document-draft/rebuild prose with only paths and AGENTS/CLAUDE nouns changed (`agents/claude/skills/less-tokens/SKILL.md:8-36`, `agents/codex/skills/less-tokens/SKILL.md:8-36`, `agents/claude/skills/less-tokens/SKILL.md:117-133`, `agents/codex/skills/less-tokens/SKILL.md:111-127`). Keep one shared source for common command docs, then render platform overlays for command prefix, audit command, state path, reminder hook name, and subagent guidance. Acceptance: common sections are edited once and generated outputs stay byte-stable except for declared platform variables.
