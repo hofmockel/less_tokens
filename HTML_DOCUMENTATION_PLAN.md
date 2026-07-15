@@ -19,9 +19,24 @@ Use a static docs site rather than a web app. The repo is Python/Markdown-first,
 - `docs-site/src/` for Markdown or HTML source pages.
 - `docs-site/assets/` for CSS, logo images, diagrams, and generated JSON.
 - `docs-site/scripts/` for small Python generators that read source registries and telemetry.
-- `docs-site/site/` or `public/` for built HTML.
+- `docs-site/site/` for built HTML.
 
 The site can start dependency-light with plain HTML/CSS plus bundled/generated SVG charts. If a docs framework is desired later, MkDocs Material is the best fit because the repo already treats Markdown as canonical and has many source-linked docs.
+
+### Build Contract
+
+Start with a dependency-light static build that can run in the repo's existing Python environment.
+
+- Source format: authored pages live as plain HTML partials or Markdown-like snippets under `docs-site/src/`, wrapped by a shared Python template.
+- Build command: `python3 docs-site/scripts/build_docs.py`.
+- Check command: `python3 docs-site/scripts/check_docs.py`, which runs generation checks, internal-link checks, and reproducibility checks.
+- Output directory: `docs-site/site/`.
+- Generated data directory: `docs-site/site/generated/` for JSON and SVG produced from code or checked-in notes.
+- No network access during build or checks.
+- No external CDN dependencies in built HTML; CSS, JS, SVG, and logo assets are local.
+- CI/local verification should fail when generated matrices, internal links, source links, or canonical source mappings drift.
+
+If a framework is introduced later, it must preserve the same commands, output directory, no-network default, and generated-data checks.
 
 ## Additive Policy
 
@@ -42,6 +57,24 @@ Additive rules:
 - Treat existing docs as source material and reference points, not content to retire.
 - Use generated tables and diagrams where possible so the additive layer does not become a drift-prone second truth.
 - Make clear when an HTML page is explanatory/visual and when the canonical operational detail still lives in `README.md` or `DOCUMENTATION.md`.
+- Do not publish local `.claude/state/` or `.less_tokens/state/` telemetry by default; local data can be used only by an explicit developer flag and must be labeled as local/example data.
+- Keep `AGENTS.md` and `CLAUDE.md` out of the HTML site's authored content except for short links or generated summaries that preserve token discipline.
+
+## Source Of Truth Map
+
+Every generated or summarized page must name its canonical source. Prefer code registries over Markdown tables.
+
+| HTML surface | Canonical source | Generator/check |
+|---|---|---|
+| Strategy matrix and strategy pages | `.claude/tools/strategy_registry.py`, `DOCUMENTATION.md` stable strategy IDs, `agents/common/hooks/hook_manifest.py` | `generate_strategy_matrix.py`, `check_generated_docs.py` |
+| Hook/parity matrix | `agents/common/hooks/hook_manifest.py`, `agents/common/hooks/parity.json` | `generate_hook_matrix.py`, `check_generated_docs.py` |
+| Installer flags | `install.py` argparse metadata or a shared installer flag registry | `generate_installer_flags.py`, `check_generated_docs.py` |
+| Budget schema/config reference | `agents/common/budget/*.py`, `.less_tokens/config/budget.json` defaults | `generate_budget_schema.py` |
+| Telemetry examples | checked-in `eb_telemetry_9jul26.md` by default; local state only with explicit opt-in | `generate_telemetry_summary.py` |
+| Repository/deployment map | `install.py`, `DOCUMENTATION.md` repository layout, hook manifest | `generate_deployment_map.py` |
+| Root-doc canonical homes | structured config consumed by the existing/new docs canonical gate | `check_docs_canonical.py` |
+
+The HTML site may link to README/DOCUMENTATION generated blocks, but it should not parse those blocks as the preferred source when a code registry exists.
 
 ## Information Architecture
 
@@ -55,6 +88,7 @@ Pages:
 - `presentation.html` — slide-like high-level overview, around 25 sections.
 - `strategy-map.html` — strategy matrix with links into implementation and telemetry.
 - `architecture.html` — major runtime layers and agent split.
+- `privacy.html` — local-only telemetry, no-network build policy, and published-data rules.
 
 Primary code/doc links:
 
@@ -82,6 +116,8 @@ Pages:
 
 Each page should include:
 
+- Stable strategy ID or generated source key, where one exists.
+- Canonical source-of-truth file.
 - Problem statement.
 - Before/after token flow.
 - Triggering hook or command.
@@ -145,10 +181,13 @@ Pages:
 - `reference/hook-events.html`
 - `reference/state-files.html`
 - `reference/telemetry-schema.html`
+- `reference/privacy.html`
 - `reference/troubleshooting.html`
 - `reference/contributing.html`
 - `reference/decisions.html`
 - `reference/backlog.html`
+
+Troubleshooting is part of Phase 1, not a late polish task. It should cover at least: fastembed/model download failures, wrong venv paths, empty indexes or empty search results, silent index refresh failures and `index-refresh.log`, JSON hook wiring mistakes, and Windows-safe command paths.
 
 Primary doc links:
 
@@ -186,6 +225,15 @@ Primary doc links:
 23. Drift prevention: generated docs, parity JSON, tests.
 24. Operational playbook: install, verify, report, troubleshoot.
 25. Contribution map: where to add a strategy and how to prove it.
+
+Deck behavior requirements:
+
+- Keyboard navigation for next/previous slide.
+- Stable hash anchors for every slide.
+- Print/PDF stylesheet that presents slides cleanly.
+- Reduced-motion support.
+- Mobile layout that avoids clipped text and preserves deep links.
+- Links from each slide to the relevant reference or strategy page.
 
 ## Diagrams
 
@@ -227,8 +275,8 @@ Graphs should be generated from source or checked-in telemetry notes, not hand-d
 Recommended graphs:
 
 - Strategy coverage by agent: generated from [agents/common/hooks/hook_manifest.py](agents/common/hooks/hook_manifest.py) and [agents/common/hooks/parity.json](agents/common/hooks/parity.json).
-- Savings strategy table: generated from strategy registry/README markers if available, with savings claims labeled as measured, estimated, or qualitative.
-- Budget decision volume: from `.less_tokens/state/events.jsonl` when present; fallback to [eb_telemetry_9jul26.md](eb_telemetry_9jul26.md) as clearly labeled external dogfood evidence.
+- Savings strategy table: generated from `.claude/tools/strategy_registry.py` first, with savings claims labeled as measured, estimated, or qualitative.
+- Budget decision volume: from checked-in examples by default; local `.less_tokens/state/events.jsonl` only when the generator is run with an explicit opt-in flag; fallback to [eb_telemetry_9jul26.md](eb_telemetry_9jul26.md) as clearly labeled external dogfood evidence.
 - Session-size distribution: from near-miss data if available; otherwise use the EB telemetry table with caveat.
 - Legacy savings by strategy: use EB section showing search, context-cache-read, search-blocked, truncation event counts/chars.
 - Hook surface area: count hooks by event type and agent from `HOOK_SPECS`.
@@ -241,6 +289,8 @@ Rules for data honesty:
 - Do not convert qualitative README savings claims into benchmark results.
 - Mark EB telemetry as external dogfood data, not this repo's production telemetry.
 - Link every graph to the source file or generated JSON used to render it.
+- Never include raw local telemetry records in committed HTML or generated JSON.
+- Redact or aggregate path-like values if local telemetry is intentionally used for a private build.
 
 ## Hyperlinking Rules
 
@@ -257,50 +307,73 @@ Every strategy page should include a "Trace It In Code" box with links to:
 
 Use stable relative links in source Markdown/HTML. For generated line-number links, use a build script that can produce GitHub-style anchors when a repository URL is configured.
 
+Built-link modes:
+
+- Local build mode links source files back to repo-relative paths from the built page, preserving local browsing.
+- Published build mode links source files to GitHub URLs when `LESS_TOKENS_DOCS_REPO_URL` and commit SHA are configured.
+- Internal site links are always root-relative within `docs-site/site/`.
+- `check_docs_links.py` must validate both authored source links and built HTML links.
+- Generated links should include line anchors when a stable line is available, but checks must tolerate line movement by validating the target file first.
+
 ## Build Scripts
 
 Add small generators so docs stay tied to code:
 
 - `generate_hook_matrix.py`: import `HOOK_SPECS`, emit `hook-matrix.json`.
-- `generate_strategy_matrix.py`: read the strategy registry or README strategy markers, emit `strategy-matrix.json`.
+- `generate_strategy_matrix.py`: read `.claude/tools/strategy_registry.py`, `DOCUMENTATION.md` stable IDs, and `HOOK_SPECS`; emit `strategy-matrix.json`.
+- `generate_installer_flags.py`: read argparse metadata or a shared installer flag registry; emit `installer-flags.json`.
+- `generate_deployment_map.py`: read install and hook manifests; emit `deployment-map.json`.
 - `generate_budget_schema.py`: introspect dataclasses/default config, emit `budget-schema.json`.
-- `generate_telemetry_summary.py`: summarize local telemetry when available, with an option to use checked-in EB telemetry notes for examples.
+- `generate_telemetry_summary.py`: use checked-in EB telemetry notes by default; summarize local telemetry only with an explicit opt-in flag.
+- `build_docs.py`: wrap authored pages, generated JSON, SVG diagrams, CSS, and local assets into `docs-site/site/`.
 - `check_docs_links.py`: fail on broken internal links.
 - `check_generated_docs.py`: verify generated tables match source registries.
+- `check_docs_canonical.py`: fail when HTML summaries duplicate canonical root-doc homes or contradict configured ownership.
+- `check_docs.py`: run all docs-site checks in one command.
+
+The first implementation should include small tests for generator behavior where parsing source files is non-trivial.
 
 ## Implementation Phases
 
 ### Phase 1: Skeleton And Navigation
 
 - Create docs source tree and base CSS.
-- Add `index.html`, `presentation.html`, `architecture.html`, and reference landing pages.
+- Add `build_docs.py`, `check_docs.py`, `check_docs_links.py`, and minimal generated-data plumbing.
+- Add `index.html`, `architecture.html`, `strategy-map.html`, `privacy.html`, `reference/troubleshooting.html`, and reference landing pages.
 - Reuse `LT_logo.png` / `LT_logo_small.png`.
 - Add internal anchors and a site-wide search placeholder.
+- Generate the first hook/parity and strategy matrices from source registries.
+- Validate links and generated outputs locally before adding deep content.
 
 ### Phase 2: Source-Generated Matrices
 
-- Generate strategy, hook, parity, and deployment tables.
-- Convert existing README/DOCUMENTATION tables into generated HTML blocks.
+- Generate deployment, installer-flag, budget-schema, and telemetry-example data.
+- Convert existing README/DOCUMENTATION generated-table concepts into generated HTML blocks without parsing README/DOCUMENTATION as the preferred source.
 - Add graph data JSON and first SVG/Canvas charts.
+- Wire a local check target or CI job for docs generation and link checks.
 
 ### Phase 3: Deep Technical Pages
 
 - Write strategy pages.
 - Write scaffolding pages.
 - Add "Trace It In Code" link boxes.
-- Add troubleshooting and operational playbooks.
+- Expand troubleshooting and operational playbooks.
+- Reconcile each strategy page with stable strategy IDs and source registry keys.
 
 ### Phase 4: Visual Polish And Verification
 
 - Add responsive layout, print/PDF-friendly presentation mode, and dark/light themes.
-- Run link checks.
-- Verify all source-generated docs are reproducible.
-- Add CI or a local check target.
+- Add the full 25-slide `presentation.html` once generated data contracts are stable.
+- Verify desktop and mobile screenshots for non-overlapping text.
+- Verify keyboard navigation, hash anchors, reduced-motion behavior, and print/PDF output.
+- Run link checks and generated-doc checks.
 
 ### Phase 5: Maintenance Hooks
 
 - Add docs generation checks alongside existing registry-to-doc checks.
 - Document how contributors add a strategy, update the manifest, add telemetry, and update docs.
+- Connect the HTML docs checks to the existing generated-doc and parity workflow.
+- Keep backlog doc-drift items aligned with the docs-site generators: parity matrix generation, installer flag docs, skill manual generation, subagent guidance generation, and canonical-home checks.
 
 ## Acceptance Criteria
 
@@ -311,3 +384,9 @@ Add small generators so docs stay tied to code:
 - Internal links pass a checker.
 - Generated matrices are reproducible from code.
 - The docs make scaffolding as visible as strategies: installer, adapters, manifest, budget plane, telemetry, skills, tests, and drift-prevention.
+- `python3 docs-site/scripts/build_docs.py` builds the site without network access.
+- `python3 docs-site/scripts/check_docs.py` fails on stale generated data, broken internal links, broken source links, or canonical-source drift.
+- Local telemetry is never committed or published by default.
+- Strategy pages include stable IDs or generated keys, canonical source links, parity notes, telemetry notes, and tests.
+- The presentation supports keyboard navigation, deep links, mobile layout, reduced motion, and print/PDF output.
+- Visual QA confirms desktop and mobile pages have no clipped or overlapping text.
