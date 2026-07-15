@@ -1,37 +1,38 @@
 # Continue: less_tokens
 
-> **Next focus:** nothing blocked on engineering right now — pick up BACKLOG.md's next open item
-> (cache-key widening for bash/grep is the other High Priority row).
+> **Next focus:** nothing blocked on engineering right now — pick up BACKLOG.md's next open item.
 
 ## Current state
-Working tree has two uncommitted changes on top of `b05b752`, not yet committed:
-1. `instruction_prune.py --verify-recall`'s missing-numpy crash is hardened.
-2. Compaction threshold raised 500,000 → 750,000 chars (hofmockel's decision this session).
+HEAD is `8b49e83`, working tree clean, pushed to `origin/main`.
 
 ## What happened this session
-- Fixed the numpy-crash edge case noted as unresolved last session: `main()` now catches
-  `ModuleNotFoundError` around `verify_recall()` in `.claude/tools/instruction_prune.py` and prints
-  an actionable message instead of a raw traceback. New test
-  (`test_apply_verify_recall_missing_numpy_returns_clean_exit_2`); verified live against plain
-  `python3` (no numpy) — clean exit 2, correct message.
-- Brought BACKLOG.md's compaction-threshold data to hofmockel: 35.6% of real sessions crossed the
-  old 500,000-char threshold. Decision: raise to 750,000. Updated the canonical config
-  (`search_config.py`), both hooks' degraded-import fallbacks, and the shared
-  `measure_compaction()` fallback in both `compact_trigger.py` copies. Updated hardcoded fixture
-  sizes/expected values in four test files that assumed the old 500,000 base (see CHANGELOG.md for
-  the full list). BACKLOG.md's "Decide the compaction threshold height" row removed — decided.
-- Full suite both times: 920 passed, same 13 pre-existing unrelated failures as before
-  (unchanged — confirmed present before this session's changes too).
+- Picked "Generate README strategy table from a strategy registry" off BACKLOG.md (Prose to
+  Code / Token-Reduction Strategies section). Added `.claude/tools/strategy_registry.py` as the
+  single source of the 8 strategy rows (name/how/savings/flag/telemetry key); `README.md`'s
+  strategy table now renders from it via `.claude/tools/strategy_table_docs.py --check`
+  (mirrors `hook_parity_docs.py`'s marker pattern), and `label_consistency_gate.py` derives its
+  README-name → telemetry-key map from the same registry instead of a hardcoded dict. Wired
+  `strategy_table_docs.py --check` into `.pre-commit-config.yaml` and `.github/workflows/tests.yml`.
+  BACKLOG.md row removed — shipped.
+- Cache-key widening for bash/grep (the other High Priority BACKLOG row) was checked and is
+  still blocked: `.less_tokens/state/near_misses.jsonl` and `.claude/state/near_misses.jsonl`
+  have zero `"bash"`-kind entries, and no `.codex/state/` directory exists yet. Do not widen the
+  allowlist blind — wait for real Codex-side near-miss data to accumulate first.
+- Full unit suite: 834 passed, same 13 pre-existing unrelated failures (toolcost/stats/
+  agentsmd-budget token-calibration tests) — unchanged by this session's changes.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md) for the current list. Notable: cache-key widening for bash/grep now
-that real Codex-side near-miss data should be accumulating again post-install-fix. Separately,
-whether the return-code-2 nudge reliably leads to an actual `/compact` is still unanswered — not
-addressed by the threshold change.
+See [BACKLOG.md](BACKLOG.md) for the current list. Notable: installer deployment-spec
+duplication (`install.py` mirrors `_install_specs()` and `main()` by hand), bug-hunt protocol
+data-driven conversion, and several Medium prose-to-code/doc-drift items. Cache-key widening
+stays parked until Codex-side `"bash"`-kind near-miss data actually shows up.
+
+## Suggested skills
+- `/bugfix` or a BACKLOG.md prose-to-code row — no bugs currently filed in the Bugs table.
 
 ## Start here
-Commit these two changes (or ask hofmockel first if they should be separate commits), then move
-to BACKLOG.md's cache-key widening item.
+Check BACKLOG.md's remaining High Priority rows (Installer / Prose to Code sections) for the
+next pick.
 
 ---
-_Last updated on 2026-07-14, two uncommitted changes on top of HEAD `b05b752`._
+_Last updated on 2026-07-14, HEAD `8b49e83` (working tree clean, pushed)._
