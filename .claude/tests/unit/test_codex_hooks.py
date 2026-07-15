@@ -202,7 +202,7 @@ class TestCodexTerseReminder:
 class TestCodexCompactTrigger:
     def test_fires_with_large_transcript(self, tmp_path):
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
 
         code, _, stderr = run_hook_with_env("compact-trigger.py", {
@@ -226,7 +226,7 @@ class TestCodexCompactTrigger:
 
     def test_message_does_not_contain_slash_compact(self, tmp_path):
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
 
         _, _, stderr = run_hook_with_env("compact-trigger.py", {
@@ -240,7 +240,7 @@ class TestCodexCompactTrigger:
 
     def test_logs_measured_compaction_when_transcript_shrinks(self, tmp_path):
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 700_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
 
         run_hook_with_env("compact-trigger.py", {
@@ -267,7 +267,7 @@ class TestCodexCompactTrigger:
         assert rec["strategy"] == "compaction"
         assert rec["basis"] == "measured"
         assert rec["kept_chars"] == 40_000
-        assert rec["elided_chars"] == 700_000 - 40_000
+        assert rec["elided_chars"] == 800_000 - 40_000
         assert rec["session_id"] == "codex-sess"
 
 

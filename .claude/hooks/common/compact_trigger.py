@@ -129,7 +129,7 @@ def measure_compaction(
     same_transcript = prev.get("transcript") == tid
     peak = int(prev.get("peak", 0)) if same_transcript else 0
 
-    threshold = max_session_chars if max_session_chars > 0 else 500_000
+    threshold = max_session_chars if max_session_chars > 0 else 750_000
     compacted = same_transcript and peak >= threshold and cur < peak * _COMPACTION_RATIO
 
     if compacted and log is not None:

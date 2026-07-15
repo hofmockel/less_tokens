@@ -46,7 +46,7 @@ try:
     from model_profiles import scaled_compact_chars  # noqa: E402
     MAX_SESSION_CHARS = scaled_compact_chars(MAX_SESSION_CHARS, AGENT_MODEL)
 except Exception:
-    MAX_SESSION_CHARS = 500_000
+    MAX_SESSION_CHARS = 750_000
 
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"

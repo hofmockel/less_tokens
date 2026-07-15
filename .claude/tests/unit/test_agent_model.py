@@ -98,7 +98,7 @@ def test_claude_hooks_apply_model_scaled_thresholds(monkeypatch):
     compact = load_hook(REPO_ROOT / ".claude" / "hooks" / "compact-trigger.py")
 
     assert truncate.MAX_TOOL_OUTPUT_CHARS == 3000
-    assert compact.MAX_SESSION_CHARS == 375_000
+    assert compact.MAX_SESSION_CHARS == 562_500
 
 
 def test_codex_hooks_do_not_use_claude_model_thresholds():

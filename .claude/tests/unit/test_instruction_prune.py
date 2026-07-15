@@ -172,6 +172,24 @@ def test_apply_verify_recall_fail_returns_exit_1(tmp_path):
     assert rc == 1
 
 
+def test_apply_verify_recall_missing_numpy_returns_clean_exit_2(tmp_path, capsys):
+    path = _write_claude_md(tmp_path)
+    doc = tmp_path / "DOCUMENTATION.md"
+    doc.write_text("# Documentation\n", encoding="utf-8")
+
+    def _raise(*args, **kwargs):
+        raise ModuleNotFoundError("No module named 'numpy'", name="numpy")
+
+    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path), \
+         patch.object(prune_mod, "verify_recall", _raise):
+        rc = prune_mod.main(["--agent", "claude", "--budget", "50", "--apply", "--verify-recall"])
+
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "numpy" in err
+    assert ".venv-tokens" in err
+
+
 def test_cli_agent_codex_targets_agents_md(tmp_path):
     agents_md = tmp_path / "AGENTS.md"
     agents_md.write_text("# AGENTS.md\n\n## Keep\nrule\n", encoding="utf-8")

@@ -25,7 +25,7 @@ try:
     from search_config import MAX_SESSION_CHARS, active_state_dir  # noqa: E402
     state_dir = active_state_dir()
 except Exception:
-    MAX_SESSION_CHARS = 500_000
+    MAX_SESSION_CHARS = 750_000
     state_dir = REPO / ".less_tokens" / "state"
 
 def main() -> int:

@@ -210,7 +210,14 @@ def main(argv: list[str] | None = None) -> int:
 
     exit_code = 0
     if args.verify_recall:
-        results = verify_recall([s["title"] for s in moves], overflow_doc)
+        try:
+            results = verify_recall([s["title"] for s in moves], overflow_doc)
+        except ModuleNotFoundError as e:
+            venv_python = BASE / ".claude" / ".venv-tokens" / "bin" / "python"
+            print(f"--verify-recall needs '{e.name}', not importable under this interpreter.\n"
+                  f"Run this tool with {venv_python} instead of a plain python3.",
+                  file=sys.stderr)
+            return 2
         for r in results:
             status = "PASS" if r["passed"] else "FAIL"
             print(f"  verify-recall {status}  \"{r['title']}\"")

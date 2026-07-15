@@ -40,7 +40,7 @@ class TestCompactTriggerStateDirIsolation:
     def test_codex_hook_writes_state_to_custom_dir(self, tmp_path):
         """Codex compact-trigger writes its state file to LESS_TOKENS_STATE_DIR."""
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "codex_state"
 
         code, _, _ = run_hook(
@@ -58,7 +58,7 @@ class TestCompactTriggerStateDirIsolation:
     def test_claude_hook_writes_state_to_custom_dir(self, tmp_path):
         """Claude compact-trigger also respects LESS_TOKENS_STATE_DIR."""
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "claude_state"
 
         code, _, _ = run_hook(
@@ -73,7 +73,7 @@ class TestCompactTriggerStateDirIsolation:
     def test_codex_and_claude_state_files_are_independent(self, tmp_path):
         """Firing compact-trigger for Codex does not write to Claude state dir."""
         transcript = tmp_path / "session.json"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         codex_state = tmp_path / "codex_state"
         claude_state = tmp_path / "claude_state"
         claude_state.mkdir()

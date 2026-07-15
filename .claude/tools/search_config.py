@@ -87,7 +87,7 @@ CODEX_TOOL_OUTPUT_TAIL_LINES: int = 20
 CODEX_APPLY_PATCH_DIFF_CHARS: int = 1200
 
 # --- Strategy 5: Conversation Compaction Trigger ---
-MAX_SESSION_CHARS: int = 500_000    # ~125k tokens; set 0 to disable
+MAX_SESSION_CHARS: int = 750_000    # ~301k tokens (calibrated); set 0 to disable
 
 # Claude model ID for context-aware k selection (see model_profiles.py). None → DEFAULT_K=3.
 AGENT_MODEL: str | None = None

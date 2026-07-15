@@ -124,7 +124,7 @@ class TestCompactTrigger:
 
     def test_fires_when_over_limit(self, tmp_path):
         transcript = tmp_path / "t.jsonl"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
         code, _, stderr = run_hook("compact-trigger.py", {
             "tool_name": "Bash",
@@ -160,10 +160,10 @@ class TestCompactTrigger:
 
     def test_hysteresis_suppresses_repeat_fire(self, tmp_path):
         transcript = tmp_path / "t.jsonl"
-        transcript.write_text("x" * 600_000)
+        transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "compact-trigger-last").write_text("600000")
+        (state_dir / "compact-trigger-last").write_text("800000")
         code, _, _ = run_hook("compact-trigger.py", {
             "tool_name": "Bash",
             "transcript_path": str(transcript),
