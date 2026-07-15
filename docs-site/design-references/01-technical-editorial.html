@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>less_tokens — Technical Editorial</title>
+  <style>
+    :root { --paper:#f5f1e8; --ink:#172321; --muted:#64706b; --teal:#087a70; --teal-dark:#075b55; --mint:#cfe8df; --rule:#c9cec5; --wash:#ebe7de; --white:#fffdf7; }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    .page{min-height:100vh;overflow:hidden}.shell{width:min(1460px,calc(100% - 96px));margin:auto}
+    nav{height:92px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--rule)}
+    .brand{font:600 21px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.05em}.brand b{color:var(--teal)}
+    .navlinks{display:flex;align-items:center;gap:34px;font-size:14px}.navlinks a{color:inherit;text-decoration:none}.nav-cta{padding:11px 17px;border:1px solid var(--ink)}
+    main{padding:68px 0 42px}.hero{display:grid;grid-template-columns:.87fr 1.13fr;gap:92px;align-items:start}
+    .eyebrow{display:flex;align-items:center;gap:12px;margin:8px 0 25px;color:var(--teal-dark);font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.15em}.eyebrow:before{content:"";width:34px;height:2px;background:var(--teal)}
+    h1{margin:0;max-width:620px;font-family:Georgia,"Times New Roman",serif;font-size:clamp(58px,5.15vw,82px);line-height:.96;letter-spacing:-.055em;font-weight:400}
+    .lede{max-width:585px;margin:30px 0 0;color:#485550;font-size:19px;line-height:1.58}
+    .actions{display:flex;gap:13px;margin:34px 0 32px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:49px;padding:0 21px;border:1px solid var(--ink);text-decoration:none;color:var(--ink);font-size:14px;font-weight:650}.button.primary{background:var(--ink);color:var(--white)}.button span{margin-left:20px;font-size:19px;font-weight:400}.proof{padding-top:22px;border-top:1px solid var(--rule);font-family:Georgia,"Times New Roman",serif;font-size:17px;font-style:italic;color:#4e5b56}
+    .code{display:inline-flex;gap:12px;align-items:center;margin-top:20px;color:#52605b;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.code i{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px var(--mint)}
+    .diagram{position:relative;background:var(--white);border:1px solid var(--ink);padding:30px 30px 25px;box-shadow:12px 12px 0 var(--wash)}
+    .diagram-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:25px}.diagram-kicker{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;text-transform:uppercase;color:var(--teal-dark)}.diagram-note{font-size:12px;color:var(--muted)}
+    .flow{display:grid;grid-template-columns:1fr 72px 1fr;gap:12px;align-items:stretch}.flow-col{min-width:0}.flow-label{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:14px;border-bottom:1px solid var(--rule);font-size:13px;font-weight:650}.flow-label strong{font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:400}.flow-label.good strong{color:var(--teal-dark)}
+    .stack{height:235px;display:flex;gap:8px;align-items:flex-end;padding-top:19px}.bar{position:relative;flex:1;min-width:0;border:1px solid #a7afa9;background:repeating-linear-gradient(135deg,#e3e2db 0,#e3e2db 7px,#f3f0e9 7px,#f3f0e9 14px)}.bar:nth-child(1){height:100%}.bar:nth-child(2){height:84%}.bar:nth-child(3){height:71%}.bar:nth-child(4){height:57%}.bar span{position:absolute;inset:auto 5px 7px;writing-mode:vertical-rl;transform:rotate(180deg);font:9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#68736e;text-transform:uppercase;letter-spacing:.06em}.stack.good{align-items:center;gap:6px}.stack.good .bar{flex:none;width:28%;height:33%;background:var(--mint);border-color:var(--teal)}.stack.good .bar:nth-child(2){height:47%}.stack.good .bar:nth-child(3){height:39%}
+    .arrow{display:flex;align-items:center;justify-content:center;color:var(--teal);font-size:34px}.reduction{text-align:center;margin-top:17px;padding-top:15px;border-top:1px solid var(--rule);font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--teal-dark)}
+    .strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:55px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}.strategy{display:grid;grid-template-columns:42px 1fr;gap:18px;padding:24px 28px 25px 0}.strategy+.strategy{padding-left:28px;border-left:1px solid var(--rule)}.n{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--teal-dark)}.strategy h2{margin:0 0 7px;font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:400;letter-spacing:-.025em}.strategy p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+    .foot{display:flex;align-items:center;justify-content:space-between;padding-top:24px}.command{background:var(--ink);color:#dce7e1;padding:15px 18px;font:13px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.command:before{content:"$ ";color:#69c2b2}.foot small{color:var(--muted)}
+    @media(max-width:1000px){.shell{width:min(100% - 40px,760px)}.navlinks a:not(.nav-cta){display:none}main{padding-top:42px}.hero{grid-template-columns:1fr;gap:50px}h1{font-size:62px}.strategies{grid-template-columns:1fr}.strategy+.strategy{padding-left:0;border-left:0;border-top:1px solid var(--rule)}.strategy{padding:22px 0}.foot{align-items:flex-start;gap:20px;flex-direction:column}}@media(max-width:580px){.shell{width:calc(100% - 28px)}nav{height:72px}.nav-cta{display:none!important}h1{font-size:47px}.lede{font-size:17px}.actions{flex-direction:column}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg);height:42px}.stack{height:180px}.diagram{padding:22px 18px}.diagram-note{display:none}.foot{padding-bottom:24px}.command{font-size:11px;width:100%;overflow:auto}}
+    @media(prefers-reduced-motion:no-preference){.button{transition:transform .2s,box-shadow .2s}.button:hover{transform:translateY(-2px);box-shadow:4px 4px 0 var(--mint)}}
+  </style>
+</head>
+<body>
+  <div class="page" id="lt-editorial-v1">
+    <div class="shell">
+      <nav aria-label="Primary navigation"><div class="brand">less<b>_</b>tokens</div><div class="navlinks"><a href="#strategies">Strategies</a><a href="#flow">How it works</a><a href="#install" class="nav-cta">Documentation ↗</a></div></nav>
+      <main>
+        <section class="hero">
+          <div class="hero-copy"><div class="eyebrow">Context control for coding agents</div><h1>Make every token earn its place.</h1><p class="lede">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p><div class="actions"><a class="button primary" href="#install">Install less_tokens <span>→</span></a><a class="button" href="#flow">See how it works</a></div><div class="proof">Visible. Enforceable. Measured.</div><div class="code"><i></i>Works across Claude Code + Codex CLI</div></div>
+          <div class="diagram" id="flow" role="img" aria-label="Token flow comparison: 48,000 tokens without controls versus 16,000 relevant tokens with less_tokens"><div class="diagram-head"><div class="diagram-kicker">A smaller, sharper context window</div><div class="diagram-note">One task · representative flow</div></div><div class="flow"><div class="flow-col"><div class="flow-label"><span>Without controls</span><strong>48k</strong></div><div class="stack"><div class="bar"><span>full files</span></div><div class="bar"><span>logs</span></div><div class="bar"><span>repeats</span></div><div class="bar"><span>noise</span></div></div></div><div class="arrow" aria-hidden="true">→</div><div class="flow-col"><div class="flow-label good"><span>With less_tokens</span><strong>16k</strong></div><div class="stack good"><div class="bar"><span>search</span></div><div class="bar"><span>relevant</span></div><div class="bar"><span>compact</span></div></div></div></div><div class="reduction">Relevant context preserved · noise removed</div></div>
+        </section>
+        <section class="strategies" id="strategies" aria-label="Core strategies"><article class="strategy"><div class="n">01</div><div><h2>Search first</h2><p>Locate the exact symbols and passages before opening whole files.</p></div></article><article class="strategy"><div class="n">02</div><div><h2>Guard reads</h2><p>Intercept oversized output and replace it with the useful slice.</p></div></article><article class="strategy"><div class="n">03</div><div><h2>Compact early</h2><p>Preserve decisions and state before stale context becomes drag.</p></div></article></section>
+        <footer class="foot" id="install"><div class="command">python install.py --target both</div><small>Open source · Portable · Built for real agent workflows</small></footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

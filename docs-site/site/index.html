@@ -7,26 +7,77 @@
   <link rel="stylesheet" href="assets/site.css">
   <script defer src="assets/site.js"></script>
 </head>
-<body class="">
+<body class="home-page">
   <header class="site-header">
     <a class="brand" href="index.html"><img src="assets/LT_logo_small.png" alt=""> less_tokens</a>
     <nav><a href="index.html">Overview</a><a href="presentation.html">Presentation</a><a href="strategy-map.html">Strategies</a><a href="architecture.html">Architecture</a><a href="scaffolding/installer.html">Scaffolding</a><a href="reference/install.html">Reference</a><a href="privacy.html">Privacy</a></nav>
   </header>
   <main>
 
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Engineer documentation</p>
-        <h1>Token control that is visible, enforceable, and measured.</h1>
-        <p>less_tokens adds a static HTML layer alongside README.md and DOCUMENTATION.md. It explains the token-reduction strategies and the scaffolding that keeps them portable across Claude and Codex.</p>
-        <p class="actions"><a class="button" href="presentation.html">Open presentation</a><a class="button secondary" href="strategy-map.html">View strategy map</a></p>
+    <section class="home-hero">
+      <div class="home-intro">
+        <p class="home-kicker"><span>03</span> Context control</p>
+        <h1>Make every token <em>earn</em> its place.</h1>
+        <p class="home-lede">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p>
+        <div class="home-actions">
+          <a class="home-button primary" href="reference/install.html">Install less_tokens</a>
+          <a class="home-button" href="#how-it-works">See how it works</a>
+        </div>
+        <div class="install-command"><code>python install.py --target both</code><button type="button" data-copy-command="python install.py --target both">Copy</button></div>
+        <p class="home-proof"><i></i>Visible. Enforceable. Measured.</p>
       </div>
-      <img src="assets/LT_logo.png" alt="less_tokens logo">
+      <div class="token-map" aria-label="Illustrative token routing example">
+        <div class="token-map-head"><strong>See what stays. Cut what doesn't.</strong><span>Illustrative workload</span></div>
+        <div class="token-flow">
+          <article class="token-lane before">
+            <div class="token-lane-title"><span>Without controls</span><b data-before-value>48k</b></div>
+            <div class="token-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <p><strong>Broad context</strong>Whole files, repeated output, and stale history compete with the task.</p>
+          </article>
+          <div class="token-router" aria-label="Active controls"><span>01 Search first</span><span>02 Guard reads</span><span>03 Compact early</span></div>
+          <article class="token-lane after">
+            <div class="token-lane-title"><span>With less_tokens</span><b data-after-value>16k</b></div>
+            <div class="token-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <p><strong>Relevant context</strong>Focused evidence, bounded output, and fresh signal stay in view.</p>
+          </article>
+        </div>
+        <label class="workload-control" for="workload"><span>Example input context</span><output data-workload-output>48k</output></label>
+        <input id="workload" class="workload-range" type="range" min="12" max="96" step="4" value="48" aria-describedby="workload-note">
+        <div class="token-meter"><span><small>Illustrative context removed</small><strong data-reduction-value>67%</strong></span><span><small>Strategies active</small><strong>3 / 3</strong></span></div>
+        <p id="workload-note" class="token-caveat">This comparison explains the control flow; it is not a universal savings claim.</p>
+      </div>
     </section>
-    <section>
-      <h2>Canonical Sources Stay Canonical</h2>
-      <p>This site is additive. Operational detail remains in <a href="../../README.md">README.md</a> and <a href="../../DOCUMENTATION.md">DOCUMENTATION.md</a>; generated matrices come from code registries.</p>
-      <div class="grid"><article class="card"><h3><a href="presentation.html">Presentation</a></h3><p>A 25-screen walkthrough for peer engineers.</p></article><article class="card"><h3><a href="strategy-map.html">Strategy Map</a></h3><p>Buckets, hooks, parity, and source links generated from code.</p></article><article class="card"><h3><a href="scaffolding/installer.html">Scaffolding</a></h3><p>Installer, adapters, telemetry, skills, tests, and generated-doc controls.</p></article><article class="card"><h3><a href="reference/troubleshooting.html">Troubleshooting</a></h3><p>Fastembed downloads, venv paths, empty indexes, hook JSON, and Windows paths.</p></article></div>
+
+    <section class="home-section" id="how-it-works">
+      <p class="section-number">01 / The operating loop</p>
+      <div class="section-heading"><h2>Spend context on evidence, not exploration noise.</h2><p>less_tokens changes the path an agent takes before expensive content reaches the conversation.</p></div>
+      <div class="strategy-examples">
+        <article class="example-card"><img src="assets/slides/search-workflow.svg" alt="Search-first workflow from a question to a targeted read"><div><span>Input</span><h3>Search before reading</h3><p>Semantic chunks and exact symbol lookup identify the useful slice before a whole file enters context.</p><a href="strategies/search-first.html">Explore search-first →</a></div></article>
+        <article class="example-card"><img src="assets/slides/tool-output.svg" alt="Tool output being reduced to a concise signal"><div><span>Tools</span><h3>Keep the signal</h3><p>Listing guards, lean parsers, and head-tail truncation prevent noisy commands from dominating the transcript.</p><a href="strategies/lean-output-truncation.html">Explore tool controls →</a></div></article>
+        <article class="example-card"><img src="assets/slides/compaction-controls.svg" alt="Transcript pressure producing compact context"><div><span>History</span><h3>Compact before pressure wins</h3><p>Threshold nudges and snapshots preserve decisions while releasing stale conversational history.</p><a href="strategies/compaction.html">Explore compaction →</a></div></article>
+      </div>
+    </section>
+
+    <section class="home-section example-walkthrough">
+      <p class="section-number">02 / A concrete example</p>
+      <div class="section-heading"><h2>One question. Three smaller moves.</h2><p>Instead of opening a large file and hoping the answer appears, the agent narrows the problem deliberately.</p></div>
+      <ol class="example-steps">
+        <li><span>Ask</span><div><code>Where is budget pressure converted into a compaction decision?</code><p>The task starts as an intent, not a file path.</p></div></li>
+        <li><span>Find</span><div><code>symbols.py PressureCompaction</code><p>Exact lookup points to the definition and its line number.</p></div></li>
+        <li><span>Read</span><div><code>policy.py: targeted slice</code><p>Only the implementation and nearby evidence enter context.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="home-section home-evidence">
+      <p class="section-number">03 / Go deeper</p>
+      <div class="section-heading"><h2>Inspect every layer.</h2><p>The visual explanation is backed by source registries, generated matrices, and local-only telemetry.</p></div>
+      <div class="evidence-links">
+        <a href="presentation.html"><span>Visual walkthrough</span><strong>Open the 25-screen presentation</strong></a>
+        <a href="strategy-map.html"><span>Strategy matrix</span><strong>Compare every control and evidence label</strong></a>
+        <a href="architecture.html"><span>Architecture</span><strong>Trace hooks, budget policy, and telemetry</strong></a>
+        <a href="reference/install.html"><span>Get started</span><strong>Install for Claude, Codex, or both</strong></a>
+      </div>
+      <p class="canonical-note">Canonical operational detail remains in <a href="../../README.md">README.md</a> and <a href="../../DOCUMENTATION.md">DOCUMENTATION.md</a>; generated matrices remain tied to code registries.</p>
     </section>
     
   </main>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>less_tokens — Command Center</title>
+  <style>
+    :root {
+      --ink: #07100e;
+      --panel: #0b1714;
+      --panel-2: #0f211c;
+      --line: #24453b;
+      --mint: #6fffc1;
+      --mint-soft: #baffdd;
+      --cream: #edf8f1;
+      --muted: #8fac9f;
+      --amber: #ffc66d;
+      --red: #ff7b78;
+      --blue: #7db5ff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--ink); color: var(--cream); }
+    body {
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 67% 40%, rgba(50, 219, 153, .08), transparent 31%),
+        linear-gradient(rgba(111,255,193,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(111,255,193,.025) 1px, transparent 1px),
+        var(--ink);
+      background-size: auto, 48px 48px, 48px 48px, auto;
+    }
+    .shell { min-height: 100vh; width: min(1600px, 100%); margin: 0 auto; padding: 30px 46px 34px; display: flex; flex-direction: column; }
+    header { height: 58px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; gap: 12px; align-items: center; font: 700 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: -.03em; }
+    .brand-mark { width: 26px; height: 26px; border: 1px solid var(--mint); display: grid; place-items: center; color: var(--mint); box-shadow: inset 0 0 14px rgba(111,255,193,.12); }
+    .brand-mark::after { content: "_"; transform: translateY(-2px); }
+    nav { display: flex; align-items: center; gap: 34px; color: var(--muted); font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .12em; }
+    nav a { color: inherit; text-decoration: none; }
+    nav .status { display: flex; align-items: center; gap: 9px; color: var(--mint-soft); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 11px var(--mint); animation: pulse 2.2s infinite; }
+    main { flex: 1; display: grid; grid-template-columns: .88fr 1.12fr; gap: 52px; align-items: center; padding: 45px 0 35px; }
+    .eyebrow { color: var(--mint); font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .15em; text-transform: uppercase; display: flex; gap: 12px; align-items: center; }
+    .eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--mint); }
+    h1 { margin: 25px 0 22px; max-width: 650px; font-size: clamp(62px, 5.5vw, 92px); line-height: .91; letter-spacing: -.065em; font-weight: 690; }
+    h1 em { color: var(--mint); font-style: normal; }
+    .subhead { max-width: 600px; color: #abc2b7; font-size: 17px; line-height: 1.65; margin: 0 0 30px; }
+    .actions { display: flex; gap: 14px; margin-bottom: 32px; }
+    .btn { height: 48px; padding: 0 20px; border: 1px solid var(--line); background: transparent; color: var(--cream); display: inline-flex; align-items: center; gap: 13px; text-decoration: none; font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; transition: .2s ease; }
+    .btn.primary { color: #04100c; background: var(--mint); border-color: var(--mint); box-shadow: 0 10px 28px rgba(111,255,193,.13); }
+    .btn:hover { transform: translateY(-2px); border-color: var(--mint); }
+    .install { width: fit-content; display: flex; align-items: center; border: 1px solid var(--line); background: rgba(11,23,20,.75); }
+    .install .prompt { padding: 14px 16px; color: var(--mint); border-right: 1px solid var(--line); font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .install code { padding: 14px 18px; color: #cfe3d9; font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .dashboard { border: 1px solid var(--line); background: rgba(7,16,14,.86); box-shadow: 0 32px 80px rgba(0,0,0,.32); position: relative; overflow: hidden; }
+    .dashboard::before { content:""; position:absolute; inset:0; pointer-events:none; box-shadow: inset 0 0 80px rgba(111,255,193,.035); }
+    .dash-head { height: 47px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); color: var(--muted); font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .12em; }
+    .lights { display: flex; gap: 6px; } .lights i { width: 6px; height: 6px; border-radius: 50%; background:#325047; } .lights i:first-child { background: var(--mint); }
+    .flow { padding: 20px 20px 17px; }
+    .flow-title { display:flex; justify-content:space-between; align-items:end; margin-bottom:17px; }
+    .flow-title strong { font-size: 15px; letter-spacing:-.02em; } .flow-title span { color:var(--muted); font:500 9px/1 ui-monospace, monospace; letter-spacing:.1em; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    .context { border: 1px solid var(--line); background: var(--panel); padding: 15px; min-height: 177px; }
+    .context.good { border-color: #35765e; background: linear-gradient(160deg, rgba(27,72,57,.35), var(--panel)); }
+    .ctx-label { display:flex; justify-content:space-between; align-items:center; font:700 9px/1 ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; color: var(--muted); }
+    .context.good .ctx-label { color: var(--mint); }
+    .meter { height: 78px; display:flex; align-items:end; gap:4px; margin: 18px 0 13px; }
+    .bar { flex:1; min-width:3px; background:#5a3936; animation: rise .8s both cubic-bezier(.2,.8,.2,1); transform-origin:bottom; }
+    .good .bar { background:var(--mint); opacity:.78; }
+    .bar:nth-child(3n) { background:var(--amber); } .good .bar:nth-child(3n) { background:var(--blue); }
+    .big { font:700 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:-.06em; }
+    .big small { color:var(--muted); font-size:9px; letter-spacing:.03em; }
+    .strategies { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+    .strategy { padding:15px 17px 16px; border-right:1px solid var(--line); }
+    .strategy:last-child { border:0; }
+    .strategy-num { color:var(--mint); font:700 9px/1 ui-monospace,monospace; }
+    .strategy h3 { margin:8px 0 7px; font-size:13px; }
+    .strategy p { margin:0; color:var(--muted); font-size:10px; line-height:1.45; }
+    .terminal { margin: 15px 20px 20px; background:#050a09; border:1px solid #1b332b; font:500 10px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .term-head { padding:8px 11px; color:#668378; border-bottom:1px solid #1b332b; font-size:8px; letter-spacing:.08em; }
+    .term-body { padding:10px 12px; color:#93aa9f; display:grid; grid-template-columns:20px 1fr; }
+    .ln { color:#385047; } .cmd { color:var(--cream); } .ok { color:var(--mint); }
+    footer { min-height: 54px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); }
+    .proof { font-size:13px; font-weight:700; letter-spacing:.05em; } .proof span { color:var(--mint); }
+    .metrics { display:flex; gap:28px; color:var(--muted); font:600 9px/1 ui-monospace,monospace; text-transform:uppercase; letter-spacing:.08em; }
+    .metrics b { color:var(--cream); margin-right:6px; }
+    @keyframes rise { from { transform:scaleY(.12); opacity:.1; } }
+    @keyframes pulse { 50% { opacity:.35; box-shadow:0 0 3px var(--mint); } }
+    @media(max-width:900px) {
+      .shell{padding:22px} nav a{display:none} main{grid-template-columns:1fr;padding-top:50px} h1{font-size:64px}.dashboard{margin-top:10px}.metrics{display:none}
+    }
+    @media(max-width:560px){.compare,.strategies{grid-template-columns:1fr}.strategy{border-right:0;border-bottom:1px solid var(--line)}h1{font-size:50px}.actions{flex-direction:column}.install{max-width:100%;overflow:auto}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="brand-mark"></span>less_tokens</div>
+      <nav><a href="#strategies">Strategies</a><a href="#flow">Metrics</a><a href="#install">Docs</a><span class="status"><i class="dot"></i> control plane online</span></nav>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Context efficiency infrastructure</div>
+        <h1>Make every token <em>earn</em> its place.</h1>
+        <p class="subhead">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p>
+        <div class="actions"><a class="btn primary" href="#install">Install less_tokens <span>↗</span></a><a class="btn" href="#flow">See how it works <span>↓</span></a></div>
+        <div class="install" id="install"><span class="prompt">$</span><code>python install.py --target both</code></div>
+      </section>
+      <section class="dashboard" id="flow" aria-label="Token control command center">
+        <div class="dash-head"><span>live context telemetry / session_04</span><span class="lights"><i></i><i></i><i></i></span></div>
+        <div class="flow">
+          <div class="flow-title"><strong>Context payload</strong><span>INPUT TOKENS / TASK</span></div>
+          <div class="compare">
+            <article class="context">
+              <div class="ctx-label"><span>Without controls</span><span>100%</span></div>
+              <div class="meter"><i class="bar" style="height:78%"></i><i class="bar" style="height:95%"></i><i class="bar" style="height:60%"></i><i class="bar" style="height:87%"></i><i class="bar" style="height:72%"></i><i class="bar" style="height:100%"></i><i class="bar" style="height:66%"></i><i class="bar" style="height:91%"></i><i class="bar" style="height:74%"></i><i class="bar" style="height:98%"></i><i class="bar" style="height:82%"></i><i class="bar" style="height:70%"></i></div>
+              <div class="big">48k <small>context</small></div>
+            </article>
+            <article class="context good">
+              <div class="ctx-label"><span>With less_tokens</span><span>33%</span></div>
+              <div class="meter"><i class="bar" style="height:26%"></i><i class="bar" style="height:18%"></i><i class="bar" style="height:40%"></i><i class="bar" style="height:30%"></i><i class="bar" style="height:22%"></i><i class="bar" style="height:46%"></i><i class="bar" style="height:28%"></i><i class="bar" style="height:35%"></i><i class="bar" style="height:24%"></i><i class="bar" style="height:42%"></i><i class="bar" style="height:20%"></i><i class="bar" style="height:31%"></i></div>
+              <div class="big">16k <small>relevant context</small></div>
+            </article>
+          </div>
+        </div>
+        <div class="strategies" id="strategies">
+          <article class="strategy"><span class="strategy-num">01 / FIND</span><h3>Search first</h3><p>Locate signal before loading files.</p></article>
+          <article class="strategy"><span class="strategy-num">02 / LIMIT</span><h3>Guard reads</h3><p>Intercept oversized tool output.</p></article>
+          <article class="strategy"><span class="strategy-num">03 / RESET</span><h3>Compact early</h3><p>Preserve decisions, release noise.</p></article>
+        </div>
+        <div class="terminal"><div class="term-head">CONTROL TRACE</div><div class="term-body"><span class="ln">1</span><span><span class="cmd">search</span> src/ → 14 matches</span><span class="ln">2</span><span><span class="ok">guard</span> read 18.2k → 3.6k tokens</span><span class="ln">3</span><span><span class="ok">compact</span> checkpoint saved · context −67%</span></div></div>
+      </section>
+    </main>
+    <footer><div class="proof"><span>Visible.</span> Enforceable. Measured.</div><div class="metrics"><span><b>−67%</b>context</span><span><b>2</b>agents</span><span><b>1</b>control plane</span></div></footer>
+  </div>
+</body>
+</html>

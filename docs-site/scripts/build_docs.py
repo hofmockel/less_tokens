@@ -469,7 +469,7 @@ def nav(page: str) -> str:
 def layout(page: str, title: str, body: str, *, presentation: bool = False) -> str:
     depth = len(Path(page).parent.parts)
     prefix = "../" * depth
-    classes = "presentation-page" if presentation else ""
+    classes = " ".join(filter(None, ["presentation-page" if presentation else "", "home-page" if page == "index.html" else ""]))
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -797,26 +797,71 @@ def table(headers: list[str], rows: list[list[Any]]) -> str:
 
 
 def overview_page(page: str) -> str:
-    cards = [
-        ("Presentation", "A 25-screen walkthrough for peer engineers.", site_link(page, "presentation.html")),
-        ("Strategy Map", "Buckets, hooks, parity, and source links generated from code.", site_link(page, "strategy-map.html")),
-        ("Scaffolding", "Installer, adapters, telemetry, skills, tests, and generated-doc controls.", site_link(page, "scaffolding/installer.html")),
-        ("Troubleshooting", "Fastembed downloads, venv paths, empty indexes, hook JSON, and Windows paths.", site_link(page, "reference/troubleshooting.html")),
-    ]
     return layout(page, "Overview", f"""
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Engineer documentation</p>
-        <h1>Token control that is visible, enforceable, and measured.</h1>
-        <p>less_tokens adds a static HTML layer alongside README.md and DOCUMENTATION.md. It explains the token-reduction strategies and the scaffolding that keeps them portable across Claude and Codex.</p>
-        <p class="actions"><a class="button" href="{e(site_link(page, 'presentation.html'))}">Open presentation</a><a class="button secondary" href="{e(site_link(page, 'strategy-map.html'))}">View strategy map</a></p>
+    <section class="home-hero">
+      <div class="home-intro">
+        <p class="home-kicker"><span>03</span> Context control</p>
+        <h1>Make every token <em>earn</em> its place.</h1>
+        <p class="home-lede">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p>
+        <div class="home-actions">
+          <a class="home-button primary" href="{e(site_link(page, 'reference/install.html'))}">Install less_tokens</a>
+          <a class="home-button" href="#how-it-works">See how it works</a>
+        </div>
+        <div class="install-command"><code>python install.py --target both</code><button type="button" data-copy-command="python install.py --target both">Copy</button></div>
+        <p class="home-proof"><i></i>Visible. Enforceable. Measured.</p>
       </div>
-      <img src="assets/LT_logo.png" alt="less_tokens logo">
+      <div class="token-map" aria-label="Illustrative token routing example">
+        <div class="token-map-head"><strong>See what stays. Cut what doesn't.</strong><span>Illustrative workload</span></div>
+        <div class="token-flow">
+          <article class="token-lane before">
+            <div class="token-lane-title"><span>Without controls</span><b data-before-value>48k</b></div>
+            <div class="token-blocks" aria-hidden="true">{''.join('<i></i>' for _ in range(30))}</div>
+            <p><strong>Broad context</strong>Whole files, repeated output, and stale history compete with the task.</p>
+          </article>
+          <div class="token-router" aria-label="Active controls"><span>01 Search first</span><span>02 Guard reads</span><span>03 Compact early</span></div>
+          <article class="token-lane after">
+            <div class="token-lane-title"><span>With less_tokens</span><b data-after-value>16k</b></div>
+            <div class="token-blocks" aria-hidden="true">{''.join('<i></i>' for _ in range(12))}</div>
+            <p><strong>Relevant context</strong>Focused evidence, bounded output, and fresh signal stay in view.</p>
+          </article>
+        </div>
+        <label class="workload-control" for="workload"><span>Example input context</span><output data-workload-output>48k</output></label>
+        <input id="workload" class="workload-range" type="range" min="12" max="96" step="4" value="48" aria-describedby="workload-note">
+        <div class="token-meter"><span><small>Illustrative context removed</small><strong data-reduction-value>67%</strong></span><span><small>Strategies active</small><strong>3 / 3</strong></span></div>
+        <p id="workload-note" class="token-caveat">This comparison explains the control flow; it is not a universal savings claim.</p>
+      </div>
     </section>
-    <section>
-      <h2>Canonical Sources Stay Canonical</h2>
-      <p>This site is additive. Operational detail remains in <a href="{e(repo_link(page, 'README.md'))}">README.md</a> and <a href="{e(repo_link(page, 'DOCUMENTATION.md'))}">DOCUMENTATION.md</a>; generated matrices come from code registries.</p>
-      {card_grid(cards)}
+
+    <section class="home-section" id="how-it-works">
+      <p class="section-number">01 / The operating loop</p>
+      <div class="section-heading"><h2>Spend context on evidence, not exploration noise.</h2><p>less_tokens changes the path an agent takes before expensive content reaches the conversation.</p></div>
+      <div class="strategy-examples">
+        <article class="example-card"><img src="assets/slides/search-workflow.svg" alt="Search-first workflow from a question to a targeted read"><div><span>Input</span><h3>Search before reading</h3><p>Semantic chunks and exact symbol lookup identify the useful slice before a whole file enters context.</p><a href="{e(site_link(page, 'strategies/search-first.html'))}">Explore search-first →</a></div></article>
+        <article class="example-card"><img src="assets/slides/tool-output.svg" alt="Tool output being reduced to a concise signal"><div><span>Tools</span><h3>Keep the signal</h3><p>Listing guards, lean parsers, and head-tail truncation prevent noisy commands from dominating the transcript.</p><a href="{e(site_link(page, 'strategies/lean-output-truncation.html'))}">Explore tool controls →</a></div></article>
+        <article class="example-card"><img src="assets/slides/compaction-controls.svg" alt="Transcript pressure producing compact context"><div><span>History</span><h3>Compact before pressure wins</h3><p>Threshold nudges and snapshots preserve decisions while releasing stale conversational history.</p><a href="{e(site_link(page, 'strategies/compaction.html'))}">Explore compaction →</a></div></article>
+      </div>
+    </section>
+
+    <section class="home-section example-walkthrough">
+      <p class="section-number">02 / A concrete example</p>
+      <div class="section-heading"><h2>One question. Three smaller moves.</h2><p>Instead of opening a large file and hoping the answer appears, the agent narrows the problem deliberately.</p></div>
+      <ol class="example-steps">
+        <li><span>Ask</span><div><code>Where is budget pressure converted into a compaction decision?</code><p>The task starts as an intent, not a file path.</p></div></li>
+        <li><span>Find</span><div><code>symbols.py PressureCompaction</code><p>Exact lookup points to the definition and its line number.</p></div></li>
+        <li><span>Read</span><div><code>policy.py: targeted slice</code><p>Only the implementation and nearby evidence enter context.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="home-section home-evidence">
+      <p class="section-number">03 / Go deeper</p>
+      <div class="section-heading"><h2>Inspect every layer.</h2><p>The visual explanation is backed by source registries, generated matrices, and local-only telemetry.</p></div>
+      <div class="evidence-links">
+        <a href="{e(site_link(page, 'presentation.html'))}"><span>Visual walkthrough</span><strong>Open the 25-screen presentation</strong></a>
+        <a href="{e(site_link(page, 'strategy-map.html'))}"><span>Strategy matrix</span><strong>Compare every control and evidence label</strong></a>
+        <a href="{e(site_link(page, 'architecture.html'))}"><span>Architecture</span><strong>Trace hooks, budget policy, and telemetry</strong></a>
+        <a href="{e(site_link(page, 'reference/install.html'))}"><span>Get started</span><strong>Install for Claude, Codex, or both</strong></a>
+      </div>
+      <p class="canonical-note">Canonical operational detail remains in <a href="{e(repo_link(page, 'README.md'))}">README.md</a> and <a href="{e(repo_link(page, 'DOCUMENTATION.md'))}">DOCUMENTATION.md</a>; generated matrices remain tied to code registries.</p>
     </section>
     """)
 
@@ -1025,10 +1070,16 @@ python3 docs-site/scripts/check_docs.py
 def write_assets(check: bool) -> bool:
     ok = True
     css = """\
-:root{color-scheme:light;--ink:#16202a;--muted:#5d6975;--line:#d8e0e7;--bg:#f7f8fa;--panel:#ffffff;--accent:#2f7d78;--accent2:#9a5b20;--code:#eef3f5}
+:root{color-scheme:light;--ink:#17233a;--muted:#677184;--line:#cbd0d5;--bg:#f4f1ea;--panel:#fffdf8;--accent:#2457e6;--accent2:#ff6b55;--code:#e8edf8;--green:#1d8060;--coral-soft:#ffe1da;--cobalt-soft:#dce5ff}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}a{color:#225f88;text-decoration:none}a:hover{text-decoration:underline}.site-header{position:sticky;top:0;z-index:10;display:flex;gap:24px;align-items:center;justify-content:space-between;padding:12px 28px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--ink)}.brand img{width:30px;height:30px}nav{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}main{max-width:1180px;margin:0 auto;padding:34px 24px 70px}.hero{min-height:72vh;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:48px;align-items:center}.hero h1,.page-title h1{font-size:clamp(34px,5vw,68px);line-height:1.02;margin:0 0 18px}.hero p,.page-title p{font-size:18px;color:var(--muted);max-width:780px}.hero img{width:100%;max-width:260px}.eyebrow{font-weight:800;letter-spacing:0;text-transform:uppercase;color:var(--accent);font-size:13px}.button{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--accent);background:var(--accent);color:white;border-radius:6px;font-weight:700;margin-right:8px}.button.secondary{background:transparent;color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px}.card h3{margin-top:0}.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px}th{background:#eaf0f2}.trace{margin-top:28px;padding:18px;border:1px solid var(--line);background:var(--panel);border-radius:8px}.trace h2{margin-top:0}.diagram{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:14px;align-items:center;margin:24px 0}.diagram div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;text-align:center}.diagram span{font-weight:800;color:var(--accent2)}.note{color:var(--muted);font-size:14px}.chart{width:100%;max-width:900px;background:white;border:1px solid var(--line);border-radius:8px}pre{background:var(--code);padding:16px;border-radius:8px;overflow:auto}.slide{min-height:calc(100vh - 58px);display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--line);padding:8vh 2vw}.slide h1{font-size:clamp(40px,7vw,86px);line-height:1;margin:0 0 22px}.slide p{font-size:clamp(19px,2.4vw,30px);max-width:900px;color:var(--muted)}.slide-count{font-size:13px!important;color:var(--accent)!important;font-weight:800}.presentation-page main{max-width:none;padding-top:0}@media(max-width:760px){.site-header{position:static;align-items:flex-start;flex-direction:column}.hero{grid-template-columns:1fr;min-height:auto}.hero img{max-width:150px}.diagram{grid-template-columns:1fr}.diagram span{text-align:center}main{padding:24px 16px}.slide{min-height:auto;padding:56px 4px}}@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}@media print{.site-header{display:none}.slide{break-after:page;min-height:95vh}main{max-width:none}.card,.trace,table{break-inside:avoid}}
 .presentation-page .slide{display:grid;grid-template-columns:minmax(300px,.86fr) minmax(360px,1fr);gap:42px;align-items:center;padding:7vh 4vw}.slide-copy{min-width:0}.slide-visual{margin:0;align-self:center}.slide-visual img{display:block;width:100%;max-height:70vh;object-fit:contain;border:1px solid var(--line);background:#f7f8fa;border-radius:8px}.slide-visual figcaption{margin-top:10px;color:var(--muted);font-size:14px}.slide-copy p:not(.slide-count){max-width:760px}@media(max-width:900px){.presentation-page .slide{grid-template-columns:1fr;gap:24px}.slide-visual img{max-height:none}}@media print{.slide-visual img{max-height:52vh}.slide-visual figcaption{font-size:12px}}
 .np-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:16px 0 22px}.np-icon{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}.np-icon img{display:block;width:100%;aspect-ratio:1/1;object-fit:contain;background:white;border:1px solid var(--line);border-radius:6px;filter:grayscale(1) contrast(1.2)}.np-icon h3{margin:12px 0 4px;font-size:15px}.np-icon p{margin:4px 0;font-size:13px;color:var(--muted)}.np-gallery.compact{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.np-gallery.compact .np-icon{padding:8px}.np-gallery.compact .np-icon h3{font-size:12px;margin-top:7px}.np-gallery.compact .np-icon p{display:none}.np-gallery.compact .np-icon img{border-radius:5px}@media(max-width:900px){.np-gallery.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Selected homepage direction: systems-map explainer. */
+.home-page{background-color:var(--bg);background-image:radial-gradient(rgba(94,107,130,.22) 1px,transparent 1px);background-size:20px 20px}.home-page .site-header{background:rgba(244,241,234,.94);border-color:var(--ink);padding:14px max(24px,calc((100vw - 1450px)/2))}.home-page .brand{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px}.home-page .site-header nav{font-weight:700}.home-page main{max-width:1500px;padding:62px 32px 100px}.home-hero{display:grid;grid-template-columns:minmax(390px,.76fr) minmax(650px,1.24fr);gap:54px;align-items:center;min-height:760px}.home-kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--ink);border-radius:99px;padding:8px 12px;margin:0;background:var(--panel);font:800 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em}.home-kicker span{color:var(--accent2)}.home-intro h1{font-size:clamp(58px,5.6vw,88px);line-height:.92;letter-spacing:-.065em;max-width:700px;margin:28px 0 26px}.home-intro h1 em{font-style:normal;color:var(--accent)}.home-lede{font-size:20px;line-height:1.55;color:#505b6e;max-width:630px}.home-actions{display:flex;gap:12px;margin:30px 0}.home-button{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;border:1.5px solid var(--ink);border-radius:4px;background:var(--panel);color:var(--ink);box-shadow:4px 4px 0 var(--ink);font-weight:850}.home-button:hover{text-decoration:none;transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}.home-button.primary{background:var(--accent);color:white}.install-command{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:540px;padding:15px 18px;background:var(--ink);border-radius:5px;color:white}.install-command code{background:none;color:inherit}.install-command code:before{content:"$ ";color:var(--accent2)}.install-command button{border:0;background:transparent;color:#b9c2d3;font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer}.home-proof{display:flex;align-items:center;gap:16px;border-top:1px solid var(--line);margin-top:34px;padding-top:18px;font:850 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.1em}.home-proof i{width:54px;height:4px;background:linear-gradient(90deg,var(--accent) 0 31%,transparent 31% 36%,var(--accent2) 36% 66%,transparent 66% 71%,var(--green) 71%)}
+.token-map{background:rgba(255,253,248,.94);border:1.5px solid var(--ink);box-shadow:9px 9px 0 #cbd1d8;padding:24px}.token-map-head{display:flex;justify-content:space-between;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--line)}.token-map-head span{color:var(--muted);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.1em}.token-flow{display:grid;grid-template-columns:1fr 104px 1fr;gap:14px;min-height:395px;margin-top:18px}.token-lane{position:relative;padding:16px;border:1px solid var(--line)}.token-lane.before{background:#fff7f4}.token-lane.after{background:#f3f6ff}.token-lane-title{display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:850}.token-lane-title b{font:900 28px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.before .token-lane-title b{color:var(--accent2)}.after .token-lane-title b{color:var(--accent)}.token-blocks{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:24px}.token-blocks i{height:24px;border:1px solid #f8ad9f;background:var(--coral-soft)}.before .token-blocks i:nth-child(4n){background:#dfe2e5;border-color:#c7ccd0}.before .token-blocks i:nth-child(7n){background:white;border-style:dashed}.after .token-blocks{grid-template-columns:repeat(4,1fr);gap:8px}.after .token-blocks i{height:34px;background:var(--cobalt-soft);border-color:#97adf6}.after .token-blocks i:nth-child(4n){background:white;border-style:dashed}.token-lane p{position:absolute;left:16px;right:16px;bottom:4px;padding-top:12px;border-top:1px solid;color:var(--muted);font:700 11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.token-lane p strong{display:block;color:var(--ink);font-size:13px}.token-router{display:flex;flex-direction:column;justify-content:center;gap:14px}.token-router span{padding:14px 7px;border:1.5px solid var(--ink);border-top:5px solid var(--accent);background:var(--panel);box-shadow:3px 3px 0 var(--ink);text-align:center;font:850 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}.token-router span:nth-child(2){border-top-color:var(--accent2)}.token-router span:nth-child(3){border-top-color:var(--green)}.workload-control{display:flex;justify-content:space-between;margin-top:22px;font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--muted)}.workload-control output{color:var(--ink)}.workload-range{width:100%;accent-color:var(--accent)}.token-meter{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}.token-meter span{display:flex;align-items:end;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px}.token-meter small{font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--muted)}.token-meter strong{font:900 22px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green)}.token-caveat{margin:12px 0 0;color:var(--muted);font-size:11px}
+.home-section{margin-top:120px}.section-number{margin-bottom:24px;color:var(--accent);font:850 11px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.12em}.section-heading{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:60px;align-items:end;padding-bottom:28px;border-bottom:1.5px solid var(--ink)}.section-heading h2{max-width:850px;margin:0;font-size:clamp(38px,4vw,64px);line-height:1;letter-spacing:-.04em}.section-heading p{margin:0;color:var(--muted);font-size:18px}.strategy-examples{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}.example-card{background:var(--panel);border:1px solid var(--line)}.example-card>img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-bottom:1px solid var(--line);background:#f7f8fa}.example-card>div{padding:20px}.example-card span{font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);text-transform:uppercase}.example-card h3{margin:8px 0}.example-card p{color:var(--muted)}.example-card a{font-weight:800}.example-steps{list-style:none;padding:0;margin:22px 0 0;border-top:1px solid var(--line)}.example-steps li{display:grid;grid-template-columns:120px 1fr;gap:26px;padding:26px 0;border-bottom:1px solid var(--line)}.example-steps li>span{font:850 12px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--accent2)}.example-steps code{display:inline-block;padding:7px 10px;background:var(--code);color:var(--ink);font-size:15px}.example-steps p{margin:8px 0 0;color:var(--muted)}.evidence-links{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid var(--line);margin-top:22px}.evidence-links a{display:flex;flex-direction:column;gap:10px;min-height:150px;padding:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(255,253,248,.7);color:var(--ink)}.evidence-links a:hover{background:var(--cobalt-soft);text-decoration:none}.evidence-links span{color:var(--accent);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}.evidence-links strong{font-size:20px}.canonical-note{max-width:850px;margin:34px 0 0;color:var(--muted)}
+@media(max-width:1100px){.home-hero{grid-template-columns:1fr;min-height:auto}.token-map{max-width:850px}.strategy-examples{grid-template-columns:1fr}.example-card{display:grid;grid-template-columns:minmax(260px,.8fr) 1.2fr}.example-card>img{height:100%;aspect-ratio:auto;border-right:1px solid var(--line);border-bottom:0}}@media(max-width:760px){.home-page main{padding:40px 16px 72px}.home-intro h1{font-size:54px}.home-actions{flex-direction:column}.home-button{width:100%}.token-flow{grid-template-columns:1fr;min-height:0}.token-router{flex-direction:row}.token-lane{min-height:350px}.token-meter,.section-heading,.evidence-links{grid-template-columns:1fr}.strategy-examples{grid-template-columns:1fr}.example-card{display:block}.example-card>img{aspect-ratio:16/10;border-right:0;border-bottom:1px solid var(--line)}.section-heading{gap:20px}.home-section{margin-top:80px}.example-steps li{grid-template-columns:70px 1fr}.install-command{align-items:flex-start}.home-page .site-header{padding:14px 16px}}
 """
     js = """\
 document.addEventListener("keydown", event => {
@@ -1046,6 +1097,37 @@ document.addEventListener("keydown", event => {
     slides[next].scrollIntoView({block: "start"});
     history.replaceState(null, "", "#" + slides[next].id);
   }
+});
+
+const workload = document.querySelector("#workload");
+if (workload) {
+  const before = document.querySelector("[data-before-value]");
+  const after = document.querySelector("[data-after-value]");
+  const output = document.querySelector("[data-workload-output]");
+  const reduction = document.querySelector("[data-reduction-value]");
+  const updateWorkload = () => {
+    const input = Number(workload.value);
+    const relevant = Math.max(4, Math.round(input / 3));
+    before.textContent = `${input}k`;
+    after.textContent = `${relevant}k`;
+    output.textContent = `${input}k`;
+    reduction.textContent = `${Math.round((1 - relevant / input) * 100)}%`;
+  };
+  workload.addEventListener("input", updateWorkload);
+  updateWorkload();
+}
+
+document.querySelectorAll("[data-copy-command]").forEach(button => {
+  button.addEventListener("click", async () => {
+    const command = button.dataset.copyCommand;
+    try {
+      await navigator.clipboard.writeText(command);
+      button.textContent = "Copied";
+      window.setTimeout(() => { button.textContent = "Copy"; }, 1400);
+    } catch (_error) {
+      button.textContent = "Select command";
+    }
+  });
 });
 """
     files = {"site.css": css, "site.js": js}

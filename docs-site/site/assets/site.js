@@ -14,3 +14,34 @@ document.addEventListener("keydown", event => {
     history.replaceState(null, "", "#" + slides[next].id);
   }
 });
+
+const workload = document.querySelector("#workload");
+if (workload) {
+  const before = document.querySelector("[data-before-value]");
+  const after = document.querySelector("[data-after-value]");
+  const output = document.querySelector("[data-workload-output]");
+  const reduction = document.querySelector("[data-reduction-value]");
+  const updateWorkload = () => {
+    const input = Number(workload.value);
+    const relevant = Math.max(4, Math.round(input / 3));
+    before.textContent = `${input}k`;
+    after.textContent = `${relevant}k`;
+    output.textContent = `${input}k`;
+    reduction.textContent = `${Math.round((1 - relevant / input) * 100)}%`;
+  };
+  workload.addEventListener("input", updateWorkload);
+  updateWorkload();
+}
+
+document.querySelectorAll("[data-copy-command]").forEach(button => {
+  button.addEventListener("click", async () => {
+    const command = button.dataset.copyCommand;
+    try {
+      await navigator.clipboard.writeText(command);
+      button.textContent = "Copied";
+      window.setTimeout(() => { button.textContent = "Copy"; }, 1400);
+    } catch (_error) {
+      button.textContent = "Select command";
+    }
+  });
+});
