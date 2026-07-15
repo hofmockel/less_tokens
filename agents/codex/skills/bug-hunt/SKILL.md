@@ -11,4 +11,5 @@ Full protocol lives in the shared canonical source:
 
 Read that file for the severity rubric, three signals, stop rule, and agent prompt template.
 
-Hunt log: `.claude/skills/bug-hunt/bughuntlog.md`
+Hunt log: `.claude/skills/bug-hunt/bughuntlog.jsonl` — validate, append, and score a round with
+`.claude/tools/hunt_round.py`; re-score without appending with `.claude/tools/hunt_score.py`

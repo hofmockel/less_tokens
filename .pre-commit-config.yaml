@@ -28,3 +28,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: bug-hunt-docs
+        name: bug-hunt-protocol.md matches bug_hunt_registry
+        entry: python .claude/tools/bug_hunt_docs.py --check
+        language: system
+        pass_filenames: false
+        always_run: true

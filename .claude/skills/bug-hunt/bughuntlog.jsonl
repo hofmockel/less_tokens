@@ -1,8 +1,7 @@
 # Each line is one JSON round record. Append after each hunt; never edit past entries.
-# Schema: {"round": N, "date": "YYYY-MM-DD", "bugs_surfaced": N,
-#   "severity": {"data_loss": N, "silent": N, "ux": N, "cosmetic": N},
+# Schema (see bug_hunt_registry.ROUND_REQUIRED_KEYS): {"round": N, "date": "YYYY-MM-DD",
+#   "bugs_surfaced": N, "severity": {"data_loss": N, "silent": N, "ux": N, "cosmetic": N},
 #   "median_severity": "data_loss|silent|ux|cosmetic",
-#   "overlap": {"matched": N, "total": N},
-#   "new_files": ["file.py", ...],
-#   "cumulative_files": {"covered": N}}
-# Score a round: .claude/tools/hunt_score.py
+#   "overlap": {"matched": N, "total": N}, "new_files": ["file.py", ...]}
+# Validate + append + score a round: python .claude/tools/hunt_round.py '<json record>'
+# Score only: python .claude/tools/hunt_score.py

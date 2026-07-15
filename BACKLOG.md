@@ -71,9 +71,6 @@ Rules, protocols, and configs expressed as natural language that could be determ
 
 ### High Priority
 
-
-- **Make bug-hunt protocol data-driven** *(input / prose-to-code / drift prevention)* — `agents/common/bug-hunt-protocol.md` says the process is "Eyeball-driven" (`agents/common/bug-hunt-protocol.md:3`) and carries severity definitions, signal definitions, target files, prompt template, and operator steps in prose (`agents/common/bug-hunt-protocol.md:9-55`), while `.claude/tools/hunt_score.py` separately hardcodes severity order and target files (`.claude/tools/hunt_score.py:16-24`). Move severity tiers, target files, thresholds, output schema, and prompt template into structured data consumed by both the scorer and docs/skill renderer. Add a `hunt_round.py` helper that validates/appends a round record and prints the next action. Acceptance: target-file changes happen in one source; the shared protocol doc is generated or reduced to a pointer plus command examples.
-
 ### Medium Priority
 
 - **Generate installer flag docs from argparse metadata** *(prose-to-code / doc drift)* — `DOCUMENTATION.md:37-51` hand-lists optional installer flags, but `install.py:1930-1996` is the actual argparse source and already contains richer/current help for flags such as `--create-venv`, `--no-build`, `--dry-run`, `--update`, `--check`, `--uninstall`, and `--codex-savings`. Add a doc renderer/check for an `<!-- installer-flags -->` block sourced from parser metadata or a shared flag registry. Acceptance: docs include every public flag unless explicitly hidden; CI catches stale flag tables.

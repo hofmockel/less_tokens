@@ -7,21 +7,21 @@ round, and prints GO or STOP with a signal breakdown.
 Usage:
     python .claude/tools/hunt_score.py [path/to/bughuntlog.jsonl]
 """
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-SEVERITY_ORDER = ["data_loss", "silent", "ux", "cosmetic"]
-TARGET_FILES = {
-    "embeddings.py", "search.py", "search_config.py", "model_profiles.py",
-    "stats.py", "savings_log.py", "db.py", "search-first.py",
-    "truncate-output.py", "index-refresh.py", "compact-trigger.py",
-    "caveman-reminder.py", "install.py", "index.sql",
-}
-OVERLAP_THRESHOLD = 0.60
-COVERAGE_THRESHOLD = 0.80
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from bug_hunt_registry import (  # noqa: E402
+    COVERAGE_THRESHOLD,
+    OVERLAP_THRESHOLD,
+    SEVERITY_ORDER,
+    TARGET_FILES,
+)
 
 
 def _parse_records(path: Path) -> list[dict]:
@@ -70,9 +70,15 @@ def score(records: list[dict]) -> None:
     passed = sum(signals)
 
     print(f"Round {last.get('round', '?')}  ({last.get('date', '?')})")
-    print(f"  Severity slide   (median <= ux):      {'PASS' if sig1 else 'FAIL'}  [{med}]")
-    print(f"  Overlap rate     (>= 60%):             {'PASS' if sig2 else 'FAIL'}  [{matched}/{total} = {overlap_rate:.0%}]")
-    print(f"  File coverage    (>= 80% of targets): {'PASS' if sig3 else 'FAIL'}  [{len(hit_targets)}/{len(TARGET_FILES)} = {coverage_rate:.0%}]")
+    print(
+        f"  Severity slide   (median <= ux):      {'PASS' if sig1 else 'FAIL'}  [{med}]"
+    )
+    print(
+        f"  Overlap rate     (>= 60%):             {'PASS' if sig2 else 'FAIL'}  [{matched}/{total} = {overlap_rate:.0%}]"
+    )
+    print(
+        f"  File coverage    (>= 80% of targets): {'PASS' if sig3 else 'FAIL'}  [{len(hit_targets)}/{len(TARGET_FILES)} = {coverage_rate:.0%}]"
+    )
     print()
 
     if passed == 3:
@@ -83,10 +89,13 @@ def score(records: list[dict]) -> None:
         print(f"KEEP HUNTING — only {passed} of 3 signals met.")
 
 
+DEFAULT_LOG_PATH = (
+    Path(__file__).parent.parent / "skills" / "bug-hunt" / "bughuntlog.jsonl"
+)
+
+
 def main() -> None:
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else (
-        Path(__file__).parent.parent / "skills" / "bug-hunt" / "bughuntlog.jsonl"
-    )
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_LOG_PATH
     if not path.exists():
         print(f"Not found: {path}", file=sys.stderr)
         sys.exit(1)
