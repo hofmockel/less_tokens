@@ -596,6 +596,15 @@ agents/
 - `.claude/skills/bug-hunt/SKILL.md` — bug-hunt protocol: severity rubric, stop rule, agent prompt template
 - `.claude/skills/claudemd/SKILL.md` — prune CLAUDE.md to only what must be always-loaded
 
+**Doc generation (registry → generated doc block, `--check` wired into pre-commit)**
+Two instances of the same pattern: a single Python registry is the source of truth; a docs script renders it into a Markdown file's `<!-- ...: begin/end -->` markers and verifies the file matches with `--check`.
+- `.claude/tools/bug_hunt_registry.py` — `SEVERITY_TIERS`, `TARGET_FILES`, `OVERLAP_THRESHOLD`/`COVERAGE_THRESHOLD`, `PROMPT_TEMPLATE`, `ROUND_REQUIRED_KEYS`; single source for the bug-hunt protocol
+- `.claude/tools/bug_hunt_docs.py` — renders/verifies `agents/common/bug-hunt-protocol.md`'s severity-rubric, thresholds, target-files, and prompt-template blocks from the registry
+- `.claude/tools/hunt_round.py` — validates a round JSON record (sequential round number, known severity tiers, severity sum matches `bugs_surfaced`, `overlap.matched <= overlap.total`), appends it to `.claude/skills/bug-hunt/bughuntlog.jsonl`, and scores it via `hunt_score.py` in one command
+- `.claude/tools/hunt_score.py` — evaluates severity slide, overlap, and file-coverage signals from `bughuntlog.jsonl`; imports its constants from `bug_hunt_registry.py` rather than hardcoding them
+- `.claude/tools/strategy_registry.py` — `STRATEGIES` (name, how, savings claim, flag/default, `savings_log` telemetry key or `None`); single source for the README strategy table and `label_consistency_gate.py`'s label map
+- `.claude/tools/strategy_table_docs.py` — renders/verifies README.md's `<!-- strategy-table: begin/end -->` block from `strategy_registry.py`
+
 Hooks are unit-tested by importing them as modules via `.claude/tests/conftest.py:load_hook()` (it puts `.claude/tools/` on `sys.path` so the source tools are importable during tests, then execs the hook file). Keep hook logic importable — no side effects at module load.
 
 ### Token-reduction strategy
