@@ -487,71 +487,198 @@ def svg_bar_chart(name: str, values: list[tuple[str, int]], title: str) -> str:
 """
 
 
-def svg_label(text: str, x: int, y: int, width: int, *, css_class: str = "node-label") -> str:
-    words = str(text).split()
-    lines: list[str] = []
-    current = ""
-    max_chars = max(8, width // 9)
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        if current and len(candidate) > max_chars:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
-    line_height = 18
-    start_y = y - ((len(lines) - 1) * line_height // 2)
-    return "".join(
-        f'<text x="{x}" y="{start_y + index * line_height}" class="{css_class}" text-anchor="middle">{e(line)}</text>'
-        for index, line in enumerate(lines)
-    )
+def _token_dots(points: list[tuple[int, int, int]], css_class: str = "token") -> str:
+    return "".join(f'<circle cx="{x}" cy="{y}" r="{r}" class="{css_class}"/>' for x, y, r in points)
 
 
-def slide_visual_svg(anchor: str, title: str, caption: str, nodes: tuple[str, ...]) -> str:
+def _mini_label(text: str, x: int, y: int) -> str:
+    return f'<text x="{x}" y="{y}" class="mini" text-anchor="middle">{e(text)}</text>'
+
+
+def _scene(anchor: str) -> str:
+    dots = [(130, 126, 7), (174, 184, 5), (214, 142, 9), (260, 210, 6), (782, 158, 7), (838, 222, 5)]
+    scenes: dict[str, str] = {
+        "title": f"""
+  <circle cx="490" cy="310" r="94" class="core"/>
+  <path d="M168 310 C262 188, 382 174, 448 250" class="stream"/>
+  <path d="M532 250 C602 172, 736 186, 818 310" class="stream"/>
+  <path d="M532 370 C612 448, 734 438, 818 310" class="stream muted"/>
+  <path d="M168 310 C260 430, 382 444, 448 370" class="stream muted"/>
+  {_token_dots(dots)}
+  <g class="glyph"><path d="M452 314 h76 M490 276 v76"/><circle cx="490" cy="314" r="48"/></g>
+""",
+        "waste-model": """
+  <rect x="150" y="144" width="130" height="300" class="bucket a"/><rect x="330" y="204" width="130" height="240" class="bucket b"/><rect x="510" y="250" width="130" height="194" class="bucket c"/><rect x="690" y="104" width="130" height="340" class="bucket d"/>
+  <path d="M120 468 H850" class="base"/>
+  <circle cx="215" cy="118" r="18" class="token"/><circle cx="395" cy="178" r="18" class="token alt"/><circle cx="575" cy="224" r="18" class="token warm"/><circle cx="755" cy="78" r="18" class="token green"/>
+  <path d="M215 136 v52 M395 196 v52 M575 242 v52 M755 96 v52" class="fall"/>
+""",
+        "input-dominates": """
+  <path d="M158 444 C218 244, 330 150, 492 150 C654 150, 770 244, 824 444 Z" class="mountain"/>
+  <path d="M236 444 C274 306, 360 242, 492 242 C624 242, 708 306, 746 444 Z" class="mountain inner"/>
+  <path d="M154 444 H834" class="base"/>
+  <circle cx="492" cy="138" r="34" class="token"/>
+  <path d="M492 172 v202" class="fall heavy"/>
+  <path d="M358 314 h268" class="gate"/>
+""",
+        "product-promise": """
+  <path d="M132 122 h716 l-170 150 v154 l-196 74 V272 Z" class="funnel"/>
+  <circle cx="220" cy="174" r="18" class="token"/><circle cx="326" cy="174" r="14" class="token alt"/><circle cx="438" cy="174" r="22" class="token warm"/>
+  <path d="M482 272 v150" class="stream"/>
+  <circle cx="482" cy="458" r="30" class="core"/>
+  <path d="M610 380 l74 74 l124 -142" class="check"/>
+""",
+        "system-map": """
+  <circle cx="490" cy="300" r="82" class="core"/>
+  <circle cx="244" cy="162" r="48" class="sat a"/><circle cx="736" cy="162" r="48" class="sat b"/><circle cx="244" cy="438" r="48" class="sat c"/><circle cx="736" cy="438" r="48" class="sat d"/>
+  <path d="M286 186 L418 260 M694 186 L562 260 M286 414 L418 340 M694 414 L562 340" class="stream"/>
+  <path d="M442 300 h96 M490 252 v96" class="glyph"/>
+""",
+        "strategy-matrix": """
+  <g class="matrix">
+    <rect x="164" y="136" width="652" height="332" rx="10"/>
+    <path d="M164 219 H816 M164 302 H816 M164 385 H816 M294 136 V468 M424 136 V468 M554 136 V468 M684 136 V468"/>
+  </g>
+  <circle cx="230" cy="178" r="18" class="token"/><circle cx="490" cy="261" r="18" class="token alt"/><circle cx="750" cy="344" r="18" class="token warm"/><circle cx="360" cy="427" r="18" class="token green"/>
+""",
+        "search-workflow": """
+  <circle cx="250" cy="264" r="88" class="lens"/>
+  <path d="M314 328 l116 116" class="handle"/>
+  <path d="M442 442 C548 374, 630 298, 780 176" class="stream"/>
+  <rect x="628" y="142" width="180" height="72" class="slice"/><rect x="558" y="258" width="180" height="72" class="slice muted"/><rect x="470" y="374" width="180" height="72" class="slice"/>
+  <circle cx="250" cy="264" r="24" class="token"/>
+""",
+        "chunking": """
+  <path d="M178 146 h250 v310 H178 Z M552 146 h250 v310 H552 Z" class="doc"/>
+  <path d="M220 210 h166 M220 262 h110 M220 314 h150 M594 210 h166 M594 262 h110 M594 314 h150" class="docline"/>
+  <path d="M428 238 C482 208, 504 208, 552 238 M428 322 C482 352, 504 352, 552 322" class="cut"/>
+  <rect x="432" y="248" width="116" height="64" class="chunk"/>
+""",
+        "symbols": """
+  <circle cx="490" cy="292" r="126" class="radar"/>
+  <path d="M490 292 L628 166" class="beam"/>
+  <circle cx="628" cy="166" r="28" class="token warm"/>
+  <path d="M348 430 h284 v56 H348 Z" class="codebox"/>
+  <path d="M394 458 h192" class="docline"/>
+  <text x="490" y="308" class="symbol" text-anchor="middle">{ }</text>
+""",
+        "read-stack": """
+  <rect x="232" y="390" width="516" height="58" class="layer a"/><rect x="260" y="322" width="460" height="58" class="layer b"/><rect x="288" y="254" width="404" height="58" class="layer c"/><rect x="316" y="186" width="348" height="58" class="layer d"/><rect x="344" y="118" width="292" height="58" class="layer e"/>
+  <path d="M492 80 v374" class="fall heavy"/>
+  <circle cx="492" cy="82" r="20" class="token"/>
+""",
+        "context-cache": """
+  <path d="M318 220 C410 108, 596 108, 686 220" class="loop"/>
+  <path d="M686 220 C770 346, 612 494, 490 420" class="loop"/>
+  <path d="M490 420 C346 498, 208 348, 318 220" class="loop"/>
+  <rect x="386" y="248" width="208" height="120" class="vault"/>
+  <circle cx="490" cy="308" r="24" class="core"/>
+  <circle cx="318" cy="220" r="18" class="token"/><circle cx="686" cy="220" r="18" class="token alt"/><circle cx="490" cy="420" r="18" class="token green"/>
+""",
+        "tool-output": """
+  <path d="M130 146 h260 v300 H130 Z" class="terminal"/><path d="M180 206 h162 M180 252 h132 M180 298 h178 M180 344 h108" class="terminal-line"/>
+  <path d="M410 296 h176" class="stream heavy"/>
+  <path d="M586 160 h250 v104 H586 Z M586 328 h250 v104 H586 Z" class="summary"/>
+  <circle cx="712" cy="296" r="26" class="core"/>
+""",
+        "output-controls": """
+  <path d="M170 156 h292 a44 44 0 0 1 44 44 v116 a44 44 0 0 1 -44 44 H318 l-86 74 v-74 h-62 a44 44 0 0 1 -44 -44 V200 a44 44 0 0 1 44 -44 Z" class="bubble"/>
+  <path d="M576 158 h232 v276 H576 Z" class="meter"/>
+  <path d="M620 382 L764 214" class="check"/>
+  <circle cx="692" cy="324" r="88" class="gauge"/>
+""",
+        "compaction-controls": """
+  <path d="M170 132 h260 v340 H170 Z" class="accordion"/>
+  <path d="M214 176 h172 M214 222 h172 M214 268 h172 M214 314 h172 M214 360 h172 M214 406 h172" class="docline"/>
+  <path d="M454 302 h110" class="stream heavy"/>
+  <path d="M608 206 h204 v192 H608 Z" class="compact"/>
+  <path d="M650 254 h120 M650 302 h120 M650 350 h120" class="docline"/>
+""",
+        "instruction-pruning": """
+  <path d="M178 130 h260 v336 H178 Z M542 130 h260 v336 H542 Z" class="doc"/>
+  <path d="M224 200 h166 M224 250 h166 M224 300 h166 M224 350 h166 M588 228 h168 M588 302 h118" class="docline"/>
+  <path d="M420 190 l148 148 M568 190 L420 338" class="scissor"/>
+  <circle cx="420" cy="190" r="18" class="handle-dot"/><circle cx="568" cy="190" r="18" class="handle-dot"/>
+""",
+        "budget-plane": """
+  <path d="M128 156 h220 v120 H128 Z M128 340 h220 v120 H128 Z" class="candidate"/>
+  <path d="M392 308 h196" class="stream heavy"/>
+  <circle cx="490" cy="308" r="76" class="core"/>
+  <path d="M628 156 h220 v120 H628 Z M628 340 h220 v120 H628 Z" class="decision"/>
+  <path d="M678 216 l42 42 l82 -94 M682 404 h116" class="check"/>
+""",
+        "relevance-scoring": """
+  <circle cx="490" cy="304" r="142" class="radar"/>
+  <circle cx="490" cy="304" r="96" class="radar inner"/><circle cx="490" cy="304" r="48" class="radar inner"/>
+  <path d="M490 304 L608 206 M490 304 L382 220 M490 304 L570 420 M490 304 L356 360" class="beam muted"/>
+  <circle cx="608" cy="206" r="18" class="token"/><circle cx="382" cy="220" r="14" class="token alt"/><circle cx="570" cy="420" r="20" class="token warm"/><circle cx="356" cy="360" r="12" class="token green"/>
+""",
+        "enforcement-modes": """
+  <path d="M158 428 H822" class="base"/>
+  <rect x="176" y="344" width="118" height="84" class="step a"/><rect x="334" y="286" width="118" height="142" class="step b"/><rect x="492" y="220" width="118" height="208" class="step c"/><rect x="650" y="152" width="118" height="276" class="step d"/>
+  <path d="M216 314 l34 34 l62 -82 M374 256 l34 34 l62 -82 M532 190 l34 34 l62 -82 M690 122 l34 34 l62 -82" class="check small"/>
+""",
+        "agent-split": """
+  <circle cx="490" cy="152" r="58" class="core"/>
+  <path d="M490 210 C420 284, 330 322, 228 404 M490 210 C560 284, 650 322, 752 404" class="rail"/>
+  <rect x="130" y="386" width="196" height="88" class="agent a"/><rect x="654" y="386" width="196" height="88" class="agent b"/>
+  <path d="M178 432 h100 M702 432 h100" class="docline"/>
+  <circle cx="228" cy="404" r="22" class="token"/><circle cx="752" cy="404" r="22" class="token alt"/>
+""",
+        "hook-manifest": """
+  <rect x="374" y="124" width="232" height="352" class="manifest"/>
+  <path d="M420 190 h140 M420 246 h140 M420 302 h140 M420 358 h140" class="docline"/>
+  <path d="M374 220 C280 176, 222 172, 152 206 M606 220 C700 176, 758 172, 828 206 M374 380 C280 424, 222 428, 152 394 M606 380 C700 424, 758 428, 828 394" class="stream"/>
+  <circle cx="152" cy="206" r="24" class="token"/><circle cx="828" cy="206" r="24" class="token alt"/><circle cx="152" cy="394" r="24" class="token warm"/><circle cx="828" cy="394" r="24" class="token green"/>
+""",
+        "telemetry": """
+  <path d="M126 176 C250 122, 340 236, 470 180 S706 122, 850 176" class="stream"/>
+  <path d="M126 292 C250 238, 340 352, 470 296 S706 238, 850 292" class="stream altstroke"/>
+  <path d="M126 408 C250 354, 340 468, 470 412 S706 354, 850 408" class="stream warmstroke"/>
+  <rect x="406" y="224" width="168" height="152" class="report"/>
+  <path d="M444 270 h92 M444 316 h92" class="docline"/>
+""",
+        "data-slide": """
+  <path d="M490 146 v270" class="scale"/>
+  <path d="M332 216 h316" class="scale"/>
+  <path d="M332 216 l-92 160 h184 Z M648 216 l-92 160 h184 Z" class="pan"/>
+  <circle cx="284" cy="330" r="22" class="token"/><circle cx="376" cy="330" r="14" class="token alt"/><circle cx="602" cy="330" r="16" class="token warm"/><circle cx="694" cy="330" r="20" class="token green"/>
+  <rect x="430" y="416" width="120" height="42" class="basebox"/>
+""",
+        "drift-prevention": """
+  <path d="M156 150 h248 v124 H156 Z M576 150 h248 v124 H576 Z M366 354 h248 v124 H366 Z" class="artifact"/>
+  <path d="M404 212 h172 M490 274 v80 M280 274 L366 354 M700 274 L614 354" class="stream"/>
+  <path d="M410 416 l42 42 l94 -114" class="check"/>
+  <circle cx="490" cy="274" r="26" class="core"/>
+""",
+        "operations": """
+  <circle cx="490" cy="304" r="158" class="wheel"/>
+  <circle cx="490" cy="304" r="62" class="core"/>
+  <path d="M490 146 v96 M642 258 l-92 30 M584 432 l-56 -82 M396 432 l56 -82 M338 258 l92 30" class="spoke"/>
+  <circle cx="490" cy="146" r="28" class="token"/><circle cx="642" cy="258" r="28" class="token alt"/><circle cx="584" cy="432" r="28" class="token warm"/><circle cx="396" cy="432" r="28" class="token green"/><circle cx="338" cy="258" r="28" class="token"/>
+""",
+        "contribution-map": """
+  <path d="M132 302 H848" class="rail"/>
+  <rect x="150" y="242" width="112" height="120" class="station a"/><rect x="330" y="242" width="112" height="120" class="station b"/><rect x="510" y="242" width="112" height="120" class="station c"/><rect x="690" y="242" width="112" height="120" class="station d"/>
+  <circle cx="262" cy="302" r="18" class="token"/><circle cx="442" cy="302" r="18" class="token alt"/><circle cx="622" cy="302" r="18" class="token warm"/><circle cx="802" cy="302" r="18" class="token green"/>
+  <path d="M764 176 l62 62 l100 -142" class="check"/>
+""",
+    }
+    return scenes[anchor]
+
+
+def slide_visual_svg(anchor: str, title: str, caption: str, _nodes: tuple[str, ...]) -> str:
     width = 980
     height = 620
-    node_w = 150 if len(nodes) >= 5 else 170
-    gap = (width - 120 - node_w * len(nodes)) // max(1, len(nodes) - 1)
-    y = 250
-    rects = []
-    connectors = []
-    for index, node in enumerate(nodes):
-        x = 60 + index * (node_w + gap)
-        tone = ["#2f7d78", "#225f88", "#9a5b20", "#4c6f52", "#725a9b"][index % 5]
-        rects.append(f'<rect x="{x}" y="{y}" width="{node_w}" height="92" rx="8" class="node" style="--tone:{tone}"/>')
-        rects.append(svg_label(node, x + node_w // 2, y + 50, node_w - 22))
-        if index < len(nodes) - 1:
-            x1 = x + node_w + 10
-            x2 = x + node_w + gap - 10
-            connectors.append(f'<path d="M{x1} {y + 46} C{x1 + 34} {y + 16}, {x2 - 34} {y + 76}, {x2} {y + 46}" class="flow"/>')
-    lanes = [
-        ("input", 120, "#2f7d78"),
-        ("tool", 300, "#225f88"),
-        ("output", 480, "#9a5b20"),
-        ("fixed", 660, "#4c6f52"),
-    ]
-    lane_svg = "".join(
-        f'<g><rect x="{x}" y="462" width="130" height="36" rx="6" fill="{color}" opacity=".14"/><text x="{x + 65}" y="485" class="lane" text-anchor="middle">{label}</text></g>'
-        for label, x, color in lanes
-    )
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="{anchor}-title {anchor}-desc">
   <title id="{anchor}-title">{e(title)} concept map</title>
   <desc id="{anchor}-desc">{e(caption)}</desc>
   <style>
-    .bg{{fill:#f7f8fa}}.grid{{stroke:#d8e0e7;stroke-width:1;opacity:.65}}.title{{font:700 28px system-ui;fill:#16202a}}.caption{{font:17px system-ui;fill:#5d6975}}.node{{fill:#fff;stroke:var(--tone);stroke-width:3}}.node-label{{font:700 15px system-ui;fill:#16202a}}.flow{{fill:none;stroke:#788690;stroke-width:3;stroke-linecap:round}}.hub{{fill:#16202a}}.hub-text{{font:700 13px system-ui;fill:#fff}}.lane{{font:700 13px system-ui;fill:#16202a}}
+    .bg{{fill:#f7f8fa}}.grain{{fill:none;stroke:#d8e0e7;stroke-width:1;opacity:.45}}.core{{fill:#16202a}}.token{{fill:#2f7d78}}.token.alt{{fill:#225f88}}.token.warm{{fill:#9a5b20}}.token.green{{fill:#4c6f52}}.stream,.rail,.loop,.spoke{{fill:none;stroke:#2f7d78;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}}.stream.muted,.beam.muted{{stroke:#87929c;stroke-width:5}}.stream.heavy,.fall.heavy{{stroke-width:12}}.altstroke{{stroke:#225f88}}.warmstroke{{stroke:#9a5b20}}.fall,.base,.gate,.scale{{fill:none;stroke:#16202a;stroke-width:5;stroke-linecap:round}}.bucket,.sat,.slice,.doc,.chunk,.terminal,.summary,.bubble,.meter,.accordion,.compact,.candidate,.decision,.step,.agent,.manifest,.report,.pan,.artifact,.station{{fill:#fff;stroke:#16202a;stroke-width:4}}.a{{stroke:#2f7d78}}.b{{stroke:#225f88}}.c{{stroke:#9a5b20}}.d{{stroke:#4c6f52}}.e{{stroke:#725a9b}}.mountain,.funnel,.lens,.radar,.vault,.gauge,.wheel{{fill:#fff;stroke:#2f7d78;stroke-width:5}}.mountain.inner,.radar.inner{{fill:none;stroke:#225f88;stroke-width:4;opacity:.75}}.handle,.beam,.cut,.scissor{{fill:none;stroke:#9a5b20;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}}.check{{fill:none;stroke:#4c6f52;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}}.check.small{{stroke-width:7}}.docline,.terminal-line{{fill:none;stroke:#87929c;stroke-width:5;stroke-linecap:round}}.matrix rect,.matrix path{{fill:none;stroke:#16202a;stroke-width:4}}.glyph,.symbol{{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round}}.symbol{{font:700 52px ui-monospace,monospace;fill:#16202a;stroke:none}}.mini{{font:700 13px system-ui;fill:#16202a}}.handle-dot{{fill:#fff;stroke:#9a5b20;stroke-width:5}}.basebox{{fill:#16202a}}.layer{{fill:#fff;stroke:#16202a;stroke-width:4}}.terminal{{fill:#16202a}}.terminal-line{{stroke:#f7f8fa}}.summary,.decision{{fill:#edf6f5}}.candidate{{fill:#fff7ed}}.bubble{{fill:#fff}}.meter{{fill:#eef3f5}}.manifest,.report{{fill:#fff}}.pan{{fill:#fff7ed}}.artifact{{fill:#fff}}.station{{fill:#edf6f5}}
   </style>
-  <rect class="bg" x="0" y="0" width="{width}" height="{height}" rx="0"/>
-  <path class="grid" d="M80 112 H900 M80 390 H900 M80 530 H900 M120 80 V540 M860 80 V540"/>
-  <text x="60" y="72" class="title">{e(title)}</text>
-  <text x="60" y="110" class="caption">{e(caption)}</text>
-  <circle cx="490" cy="168" r="42" class="hub"/>
-  <text x="490" y="164" class="hub-text" text-anchor="middle">TOKEN</text>
-  <text x="490" y="182" class="hub-text" text-anchor="middle">CONTROL</text>
-  {''.join(connectors)}
-  {''.join(rects)}
-  {lane_svg}
+  <rect class="bg" x="0" y="0" width="{width}" height="{height}"/>
+  <path class="grain" d="M80 96 H900 M80 524 H900 M96 80 V540 M884 80 V540"/>
+  {_scene(anchor)}
 </svg>
 """
 
