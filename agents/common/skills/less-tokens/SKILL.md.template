@@ -1,0 +1,78 @@
+---
+name: less-tokens
+description: $description
+---
+
+## less-tokens — Token-Efficient Codebase Exploration
+
+Shared vector search and guard tools installed in `$runtime_path`. $instruction_doc keeps only terse rules; load this skill when you need the concrete commands.
+
+### Search before reading
+
+    $command_prefix/search.py "query"
+
+Returns the top matching chunks by semantic similarity. Run this before a whole-file Read on any large or indexed file.
+
+### Symbol lookup
+
+    $command_prefix/symbols.py SymbolName
+
+Returns exact `file:line` for Python and JS/TS functions, classes, constants, and types. Cheaper than grep for definitions.
+
+### Noise-file guard
+
+    $command_prefix/read_guard.py path/to/file
+
+Checks whether the file is a lockfile, generated bundle, binary, or large data file. Returns a recommendation before you commit to reading it in full.
+
+### $instruction_doc audit
+
+    $audit_command
+
+Checks $instruction_doc token budget, stale line references, and verbosity. Run before adding new sections.
+
+### Directory navigation and responses
+
+Prefer `rg --files` over `find . -R` or `ls -R`. Keep replies to direct findings with exact `file:line` references and no filler.
+
+$delegation
+
+Context pack shape for spawned agents:
+
+    Objective: <one bounded result>.
+    Start with: $command_prefix/search.py "<query>"
+    Pointers: <path:line>, <path:line>.
+    Allowed reads: only slices needed to answer the objective.
+    Return only: file:line findings, verification, blockers.
+
+Do not paste source bodies, diffs, logs, or previous search output into a spawn
+prompt. Pass the query and pointers so the child pays only for the slices it
+chooses to inspect.
+
+Large-source digest delegation:
+
+    Task: summarize <source path> into $state_path/<name>.md.
+    Constraints: $digest_constraints
+    Return only: digest path, source path, line refs used, verification, blockers.
+
+Use this for one-off large docs or logs where the parent only needs the distilled
+answer. The digest should be short, source-linked, and agent-neutral so another
+Claude or Codex session can verify it without re-reading the whole source.
+
+### Document-draft exemption
+
+Terse mode holds for ordinary replies only. If the user's message asked for a document, report,
+or proposal draft and you're pasting it directly in your reply (not a file write, not fenced),
+include this exact line anywhere in the response:
+
+    <!-- less-tokens: document-draft -->
+
+`$reminder_hook` detects it and skips the word cap and filler check for that response. Set it
+only because the user's message asked for a document — never on your own judgment that a
+response is long or important.
+
+### Rebuild the index
+
+    $command_prefix/embeddings.py refresh
+
+Re-embeds any source files that changed since the last index build.

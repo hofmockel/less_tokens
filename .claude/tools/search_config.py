@@ -71,6 +71,22 @@ MAX_CHUNK_CHARS: int = 2000
 # source_type values returned by enumerate_sources() — drives --source-type CLI choices.
 SOURCE_TYPES: list[str] = ["doc", "code", "journal", "changelog", "note"]
 
+# --- Semantic search backend ---
+# "sqlite" uses the bundled local embeddings/index. "command" makes an external
+# vector DB the sole semantic owner: no local search or automatic fallback runs.
+SEARCH_BACKEND: str = "sqlite"
+# With SEARCH_BACKEND="command", argv is executed directly (never through a shell).
+# It reads one JSON request from stdin and writes a JSON result list, or
+# {"results": [...], "warning": "...", "stale": false}, to stdout. Each hit must
+# contain score, source_path, and text; source_key/source_type/start_line/end_line
+# are supported. Environment overrides: LESS_TOKENS_SEARCH_BACKEND and
+# LESS_TOKENS_SEARCH_COMMAND.
+SEARCH_BACKEND_COMMAND: tuple[str, ...] = ()
+SEARCH_BACKEND_TIMEOUT_SECONDS: float = 30.0
+# External retrieval gets a private wider funnel so less_tokens can remove same-file
+# and exact-content duplicates before exposing only k results to the agent.
+SEARCH_BACKEND_CANDIDATE_MULTIPLIER: int = 4
+
 # Chars per token estimate for search.py cost display (prose ~4, code ~3).
 CHARS_PER_TOKEN: float = 2.4927  # calibrated 2026-07-13 vs claude-opus-4-8 (repo-sample); was 4 (prose ~4, code ~3)
 

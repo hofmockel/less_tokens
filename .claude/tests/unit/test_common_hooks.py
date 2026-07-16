@@ -392,6 +392,26 @@ class TestCheckIndexRefresh:
         assert code == 0
         assert not (tmp_path / "state" / "index-refresh.log").exists()
 
+    def test_skips_local_refresh_for_external_search_backend(self, tmp_path):
+        venv_py = tmp_path / ".venv" / "bin" / "python"
+        venv_py.parent.mkdir(parents=True)
+        venv_py.write_text("")
+        tools = tmp_path / ".claude" / "tools"
+        tools.mkdir(parents=True)
+        (tools / "embeddings.py").write_text("")
+        readme = tmp_path / "README.md"
+        readme.write_text("docs")
+
+        code, stdout, stderr = check_index_refresh(
+            _search_payload("Edit", {"file_path": str(readme)}),
+            repo=tmp_path,
+            state_dir=tmp_path / "state",
+            config={"venv_py": venv_py, "search_backend": "command"},
+        )
+
+        assert (code, stdout, stderr) == (0, "", "")
+        assert not (tmp_path / "state" / "index-refresh.log").exists()
+
     def test_skips_unindexed_edit(self, tmp_path):
         venv_py = tmp_path / ".venv" / "bin" / "python"
         venv_py.parent.mkdir(parents=True)

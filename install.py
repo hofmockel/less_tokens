@@ -1026,8 +1026,39 @@ def _index_db_at_current_schema(target_root: Path) -> bool:
         return False
 
 
+def configured_search_backend(target_root: Path) -> str:
+    """Read SEARCH_BACKEND without importing the host project's config."""
+    env_backend = os.environ.get("LESS_TOKENS_SEARCH_BACKEND")
+    if env_backend:
+        return env_backend.strip().lower()
+    config_path = target_root / ".claude" / "tools" / "search_config.py"
+    try:
+        tree = ast.parse(config_path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return "sqlite"
+    for node in tree.body:
+        target = None
+        value = None
+        if isinstance(node, ast.Assign):
+            target = node.targets[0] if len(node.targets) == 1 else None
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            target = node.target
+            value = node.value
+        if isinstance(target, ast.Name) and target.id == "SEARCH_BACKEND":
+            try:
+                backend = ast.literal_eval(value)
+            except (ValueError, TypeError):
+                return "sqlite"
+            return str(backend).strip().lower()
+    return "sqlite"
+
+
 def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Initialize / migrate index.db. Returns (exit_code, did_init)."""
+    if configured_search_backend(target_root) != "sqlite":
+        print("\n[4/5] External search backend selected — local index.db skipped.")
+        return 0, False
     if _index_db_at_current_schema(target_root):
         print("\n[4/5] index.db already initialized — skipping init.")
         return 0, False
@@ -1046,6 +1077,9 @@ def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[in
 
 
 def build_index(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
+    if configured_search_backend(target_root) != "sqlite":
+        print("\nExternal search backend selected — local embedding build skipped.")
+        return 0
     if dry_run:
         print("\n[DRY RUN] would build initial embeddings index "
               "(first real run downloads ~130 MB model).")
@@ -2344,7 +2378,8 @@ def main() -> int:
         print("   Change the VENV_PY line to:")
         print(f"       VENV_PY = {_venv_python_call(str(venv_dir))}")
         print("   Also update INDEXED_SOURCE_DIRS to list your source directories.")
-    if args.no_build:
+    search_backend = configured_search_backend(target_root)
+    if args.no_build and search_backend == "sqlite":
         print("\n2. Build the index:")
         print(f"       {run_py} {tool_dir}/embeddings.py refresh")
         print("\n3. Test search:")

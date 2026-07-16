@@ -2,6 +2,7 @@
 """Codex PostToolUse hook: re-embed indexed files after apply_patch/Edit/Write."""
 from __future__ import annotations
 
+import os
 import sys
 
 from _codex_runtime import bootstrap, load_json_stdin, print_result
@@ -12,20 +13,22 @@ from payload import normalize_codex  # noqa: E402
 from index_refresh import check_index_refresh  # noqa: E402
 
 try:
+    import search_config as _search_config  # noqa: E402
     from search_config import (  # noqa: E402
         active_state_dir,
         EXCLUDED_DIR_NAMES,
         EXCLUDED_DIR_PREFIXES,
         INDEXED_ROOT_GLOBS,
         INDEXED_SOURCE_DIRS,
-        VENV_PY,
     )
+    SEARCH_BACKEND = getattr(_search_config, "SEARCH_BACKEND", "sqlite")
     config = {
         "venv_py": REPO / ".less_tokens" / "bin" / "python",
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,
         "root_globs": INDEXED_ROOT_GLOBS,
+        "search_backend": os.environ.get("LESS_TOKENS_SEARCH_BACKEND", SEARCH_BACKEND),
         "tool_prefix": ".less_tokens/tools",
     }
     state_dir = active_state_dir()

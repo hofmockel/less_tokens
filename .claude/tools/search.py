@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Vector search over index.db. Mandatory first lookup before Read for indexed files.
+"""Semantic search with a local or external backend; mandatory before indexed reads.
 
 Usage:
   python3 tools/search.py "wash sale procedure"
@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
+import shlex
 import sqlite3
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -52,6 +55,31 @@ CODEX_DEFAULT_SNIPPET_CHARS = 400
 
 # db module owns INDEX_DB; resolve it lazily so test monkeypatches are seen.
 _DB_MOD = sys.modules[connect_index.__module__]
+
+
+class SearchBackendError(RuntimeError):
+    """The selected backend could not complete a trustworthy search."""
+
+
+def _backend_name() -> str:
+    """Selected semantic backend. Environment override is useful for CI/sessions."""
+    return os.environ.get(
+        "LESS_TOKENS_SEARCH_BACKEND",
+        getattr(search_config, "SEARCH_BACKEND", "sqlite"),
+    ).strip().lower()
+
+
+def _backend_command() -> list[str]:
+    """External backend argv without invoking a shell."""
+    env_command = os.environ.get("LESS_TOKENS_SEARCH_COMMAND")
+    configured = (
+        env_command
+        if env_command is not None
+        else getattr(search_config, "SEARCH_BACKEND_COMMAND", ())
+    )
+    if isinstance(configured, str):
+        return shlex.split(configured)
+    return [str(part) for part in configured]
 
 
 def _newest_source_mtime() -> float:
@@ -111,6 +139,11 @@ def _source_type_choices() -> list[str] | None:
     zero rows. None means the index is unavailable — leave --source-type
     unconstrained rather than blocking on a stale static list.
     """
+    # Source types belong to the external corpus and need not match the local
+    # SQLite index. More importantly, do not open the local index when command
+    # search is configured as the sole semantic backend.
+    if _backend_name() != "sqlite":
+        return None
     try:
         with connect_index() as c:
             rows = c.execute(
@@ -174,7 +207,7 @@ def _record_search_near_miss(state_dir: Path, query: str, session_id: str) -> No
         pass
 
 
-def search(
+def _search_sqlite(
     query: str,
     k: int = DEFAULT_K,
     source_type: str | None = None,
@@ -245,6 +278,185 @@ def search(
     return results
 
 
+def _external_candidate_limit(k: int) -> int:
+    """Fetch a private candidate funnel so path dedup can still backfill k."""
+    raw = getattr(search_config, "SEARCH_BACKEND_CANDIDATE_MULTIPLIER", 4)
+    try:
+        multiplier = max(1, int(raw))
+    except (TypeError, ValueError):
+        multiplier = 4
+    return max(k, k * multiplier)
+
+
+def _normalize_external_hit(raw: object, position: int) -> dict:
+    if not isinstance(raw, dict):
+        raise ValueError(f"result {position} is not an object")
+
+    path = raw.get("source_path")
+    text = raw.get("text")
+    if not isinstance(path, str) or not path.strip():
+        raise ValueError(f"result {position} has no source_path")
+    if not isinstance(text, str):
+        raise ValueError(f"result {position} has no text")
+    try:
+        score = float(raw.get("score"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"result {position} has no numeric score") from exc
+    if not math.isfinite(score):
+        raise ValueError(f"result {position} has a non-finite score")
+
+    hit = {
+        "score": score,
+        "source_type": str(raw.get("source_type") or "unknown"),
+        "source_path": path,
+        "source_key": str(raw.get("source_key") or path),
+        "text": text,
+    }
+    start = raw.get("start_line")
+    end = raw.get("end_line")
+    if start is not None or end is not None:
+        if (
+            isinstance(start, bool)
+            or isinstance(end, bool)
+            or not isinstance(start, int)
+            or not isinstance(end, int)
+            or start < 1
+            or end < start
+        ):
+            raise ValueError(
+                f"result {position} has an invalid start_line/end_line range"
+            )
+        hit["start_line"] = start
+        hit["end_line"] = end
+    if isinstance(raw.get("content_hash"), str):
+        hit["content_hash"] = raw["content_hash"]
+    return hit
+
+
+def _select_external_hits(
+    candidates: list[dict],
+    *,
+    k: int,
+    source_type: str | None,
+    min_score: float | None,
+) -> list[dict]:
+    """Apply the context-facing limit once, after backend retrieval."""
+    results: list[dict] = []
+    seen_paths: set[str] = set()
+    seen_content: set[str] = set()
+    for hit in sorted(candidates, key=lambda item: item["score"], reverse=True):
+        if source_type and hit["source_type"] != source_type:
+            continue
+        if min_score is not None and hit["score"] < min_score:
+            continue
+        path = hit["source_path"]
+        content_key = hit.get("content_hash") or hit["text"].strip()
+        if path in seen_paths or content_key in seen_content:
+            continue
+        seen_paths.add(path)
+        seen_content.add(content_key)
+        results.append(hit)
+        if len(results) >= k:
+            break
+    return results
+
+
+def _search_command(
+    query: str,
+    k: int = DEFAULT_K,
+    source_type: str | None = None,
+    min_score: float | None = None,
+) -> list[dict]:
+    """Query the configured vector DB command via JSON stdin/stdout.
+
+    The command receives ``query``, a private candidate ``k``, ``requested_k``,
+    filters, and ``project_root``. It returns either a JSON result list or
+    ``{"results": [...], "warning": "...", "stale": false}``. A backend
+    error never falls back to SQLite: one configured semantic owner means one
+    index, one embedding pass, and one retrieval path.
+    """
+    command = _backend_command()
+    if not command:
+        raise SearchBackendError(
+            "SEARCH_BACKEND='command' requires "
+            "SEARCH_BACKEND_COMMAND or LESS_TOKENS_SEARCH_COMMAND"
+        )
+
+    request = {
+        "query": query,
+        "k": _external_candidate_limit(k),
+        "requested_k": k,
+        "source_type": source_type,
+        "min_score": min_score,
+        "project_root": str(BASE),
+    }
+    timeout = getattr(search_config, "SEARCH_BACKEND_TIMEOUT_SECONDS", 30)
+    try:
+        completed = subprocess.run(
+            command,
+            input=json.dumps(request),
+            text=True,
+            capture_output=True,
+            cwd=BASE,
+            timeout=float(timeout),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SearchBackendError(f"external search backend failed ({exc})") from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip()[:600] or f"exit {completed.returncode}"
+        raise SearchBackendError(f"external search backend failed ({detail})")
+
+    try:
+        payload = json.loads(completed.stdout)
+        if isinstance(payload, dict):
+            raw_results = payload.get("results")
+            warning = payload.get("warning")
+            if warning:
+                print(
+                    f"WARN: external search backend: {str(warning)[:600]}",
+                    file=sys.stderr,
+                )
+            if payload.get("stale"):
+                hint = payload.get("refresh_hint") or "refresh its index"
+                print(
+                    f"WARN: external search backend index may be stale — {hint}",
+                    file=sys.stderr,
+                )
+        else:
+            raw_results = payload
+        if not isinstance(raw_results, list):
+            raise ValueError("response must be a list or an object with a results list")
+        candidates = [
+            _normalize_external_hit(item, i)
+            for i, item in enumerate(raw_results, start=1)
+        ]
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise SearchBackendError(f"invalid external search response ({exc})") from exc
+    return _select_external_hits(
+        candidates,
+        k=k,
+        source_type=source_type,
+        min_score=min_score,
+    )
+
+
+def search(
+    query: str,
+    k: int = DEFAULT_K,
+    source_type: str | None = None,
+    min_score: float | None = None,
+) -> list[dict]:
+    backend = _backend_name()
+    if backend == "sqlite":
+        return _search_sqlite(query, k=k, source_type=source_type, min_score=min_score)
+    if backend == "command":
+        return _search_command(query, k=k, source_type=source_type, min_score=min_score)
+    raise SearchBackendError(
+        f"unknown SEARCH_BACKEND {backend!r}; expected 'sqlite' or 'command'"
+    )
+
+
 def _locate_range(file_text: str, chunk_text: str) -> tuple[int, int] | None:
     """Best-effort 1-based (start, end) line span of a chunk within its file.
 
@@ -282,6 +494,18 @@ def _write_last_search_ranges(results: list[dict]) -> None:
     for r in results:
         path = r.get("source_path", "")
         if not path:
+            continue
+        start = r.get("start_line")
+        end = r.get("end_line")
+        if (
+            isinstance(start, int)
+            and not isinstance(start, bool)
+            and isinstance(end, int)
+            and not isinstance(end, bool)
+            and start >= 1
+            and end >= start
+        ):
+            ranges.setdefault(path, []).append([start, end])
             continue
         try:
             text = (BASE / path).read_text(encoding="utf-8", errors="replace")
@@ -338,28 +562,33 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    if _index_is_stale():
+    if _backend_name() == "sqlite" and _index_is_stale():
         print(
             "WARN: index may be stale — an indexed source file is newer than "
             "index.db; run `tools/embeddings.py refresh`",
             file=sys.stderr,
         )
 
-    # Touch state file so the search-first hook knows a search just ran.
+    # Resolve k: explicit -k wins; Codex gets a tighter default; Claude keeps
+    # the model profile/default behavior.
+    prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))
+    k = _resolve_k(args.k, prof)
+    snippet_chars = _resolve_snippet_chars(args.snippet_chars)
+    try:
+        results = search(args.query, k=k, source_type=args.source_type,
+                         min_score=args.min_score)
+    except SearchBackendError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    # Record completion only after the selected backend returns successfully.
+    # A failed external search must not open the search-first read gate.
     sd = active_state_dir()
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "last-search").write_text(args.query + "\n", encoding="utf-8")
 
     sid, ssrc = _resolve_session(None)
     _record_search_near_miss(sd, args.query, sid)
-
-    # Resolve k: explicit -k wins; Codex gets a tighter default; Claude keeps
-    # the model profile/default behavior.
-    prof = _model_profile(getattr(search_config, "AGENT_MODEL", None))
-    k = _resolve_k(args.k, prof)
-    snippet_chars = _resolve_snippet_chars(args.snippet_chars)
-    results = search(args.query, k=k, source_type=args.source_type,
-                     min_score=args.min_score)
     # Warn if returned chunks would consume a large fraction of the
     # configured model's window.
     if prof and results:
@@ -399,7 +628,10 @@ def main() -> int:
         print(json.dumps(results, indent=2))
         return 0
     if not results:
-        print("(no results — index may be empty; run `tools/embeddings.py refresh`)")
+        if _backend_name() == "sqlite":
+            print("(no results — index may be empty; run `tools/embeddings.py refresh`)")
+        else:
+            print("(no results)")
         return 0
     for r in results:
         print(f"\n[{r['score']:.3f}] {r['source_path']}::{r['source_key']}  ({r['source_type']})")

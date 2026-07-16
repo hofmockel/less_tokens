@@ -44,6 +44,7 @@ except Exception:
     from search_first import is_indexed as _common_is_indexed  # type: ignore[no-redef]
 
 try:
+    import search_config as _search_config  # noqa: E402
     from search_config import (  # noqa: E402
         active_state_dir as _active_state_dir,
         EXCLUDED_DIR_NAMES,
@@ -52,11 +53,13 @@ try:
         INDEXED_SOURCE_DIRS as INDEXED_DIRS,
         VENV_PY,
     )
+    SEARCH_BACKEND = getattr(_search_config, "SEARCH_BACKEND", "sqlite")
 except Exception:
     EXCLUDED_DIR_NAMES: set = set()
     EXCLUDED_DIR_PREFIXES: tuple = ()
     INDEXED_ROOT_GLOBS: tuple = ("*.md",)
     INDEXED_DIRS: tuple = ()
+    SEARCH_BACKEND = "sqlite"
     VENV_PY = None  # type: ignore[assignment]
 
     def _active_state_dir() -> Path:  # type: ignore[misc]
@@ -85,6 +88,7 @@ def main() -> int:
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_DIRS,
         "root_globs": INDEXED_ROOT_GLOBS,
+        "search_backend": os.environ.get("LESS_TOKENS_SEARCH_BACKEND", SEARCH_BACKEND),
         "tool_prefix": ".claude/tools",
     }
     code, stdout, stderr = check_index_refresh(

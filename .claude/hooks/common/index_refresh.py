@@ -33,6 +33,12 @@ def check_index_refresh(
 
     Returns (exit_code, stdout, stderr) — always 0; refresh is fire-and-forget.
     """
+    # An external vector DB is the sole semantic owner when selected. Keeping
+    # the bundled SQLite index warm as well would duplicate ingestion and can
+    # create conflicting freshness states.
+    if str(config.get("search_backend", "sqlite")).strip().lower() != "sqlite":
+        return 0, "", ""
+
     tool = payload.tool_name
     edit_tools = {"Edit", "Write", "apply_patch"}
     if tool not in edit_tools:

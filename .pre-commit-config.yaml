@@ -34,3 +34,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: less-tokens-skill-docs
+        name: Claude/Codex less-tokens skills match shared template
+        entry: python .claude/tools/less_tokens_skill_docs.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
