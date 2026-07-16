@@ -74,6 +74,15 @@
         ]
       },
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/continue-freshness.py"
+          }
+        ]
+      },
+      {
         "matcher": "Read|Grep",
         "hooks": [
           {

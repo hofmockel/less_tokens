@@ -31,9 +31,10 @@ class TestBuildClaudeHookEntries:
         # and savings-html each gained a SubagentStop wire alongside Stop, so
         # the count is 20. context-cache gained a PostToolUse Read|Grep wire
         # (BACKLOG.md: denied Reads were falsely recorded as served), so 21.
+        # continue-freshness added (PreToolUse Read, Claude-only), so 22.
         entries = _cmds(tmp_path)
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 21
+        assert len(entries) == 22
         for name in [
             "budget-observer.py",
             "search-first.py",
@@ -48,6 +49,7 @@ class TestBuildClaudeHookEntries:
             "lean-output.py",
             "listing-guard.py",
             "savings-html.py",
+            "continue-freshness.py",
         ]:
             assert any(name in cmd for cmd in commands), f"{name} missing from Claude hooks"
 
@@ -64,7 +66,7 @@ class TestBuildClaudeHookEntries:
         default = _cmds(tmp_path)
         explicit = _cmds(tmp_path, truncate=True, compact=True, caveman=True)
         assert default == explicit
-        assert len(explicit) == 21
+        assert len(explicit) == 22
 
     def test_subagent_stop_wired_for_terse_and_savings(self, tmp_path):
         # G15: a Claude child's final turn fires SubagentStop, not Stop.

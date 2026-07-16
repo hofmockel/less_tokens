@@ -14,5 +14,6 @@
   "truncate-output": {"claude": "shipped", "codex": "shipped", "optional": true},
   "compact-trigger": {"claude": "shipped", "codex": "shipped", "optional": true},
   "terse-output": {"claude": "shipped", "codex": "shipped", "optional": true},
-  "savings-html": {"claude": "shipped", "codex": "shipped"}
+  "savings-html": {"claude": "shipped", "codex": "shipped"},
+  "continue-freshness": {"claude": "shipped", "codex": "shipped"}
 }

@@ -210,6 +210,7 @@ class TestBuildCodexHookEntries:
         assert any("auto-slice.py" in cmd for cmd in commands)
         assert any("grep-first-read.py" in cmd for cmd in commands)
         assert any("read-after-edit.py" in cmd for cmd in commands)
+        assert any("continue-freshness.py" in cmd for cmd in commands)
         assert any("context-cache.py" in cmd for cmd in commands)
         assert any("listing-guard.py" in cmd for cmd in commands)
         assert any("lean-output.py" in cmd for cmd in commands)

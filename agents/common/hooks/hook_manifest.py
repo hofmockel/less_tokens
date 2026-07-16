@@ -70,6 +70,16 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         codex_script="read-after-edit.py",
         codex=(HookWire("PreToolUse", "mcp__filesystem__.*"),),
     ),
+    # Blocks reads of a stale continue.md (recorded HEAD behind current HEAD)
+    # until the drift is surfaced. This catches direct reads that bypass the
+    # installed continue skill's own Phase 1 staleness check.
+    HookSpec(
+        name="continue-freshness",
+        claude_script="continue-freshness.py",
+        claude=(HookWire("PreToolUse", "Read"),),
+        codex_script="continue-freshness.py",
+        codex=(HookWire("PreToolUse", "mcp__filesystem__.*"),),
+    ),
     HookSpec(
         name="context-cache",
         claude_script="context-cache.py",

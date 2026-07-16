@@ -17,6 +17,7 @@ _ENV = {
     "PYTHONPATH": os.pathsep.join((
         str(REPO / ".claude" / "tests"),
         str(REPO / ".claude" / "tools"),
+        str(REPO / "agents" / "common" / "hooks"),
         os.environ.get("PYTHONPATH", ""),
     )),
     "LESS_TOKENS_REPO": str(REPO),
@@ -40,6 +41,72 @@ def _records(state_dir: Path) -> list[dict]:
     if not log.exists():
         return []
     return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+
+
+# ---------------------------------------------------------------------------
+# continue-freshness.py
+# ---------------------------------------------------------------------------
+
+class TestCodexContinueFreshness:
+    def test_blocks_stale_handoff_read(self, tmp_path):
+        repo, recorded = _handoff_repo(tmp_path)
+        _git(repo, "commit", "--allow-empty", "-m", "newer work")
+        handoff = repo / "continue.md"
+        handoff.write_text(
+            f"# Continue\n\n_Last updated at HEAD `{recorded}`._\n",
+            encoding="utf-8",
+        )
+
+        code, _, stderr = run_hook_with_env("continue-freshness.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(handoff)},
+        }, extra_env={"LESS_TOKENS_REPO": str(repo)})
+
+        assert code == 2
+        assert "continue.md is" in stderr
+        assert "commit(s) stale" in stderr
+
+    def test_passes_fresh_handoff_read(self, tmp_path):
+        repo, recorded = _handoff_repo(tmp_path)
+        handoff = repo / "continue.md"
+        handoff.write_text(
+            f"# Continue\n\n_Last updated at HEAD `{recorded}`._\n",
+            encoding="utf-8",
+        )
+
+        code, stdout, stderr = run_hook_with_env("continue-freshness.py", {
+            "tool_name": "mcp__filesystem__read_file",
+            "tool_input": {"path": str(handoff)},
+        }, extra_env={"LESS_TOKENS_REPO": str(repo)})
+
+        assert (code, stdout, stderr) == (0, "", "")
+
+    def test_passes_filesystem_search(self, tmp_path):
+        code, stdout, stderr = run_hook_with_env("continue-freshness.py", {
+            "tool_name": "mcp__filesystem__search_files",
+            "tool_input": {"path": str(tmp_path), "pattern": "continue.md"},
+        })
+
+        assert (code, stdout, stderr) == (0, "", "")
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _handoff_repo(tmp_path: Path) -> tuple[Path, str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "tests@example.invalid")
+    _git(repo, "config", "user.name", "less_tokens tests")
+    _git(repo, "commit", "--allow-empty", "-m", "initial")
+    return repo, _git(repo, "rev-parse", "HEAD")
 
 
 # ---------------------------------------------------------------------------

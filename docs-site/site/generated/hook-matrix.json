@@ -147,6 +147,28 @@
     "claude": [
       {
         "event": "PreToolUse",
+        "matcher": "Read"
+      }
+    ],
+    "claude_script": "continue-freshness.py",
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "mcp__filesystem__.*"
+      }
+    ],
+    "codex_script": "continue-freshness.py",
+    "name": "continue-freshness",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
         "matcher": "Read|Grep"
       },
       {
