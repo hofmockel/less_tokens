@@ -81,6 +81,15 @@ def test_overview_uses_representative_report_instead_of_slider():
     assert 'type="range"' not in html
 
 
+def test_layout_uses_svg_brand_mark():
+    build_docs = _load_build_docs()
+
+    html = build_docs.overview_page("index.html")
+
+    assert '<img src="assets/LT_mark.svg" alt=""> less_tokens' in html
+    assert "LT_logo_small.png" not in html
+
+
 def test_strategy_detail_marks_strategy_navigation_current():
     build_docs = _load_build_docs()
 
