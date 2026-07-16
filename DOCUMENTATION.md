@@ -503,29 +503,9 @@ The fewer files in scope, the less noise in tool suggestions and directory listi
 
 ---
 
-## Known Documentation Gaps
+## Documentation backlog
 
-Items tracked for future documentation improvement.
-
-### High Priority
-
-- **No troubleshooting section** — the three most common failure modes (fastembed download fails on first run, wrong venv path in `.claude/tools/search_config.py`, empty index returning no results) have no documented recovery steps anywhere
-
-### Medium Priority
-
-- **Wiring section shows separate JSON blocks** — users must manually merge hook entries; JSON merging is a common error source; should show one complete unified `settings.local.json` block
-- **`index-refresh.log` is never mentioned** — background refresh writes to `.claude/state/index-refresh.log` but this path appears nowhere; users can't diagnose silent refresh failures without reading source
-- **`embeddings.py` usage examples use `python3`** — won't work on Windows and ignores the venv; should use `.claude/bin/python .claude/tools/embeddings.py refresh`
-- **CONTRIBUTING.md verification step has no specifics** — should list concrete commands to run and what passing looks like
-- **`EXCLUDED_DIR_PREFIXES` vs `EXCLUDED_DIR_NAMES` not explained** — both exclude dirs but via different mechanisms; distinction trips up new users
-- **`WINDOW_SECONDS` not documented** — the 5-minute search-gate window is mentioned in passing; no explanation it's configurable in `.claude/tools/search_config.py`
-- **Empty search result behavior not explained** — README mentions fallback conditions but not whether the gate lifts automatically or Claude must detect the empty result
-- **CHANGELOG format vs `chunk_changelog` mismatch not noted** — chunker's date-only regex won't match `## [version] - date` headers; developers won't know the index is silently not splitting correctly
-
-### Low Priority
-
-- **Animated GIF demo** — screencast showing before/after: full Read vs. search returning targeted chunks
-- **Token savings benchmarks** — documented measurements on a real codebase showing actual reduction
+Documentation gaps are prioritized with all other work in [BACKLOG.md](BACKLOG.md). Keeping one queue prevents resolved gaps from lingering here and makes dependencies on code work visible.
 
 ---
 
