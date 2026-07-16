@@ -67,3 +67,6 @@ jobs:
 
       - name: Check Claude/Codex less-tokens skills match shared template
         run: python .claude/tools/less_tokens_skill_docs.py --check
+
+      - name: Check hook parity documentation matches manifest
+        run: python .claude/tools/hook_parity_docs.py --check

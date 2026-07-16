@@ -53,8 +53,6 @@ Claude/Codex platform split review. Prefer shared core plus thin adapters; keep 
 
 - **Subagent guidance: split shared contract from platform-specific mechanics** *(redundant prose / divergent paths)* — Both skills carry the same output contract, prompt shape, noisy-verification pattern, and large-source digest guidance (`agents/claude/skills/less-tokens/SKILL.md:61-115`, `agents/codex/skills/less-tokens/SKILL.md:54-109`), while the real divergence is Claude agent definitions/tool allowlists versus Codex `fork_context`/`explorer`/`worker` behavior. Factor the shared contract into a common snippet and render only the platform mechanics separately. Acceptance: edits to return shape or "do not paste full files/logs/diffs" happen in one source; platform files retain explicit divergent rules.
 
-- **Parity docs: stop hand-maintaining long platform matrix blocks in multiple docs** *(redundant prose / doc drift)* — The Claude/Codex hook parity matrix is repeated in `README.md:43-68` and `DOCUMENTATION.md:82-107`, while both say the source of truth is `agents/common/hooks/hook_manifest.py` / `parity.json` (`README.md:101`, `DOCUMENTATION.md:109`). Generate these bounded sections from the manifest as part of the existing parity audit/doc update flow. Acceptance: README and documentation matrices are produced from one command and CI fails when generated blocks differ from the manifest.
-
 ---
 
 ## Hooks & Caveman Mode

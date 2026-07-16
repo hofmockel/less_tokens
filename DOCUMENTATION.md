@@ -607,6 +607,7 @@ Registries and shared templates are the source of truth; renderer scripts update
 - `.claude/tools/hunt_score.py` — evaluates severity slide, overlap, and file-coverage signals from `bughuntlog.jsonl`; imports its constants from `bug_hunt_registry.py` rather than hardcoding them
 - `.claude/tools/strategy_registry.py` — `STRATEGIES` (name, how, savings claim, flag/default, `savings_log` telemetry key or `None`); single source for the README strategy table and `label_consistency_gate.py`'s label map
 - `.claude/tools/strategy_table_docs.py` — renders/verifies README.md's `<!-- strategy-table: begin/end -->` block from `strategy_registry.py`
+- `.claude/tools/hook_parity_docs.py` — renders/verifies README.md and DOCUMENTATION.md's `<!-- hook-parity: begin/end -->` blocks from `hook_manifest.py` and `parity.json`
 - `agents/common/skills/less-tokens/SKILL.md.template` — shared search, symbol, read-guard, instruction-audit, context-pack, document-draft, and index-refresh manual for both agents
 - `agents/common/skills/less-tokens/{claude,codex}-delegation.md` — explicit platform overlays for divergent subagent mechanics
 - `.claude/tools/less_tokens_skill_docs.py` — renders/verifies both checked-in `less-tokens` skills from the shared template and declared platform values

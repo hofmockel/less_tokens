@@ -40,3 +40,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: hook-parity-docs
+        name: README/DOCUMENTATION hook parity tables match manifest
+        entry: python .claude/tools/hook_parity_docs.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
