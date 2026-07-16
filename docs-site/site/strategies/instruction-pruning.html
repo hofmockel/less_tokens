@@ -7,19 +7,22 @@
   <link rel="stylesheet" href="../assets/site.css">
   <script defer src="../assets/site.js"></script>
 </head>
-<body class="">
+<body class="hybrid-page strategy-detail-page">
   <header class="site-header">
     <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
-    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html" aria-current="page">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
   </header>
   <main>
 
-    <section class="page-title"><p class="eyebrow">fixed bucket</p><h1>Instruction Pruning</h1><p>Always-loaded instruction files charge every turn, even when most guidance is irrelevant.</p></section>
-    <section class="two-col">
-      <article><h2>Before</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
-      <article><h2>After</h2><p>AGENTS.md and CLAUDE.md stay short, with durable detail moved into skills or indexed docs.</p></article>
+    <section class="page-title strategy-title">
+      <div><p class="eyebrow">fixed bucket · strategy</p><h1>Instruction Pruning</h1><p>Always-loaded instruction files charge every turn, even when most guidance is irrelevant.</p></div>
+      <img class="strategy-title-icon" src="../assets/slides/instruction-pruning.svg" alt="">
     </section>
-    <section><h2>Enforcement And Parity</h2><table><thead><tr><th>Hook</th><th>Claude</th><th>Codex</th><th>Claude parity</th><th>Codex parity</th></tr></thead><tbody><tr><td>agent-md-budget</td><td>claudemd-budget.py</td><td>agentsmd-budget.py</td><td>shipped</td><td>shipped</td></tr></tbody></table></section>
+    <section class="two-col strategy-comparison">
+      <article><p class="eyebrow">Before</p><h2>Context arrives broad.</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
+      <article><p class="eyebrow">After</p><h2>Evidence arrives bounded.</h2><p>AGENTS.md and CLAUDE.md stay short, with durable detail moved into skills or indexed docs.</p></article>
+    </section>
+    <section class="content-section"><p class="eyebrow">Runtime contract</p><h2>Enforcement And Parity</h2><table><thead><tr><th>Hook</th><th>Claude</th><th>Codex</th><th>Claude parity</th><th>Codex parity</th></tr></thead><tbody><tr><td>agent-md-budget</td><td>claudemd-budget.py</td><td>agentsmd-budget.py</td><td>shipped</td><td>shipped</td></tr></tbody></table></section>
     <section class="grid">
       <article class="card"><h3>Bypass Or Failure Mode</h3><p>Budget hooks block stale references and oversized edits; audits point to the offending sections.</p></article>
       <article class="card"><h3>Telemetry</h3><p>No per-event savings log exists; the gain is reduced fixed prompt cost.</p></article>

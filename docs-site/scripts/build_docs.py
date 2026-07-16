@@ -282,6 +282,18 @@ NOUN_PROJECT_ICONS: list[dict[str, str]] = json.loads(
 )
 NOUN_ICON_BY_ANCHOR = {icon["anchor"]: icon for icon in NOUN_PROJECT_ICONS}
 
+STRATEGY_ICON_BY_SLUG = {
+    "budget-control-plane": "budget-plane",
+    "search-first": "search-workflow",
+    "vector-search-symbols": "symbols",
+    "read-guards": "read-stack",
+    "context-cache": "context-cache",
+    "lean-output-truncation": "tool-output",
+    "terse-output": "output-controls",
+    "compaction": "compaction-controls",
+    "instruction-pruning": "instruction-pruning",
+}
+
 
 def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -481,13 +493,31 @@ def nav(page: str) -> str:
         ("reference/install.html", "Reference"),
         ("privacy.html", "Privacy"),
     ]
-    return "".join(f'<a href="{e(site_link(page, href))}">{e(label)}</a>' for href, label in items)
+    page_group = Path(page).parts[0] if len(Path(page).parts) > 1 else page
+    links = []
+    for href, label in items:
+        href_group = Path(href).parts[0] if len(Path(href).parts) > 1 else href
+        current = page == href or (
+            page_group == href_group and page_group in {"strategies", "scaffolding", "reference"}
+        ) or (page_group == "strategies" and href == "strategy-map.html")
+        attr = ' aria-current="page"' if current else ""
+        links.append(f'<a href="{e(site_link(page, href))}"{attr}>{e(label)}</a>')
+    return "".join(links)
 
 
 def layout(page: str, title: str, body: str, *, presentation: bool = False) -> str:
     depth = len(Path(page).parent.parts)
     prefix = "../" * depth
-    classes = " ".join(filter(None, ["presentation-page" if presentation else "", "home-page" if page == "index.html" else ""]))
+    page_kind = ""
+    if page == "index.html":
+        page_kind = "home-page"
+    elif page.startswith("strategies/"):
+        page_kind = "strategy-detail-page"
+    elif page.startswith("reference/") or page.startswith("scaffolding/"):
+        page_kind = "docs-detail-page"
+    elif page == "architecture.html":
+        page_kind = "architecture-page"
+    classes = " ".join(filter(None, ["hybrid-page", "presentation-page" if presentation else "", page_kind]))
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -837,7 +867,7 @@ def overview_page(page: str) -> str:
       <div class="home-intro">
         <p class="home-kicker"><span>03</span> Context control</p>
         <h1>Make every token <em>earn</em> its place.</h1>
-        <p class="home-lede">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p>
+        <p class="home-lede">A visible control plane that helps Claude and Codex search first, trim tool output, compact context, and prove what they save.</p>
         <div class="home-actions">
           <a class="home-button primary" href="{e(site_link(page, 'reference/install.html'))}">Install less_tokens</a>
           <a class="home-button" href="#how-it-works">See how it works</a>
@@ -845,25 +875,25 @@ def overview_page(page: str) -> str:
         <div class="install-command"><code>python install.py --target both</code><button type="button" data-copy-command="python install.py --target both">Copy</button></div>
         <p class="home-proof"><i></i>Visible. Enforceable. Measured.</p>
       </div>
-      <div class="token-map" aria-label="Illustrative token routing example">
-        <div class="token-map-head"><strong>See what stays. Cut what doesn't.</strong><span>Illustrative workload</span></div>
-        <div class="token-flow">
-          <article class="token-lane before">
-            <div class="token-lane-title"><span>Without controls</span><b data-before-value>48k</b></div>
-            <div class="token-blocks" aria-hidden="true">{''.join('<i></i>' for _ in range(30))}</div>
-            <p><strong>Broad context</strong>Whole files, repeated output, and stale history compete with the task.</p>
-          </article>
-          <div class="token-router" aria-label="Active controls"><span>01 Search first</span><span>02 Guard reads</span><span>03 Compact early</span></div>
-          <article class="token-lane after">
-            <div class="token-lane-title"><span>With less_tokens</span><b data-after-value>16k</b></div>
-            <div class="token-blocks" aria-hidden="true">{''.join('<i></i>' for _ in range(12))}</div>
-            <p><strong>Relevant context</strong>Focused evidence, bounded output, and fresh signal stay in view.</p>
-          </article>
+      <div class="aurora-console" aria-label="Representative token savings report with strategy icons">
+        <p class="console-kicker">Local intelligence · representative report</p>
+        <div class="aurora-icon-field" aria-hidden="true">
+          <img class="aurora-icon icon-search" src="assets/slides/search-workflow.svg" alt="">
+          <img class="aurora-icon icon-compact" src="assets/slides/compaction-controls.svg" alt="">
+          <img class="aurora-icon icon-output" src="assets/slides/tool-output.svg" alt="">
+          <span class="orbit-ring ring-one"></span><span class="orbit-ring ring-two"></span>
         </div>
-        <label class="workload-control" for="workload"><span>Example input context</span><output data-workload-output>48k</output></label>
-        <input id="workload" class="workload-range" type="range" min="12" max="96" step="4" value="48" aria-describedby="workload-note">
-        <div class="token-meter"><span><small>Illustrative context removed</small><strong data-reduction-value>67%</strong></span><span><small>Strategies active</small><strong>3 / 3</strong></span></div>
-        <p id="workload-note" class="token-caveat">This comparison explains the control flow; it is not a universal savings claim.</p>
+        <section class="overview-stats" aria-label="Sanitized representative stats">
+          <div class="stats-heading"><span>Current session</span><span>8 events</span></div>
+          <div class="stats-total"><span>Measured before model</span><strong>27.7k <small>tokens est.</small></strong></div>
+          <div class="stats-bars" aria-label="Compaction 16.8 thousand, truncation 7.3 thousand, cached read 3.6 thousand estimated tokens saved">
+            <div><span>Compaction</span><i style="--amount:61%"></i><b>16.8k</b></div>
+            <div><span>Truncation</span><i style="--amount:26%"></i><b>7.3k</b></div>
+            <div><span>Cached read</span><i style="--amount:13%"></i><b>3.6k</b></div>
+          </div>
+          <div class="stats-upper"><span>Upper bound · separate lane</span><strong>≤17.2k</strong></div>
+          <p>Sanitized example data from the shipped report. Measured savings and optimistic avoided cost are never added together.</p>
+        </section>
       </div>
     </section>
 
@@ -997,13 +1027,17 @@ def strategy_page(page: str, slug: str, details: dict[str, Any]) -> str:
     if not hook_rows:
         hook_rows.append(["none", "command/tool layer", "command/tool layer", "n/a", "n/a"])
     links = [("Canonical source", details["source"]), ("Hook manifest", "agents/common/hooks/hook_manifest.py"), ("Parity JSON", "agents/common/hooks/parity.json")]
+    icon_anchor = STRATEGY_ICON_BY_SLUG.get(slug, "strategy-matrix")
     return layout(page, details["title"], f"""
-    <section class="page-title"><p class="eyebrow">{e(details["bucket"])} bucket</p><h1>{e(details["title"])}</h1><p>{e(details["problem"])}</p></section>
-    <section class="two-col">
-      <article><h2>Before</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
-      <article><h2>After</h2><p>{e(details["flow"])}</p></article>
+    <section class="page-title strategy-title">
+      <div><p class="eyebrow">{e(details["bucket"])} bucket · strategy</p><h1>{e(details["title"])}</h1><p>{e(details["problem"])}</p></div>
+      <img class="strategy-title-icon" src="{e(site_link(page, f'assets/slides/{icon_anchor}.svg'))}" alt="">
     </section>
-    <section><h2>Enforcement And Parity</h2>{table(["Hook", "Claude", "Codex", "Claude parity", "Codex parity"], hook_rows)}</section>
+    <section class="two-col strategy-comparison">
+      <article><p class="eyebrow">Before</p><h2>Context arrives broad.</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
+      <article><p class="eyebrow">After</p><h2>Evidence arrives bounded.</h2><p>{e(details["flow"])}</p></article>
+    </section>
+    <section class="content-section"><p class="eyebrow">Runtime contract</p><h2>Enforcement And Parity</h2>{table(["Hook", "Claude", "Codex", "Claude parity", "Codex parity"], hook_rows)}</section>
     <section class="grid">
       <article class="card"><h3>Bypass Or Failure Mode</h3><p>{e(details["failure"])}</p></article>
       <article class="card"><h3>Telemetry</h3><p>{e(details["telemetry"])}</p></article>
@@ -1127,6 +1161,106 @@ def write_assets(check: bool) -> bool:
 .token-map{background:rgba(255,253,248,.94);border:1.5px solid var(--ink);box-shadow:9px 9px 0 #cbd1d8;padding:24px}.token-map-head{display:flex;justify-content:space-between;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--line)}.token-map-head span{color:var(--muted);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.1em}.token-flow{display:grid;grid-template-columns:1fr 104px 1fr;gap:14px;min-height:395px;margin-top:18px}.token-lane{position:relative;padding:16px;border:1px solid var(--line)}.token-lane.before{background:#fff7f4}.token-lane.after{background:#f3f6ff}.token-lane-title{display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:850}.token-lane-title b{font:900 28px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.before .token-lane-title b{color:var(--accent2)}.after .token-lane-title b{color:var(--accent)}.token-blocks{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:24px}.token-blocks i{height:24px;border:1px solid #f8ad9f;background:var(--coral-soft)}.before .token-blocks i:nth-child(4n){background:#dfe2e5;border-color:#c7ccd0}.before .token-blocks i:nth-child(7n){background:white;border-style:dashed}.after .token-blocks{grid-template-columns:repeat(4,1fr);gap:8px}.after .token-blocks i{height:34px;background:var(--cobalt-soft);border-color:#97adf6}.after .token-blocks i:nth-child(4n){background:white;border-style:dashed}.token-lane p{position:absolute;left:16px;right:16px;bottom:4px;padding-top:12px;border-top:1px solid;color:var(--muted);font:700 11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.token-lane p strong{display:block;color:var(--ink);font-size:13px}.token-router{display:flex;flex-direction:column;justify-content:center;gap:14px}.token-router span{padding:14px 7px;border:1.5px solid var(--ink);border-top:5px solid var(--accent);background:var(--panel);box-shadow:3px 3px 0 var(--ink);text-align:center;font:850 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}.token-router span:nth-child(2){border-top-color:var(--accent2)}.token-router span:nth-child(3){border-top-color:var(--green)}.workload-control{display:flex;justify-content:space-between;margin-top:22px;font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--muted)}.workload-control output{color:var(--ink)}.workload-range{width:100%;accent-color:var(--accent)}.token-meter{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}.token-meter span{display:flex;align-items:end;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px}.token-meter small{font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--muted)}.token-meter strong{font:900 22px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green)}.token-caveat{margin:12px 0 0;color:var(--muted);font-size:11px}
 .home-section{margin-top:120px}.section-number{margin-bottom:24px;color:var(--accent);font:850 11px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.12em}.section-heading{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:60px;align-items:end;padding-bottom:28px;border-bottom:1.5px solid var(--ink)}.section-heading h2{max-width:850px;margin:0;font-size:clamp(38px,4vw,64px);line-height:1;letter-spacing:-.04em}.section-heading p{margin:0;color:var(--muted);font-size:18px}.strategy-examples{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}.example-card{background:var(--panel);border:1px solid var(--line)}.example-card>img{display:block;width:100%;aspect-ratio:16/10;padding:clamp(24px,3.2vw,52px);object-fit:contain;border-bottom:1px solid var(--line);background:#f7f8fa}.example-card>div{padding:20px}.example-card span{font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);text-transform:uppercase}.example-card h3{margin:8px 0}.example-card p{color:var(--muted)}.example-card a{font-weight:800}.example-steps{list-style:none;padding:0;margin:22px 0 0;border-top:1px solid var(--line)}.example-steps li{display:grid;grid-template-columns:120px 1fr;gap:26px;padding:26px 0;border-bottom:1px solid var(--line)}.example-steps li>span{font:850 12px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;color:var(--accent2)}.example-steps code{display:inline-block;padding:7px 10px;background:var(--code);color:var(--ink);font-size:15px}.example-steps p{margin:8px 0 0;color:var(--muted)}.evidence-links{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid var(--line);margin-top:22px}.evidence-links a{display:flex;flex-direction:column;gap:10px;min-height:150px;padding:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:rgba(255,253,248,.7);color:var(--ink)}.evidence-links a:hover{background:var(--cobalt-soft);text-decoration:none}.evidence-links span{color:var(--accent);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}.evidence-links strong{font-size:20px}.canonical-note{max-width:850px;margin:34px 0 0;color:var(--muted)}
 @media(max-width:1100px){.home-hero{grid-template-columns:1fr;min-height:auto}.token-map{max-width:850px}.strategy-examples{grid-template-columns:1fr}.example-card{display:grid;grid-template-columns:minmax(260px,.8fr) 1.2fr}.example-card>img{height:100%;aspect-ratio:auto;border-right:1px solid var(--line);border-bottom:0}}@media(max-width:760px){.home-page main{padding:40px 16px 72px}.home-intro h1{font-size:54px}.home-actions{flex-direction:column}.home-button{width:100%}.token-flow{grid-template-columns:1fr;min-height:0}.token-router{flex-direction:row}.token-lane{min-height:350px}.token-meter,.section-heading,.evidence-links{grid-template-columns:1fr}.strategy-examples{grid-template-columns:1fr}.example-card{display:block}.example-card>img{aspect-ratio:16/10;border-right:0;border-bottom:1px solid var(--line)}.section-heading{gap:20px}.home-section{margin-top:80px}.example-steps li{grid-template-columns:70px 1fr}.install-command{align-items:flex-start}.home-page .site-header{padding:14px 16px}}
+"""
+    css += """
+
+/* Cohesive hybrid: Aurora depth for orientation, editorial light for reading. */
+:root{--night:#07111f;--night-2:#0c1b32;--night-3:#142948;--glow:#69a7ff;--violet:#9582ff;--aqua:#66e2d2;--paper:#f5f3ed;--paper-cool:#eef2f8;--glass:rgba(13,28,52,.74);--glass-line:rgba(181,211,255,.22);--soft-shadow:0 22px 64px rgba(26,40,70,.13)}
+body.hybrid-page{background:radial-gradient(circle at 82% 0,rgba(105,167,255,.12),transparent 34%),linear-gradient(180deg,var(--paper-cool),var(--paper) 42%,#f7f5ef);color:var(--ink)}
+.hybrid-page .site-header{position:sticky;top:0;z-index:20;padding:12px max(24px,calc((100vw - 1440px)/2));background:rgba(246,248,252,.88);border-bottom:1px solid rgba(96,113,142,.2);box-shadow:0 8px 34px rgba(22,38,65,.07);backdrop-filter:blur(18px)}
+.hybrid-page .brand{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;color:var(--night)}
+.hybrid-page .brand img{border-radius:50%;box-shadow:0 0 22px rgba(105,167,255,.28)}
+.hybrid-page nav{gap:5px}
+.hybrid-page nav a{padding:7px 10px;border-radius:999px;color:#40516c;font-weight:700;transition:background .2s ease,color .2s ease}
+.hybrid-page nav a:hover{background:rgba(105,167,255,.12);color:var(--night);text-decoration:none}
+.hybrid-page nav a[aria-current=page]{background:var(--night);color:#edf5ff}
+.hybrid-page main{max-width:1280px;padding:46px 28px 92px}
+.hybrid-page .page-title{position:relative;isolation:isolate;overflow:hidden;min-height:330px;display:flex;flex-direction:column;justify-content:flex-end;margin:0 0 48px;padding:clamp(34px,5vw,70px);color:#edf5ff;background:radial-gradient(circle at 82% 10%,rgba(105,167,255,.5),transparent 35%),radial-gradient(circle at 12% 115%,rgba(149,130,255,.34),transparent 42%),linear-gradient(135deg,var(--night),var(--night-2) 62%,var(--night-3));border:1px solid rgba(181,211,255,.22);border-radius:28px;box-shadow:0 30px 80px rgba(7,17,31,.28)}
+.hybrid-page .page-title:before,.hybrid-page .page-title:after{content:"";position:absolute;z-index:-1;border:1px solid rgba(181,211,255,.18);border-radius:50%}
+.hybrid-page .page-title:before{width:360px;height:360px;right:-80px;top:-118px;box-shadow:0 0 90px rgba(105,167,255,.18)}
+.hybrid-page .page-title:after{width:230px;height:230px;right:115px;top:-40px}
+.hybrid-page .page-title h1{max-width:900px;margin:10px 0 18px;font-size:clamp(48px,6.5vw,86px);letter-spacing:-.055em}
+.hybrid-page .page-title p{max-width:760px;margin:0;color:rgba(230,240,255,.76)}
+.hybrid-page .page-title a{color:#b7d4ff;text-decoration-color:rgba(183,212,255,.45)}
+.hybrid-page .eyebrow,.hybrid-page .section-number{color:#315ecc;font:800 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase}
+.hybrid-page .page-title .eyebrow{color:#90baff}
+.hybrid-page .card{border:1px solid rgba(104,119,144,.2);border-radius:18px;background:rgba(255,255,255,.74);box-shadow:var(--soft-shadow);backdrop-filter:blur(12px);transition:transform .2s ease,box-shadow .2s ease}
+.hybrid-page .card:hover{transform:translateY(-2px);box-shadow:0 26px 70px rgba(26,40,70,.17)}
+.hybrid-page table{overflow:hidden;border:1px solid rgba(104,119,144,.22);border-radius:16px;background:rgba(255,255,255,.78);box-shadow:var(--soft-shadow)}
+.hybrid-page th{background:linear-gradient(180deg,#e8eef9,#e3e9f3);color:#273955;font:800 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase}
+.hybrid-page th,.hybrid-page td{padding:13px 14px;border-color:rgba(104,119,144,.16)}
+.hybrid-page tbody tr:hover{background:rgba(105,167,255,.07)}
+.hybrid-page pre{border:1px solid rgba(96,113,142,.18);border-radius:14px;background:#e7edf8;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.hybrid-page .trace{position:relative;overflow:hidden;margin-top:42px;padding:26px;color:#eaf3ff;background:radial-gradient(circle at 90% 0,rgba(105,167,255,.26),transparent 36%),linear-gradient(135deg,var(--night),var(--night-2));border:1px solid var(--glass-line);border-radius:20px;box-shadow:0 24px 64px rgba(7,17,31,.2)}
+.hybrid-page .trace h2{color:white}.hybrid-page .trace a{color:#a9caff}.hybrid-page .trace li::marker{color:var(--glow)}
+.hybrid-page .content-section{margin:58px 0 34px}
+
+/* Overview: one Aurora console set inside the same editorial shell. */
+.home-page{background:radial-gradient(circle at 82% 0,rgba(105,167,255,.12),transparent 34%),linear-gradient(180deg,var(--paper-cool),var(--paper) 42%,#f7f5ef);background-size:auto}
+.home-page .site-header{padding:12px max(24px,calc((100vw - 1440px)/2));background:rgba(246,248,252,.88);border-color:rgba(96,113,142,.2)}
+.home-page main{max-width:1500px;padding:46px 32px 104px}
+.home-hero{position:relative;isolation:isolate;overflow:hidden;grid-template-columns:minmax(390px,.78fr) minmax(620px,1.22fr);gap:52px;min-height:740px;padding:clamp(34px,5vw,72px);color:#edf5ff;background:radial-gradient(circle at 82% 8%,rgba(105,167,255,.48),transparent 36%),radial-gradient(circle at 8% 110%,rgba(149,130,255,.34),transparent 42%),linear-gradient(135deg,var(--night),var(--night-2) 62%,var(--night-3));border:1px solid var(--glass-line);border-radius:30px;box-shadow:0 34px 90px rgba(7,17,31,.3)}
+.home-hero:before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(rgba(181,211,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(181,211,255,.05) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 88%)}
+.home-kicker{border-color:rgba(181,211,255,.35);background:rgba(7,17,31,.35);color:#dceaff;box-shadow:0 0 28px rgba(105,167,255,.14);backdrop-filter:blur(12px)}
+.home-kicker span{color:#93bcff}
+.home-intro{position:relative;z-index:3}.home-intro h1{color:#f4f8ff;text-wrap:balance}.home-intro h1 em{color:#9ac1ff;text-shadow:0 0 35px rgba(105,167,255,.38)}
+.home-lede{color:rgba(230,240,255,.75)}
+.home-button{border-color:rgba(225,238,255,.72);background:rgba(235,243,255,.08);color:#f1f7ff;box-shadow:4px 4px 0 rgba(198,218,247,.35);backdrop-filter:blur(10px)}
+.home-button.primary{border-color:#79aaff;background:linear-gradient(135deg,#3167e5,#5b79f0);box-shadow:4px 4px 0 rgba(128,171,255,.34),0 14px 35px rgba(49,103,229,.3)}
+.home-button:hover{background:rgba(235,243,255,.14)}
+.install-command{max-width:560px;border:1px solid rgba(181,211,255,.16);background:rgba(4,11,23,.62);box-shadow:0 16px 38px rgba(4,11,23,.25);backdrop-filter:blur(12px)}
+.install-command code:before{color:#75e4d4}.install-command button{color:#acc5ea}
+.home-proof{border-color:rgba(181,211,255,.18);color:rgba(230,240,255,.78)}
+.aurora-console{position:relative;min-height:585px;padding:22px;isolation:isolate}
+.console-kicker{position:relative;z-index:5;margin:0;color:rgba(230,240,255,.66);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase}
+.aurora-icon-field{position:absolute;inset:0;z-index:-1}
+.aurora-icon{position:absolute;background:transparent;opacity:.72;filter:invert(80%) sepia(36%) saturate(1442%) hue-rotate(187deg) brightness(108%) contrast(103%) drop-shadow(0 18px 28px rgba(105,167,255,.34))}
+.icon-search{width:150px;right:4%;top:1%;transform:rotate(7deg)}
+.icon-compact{width:190px;left:2%;top:20%;opacity:.24;transform:rotate(-13deg)}
+.icon-output{width:104px;right:14%;top:31%;opacity:.54;transform:rotate(6deg)}
+.orbit-ring{position:absolute;border:1px solid rgba(181,211,255,.17);border-radius:50%;box-shadow:0 0 55px rgba(105,167,255,.08)}
+.ring-one{width:410px;height:410px;right:-24px;top:-55px}.ring-two{width:265px;height:265px;right:48px;top:18px}
+.overview-stats{position:absolute;z-index:4;left:7%;right:3%;bottom:2%;display:grid;gap:14px;padding:24px;color:#eaf3ff;background:var(--glass);border:1px solid var(--glass-line);border-radius:20px;box-shadow:0 28px 72px rgba(3,10,22,.38);backdrop-filter:blur(20px)}
+.stats-heading,.stats-total,.stats-bars div,.stats-upper{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.stats-heading{color:rgba(225,238,255,.66);font:800 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase}
+.stats-total{padding:13px 0;border-block:1px solid rgba(181,211,255,.14)}
+.stats-total>strong{font:900 clamp(30px,3.2vw,48px) ui-monospace,SFMono-Regular,Menlo,monospace;color:#f4f8ff}.stats-total small{font-size:11px;color:#adc6e9}
+.stats-bars{display:grid;gap:10px}.stats-bars div{display:grid;grid-template-columns:minmax(88px,1fr) 2fr auto;font-size:13px}
+.stats-bars i{height:8px;border-radius:999px;background:linear-gradient(90deg,#78aaff 0 var(--amount),rgba(188,211,244,.12) var(--amount));box-shadow:0 0 20px rgba(105,167,255,.22)}
+.stats-upper{padding-top:12px;border-top:1px solid rgba(181,211,255,.14);color:#cebfff}.overview-stats>p{margin:0;color:rgba(225,238,255,.58);font-size:11px}
+.home-section{margin-top:105px}.section-heading{border-color:rgba(31,47,73,.28)}
+.section-heading h2{color:var(--night)}
+.strategy-examples{gap:22px}.example-card{overflow:hidden;border:1px solid rgba(104,119,144,.19);border-radius:18px;background:linear-gradient(180deg,#e8edf9 0 260px,rgba(255,255,255,.78) 260px);box-shadow:var(--soft-shadow)}
+.example-card>img{height:250px;aspect-ratio:auto;padding:44px 60px;border:0;background:transparent;opacity:.76;filter:invert(28%) sepia(36%) saturate(1575%) hue-rotate(188deg) brightness(91%) contrast(96%) drop-shadow(0 18px 22px rgba(52,94,176,.22))}
+.example-card>div{padding:24px}.example-card span{color:#315ecc}.example-card p{color:#596579}.example-card a{color:#2457b7}
+.example-steps li{border-color:rgba(104,119,144,.2)}.example-steps li>span{color:#6c56c7}.example-steps code{border:1px solid rgba(104,119,144,.16);border-radius:8px;background:#e7edf8}
+.evidence-links{border-color:rgba(104,119,144,.2)}.evidence-links a{border-color:rgba(104,119,144,.18);background:rgba(255,255,255,.7);box-shadow:inset 0 0 0 0 rgba(105,167,255,0);transition:background .2s ease,box-shadow .2s ease}.evidence-links a:hover{background:#eef3ff;box-shadow:inset 4px 0 0 #5f8ff0}.evidence-links span{color:#315ecc}
+
+/* Strategy pages use the identical Aurora surface, then return to readable paper. */
+.strategy-title{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(220px,.42fr);align-items:center;gap:40px}
+.strategy-title>div{position:relative;z-index:2}.strategy-title-icon{position:relative;z-index:1;width:min(100%,280px);justify-self:center;background:transparent;opacity:.66;filter:invert(80%) sepia(36%) saturate(1442%) hue-rotate(187deg) brightness(108%) contrast(103%) drop-shadow(0 24px 34px rgba(105,167,255,.4));transform:rotate(5deg)}
+.strategy-comparison{gap:24px;margin-bottom:54px}.strategy-comparison article{position:relative;overflow:hidden;padding:28px;border:1px solid rgba(104,119,144,.2);border-radius:18px;background:rgba(255,255,255,.72);box-shadow:var(--soft-shadow)}
+.strategy-comparison article:last-child{background:radial-gradient(circle at 100% 0,rgba(105,167,255,.16),transparent 46%),rgba(255,255,255,.8)}
+.strategy-comparison h2{margin:7px 0 12px;color:var(--night)}
+.strategy-detail-page .grid{margin-top:34px}
+
+/* Architecture and reference pages inherit the same rhythm and evidence surface. */
+.architecture-page .diagram{position:relative;margin:38px 0 50px;padding:30px;border:1px solid rgba(104,119,144,.2);border-radius:20px;background:rgba(255,255,255,.68);box-shadow:var(--soft-shadow)}
+.architecture-page .diagram div{border:1px solid rgba(104,119,144,.2);border-radius:14px;background:linear-gradient(160deg,#f9fbff,#e8eef8);box-shadow:0 14px 34px rgba(26,40,70,.09)}
+.architecture-page .diagram span{color:#536fd4}
+.architecture-page .two-col{gap:34px}.architecture-page .two-col article{padding:6px 8px}
+.docs-detail-page section:not(.page-title){margin:34px 0}.docs-detail-page h2{color:var(--night)}
+.chart{border-color:rgba(104,119,144,.2);border-radius:16px;box-shadow:var(--soft-shadow)}
+
+/* Presentation stays in the same family instead of becoming a separate theme. */
+.presentation-page .slide{border-color:rgba(104,119,144,.2)}
+.presentation-page .slide-visual{overflow:hidden;padding:clamp(22px,3vw,44px);border:1px solid rgba(104,119,144,.18);border-radius:20px;background:radial-gradient(circle at 80% 10%,rgba(105,167,255,.2),transparent 42%),linear-gradient(145deg,#eef3fb,#e6ebf4);box-shadow:var(--soft-shadow)}
+.presentation-page .slide-visual img{height:min(58vh,540px);padding:0;border:0;background:transparent;opacity:.78;filter:invert(28%) sepia(36%) saturate(1575%) hue-rotate(188deg) brightness(91%) contrast(96%) drop-shadow(0 22px 28px rgba(52,94,176,.24))}
+.presentation-page .slide-visual figcaption{color:#596579}.presentation-page .slide h1{color:var(--night)}
+
+@media(max-width:1100px){.home-hero{grid-template-columns:1fr;min-height:auto}.aurora-console{min-height:570px;max-width:850px}.strategy-title{grid-template-columns:1fr minmax(180px,.34fr)}.example-card{background:linear-gradient(90deg,#e8edf9 0 36%,rgba(255,255,255,.78) 36%)}}
+@media(max-width:760px){.hybrid-page .site-header{position:static}.hybrid-page main{padding:28px 16px 72px}.hybrid-page .page-title{min-height:300px;padding:30px 24px;border-radius:22px}.hybrid-page .page-title h1{font-size:48px}.home-page main{padding:28px 16px 76px}.home-hero{padding:34px 22px;border-radius:22px}.home-intro h1{font-size:54px}.aurora-console{min-height:600px;padding:0}.overview-stats{left:0;right:0}.icon-search{width:125px}.icon-compact{width:150px}.ring-one{right:-150px}.stats-bars div{grid-template-columns:1fr auto}.stats-bars i{grid-column:1/-1}.strategy-title{grid-template-columns:1fr}.strategy-title-icon{width:170px;position:absolute;right:-24px;top:20px;opacity:.2}.strategy-comparison{grid-template-columns:1fr}.example-card{display:block;background:linear-gradient(180deg,#e8edf9 0 240px,rgba(255,255,255,.78) 240px)}.example-card>img{height:240px}.presentation-page .slide-visual{padding:22px}}
+@media(prefers-reduced-motion:reduce){.hybrid-page *{scroll-behavior:auto!important;transition:none!important}}
 """
     js = """\
 document.addEventListener("keydown", event => {

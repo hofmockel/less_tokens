@@ -51,7 +51,7 @@ def test_every_slide_has_a_visual_definition():
 
     slide_anchors = [anchor for anchor, _title, _text in build_docs.SLIDES]
 
-    assert len(slide_anchors) == 25
+    assert len(slide_anchors) == 26
     assert set(slide_anchors) == set(build_docs.SLIDE_VISUALS)
 
 
@@ -59,10 +59,38 @@ def test_presentation_renders_one_image_per_slide():
     build_docs = _load_build_docs()
 
     html = build_docs.presentation_page("presentation.html")
+    slide_count = len(build_docs.SLIDES)
+    image_slide_count = sum(
+        anchor not in {"telemetry", "maintenance-skills"}
+        for anchor, _title, _text in build_docs.SLIDES
+    )
 
-    assert html.count('<section class="slide"') == 25
-    assert html.count('<figure class="slide-visual">') == 25
-    assert html.count('assets/slides/') == 25
+    assert html.count('<section class="slide"') == slide_count
+    assert html.count('<figure class="slide-visual">') == slide_count
+    assert html.count('assets/slides/') == image_slide_count + 5
+
+
+def test_overview_uses_representative_report_instead_of_slider():
+    build_docs = _load_build_docs()
+
+    html = build_docs.overview_page("index.html")
+
+    assert 'class="overview-stats"' in html
+    assert "Measured before model" in html
+    assert "Sanitized example data" in html
+    assert 'type="range"' not in html
+
+
+def test_strategy_detail_marks_strategy_navigation_current():
+    build_docs = _load_build_docs()
+
+    html = build_docs.strategy_page(
+        "strategies/search-first.html",
+        "search-first",
+        build_docs.STRATEGY_DETAILS["search-first"],
+    )
+
+    assert 'href="../strategy-map.html" aria-current="page">Strategies</a>' in html
 
 
 def test_repo_link_uses_github_blob_when_publish_env_is_set(monkeypatch):

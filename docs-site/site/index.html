@@ -7,10 +7,10 @@
   <link rel="stylesheet" href="assets/site.css">
   <script defer src="assets/site.js"></script>
 </head>
-<body class="home-page">
+<body class="hybrid-page home-page">
   <header class="site-header">
     <a class="brand" href="index.html"><img src="assets/LT_logo_small.png" alt=""> less_tokens</a>
-    <nav><a href="index.html">Overview</a><a href="presentation.html">Presentation</a><a href="strategy-map.html">Strategies</a><a href="architecture.html">Architecture</a><a href="scaffolding/installer.html">Scaffolding</a><a href="reference/install.html">Reference</a><a href="privacy.html">Privacy</a></nav>
+    <nav><a href="index.html" aria-current="page">Overview</a><a href="presentation.html">Presentation</a><a href="strategy-map.html">Strategies</a><a href="architecture.html">Architecture</a><a href="scaffolding/installer.html">Scaffolding</a><a href="reference/install.html">Reference</a><a href="privacy.html">Privacy</a></nav>
   </header>
   <main>
 
@@ -18,7 +18,7 @@
       <div class="home-intro">
         <p class="home-kicker"><span>03</span> Context control</p>
         <h1>Make every token <em>earn</em> its place.</h1>
-        <p class="home-lede">A portable control plane that helps Claude and Codex search first, trim tool output, compact context, and measure what they save.</p>
+        <p class="home-lede">A visible control plane that helps Claude and Codex search first, trim tool output, compact context, and prove what they save.</p>
         <div class="home-actions">
           <a class="home-button primary" href="reference/install.html">Install less_tokens</a>
           <a class="home-button" href="#how-it-works">See how it works</a>
@@ -26,25 +26,25 @@
         <div class="install-command"><code>python install.py --target both</code><button type="button" data-copy-command="python install.py --target both">Copy</button></div>
         <p class="home-proof"><i></i>Visible. Enforceable. Measured.</p>
       </div>
-      <div class="token-map" aria-label="Illustrative token routing example">
-        <div class="token-map-head"><strong>See what stays. Cut what doesn't.</strong><span>Illustrative workload</span></div>
-        <div class="token-flow">
-          <article class="token-lane before">
-            <div class="token-lane-title"><span>Without controls</span><b data-before-value>48k</b></div>
-            <div class="token-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            <p><strong>Broad context</strong>Whole files, repeated output, and stale history compete with the task.</p>
-          </article>
-          <div class="token-router" aria-label="Active controls"><span>01 Search first</span><span>02 Guard reads</span><span>03 Compact early</span></div>
-          <article class="token-lane after">
-            <div class="token-lane-title"><span>With less_tokens</span><b data-after-value>16k</b></div>
-            <div class="token-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            <p><strong>Relevant context</strong>Focused evidence, bounded output, and fresh signal stay in view.</p>
-          </article>
+      <div class="aurora-console" aria-label="Representative token savings report with strategy icons">
+        <p class="console-kicker">Local intelligence · representative report</p>
+        <div class="aurora-icon-field" aria-hidden="true">
+          <img class="aurora-icon icon-search" src="assets/slides/search-workflow.svg" alt="">
+          <img class="aurora-icon icon-compact" src="assets/slides/compaction-controls.svg" alt="">
+          <img class="aurora-icon icon-output" src="assets/slides/tool-output.svg" alt="">
+          <span class="orbit-ring ring-one"></span><span class="orbit-ring ring-two"></span>
         </div>
-        <label class="workload-control" for="workload"><span>Example input context</span><output data-workload-output>48k</output></label>
-        <input id="workload" class="workload-range" type="range" min="12" max="96" step="4" value="48" aria-describedby="workload-note">
-        <div class="token-meter"><span><small>Illustrative context removed</small><strong data-reduction-value>67%</strong></span><span><small>Strategies active</small><strong>3 / 3</strong></span></div>
-        <p id="workload-note" class="token-caveat">This comparison explains the control flow; it is not a universal savings claim.</p>
+        <section class="overview-stats" aria-label="Sanitized representative stats">
+          <div class="stats-heading"><span>Current session</span><span>8 events</span></div>
+          <div class="stats-total"><span>Measured before model</span><strong>27.7k <small>tokens est.</small></strong></div>
+          <div class="stats-bars" aria-label="Compaction 16.8 thousand, truncation 7.3 thousand, cached read 3.6 thousand estimated tokens saved">
+            <div><span>Compaction</span><i style="--amount:61%"></i><b>16.8k</b></div>
+            <div><span>Truncation</span><i style="--amount:26%"></i><b>7.3k</b></div>
+            <div><span>Cached read</span><i style="--amount:13%"></i><b>3.6k</b></div>
+          </div>
+          <div class="stats-upper"><span>Upper bound · separate lane</span><strong>≤17.2k</strong></div>
+          <p>Sanitized example data from the shipped report. Measured savings and optimistic avoided cost are never added together.</p>
+        </section>
       </div>
     </section>
 

@@ -7,19 +7,22 @@
   <link rel="stylesheet" href="../assets/site.css">
   <script defer src="../assets/site.js"></script>
 </head>
-<body class="">
+<body class="hybrid-page strategy-detail-page">
   <header class="site-header">
     <a class="brand" href="../index.html"><img src="../assets/LT_logo_small.png" alt=""> less_tokens</a>
-    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html" aria-current="page">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html">Reference</a><a href="../privacy.html">Privacy</a></nav>
   </header>
   <main>
 
-    <section class="page-title"><p class="eyebrow">input bucket</p><h1>Budget Control Plane</h1><p>Raw context can enter the transcript before anyone asks whether it is relevant enough to pay for.</p></section>
-    <section class="two-col">
-      <article><h2>Before</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
-      <article><h2>After</h2><p>Normalize candidates, score them, select allow/defer/replace/block decisions, emit telemetry, and refresh compaction snapshots when pressure is high.</p></article>
+    <section class="page-title strategy-title">
+      <div><p class="eyebrow">input bucket · strategy</p><h1>Budget Control Plane</h1><p>Raw context can enter the transcript before anyone asks whether it is relevant enough to pay for.</p></div>
+      <img class="strategy-title-icon" src="../assets/slides/budget-plane.svg" alt="">
     </section>
-    <section><h2>Enforcement And Parity</h2><table><thead><tr><th>Hook</th><th>Claude</th><th>Codex</th><th>Claude parity</th><th>Codex parity</th></tr></thead><tbody><tr><td>budget-observer</td><td>budget-observer.py</td><td>budget-observer.py</td><td>shipped</td><td>shipped</td></tr></tbody></table></section>
+    <section class="two-col strategy-comparison">
+      <article><p class="eyebrow">Before</p><h2>Context arrives broad.</h2><p>Broad context enters the transcript before relevance is checked.</p></article>
+      <article><p class="eyebrow">After</p><h2>Evidence arrives bounded.</h2><p>Normalize candidates, score them, select allow/defer/replace/block decisions, emit telemetry, and refresh compaction snapshots when pressure is high.</p></article>
+    </section>
+    <section class="content-section"><p class="eyebrow">Runtime contract</p><h2>Enforcement And Parity</h2><table><thead><tr><th>Hook</th><th>Claude</th><th>Codex</th><th>Claude parity</th><th>Codex parity</th></tr></thead><tbody><tr><td>budget-observer</td><td>budget-observer.py</td><td>budget-observer.py</td><td>shipped</td><td>shipped</td></tr></tbody></table></section>
     <section class="grid">
       <article class="card"><h3>Bypass Or Failure Mode</h3><p>Runs fail-open on internal errors, so broken budget code should be visible in telemetry checks rather than interrupting work.</p></article>
       <article class="card"><h3>Telemetry</h3><p>.less_tokens/state/events.jsonl records v2 budget decisions; local records are never published by default.</p></article>
