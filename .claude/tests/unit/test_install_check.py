@@ -138,7 +138,9 @@ class TestDoCheckAllPass:
         assert "Codex hook wrappers run from nested cwd" in out
         hook_calls = [
             call for call in mock_run.call_args_list
-            if call.args and str(root / ".codex" / "hooks") in str(call.args[0])
+            if call.args and any(
+                str(root / ".codex" / "hooks") in str(arg) for arg in call.args[0]
+            )
         ]
         assert len(hook_calls) == 3
         for call in hook_calls:
