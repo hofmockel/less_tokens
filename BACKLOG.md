@@ -10,11 +10,8 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | Outcome | Depends on |
 |---:|---|:---:|---|---|
-| 1 | F1 | P1 | Remove test-command prose from always-loaded context | — |
-| 2 | SA1 | P1 | Cap a subagent's return before it inflates the parent's transcript | — |
-| 3 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
-
-- **F1 — Replace always-loaded test command prose with a dev command shim** *(fixed / prose-to-code)* — `CLAUDE.md:20-31` stores install/test commands and CI matrix prose in always-loaded context, while `pyproject.toml:1-3` and workflows already encode pytest paths. Add a small `.claude/tools/dev.py` or `tools/check.py` command (`unit`, `integration`, `all`, `single <nodeid>`) that uses the configured venv and pytest paths, then shrink `CLAUDE.md` to the command plus a documentation pointer. Acceptance: local and CI test paths share one source and the multi-line command block leaves `CLAUDE.md`.
+| 1 | SA1 | P1 | Cap a subagent's return before it inflates the parent's transcript | — |
+| 2 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
 
 - **SA1 — Cap a subagent's return before it inflates the parent's transcript** *(hook / subagent)* — No hook fires on the `Task` tool today; confirmed by grep of `agents/common/hooks/hook_manifest.py`, the only hook that fires on a subagent boundary at all is `SubagentStop` (shared wiring with `Stop`, used only for the terse-output nudge and the savings-html regen). A parent orchestrator running several subagents absorbs each one's full final response verbatim into its own transcript. Add a `PostToolUse:Task` hook that digests a subagent's return before it lands in the parent's transcript: reuse `truncate_output.py`'s char-ceiling head/tail elision for the size ceiling, but add new pass/fail/blocker-style field extraction, since subagent prose isn't log-shaped like Bash output and a naive tail-cut risks eating the actual recommendation. Acceptance: an oversized subagent return is capped before the parent's next turn resumes; the extracted pass/fail/blocker summary (or head+tail + omission marker as fallback) is preserved; a representative multi-agent run shows a measurable per-child token reduction. Cost-benefit: Low-Med build cost, low regression risk (additive hook, no existing matcher touched), `[HYP]` savings but High directional confidence — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md` (ever_better team engagement, ranked #1 of 5, "build now").
 
@@ -26,18 +23,18 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 4 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | — |
-| 5 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | — |
-| 6 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
-| 7 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 8 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 9 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 10 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 11 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 12 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 13 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
-| 14 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
-| 15 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
+| 3 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | — |
+| 4 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | — |
+| 5 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
+| 6 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 7 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 8 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 9 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 10 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 11 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 12 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
+| 13 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 14 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
 
 - **CX17 — Prove and, if supported, implement real Codex tool-output replacement** *(tool / enforcement parity)* — `agents/codex/hooks/truncate-output.py:65-92` prints the shortened result and returns the shared hook code, but no live test proves that this replaces the original tool result before the model receives it. Capture real oversized Bash and filesystem-read payloads and inspect the next model-visible context. If Codex exposes a replacement contract, implement and regression-test it. Otherwise document the platform blocker, stop labeling Codex truncation savings as measured, and downgrade the parity row. Acceptance: an oversized sentinel present only beyond the cap cannot be recovered from the next Codex turn, while the head/tail and omission marker remain available—or the unsupported claim is removed everywhere.
 
