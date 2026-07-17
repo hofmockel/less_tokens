@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import os
+import shlex
+import shutil
 import sys
+from argparse import Namespace
+from contextlib import redirect_stdout
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 TOOL = REPO / ".claude" / "tools" / "codex_parity_audit.py"
@@ -13,25 +21,68 @@ sys.modules[spec.name] = audit_mod  # type: ignore[union-attr]
 spec.loader.exec_module(audit_mod)  # type: ignore[union-attr]
 
 from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
+from install import (  # noqa: E402
+    build_codex_hook_entries,
+    launcher_rel,
+    write_python_launcher,
+)
 
 
-def _write_codex_install(root: Path, *, drop_strategy: str | None = None) -> None:
+def _command_script_name(command: str) -> str:
+    return shlex.split(command)[-1].replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _write_codex_install(
+    root: Path,
+    *,
+    drop_strategy: str | None = None,
+    stale_commands: bool = False,
+    real_hooks: bool = False,
+) -> None:
     hooks_dir = root / ".codex" / "hooks"
     hooks_dir.mkdir(parents=True)
+    (root / "AGENTS.md").write_text("# Test install\n", encoding="utf-8")
+    common_hooks = root / ".less_tokens" / "hooks"
+    if real_hooks:
+        shutil.copytree(REPO / "agents" / "common" / "hooks", common_hooks, dirs_exist_ok=True)
+        shutil.copytree(REPO / "agents" / "codex" / "hooks", hooks_dir, dirs_exist_ok=True)
+    else:
+        common_hooks.mkdir(parents=True)
+        shutil.copy2(REPO / "agents" / "common" / "hooks" / "hook_manifest.py", common_hooks)
+    with redirect_stdout(io.StringIO()):
+        write_python_launcher(root, launcher_rel("codex"), Path(sys.executable))
+    if not real_hooks:
+        for hook_spec in HOOK_SPECS:
+            if hook_spec.codex_script:
+                (hooks_dir / hook_spec.codex_script).write_text("# hook\n", encoding="utf-8")
+    entries = build_codex_hook_entries(
+        Path(sys.executable),
+        root,
+        Namespace(no_truncate=False, no_compact=False, no_caveman=False),
+    )
+    drop_script = next(
+        (spec.codex_script for spec in HOOK_SPECS if spec.name == drop_strategy),
+        None,
+    )
     hooks = []
-    for hook_spec in HOOK_SPECS:
-        if not hook_spec.codex_script:
+    for event, matcher, command in entries:
+        script = _command_script_name(command)
+        if drop_script == script:
             continue
-        (hooks_dir / hook_spec.codex_script).write_text("# hook\n", encoding="utf-8")
-        for wire in hook_spec.codex:
-            if hook_spec.name == drop_strategy:
-                continue
-            hooks.append({
-                "event": wire.event,
-                "matcher": wire.matcher,
-                "command": f".less_tokens/bin/python .codex/hooks/{hook_spec.codex_script}",
-            })
+        if stale_commands:
+            command = f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
+        hooks.append({"event": event, "matcher": matcher, "command": command})
     (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+
+
+def test_command_script_name_handles_quoted_windows_paths():
+    command = (
+        "LESS_TOKENS_AGENT=codex "
+        "'C:\\repo\\.less_tokens\\bin\\python.cmd' "
+        "'C:\\repo\\.codex\\hooks\\search-first.py'"
+    )
+
+    assert _command_script_name(command) == "search-first.py"
 
 
 def test_codex_parity_audit_reports_best_effort_when_fully_wired(tmp_path):
@@ -45,6 +96,17 @@ def test_codex_parity_audit_reports_best_effort_when_fully_wired(tmp_path):
     assert "fail open" in by_name["search-first"].notes
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+def test_codex_parity_audit_passes_current_generated_install(tmp_path):
+    _write_codex_install(tmp_path, real_hooks=True)
+
+    rows, problems = audit_mod.audit(tmp_path)
+
+    assert problems == []
+    assert rows
+    assert all(row.enforcement == "best-effort-only" for row in rows)
+
+
 def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):
     _write_codex_install(tmp_path, drop_strategy="search-first")
     rows, problems = audit_mod.audit(tmp_path)
@@ -52,7 +114,44 @@ def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):
     by_name = {row.strategy: row for row in rows}
     assert by_name["search-first"].enforcement == "unwired"
     assert any("search-first" in problem for problem in problems)
-    assert "missing matcher" in by_name["search-first"].notes
+    assert "missing exact command" in by_name["search-first"].notes
+
+
+def test_codex_parity_audit_rejects_stale_relative_commands(tmp_path):
+    _write_codex_install(tmp_path, stale_commands=True)
+    rows, problems = audit_mod.audit(tmp_path)
+
+    assert problems
+    assert all(row.enforcement == "unwired" for row in rows)
+    assert any("stale command" in row.notes for row in rows)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+def test_codex_parity_audit_runs_representative_command_from_nested_cwd(tmp_path):
+    _write_codex_install(tmp_path)
+    marker = tmp_path / "nested-cwd.txt"
+    script = tmp_path / ".codex" / "hooks" / "search-first.py"
+    script.write_text(
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text(str(Path.cwd()), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+
+    _, problems = audit_mod.audit(tmp_path)
+
+    assert problems == []
+    assert marker.read_text(encoding="utf-8") == str(tmp_path / ".codex" / "hooks")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+def test_codex_parity_audit_fails_when_nested_cwd_command_cannot_run(tmp_path):
+    _write_codex_install(tmp_path)
+    script = tmp_path / ".codex" / "hooks" / "search-first.py"
+    script.write_text("raise SystemExit(7)\n", encoding="utf-8")
+
+    _, problems = audit_mod.audit(tmp_path)
+
+    assert any("failed from nested cwd (exit 7)" in problem for problem in problems)
 
 
 def test_codex_parity_audit_json_output(tmp_path, capsys):

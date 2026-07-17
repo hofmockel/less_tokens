@@ -1,8 +1,10 @@
 """Single source of truth for less_tokens hook wiring."""
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 
 @dataclass(frozen=True)
@@ -200,3 +202,33 @@ def hook_entries(agent: str, py_command: str, args: object) -> list[tuple[str, s
         command = f"{py_command} {Path(hook_dir) / script}"
         entries.extend((wire.event, wire.matcher, command) for wire in wires)
     return entries
+
+
+def build_codex_hook_entries(
+    py_command: str,
+    target_root: Path,
+    args: object,
+    savings_profile: str = "balanced",
+) -> list[tuple[str, str, str]]:
+    """Build the exact cwd-independent commands written to Codex hooks.json."""
+    env = "LESS_TOKENS_AGENT=codex"
+    effective_args = args
+    if savings_profile == "aggressive":
+        env = f"{env} LESS_TOKENS_CODEX_SAVINGS=aggressive"
+        effective_args = SimpleNamespace(**{
+            **vars(args),
+            "no_truncate": False,
+            "no_compact": False,
+            "no_caveman": False,
+        })
+
+    prefix = f"{env} {shlex.quote(py_command)}"
+    entries = hook_entries("codex", prefix, effective_args)
+    rewritten = []
+    for event, matcher, command in entries:
+        prefix_part, script = command.rsplit(" ", 1)
+        normalized_script = script.replace("\\", "/")
+        if normalized_script.startswith(".codex/hooks/"):
+            script = shlex.quote(str((target_root / normalized_script).resolve()))
+        rewritten.append((event, matcher, f"{prefix_part} {script}"))
+    return rewritten

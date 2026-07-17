@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
+import shlex
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
-
-REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO))
-
-from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
-
 
 @dataclass(frozen=True)
 class AuditRow:
@@ -47,13 +45,85 @@ def _script_in_command(command: str, script: str) -> bool:
     return normalized.endswith(f".codex/hooks/{script}") or f".codex/hooks/{script}" in normalized
 
 
-def _has_hook(hooks: list[dict[str, Any]], *, event: str, matcher: str, script: str) -> bool:
-    for hook in hooks:
-        if hook.get("event") != event or hook.get("matcher", "") != matcher:
-            continue
-        if _script_in_command(str(hook.get("command", "")), script):
-            return True
-    return False
+def _load_manifest(root: Path) -> ModuleType:
+    candidates = (
+        root / "agents" / "common" / "hooks" / "hook_manifest.py",
+        root / ".less_tokens" / "hooks" / "hook_manifest.py",
+        root / ".claude" / "hooks" / "common" / "hook_manifest.py",
+    )
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if path is None:
+        raise FileNotFoundError("installed hook_manifest.py is missing")
+    name = f"_less_tokens_hook_manifest_{abs(hash(path))}"
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _expected_entries(root: Path, hooks: list[dict[str, Any]], manifest: ModuleType) -> list[tuple[str, str, str]]:
+    aggressive = any(
+        "LESS_TOKENS_CODEX_SAVINGS=aggressive" in str(hook.get("command", ""))
+        for hook in hooks
+    )
+    launcher = root / ".less_tokens" / "bin" / "python"
+    if os.name == "nt":
+        launcher = launcher.with_suffix(".cmd")
+    args = SimpleNamespace(no_truncate=False, no_compact=False, no_caveman=False)
+    return manifest.build_codex_hook_entries(
+        launcher.resolve().as_posix(),
+        root,
+        args,
+        savings_profile="aggressive" if aggressive else "balanced",
+    )
+
+
+def _matching_hooks(
+    hooks: list[dict[str, Any]],
+    *,
+    event: str,
+    matcher: str,
+    script: str,
+) -> list[dict[str, Any]]:
+    return [
+        hook for hook in hooks
+        if hook.get("event") == event
+        and hook.get("matcher", "") == matcher
+        and _script_in_command(str(hook.get("command", "")), script)
+    ]
+
+
+def _run_representative_from_nested_cwd(root: Path, command: str) -> str | None:
+    if os.name == "nt":
+        return None  # Codex hook env prefixes are POSIX shell syntax today.
+    parts = shlex.split(command)
+    env = os.environ.copy()
+    while parts and "=" in parts[0] and parts[0].split("=", 1)[0].isidentifier():
+        key, value = parts.pop(0).split("=", 1)
+        env[key] = value
+    if not parts:
+        return "representative hook command is empty"
+    nested_cwd = root / ".codex" / "hooks"
+    try:
+        result = subprocess.run(
+            parts,
+            cwd=nested_cwd,
+            env=env,
+            input='{"hook_event_name":"PreToolUse","tool_name":"noop","tool_input":{}}\n',
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"representative hook command failed from nested cwd: {exc}"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "no output").strip()[-300:]
+        return f"representative hook command failed from nested cwd (exit {result.returncode}): {detail}"
+    return None
 
 
 def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
@@ -66,32 +136,64 @@ def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
     if not _is_writable(hooks_json):
         problems.append(".codex/hooks.json or parent directory is not writable")
 
+    try:
+        manifest = _load_manifest(root)
+        expected_entries = _expected_entries(root, hooks, manifest)
+    except (ImportError, OSError, AttributeError) as exc:
+        problems.append(f"cannot derive expected Codex hook commands: {exc}")
+        return [], problems
+
     rows: list[AuditRow] = []
-    for spec in HOOK_SPECS:
+    representative_command: str | None = None
+    for spec in manifest.HOOK_SPECS:
         feature = "feature-parity" if spec.claude and spec.codex else "missing-feature-parity"
         if not spec.codex or not spec.codex_script:
             rows.append(AuditRow(spec.name, feature, "missing", "no Codex adapter in manifest"))
             continue
 
         script_path = root / ".codex" / "hooks" / spec.codex_script
-        missing = [
-            f"{wire.event}:{wire.matcher or '<empty>'}"
-            for wire in spec.codex
-            if not _has_hook(hooks, event=wire.event, matcher=wire.matcher, script=spec.codex_script)
+        expected_for_spec = [
+            entry for entry in expected_entries
+            if _script_in_command(entry[2], spec.codex_script)
         ]
+        missing: list[str] = []
+        stale: list[str] = []
+        for event, matcher, expected_command in expected_for_spec:
+            label = f"{event}:{matcher or '<empty>'}"
+            matches = _matching_hooks(
+                hooks,
+                event=event,
+                matcher=matcher,
+                script=spec.codex_script,
+            )
+            if not any(str(hook.get("command", "")) == expected_command for hook in matches):
+                missing.append(label)
+            if any(str(hook.get("command", "")) != expected_command for hook in matches):
+                stale.append(label)
+            if spec.name == "search-first" and any(
+                str(hook.get("command", "")) == expected_command for hook in matches
+            ):
+                representative_command = expected_command
         notes: list[str] = []
         if not script_path.exists():
             notes.append(f"missing script {script_path.relative_to(root).as_posix()}")
         if missing:
-            notes.append("missing matcher(s): " + ", ".join(missing))
+            notes.append("missing exact command(s): " + ", ".join(missing))
+        if stale:
+            notes.append("stale command(s): " + ", ".join(stale))
         if hooks_error:
             notes.append("hook file unavailable")
 
         enforcement = "best-effort-only"
-        if missing or not script_path.exists() or hooks_error:
+        if missing or stale or not script_path.exists() or hooks_error:
             enforcement = "unwired"
             problems.append(f"{spec.name}: {'; '.join(notes) or 'unwired'}")
         rows.append(AuditRow(spec.name, feature, enforcement, "; ".join(notes) or "adapter wired; Codex hook delivery can still fail open"))
+
+    if representative_command:
+        command_problem = _run_representative_from_nested_cwd(root, representative_command)
+        if command_problem:
+            problems.append(command_problem)
     return rows, problems
 
 

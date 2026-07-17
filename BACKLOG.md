@@ -10,13 +10,10 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | Outcome | Depends on |
 |---:|---|:---:|---|---|
-| 1 | B2 | P0 | Make the parity audit reject stale/cwd-sensitive commands | — |
-| 2 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | B2 |
-| 3 | F1 | P1 | Remove test-command prose from always-loaded context | — |
-| 4 | SA1 | P1 | Cap a subagent's return before it inflates the parent's transcript | — |
-| 5 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
-
-- **B2 — Codex parity audit accepts stale relative hook commands** *(bug / verification)* — `.claude/tools/codex_parity_audit.py:45-47` treats any command containing `.codex/hooks/<script>` as wired; it does not validate the absolute launcher/script paths emitted by `install.py:806-831`. The source repo's stale generated `.codex/hooks.json` therefore passed most checks even though its relative commands fail outside the repo root. Compare installed entries with `build_codex_hook_entries()` and execute a representative command from a nested cwd. Acceptance: the observed stale file fails the audit and a current install passes.
+| 1 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | — |
+| 2 | F1 | P1 | Remove test-command prose from always-loaded context | — |
+| 3 | SA1 | P1 | Cap a subagent's return before it inflates the parent's transcript | — |
+| 4 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
 
 - **CX16 — Make Codex dogfood installs self-diagnosing and recoverable** *(meta / install parity)* — This repo's generated, ignored `.codex/` layer can silently lag the checked-in manifest, while `install.py` refuses to target the source directory itself. Provide a supported refresh path for the source repo and make skipped or unwritable hook installation an explicit degraded result. Acceptance: starting from the observed stale state, one documented command installs every required script and manifest entry with absolute paths; the parity audit reports zero unwired rows; representative wrappers run from a nested cwd; a second refresh is a no-op.
 
@@ -32,18 +29,18 @@ Start these after the P0 Codex foundation above. Research items are bounded spik
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 6 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
-| 7 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
-| 8 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
-| 9 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 10 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 11 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 12 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 13 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 14 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 15 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
-| 16 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
-| 17 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
+| 5 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
+| 6 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
+| 7 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
+| 8 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 9 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 10 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 11 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 12 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 13 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 14 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
+| 15 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 16 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
 
 - **CX17 — Prove and, if supported, implement real Codex tool-output replacement** *(tool / enforcement parity)* — `agents/codex/hooks/truncate-output.py:65-92` prints the shortened result and returns the shared hook code, but no live test proves that this replaces the original tool result before the model receives it. Capture real oversized Bash and filesystem-read payloads and inspect the next model-visible context. If Codex exposes a replacement contract, implement and regression-test it. Otherwise document the platform blocker, stop labeling Codex truncation savings as measured, and downgrade the parity row. Acceptance: an oversized sentinel present only beyond the cap cannot be recovered from the next Codex turn, while the head/tail and omission marker remain available—or the unsupported claim is removed everywhere.
 
