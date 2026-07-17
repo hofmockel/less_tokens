@@ -253,6 +253,7 @@ SLIDE_VISUALS: dict[str, tuple[str, tuple[str, ...]]] = {
 REFERENCE_PAGES: dict[str, str] = {
     "reference/install.html": "Install",
     "reference/configuration.html": "Configuration",
+    "reference/subagents.html": "Subagent Support",
     "reference/commands.html": "Commands",
     "reference/hook-events.html": "Hook Events",
     "reference/state-files.html": "State Files",
@@ -924,6 +925,7 @@ def overview_page(page: str) -> str:
         <a href="{e(site_link(page, 'presentation.html'))}"><span>Visual walkthrough</span><strong>Open the 25-screen presentation</strong></a>
         <a href="{e(site_link(page, 'strategy-map.html'))}"><span>Strategy matrix</span><strong>Compare every control and evidence label</strong></a>
         <a href="{e(site_link(page, 'architecture.html'))}"><span>Architecture</span><strong>Trace hooks, budget policy, and telemetry</strong></a>
+        <a href="{e(site_link(page, 'reference/subagents.html'))}"><span>Subagent support</span><strong>See shipped controls and the evidence-gated roadmap</strong></a>
         <a href="{e(site_link(page, 'reference/install.html'))}"><span>Get started</span><strong>Install for Claude, Codex, or both</strong></a>
       </div>
       <p class="canonical-note">Canonical operational detail remains in <a href="{e(repo_link(page, 'README.md'))}">README.md</a> and <a href="{e(repo_link(page, 'DOCUMENTATION.md'))}">DOCUMENTATION.md</a>; generated matrices remain tied to code registries.</p>
@@ -1099,6 +1101,8 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         ]
         icon_items = "".join(f'<li><a href="{e(href)}">{e(label)}</a></li>' for label, href in icon_links)
         extra = f"""
+        <h2>Subagent Support</h2>
+        <p>The installed Claude and Codex skills share a pointer-first delegation contract while retaining platform-specific mechanics. Claude also has Task-boundary return capping and fan-out telemetry; Codex does not claim those hooks. See <a href="{e(site_link(page, 'reference/subagents.html'))}">Subagent Support</a> for shipped behavior, telemetry, and the evidence-gated roadmap.</p>
         <h2>Repo-Maintenance Skills</h2>
         <p>These are documented beside the scaffolding because they keep the repository maintainable. Only less-tokens is part of the primary token-saving mission; bug-hunt, bugfix, and continue are operational aids.</p>
         <div class="grid">{cards}</div>
@@ -1142,6 +1146,31 @@ python3 install.py --update --agent codex</code></pre>
 }</code></pre>
         <p>Do not flatten command fields onto matcher objects. Re-run <code>install.py --update --agent codex</code> to migrate a legacy file instead of hand-editing generated entries.</p>
         <p class="note">CX21 fixed the writer. CX22 tracks health-check readers that still interpret the retired flat list.</p></section>""",
+        "Subagent Support": """
+        <section><h2>Support Boundary</h2>
+        <p>Subagents are explicit delegated work, not an automatic routing feature. Spawn only when a child can absorb enough independent exploration or noisy verification to repay its fixed instruction and tool-schema cost.</p>
+        <table><thead><tr><th>Capability</th><th>Claude</th><th>Codex</th></tr></thead><tbody>
+          <tr><td>SA1 return cap</td><td>PostToolUse:Task replaces returns over 6,000 characters with key fields or bounded head/tail output; measured elision is logged.</td><td>No hookable Task-return boundary; no automatic cap claimed.</td></tr>
+          <tr><td>SA2 fan-out telemetry</td><td>Pre/Post Task hooks pair prompt chars, return chars, subagent type, and session metadata. Measurement only; always wired.</td><td>No equivalent Task boundary; no event emitted.</td></tr>
+          <tr><td>Delegation guidance</td><td>Prefer narrow explorer/verifier agents, pointer-only context, disjoint ownership, and compact returns.</td><td>Requires user authorization, defaults to fork_context=false, and separates explorer from worker.</td></tr>
+        </tbody></table></section>
+        <section><h2>Compact Contract</h2><pre><code>Task: answer &lt;specific question&gt;.
+Context pointers: &lt;path:line and search command&gt;.
+Constraints: do not paste full files, logs, or diffs.
+Return only: files changed, findings, verification, blockers.</code></pre></section>
+        <section><h2>Telemetry</h2>
+        <p>Claude writes SA1 savings and SA2 cost events to <code>.claude/state/savings.jsonl</code>. Reports display spawn count, prompt characters sent, and return characters absorbed by the parent. Fan-out is a cost measurement, not a savings claim, and stays outside savings totals.</p>
+        <pre><code>.claude/bin/python .claude/tools/stats.py --all</code></pre></section>
+        <section><h2>Evidence-Gated Roadmap</h2>
+        <table><thead><tr><th>ID</th><th>State</th><th>Candidate</th><th>Gate</th></tr></thead><tbody>
+          <tr><td>SA1</td><td>Shipped</td><td>Generic bounded return digest.</td><td>Measured through subagent-cap records.</td></tr>
+          <tr><td>SA2</td><td>Shipped / measuring</td><td>Prompt/return fan-out cost.</td><td>Collect a representative window before downstream changes.</td></tr>
+          <tr><td>SA3</td><td>Blocked</td><td>Replace oversized spawn payloads with pointers.</td><td>Prompt-side waste must be material and task success must hold.</td></tr>
+          <tr><td>SA4</td><td>Blocked</td><td>Per-child budget state.</td><td>Live payloads must expose distinct child session IDs plus concurrency risk.</td></tr>
+          <tr><td>SA5</td><td>Blocked</td><td>Role-specific return digests.</td><td>At least two roles must beat SA1 measurably; rules must be versioned.</td></tr>
+          <tr><td>SA6</td><td>Later</td><td>Digest replayed full child transcripts.</td><td>Reopen only if a future harness actually replays them.</td></tr>
+        </tbody></table>
+        <p class="note">BACKLOG.md is canonical for item state and full acceptance criteria.</p></section>""",
         "Troubleshooting": """
         <section><h2>Common Failures</h2>
         <ul>
@@ -1167,12 +1196,30 @@ python3 docs-site/scripts/check_docs.py
           <li><strong>CX22 open:</strong> update install checking and the parity audit to consume the same nested representation as the writer.</li>
         </ul>
         <p>DECISIONS.md is canonical for evidence, verdict boundaries, and reopen conditions.</p></section>""",
+        "Reference": """
+        <section><h2>Reference Pages</h2><div class="grid">
+          <article class="card"><h3><a href="install.html">Install</a></h3><p>Agent selection, safe updates, and index-build behavior.</p></article>
+          <article class="card"><h3><a href="configuration.html">Configuration</a></h3><p>Search, budget, and hook configuration sources.</p></article>
+          <article class="card"><h3><a href="subagents.html">Subagent Support</a></h3><p>SA1/SA2 behavior, delegation contracts, telemetry, limitations, and roadmap gates.</p></article>
+          <article class="card"><h3><a href="troubleshooting.html">Troubleshooting</a></h3><p>Recovery guidance for common install and runtime failures.</p></article>
+          <article class="card"><h3><a href="decisions.html">Decisions</a></h3><p>Current accepted boundaries and evidence-backed verdicts.</p></article>
+          <article class="card"><h3><a href="backlog.html">Backlog</a></h3><p>Canonical open work and unblock conditions.</p></article>
+        </div></section>""",
     }.get(title, f"""
         <section><p>This reference page is a navigable HTML layer over the canonical Markdown docs. Follow the source links for the full operational detail.</p></section>
     """)
     source_links = [("DOCUMENTATION.md", "DOCUMENTATION.md"), ("README.md", "README.md")]
     if title in {"Install", "Configuration"}:
         source_links.append(("install.py", "install.py"))
+    if title == "Subagent Support":
+        source_links = [
+            ("DOCUMENTATION.md", "DOCUMENTATION.md"),
+            ("BACKLOG.md", "BACKLOG.md"),
+            ("Hook manifest", "agents/common/hooks/hook_manifest.py"),
+            ("SA1 implementation", "agents/common/hooks/truncate_output.py"),
+            ("SA2 implementation", "agents/common/hooks/subagent_fanout.py"),
+            ("Codex delegation guidance", "agents/common/skills/less-tokens/codex-delegation.md"),
+        ]
     if title == "Decisions":
         source_links = [("DECISIONS.md", "DECISIONS.md"), ("BACKLOG.md", "BACKLOG.md"), ("CHANGELOG.md", "CHANGELOG.md")]
     if title == "Backlog":

@@ -2,6 +2,10 @@
 
 **Cut Claude and Codex token usage with drop-in strategies: semantic search over your codebase, a budget-native context control plane, search-before-read hooks, auto-sliced reads, noisy-output guards, terse-output enforcement, proactive session compaction, and instruction-file pruning.**
 
+> [!TIP]
+> ### [Open the full HTML documentation →](https://hofmockel.github.io/less_tokens/)
+> Explore the visual strategy map, installation and configuration guides, architecture, telemetry, troubleshooting, and the subagent-support roadmap.
+
 ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
@@ -79,6 +83,19 @@ Read(large_file.py)            search.py "validate imports"
 ```
 
 Files are chunked by structure (functions, headings, SQL statements, JS/TS declarations), embedded locally using [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5), and stored in a local SQLite database. No data leaves your machine.
+
+## Subagent support
+
+`less_tokens` supports delegated work without pretending every agent exposes the same controls.
+
+| Surface | Shipped support |
+|---|---|
+| **Claude** | `subagent-cap` trims oversized `Task` returns to key fields or a bounded head/tail digest; `subagent-fanout` measures prompt and return size for every observed spawn. |
+| **Codex** | The installed `less-tokens` skill provides explicit, pointer-first delegation templates and compact return contracts. Codex has no equivalent repo-hookable `Task` boundary, so automatic return capping and fan-out telemetry are not claimed. |
+
+Claude's return cap defaults to 6,000 characters and follows the default-on truncation setting (`--no-truncate` opts out). Fan-out telemetry is measurement-only and always wired: reports show spawn count, prompt characters sent, and return characters absorbed by the parent, separately from token-savings totals.
+
+The roadmap is evidence-gated: SA3 may filter oversized spawn prompts only if SA2 shows prompt-side waste is material; SA4 may isolate budget state per child only if live payloads expose distinct session IDs and concurrency risk; SA5 may add role-specific digests only if at least two roles show a measurable advantage over SA1; SA6 stays parked unless a future harness replays full child transcripts to the parent. See [DOCUMENTATION.md → Subagent support](DOCUMENTATION.md#subagent-support) for the canonical reference or the [HTML Subagent Support page](docs-site/site/reference/subagents.html) for the visual summary.
 
 ---
 

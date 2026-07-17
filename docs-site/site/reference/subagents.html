@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subagent Support - less_tokens docs</title>
+  <link rel="stylesheet" href="../assets/site.css">
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="hybrid-page docs-detail-page">
+  <header class="site-header">
+    <a class="brand" href="../index.html"><img src="../assets/LT_mark.svg" alt=""> less_tokens</a>
+    <nav><a href="../index.html">Overview</a><a href="../presentation.html">Presentation</a><a href="../strategy-map.html">Strategies</a><a href="../architecture.html">Architecture</a><a href="../scaffolding/installer.html">Scaffolding</a><a href="../reference/install.html" aria-current="page">Reference</a><a href="../privacy.html">Privacy</a></nav>
+  </header>
+  <main>
+
+    <section class="page-title"><h1>Subagent Support</h1><p>Canonical operational detail remains in the root Markdown docs.</p></section>
+    
+        <section><h2>Support Boundary</h2>
+        <p>Subagents are explicit delegated work, not an automatic routing feature. Spawn only when a child can absorb enough independent exploration or noisy verification to repay its fixed instruction and tool-schema cost.</p>
+        <table><thead><tr><th>Capability</th><th>Claude</th><th>Codex</th></tr></thead><tbody>
+          <tr><td>SA1 return cap</td><td>PostToolUse:Task replaces returns over 6,000 characters with key fields or bounded head/tail output; measured elision is logged.</td><td>No hookable Task-return boundary; no automatic cap claimed.</td></tr>
+          <tr><td>SA2 fan-out telemetry</td><td>Pre/Post Task hooks pair prompt chars, return chars, subagent type, and session metadata. Measurement only; always wired.</td><td>No equivalent Task boundary; no event emitted.</td></tr>
+          <tr><td>Delegation guidance</td><td>Prefer narrow explorer/verifier agents, pointer-only context, disjoint ownership, and compact returns.</td><td>Requires user authorization, defaults to fork_context=false, and separates explorer from worker.</td></tr>
+        </tbody></table></section>
+        <section><h2>Compact Contract</h2><pre><code>Task: answer &lt;specific question&gt;.
+Context pointers: &lt;path:line and search command&gt;.
+Constraints: do not paste full files, logs, or diffs.
+Return only: files changed, findings, verification, blockers.</code></pre></section>
+        <section><h2>Telemetry</h2>
+        <p>Claude writes SA1 savings and SA2 cost events to <code>.claude/state/savings.jsonl</code>. Reports display spawn count, prompt characters sent, and return characters absorbed by the parent. Fan-out is a cost measurement, not a savings claim, and stays outside savings totals.</p>
+        <pre><code>.claude/bin/python .claude/tools/stats.py --all</code></pre></section>
+        <section><h2>Evidence-Gated Roadmap</h2>
+        <table><thead><tr><th>ID</th><th>State</th><th>Candidate</th><th>Gate</th></tr></thead><tbody>
+          <tr><td>SA1</td><td>Shipped</td><td>Generic bounded return digest.</td><td>Measured through subagent-cap records.</td></tr>
+          <tr><td>SA2</td><td>Shipped / measuring</td><td>Prompt/return fan-out cost.</td><td>Collect a representative window before downstream changes.</td></tr>
+          <tr><td>SA3</td><td>Blocked</td><td>Replace oversized spawn payloads with pointers.</td><td>Prompt-side waste must be material and task success must hold.</td></tr>
+          <tr><td>SA4</td><td>Blocked</td><td>Per-child budget state.</td><td>Live payloads must expose distinct child session IDs plus concurrency risk.</td></tr>
+          <tr><td>SA5</td><td>Blocked</td><td>Role-specific return digests.</td><td>At least two roles must beat SA1 measurably; rules must be versioned.</td></tr>
+          <tr><td>SA6</td><td>Later</td><td>Digest replayed full child transcripts.</td><td>Reopen only if a future harness actually replays them.</td></tr>
+        </tbody></table>
+        <p class="note">BACKLOG.md is canonical for item state and full acceptance criteria.</p></section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../BACKLOG.md">BACKLOG.md</a></li><li><a href="../../../agents/common/hooks/hook_manifest.py">Hook manifest</a></li><li><a href="../../../agents/common/hooks/truncate_output.py">SA1 implementation</a></li><li><a href="../../../agents/common/hooks/subagent_fanout.py">SA2 implementation</a></li><li><a href="../../../agents/common/skills/less-tokens/codex-delegation.md">Codex delegation guidance</a></li></ul></aside>
+    
+  </main>
+</body>
+</html>
