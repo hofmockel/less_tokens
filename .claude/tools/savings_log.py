@@ -48,6 +48,7 @@ STRATEGY_CONTEXT_CACHE_GREP = "context-cache-grep"
 STRATEGY_CONTEXT_CACHE_BASH = "context-cache-bash"
 STRATEGY_SEARCH_BLOCKED = "search-blocked"
 STRATEGY_SEARCH = "search"
+STRATEGY_SUBAGENT_CAP = "subagent-cap"
 
 _KNOWN_STRATEGIES: dict[str, tuple[str, str]] = {
     STRATEGY_TRUNCATION:           ("Truncation", "measured"),
@@ -57,6 +58,7 @@ _KNOWN_STRATEGIES: dict[str, tuple[str, str]] = {
     STRATEGY_CONTEXT_CACHE_BASH:   ("Cached bash (repeat)", "measured"),
     STRATEGY_SEARCH_BLOCKED:       ("Search-first block", "upper_bound"),
     STRATEGY_SEARCH:               ("Search (vs full file)", "upper_bound"),
+    STRATEGY_SUBAGENT_CAP:         ("Subagent return cap", "measured"),
 }
 
 

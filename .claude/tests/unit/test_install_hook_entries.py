@@ -32,9 +32,10 @@ class TestBuildClaudeHookEntries:
         # the count is 20. context-cache gained a PostToolUse Read|Grep wire
         # (BACKLOG.md: denied Reads were falsely recorded as served), so 21.
         # continue-freshness added (PreToolUse Read, Claude-only), so 22.
+        # SA1: subagent-cap added (PostToolUse Task, Claude-only), so 23.
         entries = _cmds(tmp_path)
         commands = [cmd for _, _, cmd in entries]
-        assert len(entries) == 22
+        assert len(entries) == 23
         for name in [
             "budget-observer.py",
             "search-first.py",
@@ -58,6 +59,7 @@ class TestBuildClaudeHookEntries:
         entries = _cmds(tmp_path)
         commands = [cmd for _, _, cmd in entries]
         assert any("truncate-output.py" in cmd for cmd in commands)
+        assert any("subagent-cap.py" in cmd for cmd in commands)
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("caveman-reminder.py" in cmd for cmd in commands)
 
@@ -66,7 +68,7 @@ class TestBuildClaudeHookEntries:
         default = _cmds(tmp_path)
         explicit = _cmds(tmp_path, truncate=True, compact=True, caveman=True)
         assert default == explicit
-        assert len(explicit) == 22
+        assert len(explicit) == 23
 
     def test_subagent_stop_wired_for_terse_and_savings(self, tmp_path):
         # G15: a Claude child's final turn fires SubagentStop, not Stop.
@@ -114,3 +116,11 @@ class TestBuildClaudeHookEntries:
         opted_out = _cmds(tmp_path, no_truncate=True)
         assert any("truncate-output.py" in cmd for _, _, cmd in default)
         assert not any("truncate-output.py" in cmd for _, _, cmd in opted_out)
+
+    def test_subagent_cap_wired_for_task_and_opts_out_with_no_truncate(self, tmp_path):
+        # SA1: rides the "truncate" optional flag — same size-capping family.
+        default = _cmds(tmp_path)
+        hooks = [(ev, m) for ev, m, cmd in default if "subagent-cap.py" in cmd]
+        assert hooks == [("PostToolUse", "Task")]
+        opted_out = _cmds(tmp_path, no_truncate=True)
+        assert not any("subagent-cap.py" in cmd for _, _, cmd in opted_out)

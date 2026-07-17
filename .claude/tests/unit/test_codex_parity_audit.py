@@ -104,7 +104,13 @@ def test_codex_parity_audit_passes_current_generated_install(tmp_path):
 
     assert problems == []
     assert rows
-    assert all(row.enforcement == "best-effort-only" for row in rows)
+    # SA1's subagent-cap is Claude-only by design (no Codex Task-boundary hook
+    # exists), so it reports enforcement="missing" — only feature-parity rows
+    # are held to "best-effort-only".
+    parity_rows = [row for row in rows if row.feature == "feature-parity"]
+    assert parity_rows
+    assert all(row.enforcement == "best-effort-only" for row in parity_rows)
+    assert any(row.strategy == "subagent-cap" and row.enforcement == "missing" for row in rows)
 
 
 def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):
@@ -122,8 +128,12 @@ def test_codex_parity_audit_rejects_stale_relative_commands(tmp_path):
     rows, problems = audit_mod.audit(tmp_path)
 
     assert problems
-    assert all(row.enforcement == "unwired" for row in rows)
-    assert any("stale command" in row.notes for row in rows)
+    # subagent-cap has no Codex adapter (feature="missing-feature-parity") so
+    # it is never rewritten with a stale command and stays enforcement="missing".
+    parity_rows = [row for row in rows if row.feature == "feature-parity"]
+    assert parity_rows
+    assert all(row.enforcement == "unwired" for row in parity_rows)
+    assert any("stale command" in row.notes for row in parity_rows)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")

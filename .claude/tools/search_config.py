@@ -95,6 +95,11 @@ MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
 TOOL_OUTPUT_HEAD_LINES: int = 50    # Bash: lines kept from output start
 TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors live here)
 
+# --- Strategy 3b: Subagent (Task) Return Cap — SA1 ---
+# Subagent returns carry a final recommendation, not log noise, so this ceiling
+# is looser than MAX_TOOL_OUTPUT_CHARS; set 0 to disable.
+MAX_SUBAGENT_OUTPUT_CHARS: int = 6000   # ~1500 tokens
+
 # Codex adapters use tighter output caps; LESS_TOKENS_CODEX_* env vars override.
 CODEX_MAX_TOOL_OUTPUT_CHARS: int = 1500
 CODEX_MAX_FILESYSTEM_READ_CHARS: int = 1200
