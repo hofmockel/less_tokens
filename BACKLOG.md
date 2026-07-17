@@ -11,13 +11,10 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 | Order | ID | Priority | Outcome | Depends on |
 |---:|---|:---:|---|---|
 | 1 | B1 | P0 | Make the Codex truncation install smoke exercise real truncation | — |
-| 2 | B2 | P0 | Make the parity audit reject stale/cwd-sensitive commands | — |
-| 3 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | B1, B2 |
-| 4 | F1 | P1 | Remove test-command prose from always-loaded context | — |
+| 2 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | B1 |
+| 3 | F1 | P1 | Remove test-command prose from always-loaded context | — |
 
 - **B1 — Codex truncation install smoke is a false positive** *(bug / verification)* — `install.py:1701-1715` invokes `truncate-output.py` with a small `"tool_output"` payload, but `agents/common/hooks/payload.py:73-78` only normalizes `tool_response` or `tool_result`. The adapter sees an empty result and exits 0 without exercising truncation, so `install.py --check --agent codex` can report wrapper health while output parsing/replacement is broken. Use a recognized output key and oversized content, then assert the cap, omission marker, and expected hook result rather than process startup. Acceptance: a regression test fails if the smoke payload is not actually truncated.
-
-- **B2 — Codex parity audit accepts stale relative hook commands** *(bug / verification)* — `.claude/tools/codex_parity_audit.py:45-47` treats any command containing `.codex/hooks/<script>` as wired; it does not validate the absolute launcher/script paths emitted by `install.py:806-831`. The source repo's stale generated `.codex/hooks.json` therefore passed most checks even though its relative commands fail outside the repo root. Compare installed entries with `build_codex_hook_entries()` and execute a representative command from a nested cwd. Acceptance: the observed stale file fails the audit and a current install passes.
 
 - **CX16 — Make Codex dogfood installs self-diagnosing and recoverable** *(meta / install parity)* — This repo's generated, ignored `.codex/` layer can silently lag the checked-in manifest, while `install.py` refuses to target the source directory itself. Provide a supported refresh path for the source repo and make skipped or unwritable hook installation an explicit degraded result. Acceptance: starting from the observed stale state, one documented command installs every required script and manifest entry with absolute paths; the parity audit reports zero unwired rows; representative wrappers run from a nested cwd; a second refresh is a no-op.
 
@@ -29,17 +26,17 @@ Start these after the P0 Codex foundation above. Research items are bounded spik
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 5 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
-| 6 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
-| 7 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
-| 8 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 9 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 10 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 11 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 12 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 13 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 14 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
-| 15 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
+| 4 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
+| 5 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
+| 6 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
+| 7 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 8 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 9 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 10 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 11 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 12 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 13 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
+| 14 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
 
 - **CX17 — Prove and, if supported, implement real Codex tool-output replacement** *(tool / enforcement parity)* — `agents/codex/hooks/truncate-output.py:65-92` prints the shortened result and returns the shared hook code, but no live test proves that this replaces the original tool result before the model receives it. Capture real oversized Bash and filesystem-read payloads and inspect the next model-visible context. If Codex exposes a replacement contract, implement and regression-test it. Otherwise document the platform blocker, stop labeling Codex truncation savings as measured, and downgrade the parity row. Acceptance: an oversized sentinel present only beyond the cap cannot be recovered from the next Codex turn, while the head/tail and omission marker remain available—or the unsupported claim is removed everywhere.
 

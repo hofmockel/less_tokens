@@ -49,7 +49,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agents.common.hooks.hook_manifest import hook_entries
+from agents.common.hooks.hook_manifest import (
+    build_codex_hook_entries as build_shared_codex_hook_entries,
+    hook_entries,
+)
 
 SOURCE = Path(__file__).resolve().parent
 
@@ -809,26 +812,12 @@ def build_codex_hook_entries(
     args: argparse.Namespace,
 ) -> list[tuple[str, str, str]]:
     py = launcher_cmd("codex", target_root)
-    profile = codex_savings_profile(args)
-    env = "LESS_TOKENS_AGENT=codex"
-    if profile == "aggressive":
-        env = f"{env} LESS_TOKENS_CODEX_SAVINGS=aggressive"
-        args = argparse.Namespace(**{
-            **vars(args),
-            "no_truncate": False,
-            "no_compact": False,
-            "no_caveman": False,
-        })
-    prefix = f"{env} {shlex.quote(py)}"
-    entries = hook_entries("codex", prefix, args)
-    rewritten = []
-    for event, matcher, command in entries:
-        prefix_part, script = command.rsplit(" ", 1)
-        normalized_script = script.replace("\\", "/")
-        if normalized_script.startswith(".codex/hooks/"):
-            script = shlex.quote(str((target_root / normalized_script).resolve()))
-        rewritten.append((event, matcher, f"{prefix_part} {script}"))
-    return rewritten
+    return build_shared_codex_hook_entries(
+        py,
+        target_root,
+        args,
+        savings_profile=codex_savings_profile(args),
+    )
 
 
 def wire_settings(
