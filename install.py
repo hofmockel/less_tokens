@@ -32,6 +32,8 @@ selected agent adapters:
                         of .claude/settings.json
     --dry-run           preview without writing anything
     --update            safe upgrade of generated hooks/tools
+    --self-refresh      advanced: refresh this clone's own dogfooded install
+                        (target_root = SOURCE); implies --update
     --uninstall         remove a previous deployment
 
 Cross-platform: works on Windows/macOS/Linux. Uses pathlib + subprocess only.
@@ -110,6 +112,45 @@ def _dir_is_writable(target_root: Path, rel: str) -> bool:
         return os.access(d, os.W_OK)
     parent = d.parent
     return parent.is_dir() and os.access(parent, os.W_OK)
+
+
+# Populated whenever a filesystem write fails (permission denied, read-only
+# fs, etc.) during install/update/self-refresh. main() checks this at the end
+# so a failed hook/script write is an explicit DEGRADED result — reported in
+# output and reflected in a non-zero exit status — never a silent skip.
+_WRITE_FAILURES: list[str] = []
+
+
+def _copy2_or_degrade(srcfile: Path, target: Path) -> bool:
+    """shutil.copy2, but an OSError is recorded as DEGRADED instead of raised."""
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(srcfile, target)
+        return True
+    except OSError as e:
+        msg = f"failed to write {target}: {e}"
+        print(f"  ! DEGRADED: {msg}", file=sys.stderr)
+        _WRITE_FAILURES.append(msg)
+        return False
+
+
+def _write_bytes_or_degrade(path: Path, data: bytes, chmod: int | None = None) -> bool:
+    """write_bytes, but an OSError is recorded as DEGRADED instead of raised."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        if chmod is not None:
+            path.chmod(chmod)
+        return True
+    except OSError as e:
+        msg = f"failed to write {path}: {e}"
+        print(f"  ! DEGRADED: {msg}", file=sys.stderr)
+        _WRITE_FAILURES.append(msg)
+        return False
+
+
+def _write_text_or_degrade(path: Path, text: str, chmod: int | None = None) -> bool:
+    return _write_bytes_or_degrade(path, text.encode("utf-8"), chmod=chmod)
 
 
 # Relative path (within target_root) where we record installed version.
@@ -296,23 +337,25 @@ def copy_tree(
             rel_str = target.relative_to(target_root)
             summary = _diff_summary(src_text, dst_text)
             if overwrite_modified:
-                if not dry_run:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(srcfile, target)
+                ok = _copy2_or_degrade(srcfile, target) if not dry_run else True
                 verb = "would overwrite" if dry_run else "overwritten"
-                print(f"  ↺ {rel_str}  ({summary}, {verb})")
-                copied += 1
+                if ok:
+                    print(f"  ↺ {rel_str}  ({summary}, {verb})")
+                    copied += 1
+                else:
+                    modified_skipped += 1
             else:
                 print(f"  ! {rel_str}  ({summary}) — differs from source; "
                       f"add --overwrite-modified to update")
                 modified_skipped += 1
         else:
-            if not dry_run:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(srcfile, target)
+            ok = _copy2_or_degrade(srcfile, target) if not dry_run else True
             prefix = "+ (would create)" if dry_run else "+"
-            print(f"  {prefix} {target.relative_to(target_root)}")
-            copied += 1
+            if ok:
+                print(f"  {prefix} {target.relative_to(target_root)}")
+                copied += 1
+            else:
+                skipped += 1
     print(f"  {label}: {copied} copied, {skipped + modified_skipped} skipped"
           + (f" ({modified_skipped} modified)" if modified_skipped else ""))
     return copied
@@ -497,16 +540,18 @@ def write_python_launcher(
             print(f"  + {rel_path} (launcher already current)")
             continue
         print(f"  {'would write' if dry_run else '~'} {rel_path}")
-        changes += 1
-        if not dry_run:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            # write_bytes (not write_text(newline=...)): the newline kwarg to
-            # write_text was added in Python 3.10, but we support 3.9. Writing
-            # the encoded bytes preserves CRLF in the .cmd launcher with no
-            # newline translation on any version, matching the read_bytes compare.
-            path.write_bytes(text.encode("utf-8"))
-            if executable:
-                path.chmod(0o755)
+        if dry_run:
+            changes += 1
+            continue
+        # write_bytes (not write_text(newline=...)): the newline kwarg to
+        # write_text was added in Python 3.10, but we support 3.9. Writing
+        # the encoded bytes preserves CRLF in the .cmd launcher with no
+        # newline translation on any version, matching the read_bytes compare.
+        ok = _write_bytes_or_degrade(
+            path, text.encode("utf-8"), chmod=0o755 if executable else None,
+        )
+        if ok:
+            changes += 1
     return changes
 
 
@@ -579,19 +624,21 @@ def write_codex_tool_shims(
                       "add --overwrite-modified to replace")
                 modified_skipped += 1
                 continue
-            if not dry_run:
-                target.write_text(text, encoding="utf-8")
-                target.chmod(0o755)
+            ok = _write_text_or_degrade(target, text, chmod=0o755) if not dry_run else True
             verb = "would overwrite" if dry_run else "overwritten"
-            print(f"  ↺ {rel}  ({verb} with shim)")
-            copied += 1
+            if ok:
+                print(f"  ↺ {rel}  ({verb} with shim)")
+                copied += 1
+            else:
+                modified_skipped += 1
         else:
-            if not dry_run:
-                target.write_text(text, encoding="utf-8")
-                target.chmod(0o755)
+            ok = _write_text_or_degrade(target, text, chmod=0o755) if not dry_run else True
             prefix = "+ (would create)" if dry_run else "+"
-            print(f"  {prefix} {rel}")
-            copied += 1
+            if ok:
+                print(f"  {prefix} {rel}")
+                copied += 1
+            else:
+                skipped += 1
     print(f"  .less_tokens/tools/: {copied} shim(s), {skipped + modified_skipped} skipped"
           + (f" ({modified_skipped} modified)" if modified_skipped else ""))
     return copied
@@ -858,8 +905,7 @@ def wire_settings(
             added += 1
 
     if not dry_run:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        _write_text_or_degrade(settings_path, json.dumps(settings, indent=2) + "\n")
     return added, already_present
 
 
@@ -897,9 +943,25 @@ def wire_statusline(settings_path: Path, command: str, dry_run: bool = False) ->
     settings["statusLine"] = {"type": "command", "command": command, "padding": 0}
     print(f"  {'+ (would wire)' if dry_run else '+'} statusLine")
     if not dry_run:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+        _write_text_or_degrade(settings_path, json.dumps(settings, indent=2) + "\n")
     return 1
+
+
+def _codex_hook_script_name(command: str) -> str | None:
+    """Best-effort hook script filename from a codex hooks.json command string.
+
+    Commands look like `ENV=val /abs/or/rel/python /abs/or/rel/hooks/<script>.py`;
+    the script is always the final whitespace-separated token. Used to match an
+    existing entry to an incoming one by *what it runs* rather than by exact
+    command text, so a stale command (e.g. written before the relative->absolute
+    path fix, commit 9c4fef3) is recognized as the same slot and replaced in
+    place instead of left behind as a duplicate, dead entry.
+    """
+    parts = command.strip().split()
+    if not parts:
+        return None
+    script = parts[-1].strip('"\'').replace("\\", "/")
+    return Path(script).name or None
 
 
 def wire_codex_hooks_json(
@@ -907,7 +969,13 @@ def wire_codex_hooks_json(
     entries: list[tuple[str, str, str]],
     dry_run: bool = False,
 ) -> tuple[int, int]:
-    """Merge hook entries into .codex/hooks.json. Returns (added, already_present)."""
+    """Merge hook entries into .codex/hooks.json. Returns (added, already_present).
+
+    An existing entry is matched by (event, matcher, script filename), not by
+    exact command string: a stale entry whose command format has since changed
+    (relative -> absolute path, launcher rename, etc.) is replaced rather than
+    left in place alongside a new duplicate — see _codex_hook_script_name.
+    """
     if hooks_json_path.exists():
         try:
             data: dict = json.loads(hooks_json_path.read_text(encoding="utf-8"))
@@ -918,24 +986,54 @@ def wire_codex_hooks_json(
 
     hooks: list = data.setdefault("hooks", [])
     added = already_present = 0
+    dirty = False
 
     for event_type, matcher, command in entries:
-        found = any(
-            h.get("command") == command and h.get("event") == event_type
-            for h in hooks
-        )
-        if found:
+        script = _codex_hook_script_name(command)
+        same_slot = [
+            h for h in hooks
+            if h.get("event") == event_type and h.get("matcher") == matcher
+            and script is not None
+            and _codex_hook_script_name(str(h.get("command", ""))) == script
+        ]
+        if any(h.get("command") == command for h in same_slot):
             print(f"  + {event_type} {matcher!r} already wired (codex)")
             already_present += 1
-        else:
-            hooks.append({"event": event_type, "matcher": matcher,
-                          "command": command})
-            print(f"  {'+ (would wire)' if dry_run else '+'} codex {event_type} {matcher!r}")
-            added += 1
+            continue
+        for stale in same_slot:
+            hooks.remove(stale)
+            print(f"  {'- (would replace)' if dry_run else '-'} codex {event_type} "
+                  f"{matcher!r} (stale command superseded)")
+        hooks.append({"event": event_type, "matcher": matcher, "command": command})
+        print(f"  {'+ (would wire)' if dry_run else '+'} codex {event_type} {matcher!r}")
+        added += 1
+        dirty = True
 
-    if not dry_run and added:
-        hooks_json_path.parent.mkdir(parents=True, exist_ok=True)
-        hooks_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    # Orphan sweep: same-slot matching above only catches drift within a
+    # fixed (event, matcher) pair. If the manifest's matcher for a script
+    # changes (e.g. context-cache gained "|Bash"), the old (event, matcher)
+    # pairing is no longer in `entries` at all, so same-slot never sees it
+    # and it survives forever as dead, possibly relative-path, cruft. Any
+    # existing entry for a script we manage whose exact (event, matcher,
+    # command) isn't one we just wired is such an orphan — remove it.
+    desired_scripts = {
+        s for s in (_codex_hook_script_name(cmd) for _, _, cmd in entries) if s
+    }
+    desired_keys = {(event, matcher, command) for event, matcher, command in entries}
+    for orphan in [
+        h for h in hooks
+        if _codex_hook_script_name(str(h.get("command", ""))) in desired_scripts
+        and (h.get("event"), h.get("matcher"), h.get("command")) not in desired_keys
+    ]:
+        hooks.remove(orphan)
+        oscript = _codex_hook_script_name(str(orphan.get("command", "")))
+        print(f"  {'- (would remove)' if dry_run else '-'} codex {orphan.get('event')} "
+              f"{orphan.get('matcher')!r} (orphaned wiring for {oscript})")
+        added += 1
+        dirty = True
+
+    if not dry_run and dirty:
+        _write_text_or_degrade(hooks_json_path, json.dumps(data, indent=2) + "\n")
     return added, already_present
 
 
@@ -961,7 +1059,7 @@ def unwire_codex_hooks_json(hooks_json_path: Path, source: Path, dry_run: bool) 
               f"{removed} less_tokens hook entr{'y' if removed == 1 else 'ies'}")
         if not dry_run:
             data["hooks"] = keep
-            hooks_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            _write_text_or_degrade(hooks_json_path, json.dumps(data, indent=2) + "\n")
     return removed
 
 
@@ -1392,7 +1490,7 @@ def handle_gitignore(target_root: Path, want: bool, dry_run: bool) -> int:
     verb = "would update" if dry_run else "~"
     print(f"\n  {verb} .gitignore (managed less_tokens block)")
     if not dry_run:
-        gi.write_text(new, encoding="utf-8")
+        _write_text_or_degrade(gi, new)
     return 1
 
 
@@ -1522,8 +1620,7 @@ def apply_codex_savings_profile(
     agent_overrides["codex"] = desired
     print(f"  {'would update' if dry_run else '~'} budget.json agent_overrides.codex ({profile})")
     if not dry_run:
-        budget_path.parent.mkdir(parents=True, exist_ok=True)
-        budget_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        _write_text_or_degrade(budget_path, json.dumps(data, indent=2) + "\n")
     return 1
 
 
@@ -1565,12 +1662,12 @@ def handle_agents_md(
             return 0
         print(f"  {'would update' if dry_run else '~'} AGENTS.md (less_tokens block)")
         if not dry_run:
-            agents_md.write_text(updated, encoding="utf-8")
+            _write_text_or_degrade(agents_md, updated)
     else:
         new_content = (existing.rstrip("\n") + "\n\n" + block) if existing else block
         print(f"  {'would append' if dry_run else '+'} AGENTS.md (less_tokens block)")
         if not dry_run:
-            agents_md.write_text(new_content, encoding="utf-8")
+            _write_text_or_degrade(agents_md, new_content)
     return 0
 
 
@@ -2052,6 +2149,14 @@ def main() -> int:
                          "--force-hooks --force-tools --overwrite-modified) "
                          "but never touch .claude/tools/search_config.py or index.db. "
                          "Incompatible with --force-config and --build.")
+    ap.add_argument("--self-refresh", action="store_true",
+                    help="advanced/dogfooding: install less_tokens into its own source "
+                         "directory (target_root = SOURCE), refreshing this clone's own "
+                         "generated .claude/ and/or .codex/ layer against its checked-in "
+                         "manifest. Implies --update. This is the one explicit, named way "
+                         "to bypass the source-is-target guard; --target still cannot "
+                         "resolve inside SOURCE on its own. Incompatible with --target, "
+                         "--uninstall, and --check.")
     ap.add_argument("--agent", choices=["claude", "codex", "both"], default="claude",
                     help="agent(s) to install for: claude (default), codex, or both")
     ap.add_argument("--codex-savings", choices=["balanced", "aggressive"], default="balanced",
@@ -2064,6 +2169,28 @@ def main() -> int:
                     help="with --uninstall, also delete index.db and its WAL sidecars")
     args = ap.parse_args()
     agents = selected_agents(args.agent)
+
+    # Reset the module-level write-failure log: main() can be invoked more
+    # than once in the same process (unit tests import and call it directly),
+    # and a failure from a previous run must not leak into this run's summary.
+    _WRITE_FAILURES.clear()
+
+    # --self-refresh is the one explicit, named opt-in to install less_tokens
+    # into its own source directory (target_root = SOURCE) — e.g. to refresh
+    # this clone's own dogfooded .claude/ or .codex/ layer against its
+    # checked-in manifest. It reuses --update's safe-upgrade contract rather
+    # than inventing new force logic, and is rejected up front if combined
+    # with a mode it doesn't make sense for.
+    if args.self_refresh:
+        if args.target is not None:
+            print("ERROR: --self-refresh sets target_root to the less_tokens source "
+                  "directory itself; --target cannot also be given.", file=sys.stderr)
+            return 1
+        if args.uninstall or args.check:
+            print("ERROR: --self-refresh only supports the install/update path "
+                  "(not --uninstall or --check).", file=sys.stderr)
+            return 1
+        args.update = True
 
     # --update is a safe-upgrade shortcut: re-copy hooks + tools, never
     # touch search_config.py or index.db. Forbid combinations that would
@@ -2093,9 +2220,12 @@ def main() -> int:
     # --target PATH overrides for scratch projects and CI. The
     # suspicious-target check guards the default path (not --target) so a
     # mis-cloned less_tokens (e.g. directly in $HOME) doesn't splatter
-    # files across the user's home.
+    # files across the user's home. --self-refresh is the sole, explicit
+    # exception: it deliberately targets SOURCE itself (validated above).
     # ------------------------------------------------------------------
-    if args.target is not None:
+    if args.self_refresh:
+        target_root = SOURCE
+    elif args.target is not None:
         target_root = args.target.resolve()
     else:
         target_root = SOURCE.parent.resolve()
@@ -2111,7 +2241,12 @@ def main() -> int:
                   file=sys.stderr)
             return 1
 
-    if SOURCE == target_root or target_root.is_relative_to(SOURCE):
+    # This guard protects every implicit/default path to target_root above.
+    # --self-refresh is the only bypass, and only because it explicitly named
+    # and validated that intent a few lines up — the guard's general behavior
+    # (rejecting an accidental or implicit self-target, e.g. via --target
+    # pointed inside SOURCE) is unchanged.
+    if not args.self_refresh and (SOURCE == target_root or target_root.is_relative_to(SOURCE)):
         print("ERROR: refusing to operate on the source directory itself.",
               file=sys.stderr)
         return 1
@@ -2352,10 +2487,24 @@ def main() -> int:
 
     # ------------------------------------------------------------------
     # Final summary — distinguish dry-run / fresh install / clean re-run
+    #
+    # A failed hook/script write (permission denied, read-only fs, etc.) is
+    # never silent: _WRITE_FAILURES is populated by the write helpers as it
+    # happens, and every exit below reports it explicitly and returns a
+    # non-zero (DEGRADED) status, even when the rest of the run looked clean.
     # ------------------------------------------------------------------
+    def _report_degraded_if_any() -> bool:
+        if not _WRITE_FAILURES:
+            return False
+        print(f"\nDEGRADED: {len(_WRITE_FAILURES)} write failure(s) — "
+              "install/refresh completed with unwritten file(s):", file=sys.stderr)
+        for msg in _WRITE_FAILURES:
+            print(f"  - {msg}", file=sys.stderr)
+        return True
+
     if dry:
         print(f"\n[DRY RUN] {changes} change(s) would be made. Nothing was written.")
-        return 0
+        return 1 if _report_degraded_if_any() else 0
 
     # Always (re-)write the state file so the installed version is current,
     # even on a no-op re-run (nothing else changed but the source may differ).
@@ -2363,7 +2512,7 @@ def main() -> int:
 
     if changes == 0:
         print("\nDone — installation already current, no changes.")
-        return 0
+        return 1 if _report_degraded_if_any() else 0
 
     print("\nDone.")
     print("\n" + "=" * 60)
@@ -2414,7 +2563,7 @@ def main() -> int:
         print("  AGENTS.md also has the token-discipline instructions for Codex.")
     print(f"  Tune the gate via WINDOW_SECONDS in {config_desc} (default 300s).")
     print()
-    return 0
+    return 1 if _report_degraded_if_any() else 0
 
 
 if __name__ == "__main__":
