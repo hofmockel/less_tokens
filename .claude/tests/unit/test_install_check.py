@@ -5,6 +5,7 @@ import argparse
 import json
 import shlex
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -98,6 +99,20 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     return root
 
 
+def _successful_codex_check_run(command, **kwargs):
+    """Model the real truncation hook contract for do_check subprocess mocks."""
+    result = subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+    if command and str(command[-1]).endswith("truncate-output.py"):
+        payload = json.loads(kwargs["input"])
+        output = payload.get("tool_response", "")
+        cap = int(kwargs["env"]["LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS"])
+        if len(output) > cap:
+            result.returncode = 2
+            result.stdout = "smoke-head\n[... 7,700 chars omitted ...]\nsmoke-tail\n"
+            result.stderr = "[truncated — 7,700 chars omitted (8,214 total)]\n"
+    return result
+
+
 class TestDoCheckAllPass:
     def test_returns_0_on_valid_install(self, tmp_path, capsys):
         root = _minimal_install(tmp_path)
@@ -112,7 +127,7 @@ class TestDoCheckAllPass:
     def test_returns_0_on_valid_codex_install(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value.returncode = 0
+            mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
         out = capsys.readouterr().out
@@ -131,12 +146,32 @@ class TestDoCheckAllPass:
             assert call.kwargs["cwd"] == str(expected_cwd)
             assert call.kwargs["env"]["LESS_TOKENS_AGENT"] == "codex"
 
+        truncate_call = next(
+            call for call in hook_calls
+            if str(call.args[0][-1]).endswith("truncate-output.py")
+        )
+        payload = json.loads(truncate_call.kwargs["input"])
+        assert "tool_output" not in payload
+        assert payload["tool_response"].startswith("smoke-head\n")
+        assert payload["tool_response"].endswith("\nsmoke-tail\n")
+        assert len(payload["tool_response"]) > int(
+            truncate_call.kwargs["env"]["LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS"]
+        )
+
+    def test_fails_when_codex_truncation_smoke_does_not_truncate(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 1
+        assert "truncate-output.py failed from nested cwd" in capsys.readouterr().out
+
     def test_codex_check_does_not_require_claude_hooks(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
         import shutil
         shutil.rmtree(root / ".claude" / "hooks")
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value.returncode = 0
+            mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
         out = capsys.readouterr().out

@@ -1698,6 +1698,8 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             _fail(".codex/hooks/ missing — cannot run Codex hook wrapper smoke check")
             return
 
+        truncation_cap = 512
+        truncation_output = "smoke-head\n" + ("x" * 8_192) + "\nsmoke-tail\n"
         samples = [
             (
                 "read-guard.py",
@@ -1705,14 +1707,16 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                     "tool_name": "mcp__filesystem__read_file",
                     "tool_input": {"path": str(target_root / "README.md"), "offset": 1, "limit": 1},
                 },
+                0,
             ),
             (
                 "truncate-output.py",
                 {
                     "tool_name": "Bash",
-                    "tool_input": {"command": "printf ok"},
-                    "tool_output": "ok\n",
+                    "tool_input": {"command": "printf smoke"},
+                    "tool_response": truncation_output,
                 },
+                2,
             ),
             (
                 "listing-guard.py",
@@ -1720,10 +1724,15 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                     "tool_name": "Bash",
                     "tool_input": {"command": "pwd"},
                 },
+                0,
             ),
         ]
-        env = {**os.environ, "LESS_TOKENS_AGENT": "codex"}
-        for script_name, payload in samples:
+        env = {
+            **os.environ,
+            "LESS_TOKENS_AGENT": "codex",
+            "LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS": str(truncation_cap),
+        }
+        for script_name, payload, expected_returncode in samples:
             script = hooks_dir / script_name
             if not script.exists():
                 _fail(f".codex/hooks/{script_name} missing — re-run install.py --agent codex")
@@ -1744,14 +1753,31 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             except subprocess.TimeoutExpired:
                 _fail(f".codex/hooks/{script_name} timed out from nested cwd")
                 return
-            if r.returncode != 0:
+            if r.returncode != expected_returncode:
                 stderr = (r.stderr or r.stdout or "").strip().splitlines()
-                detail = stderr[-1] if stderr else f"exit {r.returncode}"
+                detail = stderr[-1] if stderr else f"exit {r.returncode}, expected {expected_returncode}"
                 if "ModuleNotFoundError" in detail or "ImportError" in detail:
                     _fail(f".codex/hooks/{script_name} wrapper cannot import payload/shared modules: {detail}")
                 else:
                     _fail(f".codex/hooks/{script_name} failed from nested cwd: {detail}")
                 return
+            if script_name == "truncate-output.py":
+                stdout = r.stdout.rstrip("\n")
+                stderr = r.stderr.strip()
+                semantic_ok = (
+                    stdout.startswith("smoke-head\n")
+                    and stdout.endswith("\nsmoke-tail")
+                    and "chars omitted ...]" in stdout
+                    and len(stdout) <= truncation_cap + 64
+                    and "[truncated —" in stderr
+                    and "chars omitted" in stderr
+                )
+                if not semantic_ok:
+                    _fail(
+                        ".codex/hooks/truncate-output.py did not demonstrate capped output "
+                        "with preserved head/tail and omission markers"
+                    )
+                    return
         _pass("Codex hook wrappers run from nested cwd with LESS_TOKENS_AGENT=codex")
 
     print(f"Checking less_tokens install in {target_root} ({', '.join(sorted(agents))})\n")
