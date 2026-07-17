@@ -22,17 +22,20 @@ class AuditRow:
     notes: str
 
 
-def _load_hooks(path: Path) -> tuple[list[dict[str, Any]], str | None]:
+def _load_hooks(path: Path, flatten_fn) -> tuple[list[dict[str, Any]], str | None]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return [], "missing .codex/hooks.json"
     except (OSError, json.JSONDecodeError) as exc:
         return [], f"unreadable .codex/hooks.json: {exc}"
-    hooks = data.get("hooks")
-    if not isinstance(hooks, list):
-        return [], ".codex/hooks.json has no list-valued hooks key"
-    return [h for h in hooks if isinstance(h, dict)], None
+    hooks, well_formed = flatten_fn(data.get("hooks"))
+    if not well_formed:
+        return [], (
+            ".codex/hooks.json hooks value is not the expected nested schema "
+            "(stale flat format or malformed)"
+        )
+    return hooks, None
 
 
 def _is_writable(path: Path) -> bool:
@@ -129,15 +132,21 @@ def _run_representative_from_nested_cwd(root: Path, command: str) -> str | None:
 def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
     root = root.resolve()
     hooks_json = root / ".codex" / "hooks.json"
-    hooks, hooks_error = _load_hooks(hooks_json)
     problems: list[str] = []
+
+    try:
+        manifest = _load_manifest(root)
+    except (ImportError, OSError, AttributeError) as exc:
+        problems.append(f"cannot derive expected Codex hook commands: {exc}")
+        return [], problems
+
+    hooks, hooks_error = _load_hooks(hooks_json, manifest.flatten_codex_hooks)
     if hooks_error:
         problems.append(hooks_error)
     if not _is_writable(hooks_json):
         problems.append(".codex/hooks.json or parent directory is not writable")
 
     try:
-        manifest = _load_manifest(root)
         expected_entries = _expected_entries(root, hooks, manifest)
     except (ImportError, OSError, AttributeError) as exc:
         problems.append(f"cannot derive expected Codex hook commands: {exc}")

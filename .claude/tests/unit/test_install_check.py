@@ -12,7 +12,12 @@ from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from install import _CODEX_TOOL_SHIM_MARKER, build_codex_hook_entries, do_check
+from install import (
+    _CODEX_TOOL_SHIM_MARKER,
+    build_codex_hook_entries,
+    codex_hooks_json_value,
+    do_check,
+)
 
 
 def _args(**kwargs) -> argparse.Namespace:
@@ -87,10 +92,10 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     for _, _, cmd in entries:
         (codex_hooks / Path(shlex.split(cmd)[-1]).name).touch()
     (root / ".codex" / "hooks.json").write_text(json.dumps({
-        "hooks": [
+        "hooks": codex_hooks_json_value([
             {"event": ev, "matcher": matcher, "command": cmd}
             for ev, matcher, cmd in entries
-        ]
+        ])
     }))
 
     (root / "AGENTS.md").write_text(
@@ -281,6 +286,24 @@ class TestDoCheckHooks:
             rc = do_check(root, _args())
         assert rc == 1
         assert "no .py scripts" in capsys.readouterr().out
+
+    def test_fails_on_legacy_flat_codex_hooks_json(self, tmp_path, capsys):
+        """CX22: a pre-CX21 flat hooks.json must fail loud, not read as zero hooks."""
+        root = _minimal_codex_install(tmp_path)
+        entries = build_codex_hook_entries(
+            root / "fake_venv" / "bin" / "python", root, _args(agent="codex")
+        )
+        (root / ".codex" / "hooks.json").write_text(json.dumps({
+            "hooks": [
+                {"event": ev, "matcher": matcher, "command": cmd}
+                for ev, matcher, cmd in entries
+            ]
+        }))
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = _successful_codex_check_run
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 1
+        assert "not the expected nested schema" in capsys.readouterr().out
 
 
 class TestDoCheckSettings:

@@ -53,6 +53,8 @@ from pathlib import Path
 
 from agents.common.hooks.hook_manifest import (
     build_codex_hook_entries as build_shared_codex_hook_entries,
+    codex_hooks_json_value,
+    flatten_codex_hooks,
     hook_entries,
 )
 
@@ -964,43 +966,6 @@ def _codex_hook_script_name(command: str) -> str | None:
     return Path(script).name or None
 
 
-def _flatten_codex_hooks(raw_hooks: object) -> tuple[list[dict], bool]:
-    """Flatten the CLI's required `[[{event,matcher,hooks:[{type,command}]}, ...]]`
-    shape (CX21/DECISIONS.md) to `{event,matcher,command}` dicts for the existing
-    matching logic. Anything else — missing, malformed, or the pre-CX21 flat
-    shape the CLI rejects — normalizes to `([], False)` so callers rebuild clean.
-    """
-    if not (isinstance(raw_hooks, list) and all(isinstance(g, list) for g in raw_hooks)):
-        return [], False
-    flat = []
-    for group in raw_hooks:
-        for h in group:
-            if not isinstance(h, dict):
-                continue
-            inner = h.get("hooks")
-            if not (isinstance(inner, list) and inner and isinstance(inner[0], dict)):
-                continue
-            command = inner[0].get("command")
-            if command is None:
-                continue
-            flat.append({"event": h.get("event"), "matcher": h.get("matcher"), "command": command})
-    return flat, True
-
-
-def _codex_hooks_json_value(flat: list[dict]) -> list:
-    """Wrap a flat `{event,matcher,command}` list back into the CLI's nested shape."""
-    if not flat:
-        return []
-    return [[
-        {
-            "event": h["event"],
-            "matcher": h["matcher"],
-            "hooks": [{"type": "command", "command": h["command"]}],
-        }
-        for h in flat
-    ]]
-
-
 def wire_codex_hooks_json(
     hooks_json_path: Path,
     entries: list[tuple[str, str, str]],
@@ -1021,7 +986,7 @@ def wire_codex_hooks_json(
     else:
         data = {}
 
-    hooks, _ = _flatten_codex_hooks(data.get("hooks"))
+    hooks, _ = flatten_codex_hooks(data.get("hooks"))
     added = already_present = 0
     dirty = False
 
@@ -1070,7 +1035,7 @@ def wire_codex_hooks_json(
         dirty = True
 
     if not dry_run and dirty:
-        data["hooks"] = _codex_hooks_json_value(hooks)
+        data["hooks"] = codex_hooks_json_value(hooks)
         _write_text_or_degrade(hooks_json_path, json.dumps(data, indent=2) + "\n")
     return added, already_present
 
@@ -1083,7 +1048,7 @@ def unwire_codex_hooks_json(hooks_json_path: Path, source: Path, dry_run: bool) 
         data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return 0
-    hooks, was_correct_shape = _flatten_codex_hooks(data.get("hooks"))
+    hooks, was_correct_shape = flatten_codex_hooks(data.get("hooks"))
     if not was_correct_shape:
         return 0
     names = _our_hook_names(source, agents={"codex"})
@@ -1096,7 +1061,7 @@ def unwire_codex_hooks_json(hooks_json_path: Path, source: Path, dry_run: bool) 
         print(f"  {'would unwire' if dry_run else '-'} .codex/hooks.json: "
               f"{removed} less_tokens hook entr{'y' if removed == 1 else 'ies'}")
         if not dry_run:
-            data["hooks"] = _codex_hooks_json_value(keep)
+            data["hooks"] = codex_hooks_json_value(keep)
             _write_text_or_degrade(hooks_json_path, json.dumps(data, indent=2) + "\n")
     return removed
 
@@ -2056,9 +2021,12 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             try:
                 import json as _json
                 data = _json.loads(hooks_json.read_text(encoding="utf-8"))
-                hooks = data.get("hooks", [])
-                if not isinstance(hooks, list):
-                    _fail(".codex/hooks.json has unexpected format")
+                hooks, well_formed = flatten_codex_hooks(data.get("hooks"))
+                if not well_formed:
+                    _fail(
+                        ".codex/hooks.json hooks value is not the expected nested "
+                        "schema (stale flat format or malformed) — re-run install.py --update"
+                    )
                 else:
                     expected = build_codex_hook_entries(venv_py or Path("python"), target_root, args)
                     missing = [

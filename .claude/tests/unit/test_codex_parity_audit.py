@@ -23,6 +23,7 @@ spec.loader.exec_module(audit_mod)  # type: ignore[union-attr]
 from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
 from install import (  # noqa: E402
     build_codex_hook_entries,
+    codex_hooks_json_value,
     launcher_rel,
     write_python_launcher,
 )
@@ -72,7 +73,9 @@ def _write_codex_install(
         if stale_commands:
             command = f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
         hooks.append({"event": event, "matcher": matcher, "command": command})
-    (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+    (root / ".codex" / "hooks.json").write_text(
+        json.dumps({"hooks": codex_hooks_json_value(hooks)}), encoding="utf-8"
+    )
 
 
 def test_command_script_name_handles_quoted_windows_paths():
@@ -111,6 +114,22 @@ def test_codex_parity_audit_passes_current_generated_install(tmp_path):
     assert parity_rows
     assert all(row.enforcement == "best-effort-only" for row in parity_rows)
     assert any(row.strategy == "subagent-cap" and row.enforcement == "missing" for row in rows)
+
+
+def test_codex_parity_audit_fails_on_legacy_flat_hooks_json(tmp_path):
+    """CX22: a pre-CX21 flat hooks.json must fail loud, not silently read as zero hooks."""
+    _write_codex_install(tmp_path)
+    entries = build_codex_hook_entries(
+        Path(sys.executable),
+        tmp_path,
+        Namespace(no_truncate=False, no_compact=False, no_caveman=False),
+    )
+    flat = [{"event": ev, "matcher": matcher, "command": cmd} for ev, matcher, cmd in entries]
+    (tmp_path / ".codex" / "hooks.json").write_text(json.dumps({"hooks": flat}), encoding="utf-8")
+
+    _, problems = audit_mod.audit(tmp_path)
+
+    assert any("not the expected nested schema" in p for p in problems)
 
 
 def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):
