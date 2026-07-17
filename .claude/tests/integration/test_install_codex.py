@@ -433,7 +433,26 @@ class TestWireCodexHooksJson:
             [("PostToolUse", "Edit", "python index-refresh.py")],
         )
         assert (added, present) == (1, 0)
-        assert json.loads(hooks_json.read_text())["hooks"][0]["matcher"] == "Edit"
+        assert json.loads(hooks_json.read_text())["hooks"][0][0]["matcher"] == "Edit"
+
+    def test_pre_cx21_flat_shape_is_rebuilt_nested(self, tmp_path):
+        # CX21: real CLI rejects the old flat shape outright, so it's rebuilt, not merged with.
+        hooks_json = tmp_path / ".codex" / "hooks.json"
+        hooks_json.parent.mkdir(parents=True)
+        hooks_json.write_text(json.dumps({
+            "hooks": [{"event": "PostToolUse", "matcher": "Edit", "command": "python index-refresh.py"}]
+        }))
+        added, present = wire_codex_hooks_json(
+            hooks_json,
+            [("PostToolUse", "Edit", "python index-refresh.py")],
+        )
+        assert (added, present) == (1, 0)
+        data = json.loads(hooks_json.read_text())
+        assert data["hooks"][0][0] == {
+            "event": "PostToolUse",
+            "matcher": "Edit",
+            "hooks": [{"type": "command", "command": "python index-refresh.py"}],
+        }
 
     def test_creates_hooks_json_with_correct_structure(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
@@ -443,7 +462,11 @@ class TestWireCodexHooksJson:
         assert present == 0
         data = json.loads(hooks_json.read_text())
         assert "hooks" in data
-        assert data["hooks"][0]["event"] == "PostToolUse"
+        # CX21: real CLI wants one extra list-nesting level + a nested `hooks` array per entry.
+        group = data["hooks"][0]
+        assert group[0]["event"] == "PostToolUse"
+        assert group[0]["matcher"] == "Edit|Write"
+        assert group[0]["hooks"] == [{"type": "command", "command": "python index-refresh.py"}]
 
     def test_idempotent_second_wire(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
@@ -470,13 +493,20 @@ class TestWireCodexHooksJson:
 
     def test_unwire_leaves_non_less_tokens_entries(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
-        hooks_json.parent.mkdir(parents=True)
-        hooks_json.write_text(json.dumps({
-            "hooks": [{"event": "PostToolUse", "command": "python user_hook.py"}]
-        }))
-        unwire_codex_hooks_json(hooks_json, REPO, dry_run=False)
+        cmd = f"python {REPO}/agents/codex/hooks/index-refresh.py"
+        wire_codex_hooks_json(hooks_json, [("PostToolUse", "Edit", cmd)])
         data = json.loads(hooks_json.read_text())
-        assert len(data["hooks"]) == 1
+        data["hooks"][0].append({
+            "event": "PostToolUse", "matcher": "Write",
+            "hooks": [{"type": "command", "command": "python user_hook.py"}],
+        })
+        hooks_json.write_text(json.dumps(data))
+
+        removed = unwire_codex_hooks_json(hooks_json, REPO, dry_run=False)
+        assert removed == 1
+        data = json.loads(hooks_json.read_text())
+        assert len(data["hooks"][0]) == 1
+        assert data["hooks"][0][0]["hooks"][0]["command"] == "python user_hook.py"
 
     def test_unwire_missing_or_malformed_hooks_json_returns_zero(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
