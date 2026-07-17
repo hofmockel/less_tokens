@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 import shutil
 import sys
 from argparse import Namespace
@@ -25,6 +26,10 @@ from install import (  # noqa: E402
     launcher_rel,
     write_python_launcher,
 )
+
+
+def _command_script_name(command: str) -> str:
+    return shlex.split(command)[-1].replace("\\", "/").rsplit("/", 1)[-1]
 
 
 def _write_codex_install(
@@ -61,13 +66,23 @@ def _write_codex_install(
     )
     hooks = []
     for event, matcher, command in entries:
-        if drop_script and command.replace("\\", "/").endswith(f"/{drop_script}"):
+        script = _command_script_name(command)
+        if drop_script == script:
             continue
         if stale_commands:
-            script = Path(command.replace("\\", "/").rsplit("/", 1)[-1]).name
             command = f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
         hooks.append({"event": event, "matcher": matcher, "command": command})
     (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+
+
+def test_command_script_name_handles_quoted_windows_paths():
+    command = (
+        "LESS_TOKENS_AGENT=codex "
+        "'C:\\repo\\.less_tokens\\bin\\python.cmd' "
+        "'C:\\repo\\.codex\\hooks\\search-first.py'"
+    )
+
+    assert _command_script_name(command) == "search-first.py"
 
 
 def test_codex_parity_audit_reports_best_effort_when_fully_wired(tmp_path):
