@@ -251,3 +251,42 @@ def build_codex_hook_entries(
             script = shlex.quote(str((target_root / normalized_script).resolve()))
         rewritten.append((event, matcher, f"{prefix_part} {script}"))
     return rewritten
+
+
+def flatten_codex_hooks(raw_hooks: object) -> tuple[list[dict], bool]:
+    """Flatten the CLI's required `[[{event,matcher,hooks:[{type,command}]}, ...]]`
+    shape (CX21/DECISIONS.md) to `{event,matcher,command}` dicts. Anything else —
+    missing, malformed, or the pre-CX21 flat shape the CLI rejects — normalizes to
+    `([], False)` so callers can distinguish "no hooks yet" from "wrong schema" and
+    treat both install checking (install.py) and the deployed parity audit
+    (codex_parity_audit.py) as one source of truth for the shape.
+    """
+    if not (isinstance(raw_hooks, list) and all(isinstance(g, list) for g in raw_hooks)):
+        return [], False
+    flat = []
+    for group in raw_hooks:
+        for h in group:
+            if not isinstance(h, dict):
+                continue
+            inner = h.get("hooks")
+            if not (isinstance(inner, list) and inner and isinstance(inner[0], dict)):
+                continue
+            command = inner[0].get("command")
+            if command is None:
+                continue
+            flat.append({"event": h.get("event"), "matcher": h.get("matcher"), "command": command})
+    return flat, True
+
+
+def codex_hooks_json_value(flat: list[dict]) -> list:
+    """Wrap a flat `{event,matcher,command}` list back into the CLI's nested shape."""
+    if not flat:
+        return []
+    return [[
+        {
+            "event": h["event"],
+            "matcher": h["matcher"],
+            "hooks": [{"type": "command", "command": h["command"]}],
+        }
+        for h in flat
+    ]]

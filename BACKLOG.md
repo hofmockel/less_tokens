@@ -10,9 +10,8 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX22 | P0 | Ready | Teach Codex install validators to read the nested hooks schema | CX21 |
 
-- **CX22 — Codex install validators still parse the retired flat hook list** *(meta / false-health)* — CX21 changed `wire_codex_hooks_json` to emit the CLI-required nested `hooks → groups → matchers → command hooks` structure, but `install.py:2054-2073` still iterates the outer `hooks` list as if every item were a matcher dict, and `.claude/tools/codex_parity_audit.py:25-36` filters that same outer list for dicts. A valid post-CX21 install therefore appears missing or unwired to both health checks even though the writer is correct. Acceptance: share one nested-schema parser between install checking and the deployed parity audit (or pin byte-equivalent helpers), reject legacy/malformed shapes explicitly, update audit fixtures to use the real nested representation, and prove `install.py --check --agent codex` plus `codex_parity_audit.py` pass a generated install and fail a missing matcher. This is validator parity only; live `PostToolUse` firing/replacement remains CX17.
+_(empty — promote the next item from **Next** below)_
 
 ## Next
 
