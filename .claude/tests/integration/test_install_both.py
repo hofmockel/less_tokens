@@ -133,7 +133,7 @@ class TestIdempotentBothMode:
         wire_codex_hooks_json(hooks_json, entries)
 
         data = json.loads(hooks_json.read_text())
-        commands = [h["command"] for h in data["hooks"]]
+        commands = [h["hooks"][0]["command"] for group in data["hooks"] for h in group]
         assert commands.count("python index-refresh.py") == 1
 
     def test_multiple_entries_all_wired_once(self, tmp_path):

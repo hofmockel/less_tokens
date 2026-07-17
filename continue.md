@@ -3,28 +3,26 @@
 > **Next focus:** land CX21 (fix `.codex/hooks.json` schema so installed Codex hooks actually load).
 
 ## Current state
-`main` has moved 19 commits since the last handoff (SA1, CX16, F1, B1/B2 Codex-truncation fixes, backlog reorg, and more — see `git log --oneline 936f0ed..HEAD`). This session's own branch, `cx17-codex-hooks-schema-finding`, is clean and pushed; PR [#70](https://github.com/hofmockel/less_tokens/pull/70) is open against `main`, docs-only (`BACKLOG.md`/`CHANGELOG.md`/`DECISIONS.md`), no functional code touched.
+`main` is clean at `4f7cc34`, matches `origin/main`. PR [#70](https://github.com/hofmockel/less_tokens/pull/70) (CX17 finding, CX21 filed) and PR [#71](https://github.com/hofmockel/less_tokens/pull/71) (CN1 filed) are both merged and their branches deleted. No open PRs.
 
 ## What happened this session
-- Worked CX17 (backlog Research item: does Codex's `PostToolUse` hook stdout actually replace what the model sees?). Live-tested with real `codex exec` calls (codex-cli 0.142.3), planting a random sentinel inside `truncate_bash()`'s head/tail omission window.
-- Found this repo's own installed `.codex/hooks.json` fails to parse under the currently-installed CLI — the installer emits a flat `{"hooks":[{event,matcher,command}]}` shape, but the CLI actually wants `{"hooks":[[{event,matcher,hooks:[{type,command}]}]]}` (one extra list level, Claude-style nested hook groups). This silently no-ops **all 20** of this repo's dogfooded Codex hooks on this machine — no visible error outside `--json` trace inspection.
-- Even after hand-correcting the schema and forcing `--dangerously-bypass-hook-trust`, `PostToolUse` still never fired at all in `codex exec` (confirmed via a wildcard debug tap: 0 `PostToolUse` payloads captured vs. 1 clean `PreToolUse` payload in the same run). So CX17's original replacement-contract question was never actually reachable — the sentinel came back fully intact either way.
-- `.codex/hooks.json` was restored to its original (broken) state afterward — no live fix applied, since the real fix belongs in the installer's `wire_codex_hooks_json` (`install.py:967`), not a hand-edited file.
-- Filed **CX21** (P0) for the schema bug, now BACKLOG.md's top "Ready now" row. Removed CX17's row (research outcome, recorded in `DECISIONS.md` instead per the Research-item convention). `parity.json`'s `truncate-output.codex: "shipped"` is now known-inaccurate but wasn't changed — its vocabulary is binary (`shipped`/`missing`) and neither value fits "wired but broken"; flagged as a follow-up, not fixed.
-- Also picked up an unrelated stale WIP stash from `sa2-subagent-fanout` while switching branches — resolved a merge conflict in `BACKLOG.md`/`CHANGELOG.md` (main still has SA2's own row/entry unshipped) and folded both into this commit correctly.
+- Landed PR #70: rebased its branch onto `main` (which had shipped SA2 in the meantime), resolved a `BACKLOG.md`/`CHANGELOG.md` conflict by dropping the now-stale SA2 row and renumbering, force-pushed, waited out CI, squash-merged.
+- Filed **CN1** (P2, Ready, in BACKLOG.md's Next table) — `continue_freshness.py` only blocks a stale `continue.md` at agent tool-*Read* time; nothing stops a session from pushing code without ever regenerating the handoff. Proposes a native `pre-push` git hook (new install surface — no native git hook exists in this toolkit yet) reusing `check_continue_freshness`'s hash-distance logic. Left open design questions: hard-block vs warn, and that "update" can't mean auto-regenerating content in a bare git hook (needs an LLM) vs. just gating staleness.
+- `main` is a protected branch (requires PRs, required status checks) — a direct `git push origin main` was rejected. Learned to always branch+PR for this repo, never assume direct push works even for docs-only commits.
+- Landed that CN1 commit via a second PR, #71, same rebase-free flow (no conflict this time), squash-merged after CI passed.
 
 ## Open work
-1. **CX21** — fix `wire_codex_hooks_json` to emit the correct nested schema; add a smoke test that actually invokes `codex exec` (or an equivalent fixture-based parse check) so schema drift fails loudly next time. See `BACKLOG.md` for full acceptance criteria.
-2. Reopen **CX17** properly once CX21 lands — still need to isolate whether the `PostToolUse` non-firing was exec-mode-specific or purely the schema bug (interactive `codex` TUI wasn't tested; not scriptable for an unattended run).
-3. Decide a third `parity.json` status value (or equivalent) for "wired but unverified/broken" — `truncate-output.codex` shouldn't read `"shipped"` today.
-4. PR #70 itself just needs review/merge — it's small and self-contained.
+1. **CX21** (P0, top of BACKLOG.md's Ready now) — fix `wire_codex_hooks_json` (`install.py:967`) to emit the correct nested schema (`{"hooks":[[{event,matcher,hooks:[{type,command}]}]]}`, not the current flat form); add a smoke test that actually invokes `codex exec` (or an equivalent fixture-based parse check) so schema drift fails loudly. Full acceptance criteria in `BACKLOG.md`.
+2. Reopen **CX17** properly once CX21 lands — still need to isolate whether `PostToolUse` non-firing in `codex exec` was exec-mode-specific or purely the schema bug (interactive `codex` TUI untested).
+3. **CN1** (P2) — resolve its open design questions, then implement the `pre-push` hook.
+4. Decide a third `parity.json` status value for "wired but unverified/broken" — `truncate-output.codex` still reads `"shipped"`.
 
 ## Suggested skills
 - `$less-tokens` — inspect `install.py`'s `wire_codex_hooks_json` and the hook manifest before touching CX21.
 - `$bugfix` — CX21 is a well-scoped, single-cause fix once picked up.
 
 ## Start here
-Read `BACKLOG.md`'s CX21 row, then open `install.py:967` (`wire_codex_hooks_json`) and fix the emitted schema to match the nested `Vec<Vec<MatcherGroup>>` shape documented there.
+Read `BACKLOG.md`'s CX21 row, then open `install.py:967` (`wire_codex_hooks_json`) and fix the emitted schema to match the nested shape documented there.
 
 ---
-_Last updated at HEAD `a6e8c9b` on 2026-07-17._
+_Last updated at HEAD `4f7cc34` on 2026-07-17._
