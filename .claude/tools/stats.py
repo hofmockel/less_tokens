@@ -325,6 +325,38 @@ def _panel_lines(title: str, records: list[dict], strategies: tuple[str, ...],
     ]
 
 
+def _fanout_summary(records: list[dict]) -> dict:
+    """Aggregate SA2 ``subagent_fanout`` events: spawns, prompt/return chars.
+
+    A distinct event kind (``event``, not ``strategy``) — fan-out is a cost
+    measurement, not a savings claim, so it is kept out of ``_summarize``'s
+    measured/upper-bound framing entirely.
+    """
+    spawns = 0
+    prompt_chars = 0
+    return_chars = 0
+    for r in records:
+        if r.get("event") != "subagent_fanout":
+            continue
+        spawns += 1
+        prompt_chars += r.get("prompt_chars", 0)
+        return_chars += r.get("return_chars", 0)
+    return {"spawns": spawns, "prompt_chars": prompt_chars, "return_chars": return_chars}
+
+
+def _fanout_line(records: list[dict]) -> str:
+    d = _fanout_summary(records)
+    if d["spawns"] == 0:
+        return "_Subagent fan-out: no subagent spawns recorded._"
+    tok = _to_tokens(d["return_chars"])
+    return (
+        f"_Subagent fan-out: {d['spawns']:,} spawn(s), {d['prompt_chars']:,} prompt "
+        f"chars sent, {d['return_chars']:,} chars absorbed into the parent "
+        f"(~{tok:,} tokens). Cost measurement, not a savings claim — not counted "
+        f"in the totals above._"
+    )
+
+
 def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
     """Render a session/all-time block as two separate panels.
 
@@ -348,6 +380,8 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
         "_Upper-bound rows assume you would otherwise have read the whole file and "
         "do not subtract the search you ran instead. Do not add them to the measured "
         "total._",
+        "",
+        _fanout_line(records),
     ]
 
 
@@ -518,7 +552,8 @@ def _html_block(heading: str, records: list[dict]) -> str:
         + "</div>\n"
         '<p class="note">Upper-bound rows assume you would otherwise have read the '
         "whole file and do not subtract the search you ran instead. They are not "
-        "added to the measured total.</p>"
+        "added to the measured total.</p>\n"
+        f'<p class="note">{_html.escape(_fanout_line(records).strip("_"))}</p>'
     )
 
 

@@ -8,11 +8,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 ## Ready now
 
-| Order | ID | Priority | Outcome | Depends on |
-|---:|---|:---:|---|---|
-| 1 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
-
-- **SA2 — Log subagent fan-out telemetry** *(measurement / subagent)* — No event category exists for the cost of spawning subagents; every other subagent-strategy candidate in this backlog is currently a `[HYP]` claim, not a measured one, because there is no baseline. Add a `subagent_fanout` event to `state/savings.jsonl` at `PreToolUse:Task`/`PostToolUse:Task`: spawn count, per-child prompt size, per-child return size, cumulative parent-side absorption. Surface a rollup in the existing savings report distinct from generic Bash/Read totals. Acceptance: a multi-subagent session produces one `subagent_fanout` event per spawn with accurate kept/elided-equivalent figures, and the savings report shows a distinct subagent-fanout line. Cost-benefit: Low-Med build cost, near-zero regression risk (no existing hook logic touched), zero direct token savings itself but it's the only mechanism that turns SA3/SA4/SA5's benefit claims from `[HYP]` into `[OBS]` — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #2, "build now, paired with SA1."
+Nothing ready right now — see **Next** below.
 
 ## Next
 

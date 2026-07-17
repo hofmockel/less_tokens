@@ -283,6 +283,53 @@ def test_build_table_lines_shows_savings():
 
 
 # ---------------------------------------------------------------------------
+# stats._fanout_summary / _fanout_line — SA2 subagent fan-out telemetry
+# ---------------------------------------------------------------------------
+
+def test_fanout_summary_empty():
+    stats = _import_stats()
+    assert stats._fanout_summary([]) == {"spawns": 0, "prompt_chars": 0, "return_chars": 0}
+
+
+def test_fanout_summary_ignores_strategy_records():
+    stats = _import_stats()
+    records = [{"strategy": "truncation", "elided_chars": 4000}]
+    assert stats._fanout_summary(records)["spawns"] == 0
+
+
+def test_fanout_summary_aggregates_events():
+    stats = _import_stats()
+    records = [
+        {"event": "subagent_fanout", "prompt_chars": 100, "return_chars": 900},
+        {"event": "subagent_fanout", "prompt_chars": 50, "return_chars": 200},
+        {"strategy": "truncation", "elided_chars": 4000},
+    ]
+    result = stats._fanout_summary(records)
+    assert result == {"spawns": 2, "prompt_chars": 150, "return_chars": 1100}
+
+
+def test_fanout_line_reports_no_spawns():
+    stats = _import_stats()
+    assert "no subagent spawns" in stats._fanout_line([])
+
+
+def test_fanout_line_shows_counts_and_is_excluded_from_totals_note():
+    stats = _import_stats()
+    records = [{"event": "subagent_fanout", "prompt_chars": 100, "return_chars": 900}]
+    line = stats._fanout_line(records)
+    assert "1 spawn" in line
+    assert "900" in line
+    assert "not counted in the totals above" in line.lower()
+
+
+def test_build_table_lines_includes_fanout_line():
+    stats = _import_stats()
+    records = [{"event": "subagent_fanout", "prompt_chars": 10, "return_chars": 20}]
+    joined = "\n".join(stats._build_table_lines("Session", records))
+    assert "Subagent fan-out" in joined
+
+
+# ---------------------------------------------------------------------------
 # stats._load_records — legacy-tolerant loader
 # ---------------------------------------------------------------------------
 

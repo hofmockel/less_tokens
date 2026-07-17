@@ -147,6 +147,17 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         claude_script="subagent-cap.py",
         claude=(HookWire("PostToolUse", "Task"),),
     ),
+    # Claude-only (SA2): no Codex Task-boundary hook exists, same reasoning as
+    # subagent-cap above. Always wired (not gated by an optional flag) — this
+    # is measurement only, no output mutation.
+    HookSpec(
+        name="subagent-fanout",
+        claude_script="subagent-fanout.py",
+        claude=(
+            HookWire("PreToolUse", "Task"),
+            HookWire("PostToolUse", "Task"),
+        ),
+    ),
     HookSpec(
         name="compact-trigger",
         optional_flag="compact",
