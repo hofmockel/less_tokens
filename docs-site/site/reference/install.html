@@ -16,9 +16,15 @@
 
     <section class="page-title"><h1>Install</h1><p>Canonical operational detail remains in the root Markdown docs.</p></section>
     
-        <section><p>This reference page is a navigable HTML layer over the canonical Markdown docs. Follow the source links for the full operational detail.</p></section>
-    
-    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li></ul></aside>
+        <section><h2>Install By Agent</h2><pre><code>python3 less_tokens/install.py                  # Claude (default)
+python3 less_tokens/install.py --agent codex    # Codex
+python3 less_tokens/install.py --agent both     # both</code></pre>
+        <p>The initial index build runs by default. Use <code>--no-build</code> to defer the model download and configure search paths first.</p></section>
+        <section><h2>Safe Upgrade</h2><pre><code>cd ~/myproject/less_tokens
+git pull
+python3 install.py --update --agent codex</code></pre>
+        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved.</p></section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li><li><a href="../../../install.py">install.py</a></li></ul></aside>
     
   </main>
 </body>

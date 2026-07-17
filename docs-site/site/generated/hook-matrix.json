@@ -336,6 +336,45 @@
     "claude": [
       {
         "event": "PostToolUse",
+        "matcher": "Task"
+      }
+    ],
+    "claude_script": "subagent-cap.py",
+    "codex": [],
+    "codex_script": null,
+    "name": "subagent-cap",
+    "optional_flag": "truncate",
+    "parity": {
+      "claude": "shipped",
+      "codex": "missing",
+      "optional": true
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PreToolUse",
+        "matcher": "Task"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "Task"
+      }
+    ],
+    "claude_script": "subagent-fanout.py",
+    "codex": [],
+    "codex_script": null,
+    "name": "subagent-fanout",
+    "optional_flag": null,
+    "parity": {
+      "claude": "shipped",
+      "codex": "missing"
+    }
+  },
+  {
+    "claude": [
+      {
+        "event": "PostToolUse",
         "matcher": ".*"
       }
     ],

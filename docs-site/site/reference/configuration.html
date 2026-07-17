@@ -16,9 +16,20 @@
 
     <section class="page-title"><h1>Configuration</h1><p>Canonical operational detail remains in the root Markdown docs.</p></section>
     
-        <section><p>This reference page is a navigable HTML layer over the canonical Markdown docs. Follow the source links for the full operational detail.</p></section>
-    
-    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li></ul></aside>
+        <section><h2>Canonical Configuration</h2>
+        <p>Search/index settings live in <code>.claude/tools/search_config.py</code>. Shared budget policy lives in <code>.less_tokens/config/budget.json</code>. Codex tool files are shims, not another configuration source.</p></section>
+        <section><h2>Codex hooks.json Shape</h2>
+        <p>The installer owns less_tokens hook entries and emits nested matcher groups. This abridged example shows the required structure:</p>
+        <pre><code>{
+  "hooks": [[{
+    "event": "PostToolUse",
+    "matcher": "apply_patch|Edit|Write",
+    "hooks": [{"type": "command", "command": "…/index-refresh.py"}]
+  }]]
+}</code></pre>
+        <p>Do not flatten command fields onto matcher objects. Re-run <code>install.py --update --agent codex</code> to migrate a legacy file instead of hand-editing generated entries.</p>
+        <p class="note">CX21 fixed the writer. CX22 tracks health-check readers that still interpret the retired flat list.</p></section>
+    <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li><li><a href="../../../install.py">install.py</a></li></ul></aside>
     
   </main>
 </body>

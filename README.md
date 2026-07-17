@@ -38,7 +38,7 @@ Agent token waste comes from several sources: reading entire files when only a f
 
 Core search/read guards, lean-output hooks, truncation, compaction nudges, terse-output enforcement, and the budget control plane are wired by default for the selected agent when the target hook location is writable; Codex wiring remains best-effort and falls back to `AGENTS.md` + skills if `.codex/` isn't writable. Use `--no-truncate`, `--no-compact`, or `--no-caveman` to opt out of those default savings hooks.
 
-Claude and Codex have feature parity for shipped strategies, but they do not have identical enforcement. Claude hooks are enforced directly. Codex enforcement is best-effort through `.codex/hooks.json`. That difference is intentional: Claude has extra reliable levers, including direct hooks, `agent_overrides.claude`, and model-aware thresholds. Those Claude-only settings are isolated so they can cut Claude token use without changing Codex behavior.
+Claude and Codex have feature parity for shipped strategies, but they do not have identical enforcement. Claude hooks are enforced directly. Codex enforcement is best-effort through `.codex/hooks.json`, using Codex CLI's nested matcher-group schema (`hooks` → groups → matchers → command hooks). That difference is intentional: Claude has extra reliable levers, including direct hooks, `agent_overrides.claude`, and model-aware thresholds. Those Claude-only settings are isolated so they can cut Claude token use without changing Codex behavior.
 
 A built-in **savings tracker** (`.claude/tools/stats.py` for Claude; `.less_tokens/tools/stats.py` shim for Codex) measures chars and estimated tokens saved per strategy. Tracking is always on, local-only, and written to the active state directory: `.claude/state/savings.jsonl` for Claude and `.less_tokens/state/savings.jsonl` for Codex. Nothing is transmitted. Disable tracking with `LESS_TOKENS_NO_STATS=1`. A `.claudeignore` file is also included to keep documentation, CI config, and other non-code files out of Claude's project file scope.
 
@@ -100,8 +100,12 @@ Upgrade an existing install the same way:
 
 ```bash
 cd ~/myproject/less_tokens && git pull
-python3 install.py --update                # safe re-copy of hooks + tools
+python3 install.py --update --agent claude   # safe re-copy of Claude hooks + tools
+python3 install.py --update --agent codex    # safe re-copy + Codex hooks.json migration
+python3 install.py --update --agent both     # update both integrations
 ```
+
+The Codex update path automatically replaces the pre-CX21 flat `.codex/hooks.json` layout with the nested structure required by current `codex-cli`, while preserving unrelated entries that already use the valid nested shape. No manual JSON edit is required.
 
 See [DOCUMENTATION.md](DOCUMENTATION.md) for full installation, configuration, usage, hook wiring instructions, and the Claude/Codex parity matrix. The hook manifest lives in [`agents/common/hooks/hook_manifest.py`](agents/common/hooks/hook_manifest.py), with CI-checked parity data in [`agents/common/hooks/parity.json`](agents/common/hooks/parity.json).
 

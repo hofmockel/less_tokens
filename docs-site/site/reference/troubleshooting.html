@@ -22,7 +22,7 @@
           <li><strong>Wrong venv path:</strong> pass --venv PATH or verify .less_tokens/bin/python and .claude/bin/python launch the intended interpreter.</li>
           <li><strong>Empty index or search results:</strong> inspect search_config.py, run embeddings.py refresh, and check indexed source directories.</li>
           <li><strong>Silent index refresh failure:</strong> inspect index-refresh.log and rerun the refresh command manually.</li>
-          <li><strong>Hook JSON mistakes:</strong> compare settings against generated hook-matrix.json and run install.py --check.</li>
+          <li><strong>Codex hook JSON mistakes:</strong> verify the nested groups → matchers → command-hooks shape and rerun install.py --update --agent codex. Until CX22 lands, the Codex check/audit readers can falsely reject a valid nested file.</li>
           <li><strong>Windows-safe paths:</strong> prefer the generated python launchers and quoted paths from install.py.</li>
         </ul></section>
         

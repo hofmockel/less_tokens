@@ -1051,7 +1051,12 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
     extra = ""
     if page.endswith("installer.html"):
         flag_rows = [[e(", ".join(row["flags"])), e(row.get("help") or ""), e(row.get("action") or ""), e(row.get("default") or "")] for row in installer_flags()]
-        extra = f'<h2>Installer Flags</h2>{table(["Flags", "Help", "Action", "Default"], flag_rows)}<p class="note"><a href="{e(generated_link(page, "installer-flags.json"))}">installer-flags.json</a></p>'
+        extra = f'''<h2>Installer Flags</h2>{table(["Flags", "Help", "Action", "Default"], flag_rows)}
+        <p class="note"><a href="{e(generated_link(page, "installer-flags.json"))}">installer-flags.json</a></p>
+        <h2>Codex Hook Configuration</h2>
+        <p>The installer writes Codex CLI's nested matcher-group schema: an outer list of groups, matcher objects inside each group, and typed command hooks inside each matcher. A safe Codex update also migrates the pre-CX21 flat form, which current <code>codex-cli</code> rejects.</p>
+        <pre><code>python3 install.py --update --agent codex</code></pre>
+        <p class="note">Configuration parsing was fixed by CX21. Live PostToolUse firing and tool-output replacement remain a separate evidence question in DECISIONS.md.</p>'''
     elif page.endswith("hook-manifest.html"):
         hook_rows = [[e(row["name"]), e(row.get("optional_flag") or "always"), e(row["claude_script"]), e(row["codex_script"])] for row in hook_matrix()]
         extra = f'<h2>Hook Matrix</h2>{table(["Hook", "Flag", "Claude", "Codex"], hook_rows)}<p class="note"><a href="{e(generated_link(page, "hook-matrix.json"))}">hook-matrix.json</a></p>'
@@ -1114,6 +1119,29 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
 
 def reference_page(page: str, title: str) -> str:
     body = {
+        "Install": """
+        <section><h2>Install By Agent</h2><pre><code>python3 less_tokens/install.py                  # Claude (default)
+python3 less_tokens/install.py --agent codex    # Codex
+python3 less_tokens/install.py --agent both     # both</code></pre>
+        <p>The initial index build runs by default. Use <code>--no-build</code> to defer the model download and configure search paths first.</p></section>
+        <section><h2>Safe Upgrade</h2><pre><code>cd ~/myproject/less_tokens
+git pull
+python3 install.py --update --agent codex</code></pre>
+        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved.</p></section>""",
+        "Configuration": """
+        <section><h2>Canonical Configuration</h2>
+        <p>Search/index settings live in <code>.claude/tools/search_config.py</code>. Shared budget policy lives in <code>.less_tokens/config/budget.json</code>. Codex tool files are shims, not another configuration source.</p></section>
+        <section><h2>Codex hooks.json Shape</h2>
+        <p>The installer owns less_tokens hook entries and emits nested matcher groups. This abridged example shows the required structure:</p>
+        <pre><code>{
+  "hooks": [[{
+    "event": "PostToolUse",
+    "matcher": "apply_patch|Edit|Write",
+    "hooks": [{"type": "command", "command": "…/index-refresh.py"}]
+  }]]
+}</code></pre>
+        <p>Do not flatten command fields onto matcher objects. Re-run <code>install.py --update --agent codex</code> to migrate a legacy file instead of hand-editing generated entries.</p>
+        <p class="note">CX21 fixed the writer. CX22 tracks health-check readers that still interpret the retired flat list.</p></section>""",
         "Troubleshooting": """
         <section><h2>Common Failures</h2>
         <ul>
@@ -1121,7 +1149,7 @@ def reference_page(page: str, title: str) -> str:
           <li><strong>Wrong venv path:</strong> pass --venv PATH or verify .less_tokens/bin/python and .claude/bin/python launch the intended interpreter.</li>
           <li><strong>Empty index or search results:</strong> inspect search_config.py, run embeddings.py refresh, and check indexed source directories.</li>
           <li><strong>Silent index refresh failure:</strong> inspect index-refresh.log and rerun the refresh command manually.</li>
-          <li><strong>Hook JSON mistakes:</strong> compare settings against generated hook-matrix.json and run install.py --check.</li>
+          <li><strong>Codex hook JSON mistakes:</strong> verify the nested groups → matchers → command-hooks shape and rerun install.py --update --agent codex. Until CX22 lands, the Codex check/audit readers can falsely reject a valid nested file.</li>
           <li><strong>Windows-safe paths:</strong> prefer the generated python launchers and quoted paths from install.py.</li>
         </ul></section>
         """,
@@ -1131,12 +1159,22 @@ python3 docs-site/scripts/check_docs.py
 .claude/bin/python .claude/tools/embeddings.py refresh
 .less_tokens/bin/python .less_tokens/tools/budget_report.py</code></pre></section>
         """,
+        "Decisions": """
+        <section><h2>Current Codex Hook Decisions</h2>
+        <ul>
+          <li><strong>CX21 accepted:</strong> emit Codex CLI's nested matcher-group schema and migrate the rejected legacy flat representation.</li>
+          <li><strong>CX17 remains unverified:</strong> fixing configuration parsing does not prove that <code>codex exec</code> fires <code>PostToolUse</code> or that hook stdout replaces tool output.</li>
+          <li><strong>CX22 open:</strong> update install checking and the parity audit to consume the same nested representation as the writer.</li>
+        </ul>
+        <p>DECISIONS.md is canonical for evidence, verdict boundaries, and reopen conditions.</p></section>""",
     }.get(title, f"""
         <section><p>This reference page is a navigable HTML layer over the canonical Markdown docs. Follow the source links for the full operational detail.</p></section>
     """)
     source_links = [("DOCUMENTATION.md", "DOCUMENTATION.md"), ("README.md", "README.md")]
+    if title in {"Install", "Configuration"}:
+        source_links.append(("install.py", "install.py"))
     if title == "Decisions":
-        source_links = [("DECISIONS.md", "DECISIONS.md")]
+        source_links = [("DECISIONS.md", "DECISIONS.md"), ("BACKLOG.md", "BACKLOG.md"), ("CHANGELOG.md", "CHANGELOG.md")]
     if title == "Backlog":
         source_links = [("BACKLOG.md", "BACKLOG.md")]
     if title == "Contributing":
