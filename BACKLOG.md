@@ -10,15 +10,18 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | Outcome | Depends on |
 |---:|---|:---:|---|---|
-| 1 | B1 | P0 | Make the Codex truncation install smoke exercise real truncation | — |
-| 2 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | B1 |
-| 3 | F1 | P1 | Remove test-command prose from always-loaded context | — |
-
-- **B1 — Codex truncation install smoke is a false positive** *(bug / verification)* — `install.py:1701-1715` invokes `truncate-output.py` with a small `"tool_output"` payload, but `agents/common/hooks/payload.py:73-78` only normalizes `tool_response` or `tool_result`. The adapter sees an empty result and exits 0 without exercising truncation, so `install.py --check --agent codex` can report wrapper health while output parsing/replacement is broken. Use a recognized output key and oversized content, then assert the cap, omission marker, and expected hook result rather than process startup. Acceptance: a regression test fails if the smoke payload is not actually truncated.
+| 1 | CX16 | P0 | Give this repo a supported, idempotent Codex dogfood refresh | — |
+| 2 | F1 | P1 | Remove test-command prose from always-loaded context | — |
+| 3 | SA1 | P1 | Cap a subagent's return before it inflates the parent's transcript | — |
+| 4 | SA2 | P1 | Log subagent fan-out telemetry (spawn/return size, cumulative absorption) | — |
 
 - **CX16 — Make Codex dogfood installs self-diagnosing and recoverable** *(meta / install parity)* — This repo's generated, ignored `.codex/` layer can silently lag the checked-in manifest, while `install.py` refuses to target the source directory itself. Provide a supported refresh path for the source repo and make skipped or unwritable hook installation an explicit degraded result. Acceptance: starting from the observed stale state, one documented command installs every required script and manifest entry with absolute paths; the parity audit reports zero unwired rows; representative wrappers run from a nested cwd; a second refresh is a no-op.
 
 - **F1 — Replace always-loaded test command prose with a dev command shim** *(fixed / prose-to-code)* — `CLAUDE.md:20-31` stores install/test commands and CI matrix prose in always-loaded context, while `pyproject.toml:1-3` and workflows already encode pytest paths. Add a small `.claude/tools/dev.py` or `tools/check.py` command (`unit`, `integration`, `all`, `single <nodeid>`) that uses the configured venv and pytest paths, then shrink `CLAUDE.md` to the command plus a documentation pointer. Acceptance: local and CI test paths share one source and the multi-line command block leaves `CLAUDE.md`.
+
+- **SA1 — Cap a subagent's return before it inflates the parent's transcript** *(hook / subagent)* — No hook fires on the `Task` tool today; confirmed by grep of `agents/common/hooks/hook_manifest.py`, the only hook that fires on a subagent boundary at all is `SubagentStop` (shared wiring with `Stop`, used only for the terse-output nudge and the savings-html regen). A parent orchestrator running several subagents absorbs each one's full final response verbatim into its own transcript. Add a `PostToolUse:Task` hook that digests a subagent's return before it lands in the parent's transcript: reuse `truncate_output.py`'s char-ceiling head/tail elision for the size ceiling, but add new pass/fail/blocker-style field extraction, since subagent prose isn't log-shaped like Bash output and a naive tail-cut risks eating the actual recommendation. Acceptance: an oversized subagent return is capped before the parent's next turn resumes; the extracted pass/fail/blocker summary (or head+tail + omission marker as fallback) is preserved; a representative multi-agent run shows a measurable per-child token reduction. Cost-benefit: Low-Med build cost, low regression risk (additive hook, no existing matcher touched), `[HYP]` savings but High directional confidence — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md` (ever_better team engagement, ranked #1 of 5, "build now").
+
+- **SA2 — Log subagent fan-out telemetry** *(measurement / subagent)* — No event category exists for the cost of spawning subagents; every other subagent-strategy candidate in this backlog is currently a `[HYP]` claim, not a measured one, because there is no baseline. Add a `subagent_fanout` event to `state/savings.jsonl` at `PreToolUse:Task`/`PostToolUse:Task`: spawn count, per-child prompt size, per-child return size, cumulative parent-side absorption. Surface a rollup in the existing savings report distinct from generic Bash/Read totals. Acceptance: a multi-subagent session produces one `subagent_fanout` event per spawn with accurate kept/elided-equivalent figures, and the savings report shows a distinct subagent-fanout line. Cost-benefit: Low-Med build cost, near-zero regression risk (no existing hook logic touched), zero direct token savings itself but it's the only mechanism that turns SA3/SA4/SA5's benefit claims from `[HYP]` into `[OBS]` — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #2, "build now, paired with SA1."
 
 ## Next
 
@@ -26,17 +29,18 @@ Start these after the P0 Codex foundation above. Research items are bounded spik
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 4 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
-| 5 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
-| 6 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
-| 7 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 8 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 9 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 10 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 11 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 12 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 13 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
-| 14 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
+| 5 | CX17 | P1 | Research | Prove whether Codex replaces tool output before model context | CX16 |
+| 6 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | CX16 |
+| 7 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX17, CX18 captures |
+| 8 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 9 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 10 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 11 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 12 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 13 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 14 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | P0 foundation |
+| 15 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 16 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX16 |
 
 - **CX17 — Prove and, if supported, implement real Codex tool-output replacement** *(tool / enforcement parity)* — `agents/codex/hooks/truncate-output.py:65-92` prints the shortened result and returns the shared hook code, but no live test proves that this replaces the original tool result before the model receives it. Capture real oversized Bash and filesystem-read payloads and inspect the next model-visible context. If Codex exposes a replacement contract, implement and regression-test it. Otherwise document the platform blocker, stop labeling Codex truncation savings as measured, and downgrade the parity row. Acceptance: an oversized sentinel present only beyond the cap cannot be recovered from the next Codex turn, while the head/tail and omission marker remain available—or the unsupported claim is removed everywhere.
 
@@ -48,7 +52,7 @@ Start these after the P0 Codex foundation above. Research items are bounded spik
 
 - **P4 — Generate installer flag docs from argparse metadata** *(prose-to-code / doc drift)* — `DOCUMENTATION.md:37-51` hand-lists optional flags while `install.py:1930-1996` is authoritative. Render an `<!-- installer-flags -->` block from parser metadata or a shared registry. Acceptance: every public flag is documented unless explicitly hidden and CI catches drift.
 
-- **A1 — Split shared subagent guidance from platform mechanics** *(architecture / divergent prose)* — Claude and Codex skills duplicate the output contract, prompt shape, noisy-verification pattern, and large-source digest guidance; only their agent/tool mechanics differ. Factor the shared contract into one generated source while keeping explicit platform-specific rules. Acceptance: return-shape and "do not paste" edits happen once and both installed skills retain their divergent mechanics.
+- **A1 — Split shared subagent guidance from platform mechanics** *(architecture / divergent prose)* — Claude and Codex skills duplicate the output contract, prompt shape, noisy-verification pattern, and large-source digest guidance; only their agent/tool mechanics differ. Factor the shared contract into one generated source while keeping explicit platform-specific rules. Acceptance: return-shape and "do not paste" edits happen once and both installed skills retain their divergent mechanics. Note: this is a docs-dedup item about existing subagent-usage *guidance text*, distinct from SA1/SA2/SA3/SA4/SA5's runtime hook work on the `Task` tool itself.
 
 - **P5 — Code the root-document canonical-home rules** *(meta / prose-to-code)* — The claudemd skill carries a hand-maintained topic-home table and asks agents to find duplicates manually. Move the mapping into structured config consumed by `claudemd_audit.py --docs` or a dedicated gate. Acceptance: the skill points to the gate and CI/release checks report non-canonical duplicate sections with file:line references.
 
@@ -57,6 +61,8 @@ Start these after the P0 Codex foundation above. Research items are bounded spik
 - **D3 — Explain search-window and exclusion configuration** *(documentation / precision)* — The configuration table names `EXCLUDED_DIR_NAMES`, `EXCLUDED_DIR_PREFIXES`, and the 300-second search window but does not explain their behavioral differences or where to tune `WINDOW_SECONDS`. Acceptance: examples distinguish name-based from prefix-based exclusions and show how the gate window is configured.
 
 - **D4 — Publish reproducible token-savings benchmarks** *(evidence / documentation)* — Measure the shipped strategies on a representative real codebase, including method, workload, baseline, variance, and agent/platform limits. Acceptance: another maintainer can rerun the benchmark and reproduce the report within stated tolerance; unverified savings claims are labeled as estimates.
+
+- **D6 — Delete each root `*plan.md` once its content is fully implemented** *(hygiene / doc lifecycle)* — Root planning docs (`stats_plan.md`, `HTML_DOCUMENTATION_PLAN.md`) are working documents, not canon — once everything they describe has shipped, a stale copy left in the repo root is dead weight competing with `CHANGELOG.md`/`DOCUMENTATION.md` as a source of truth. Audit each existing `*plan.md` against current `CHANGELOG.md`/`DECISIONS.md` and the shipped code; delete (`git rm`) any plan whose described work is fully implemented, first extracting any still-open item into its own `BACKLOG.md` row so no undone work is silently lost. Apply the same check whenever a future `*plan.md` is added. Acceptance: `stats_plan.md` and `HTML_DOCUMENTATION_PLAN.md` are each either deleted with their remaining open items captured as new backlog rows, or left in place with the specific unimplemented section cited as the reason.
 
 - **CX20 — Codex compaction remains a nudge, not control parity** *(input / platform gap)* — Investigate whether the current Codex app exposes a compaction or session-rollover API. If available, invoke it and verify transcript size before recording measured savings. Otherwise keep the nudge, test hysteresis on live transcript paths, and record the limitation. Acceptance: either an oversized live session is compacted automatically with honest before/after telemetry, or docs/parity/telemetry consistently say Codex only receives an advisory nudge.
 
@@ -67,8 +73,17 @@ Do not implement these yet. Satisfy the unblock condition, then move the item in
 | ID | Priority | Blocked on | Unblock signal |
 |---|:---:|---|---|
 | C1 | P1 | CX16 and a real Codex observation window | Genuine bash/grep near-misses show repeatable normalization candidates |
+| SA3 | P2 | SA2 | Fan-out telemetry shows input-side (spawn-context) waste is a meaningful share of subagent cost |
+| SA4 | P2 | SA2 | Fan-out telemetry (plus a live `Task`-hook payload capture) shows concurrent subagent budget contention is common enough to matter |
+| SA5 | P2 | SA2 | Fan-out telemetry shows truncation needs differ enough by subagent type to justify per-role rules over SA1's generic cap |
 
 - **C1 — Widen cache keys for bash/grep and split TTLs** *(input / cache)* — Exact literal keys prevent semantically identical calls from hitting, but current Codex telemetry contains no genuine bash/grep observations because the dogfood install drifted stale. After CX16, collect a real data window; normalize only output-shape-neutral flags observed in near-misses, key grep on normalized `(pattern, path, glob, type)`, and expose `CONTEXT_CACHE_BASH_TTL` separately. `eb_telemetry_9jul26.md` §2 provides Claude-side examples but does not satisfy the Codex evidence requirement. Acceptance: the normalization allowlist is justified by captured cases, equivalent calls hit, meaning-changing calls miss, and bash/grep TTLs are independently configurable.
+
+- **SA3 — Filter what a parent hands a subagent at spawn time** *(hook / subagent)* — Add a `PreToolUse:Task` hook applying search-first-style filtering to the prompt/description handed to a spawned subagent: strip full file dumps the parent already read in favor of paths + line ranges, let the subagent re-fetch via its own guarded `Read`. Moderate risk — over-filtering can break what the subagent actually needs to do its job, a correctness risk, not just a perf one. Do not build ahead of SA2: whether input-side (spawn context) or return-side (SA1) waste dominates is currently unknown, and building this first means guessing which side of the pipe matters. Acceptance: SA2 telemetry shows spawn-context size is a meaningful share of total subagent cost; the filter then measurably shrinks prompt-side tokens without a regression in subagent task success rate. Cost-benefit: Med build cost, `[HYP]` Med-confidence benefit — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #3, "wait for telemetry."
+
+- **SA4 — Verify per-subagent session-id exposure and, if confirmed, scope budget state per subagent** *(research → hook / subagent)* — Budget control-plane state is keyed only by the literal `"claude"`/`"codex"` agent string (`agents/common/budget/state.py:27-28`) — one shared file across every concurrently active subagent, so a parent and its subagents can race on it (atomic tmp+rename write means no corruption, but last-write-wins data loss is possible). `BudgetEvent` already carries `session_id`/`run_id` per event, so rekeying state by session id is mechanically straightforward *if* a subagent's `Task`-hook payload actually exposes a session id distinct from its parent's — that is currently unverified. This is the highest-cost, highest-regression-risk candidate of the subagent-strategy set (it touches shared state every existing single-agent install depends on), and its true cost is unknown until the payload question is answered — capture a live `Task` hook payload first (a cheap check, not a build) before committing to the state-rekeying design. Acceptance: either a live payload confirms a distinct per-subagent session id and budget state is rekeyed with a passing concurrency test (two simultaneous subagents don't clobber each other's budget), or the payload does not expose one and that platform limitation is documented in `DECISIONS.md` and this item downgrades to **Later**. Cost-benefit: High build cost plus a hidden cost (the unverified unknown itself), benefit is a correctness/fairness fix, not token savings — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #4, "not worth building yet."
+
+- **SA5 — Subagent-type-aware truncation policy** *(hook / subagent, refinement)* — Key SA1's digest policy off the subagent's declared role (`subagent_type`, e.g. a `qa` result keeps failure lines + counts and drops passing-test noise; a `tect` result keeps recommendation + confidence and drops the evidence appendix) instead of one generic shape. Carries an ongoing maintenance burden — role-keyed rules rot as the subagent roster changes, similar upkeep cost to a linter ruleset. Do not build until SA2 telemetry shows type-specific waste differs enough from SA1's generic cap to justify it; may be parked indefinitely if SA1 alone proves sufficient. Acceptance: telemetry shows a measurable gap between generic-cap and type-aware savings for at least two distinct subagent types, and the resulting rule set is captured in versioned config, not inline conditionals. Cost-benefit: Med-High build cost plus rule-rot maintenance, `[HYP]` unproven benefit — see `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #5, "not worth building yet, possibly park indefinitely."
 
 ## Later
 
@@ -77,9 +92,12 @@ Do not implement these yet. Satisfy the unblock condition, then move the item in
 | DX1 | P3 | Process improvement; no direct runtime saving |
 | D5 | P3 | Marketing aid after core documentation is reliable |
 | DX2 | P3 | Infrastructure cost only matters if perf variance becomes a problem |
+| SA6 | P3 | Speculative — contingent on harness/`Task`-tool internals outside less_tokens' control |
 
 - **DX1 — Add same-pattern propagation to the bugfix skill** *(process)* — After a bug fix, require a codebase-wide search for the root-cause construct and create backlog items for additional hits. Acceptance: `.claude/skills/bugfix/SKILL.md` contains the explicit search-and-record step.
 
 - **D5 — Create an animated before/after demo** *(documentation / adoption)* — Show a full read versus targeted search after the troubleshooting and configuration documentation is stable.
 
 - **DX2 — Consider a self-hosted runner for perf** *(infrastructure)* — The perf job downloads a roughly 130 MB embedding model and inherits hosted-runner CPU variance. Revisit only if cold-cache time or variance causes material delays or false failures; weigh that against runner maintenance and security.
+
+- **SA6 — SubagentStop digest-and-discard for replayed child transcripts** *(hook / subagent, speculative)* — If a future harness path surfaces a spawned subagent's full transcript back to the parent for replay (Claude Code does not do this by default today), write a compact digest artifact at `SubagentStop` and never let raw transcript content flow back. Not actionable now — there is no confirmed mechanism to hook. Revisit only if the harness's `Task`-result surfacing changes. — `reports/runs/2026-07-16-less-tokens-subagent-strategies/report.md`, ranked #6, "parked."

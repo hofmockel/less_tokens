@@ -28,14 +28,21 @@ def _measured_total_tokens(records: list[dict]) -> int:
 
 
 def test_total_tokens_not_truncated_per_row():
-    """Two measured rows saving 3 chars each = 6 chars = 1 token; per-row sum gives 0."""
-    records = _make_records("truncation", 3) + _make_records("compaction", 3)
+    """10 measured rows saving 1 char each = 10 chars combined; each row's own
+    saved_chars is below one token's worth (floors to 0 individually), so a
+    per-row-summed total would give 0 — the correct total comes from summing
+    chars first, then converting once. Calibration-agnostic: derives the
+    expected token count from the real divisor instead of hardcoding one."""
+    records = _make_records("truncation", 1, count=5) + _make_records("compaction", 1, count=5)
     total_tokens = _measured_total_tokens(records)
-    # 6 chars // 4 = 1 token; per-row sum of (3//4 + 3//4) = 0
-    assert total_tokens == 1, f"Expected 1 token (6 chars // 4), got {total_tokens}"
+    assert stats_mod._to_tokens(1) == 0, "fixture assumption broke: 1 char must floor to 0 tokens"
+    expected = stats_mod._to_tokens(10)
+    assert expected > 0, "fixture assumption broke: 10 chars must floor to >0 tokens"
+    assert total_tokens == expected, f"Expected {expected} tokens (10 chars, single conversion), got {total_tokens}"
 
 
 def test_total_tokens_exact_divisible():
-    """Sanity: 8 measured chars across 2 rows of 4 chars each = 2 tokens both ways."""
+    """Sanity: total_tokens for 8 measured chars matches a direct single-shot
+    conversion of the combined char count (calibration-agnostic)."""
     records = _make_records("truncation", 4) + _make_records("compaction", 4)
-    assert _measured_total_tokens(records) == 2
+    assert _measured_total_tokens(records) == stats_mod._to_tokens(8)

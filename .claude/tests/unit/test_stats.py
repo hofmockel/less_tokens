@@ -279,7 +279,7 @@ def test_build_table_lines_shows_savings():
     lines = stats._build_table_lines("Session", records)
     joined = "\n".join(lines)
     assert "4,000" in joined
-    assert "1,000" in joined  # 4000 // 4 tokens
+    assert f"{stats._to_tokens(4000):,}" in joined  # calibration-agnostic
 
 
 # ---------------------------------------------------------------------------
@@ -440,10 +440,15 @@ def test_panel_lines_sums_only_its_strategies(tmp_path):
     assert "1,000" not in upper
 
 
-def test_token_footer_is_uncalibrated():
+def test_token_footer_is_uncalibrated(tmp_path):
     stats = _import_stats()
-    assert "uncalibrated" in stats.TOKEN_FOOTER
-    assert "chars÷4" in stats.TOKEN_FOOTER
+    # TOKEN_FOOTER is a module-level constant frozen at import time, so it
+    # reflects whatever calibration.json happened to exist on disk then —
+    # not a controlled condition. Isolate like test_token_footer_uncalibrated_by_default.
+    with patch("stats.CALIBRATION_FILE", tmp_path / "nope.json"):
+        footer = stats._token_footer()
+    assert "uncalibrated" in footer
+    assert f"chars÷{stats._cpt_str()}" in footer  # calibration-agnostic
 
 
 # ---------------------------------------------------------------------------
@@ -605,7 +610,8 @@ def test_measured_oneliner_format_and_honesty():
         {"strategy": "search", "basis": "upper_bound", "elided_chars": 1_000_000},
     ]
     line = stats._measured_oneliner(records)
-    assert line == "↓ ~2.0k tok saved (measured) · session"
+    expected_tok = stats._fmt_tokens(stats._to_tokens(8000))  # calibration-agnostic
+    assert line == f"↓ ~{expected_tok} tok saved (measured) · session"
     assert "measured" in line
     # upper-bound magnitude must never leak into the glanceable line
     assert "250" not in line and "1000" not in line
