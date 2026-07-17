@@ -139,6 +139,14 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         codex_script="truncate-output.py",
         codex=(HookWire("PostToolUse", "Bash|mcp__filesystem__.*"),),
     ),
+    # Claude-only (G15/SA1): no Codex Task-boundary hook exists — Codex has no
+    # subagent-spawn tool to cap a return from.
+    HookSpec(
+        name="subagent-cap",
+        optional_flag="truncate",
+        claude_script="subagent-cap.py",
+        claude=(HookWire("PostToolUse", "Task"),),
+    ),
     HookSpec(
         name="compact-trigger",
         optional_flag="compact",
