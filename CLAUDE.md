@@ -14,16 +14,7 @@ Code blocks should stay idiomatic and readable. The full terse-output spec is in
 _Moved to DOCUMENTATION.md → Project purpose._
 ## Test commands
 
-```bash
-# Unit + integration (no fastembed needed — matches CI)
-.claude/.venv-tokens/bin/python -m pip install numpy pytest
-.claude/.venv-tokens/bin/python -m pytest .claude/tests/unit/ -v
-.claude/.venv-tokens/bin/python -m pytest .claude/tests/integration/ -v
-# Single test
-.claude/.venv-tokens/bin/python -m pytest .claude/tests/unit/test_chunkers.py::<test_name> -v
-```
-
-pytest config is in `pyproject.toml`. CI runs unit + integration on Python 3.9/3.11/3.12 × 3 OS. Full install/verify walkthrough: `DOCUMENTATION.md`.
+`.claude/.venv-tokens/bin/python .claude/tools/dev.py {unit|integration|all|single <nodeid>}`. Full install/verify walkthrough and CI matrix: `DOCUMENTATION.md`.
 
 ## Backlog and changelog lifecycle
 
