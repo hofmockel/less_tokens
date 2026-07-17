@@ -12,6 +12,7 @@ REPO = Path(__file__).resolve().parent.parent.parent.parent
 HOOK = REPO / "agents" / "codex" / "hooks" / "agentsmd-budget.py"
 
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(HOOK.parent))  # agentsmd-budget.py does `from _codex_runtime import ...`
 from install import build_codex_hook_entries  # noqa: E402
 
 

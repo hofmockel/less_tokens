@@ -24,7 +24,7 @@ class TestEstTokens:
 
     def test_string(self):
         s = "x" * 40
-        assert toolcost.est_tokens(s) == len(json.dumps(s)) // 4
+        assert toolcost.est_tokens(s) == int(len(json.dumps(s)) / toolcost.CHARS_PER_TOKEN)
 
     def test_tool_schema(self):
         tool = {
