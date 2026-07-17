@@ -88,6 +88,7 @@ Pages:
 - `presentation.html` — slide-like high-level overview, around 25 sections.
 - `strategy-map.html` — strategy matrix with links into implementation and telemetry.
 - `architecture.html` — major runtime layers and agent split.
+- `reference/subagents.html` — shipped SA1/SA2 behavior, platform boundaries, delegation contracts, telemetry, and the evidence-gated SA3–SA6 roadmap.
 - `privacy.html` — local-only telemetry, no-network build policy, and published-data rules.
 
 Primary code/doc links:

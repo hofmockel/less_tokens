@@ -188,6 +188,75 @@ The harness is deterministic and fixture-based; it is useful for trend tracking,
 
 ---
 
+## Subagent support
+
+Subagents can reduce parent-context noise when they absorb independent exploration or noisy verification, but every spawn also pays fixed instructions/tool-schema cost. `less_tokens` therefore treats delegation as an explicit, platform-specific tool: it does not spawn children automatically, and the installed guidance says to skip delegation for a single search, small read, or short test command.
+
+### Shipped behavior
+
+| Capability | Claude | Codex |
+|---|---|---|
+| Return-size control (SA1) | `PostToolUse:Task` runs `.claude/hooks/subagent-cap.py`; returns over `MAX_SUBAGENT_OUTPUT_CHARS` (default 6,000) keep verdict/recommendation/summary/blocker-style fields when possible, otherwise use bounded head/tail elision. The hook replaces the parent-visible tool result and logs measured elided characters as `subagent-cap`. | No hookable subagent-return boundary is available, so no automatic cap is claimed. |
+| Fan-out measurement (SA2) | `PreToolUse:Task` records serialized prompt size and `PostToolUse:Task` pairs it with return size, subagent type, and session metadata in one `subagent_fanout` event. Measurement is always wired and never mutates output. | No equivalent `Task` boundary; no fan-out event is emitted. |
+| Delegation guidance | Installed Claude skill recommends narrow `explorer` and `verifier` agents, pointer-only context, disjoint ownership, and compact returns. | Installed Codex skill requires explicit user authorization, defaults to `fork_context=false`, distinguishes `explorer` from `worker`, and requires compact four-field returns. |
+| Subagent completion | Claude `terse-output` and `savings-html` also wire `SubagentStop`. | Best-effort tool hooks do not provide equivalent end-of-subagent enforcement. |
+
+SA1 follows the default truncation profile: `--no-truncate` disables both generic output truncation and `subagent-cap`. SA2 remains active because it only records cost. Both are Claude-only in `agents/common/hooks/parity.json`; this is a real platform boundary, not missing documentation or an implied parity promise.
+
+### Delegation contract
+
+Use a child only when its discarded exploration/log output is likely to exceed its startup cost. Give it an objective, `path:line` pointers or a semantic-search command, the minimum allowed reads, and a compact return contract. Parallel children should own independent tasks or disjoint files; the parent should continue only non-overlapping work.
+
+Required return fields:
+
+```text
+files changed: <paths or none>
+findings: <file:line findings only>
+verification: <commands or checks run>
+blockers: <none or concrete blocker>
+```
+
+Do not paste full files, raw logs, or complete diffs into either the spawn prompt or the return. On Codex, prefer `fork_context=false` unless the child genuinely needs conversation history. On Claude, prefer the installed narrow agent definitions over `general-purpose` when their tool allowlists fit.
+
+### Telemetry
+
+Claude writes both SA1 savings and SA2 cost measurements to `.claude/state/savings.jsonl`. A paired SA2 record has this shape:
+
+```json
+{
+  "event": "subagent_fanout",
+  "subagent_type": "explorer",
+  "prompt_chars": 1200,
+  "return_chars": 3400,
+  "session_id": "…",
+  "session_source": "…"
+}
+```
+
+`subagent_fanout` is an `event`, not a savings `strategy`: prompt/return sizes are costs and are deliberately excluded from measured and upper-bound savings totals. An unmatched post-install completion still records `prompt_chars: 0` rather than dropping the observed spawn. Inspect session or all-time results with:
+
+```bash
+.claude/bin/python .claude/tools/stats.py
+.claude/bin/python .claude/tools/stats.py --all
+```
+
+### Roadmap and evidence gates
+
+The roadmap is derived from [BACKLOG.md](BACKLOG.md), which remains canonical for state and acceptance criteria.
+
+| ID | State | Candidate | Gate before implementation |
+|---|---|---|---|
+| SA1 | Shipped | Cap oversized child returns with a generic key-field/head-tail digest. | Already measured through `subagent-cap` savings records. |
+| SA2 | Shipped / collecting evidence | Pair prompt and return size for every observed Claude `Task` spawn. | Collect a representative dogfood window before interpreting downstream opportunities. |
+| SA3 | Blocked on SA2 | Replace full-file spawn context with pointers and child-side guarded reads. | SA2 must show prompt-side size is a material share of fan-out cost; implementation must shrink prompts without reducing task success. |
+| SA4 | Blocked on SA2 + payload capture | Scope budget state per subagent to prevent last-write-wins contention. | A live `Task` payload must expose a child session ID distinct from the parent, and concurrent children must demonstrate meaningful contention risk. Otherwise record the platform limit and park it. |
+| SA5 | Blocked on SA2 | Apply role-specific digests, such as QA failure lines or architecture recommendations. | At least two subagent types must show a measurable advantage over SA1's generic cap; rules must live in versioned configuration. Otherwise keep the generic cap. |
+| SA6 | Later / speculative | Digest and discard replayed full child transcripts at `SubagentStop`. | Reopen only if a future harness actually replays child transcripts to the parent; current Claude behavior does not. |
+
+A1 is the documentation-maintenance workstream alongside this runtime roadmap: generate the shared delegation contract once while retaining separate Claude/Codex mechanics. It does not change spawn behavior.
+
+---
+
 ## Configuration
 
 Search and indexing are configured in `.claude/tools/search_config.py`. Budget behavior is configured separately in `.less_tokens/config/budget.json`. Codex commands under `.less_tokens/tools/` are compatibility shims that import and run the same `.claude/tools/` search code, so `.less_tokens/tools/search_config.py` is not a separate source of truth.
