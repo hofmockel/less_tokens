@@ -2186,7 +2186,7 @@ def main() -> int:
                     help="safe upgrade: re-copy hook and tool files (implies "
                          "--force-hooks --force-tools --overwrite-modified) "
                          "but never touch .claude/tools/search_config.py or index.db. "
-                         "Incompatible with --force-config and --build.")
+                         "Implies --no-build; incompatible with --force-config and --force.")
     ap.add_argument("--self-refresh", action="store_true",
                     help="advanced/dogfooding: install less_tokens into its own source "
                          "directory (target_root = SOURCE), refreshing this clone's own "

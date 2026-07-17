@@ -8,7 +8,7 @@ Full reference for installing, configuring, and using `less_tokens`.
 
 - Python 3.9+
 - A virtual environment for your project (`.venv`, `venv`, `env`, or `app/.venv`)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and/or Codex installed, depending on the selected agent target
 
 ---
 
@@ -28,9 +28,9 @@ git clone https://github.com/<you>/less_tokens.git
 python less_tokens\install.py
 ```
 
-Re-running after `git pull` performs an in-place upgrade — existing files are skipped, hook wiring is deduplicated, and `search_config.py` only gains any new variables. Nothing local is overwritten unless you pass an explicit `--force*` flag.
+Re-running after `git pull` performs a conservative install pass: existing files are skipped, hook wiring is deduplicated, and `search_config.py` only gains new variables. For an intentional safe upgrade of generated hooks and tools, use `--update` with the same `--agent` selection as the original install. `--update` preserves `search_config.py` and `index.db`.
 
-> By default the installer skips the index build so you can configure `search_config.py` first. Pass `--build` to build immediately (step 3 below covers manual build).
+> By default the installer builds the index after installation. Pass `--no-build` to defer the model download and index build until after configuring `search_config.py` (the Usage section covers the manual command).
 
 The installer copies tools and schema into `.claude/tools/` and `.claude/schema/`, deploys hooks into `.claude/hooks/`, installs `fastembed` and `numpy`, and initializes `.claude/index.db`.
 
@@ -40,15 +40,28 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 |---|---|
 | `--target PATH` | Install into PATH instead of the parent of the clone (testing / scratch projects) |
 | `--yes` | Bypass the suspicious-target sanity check (fires when parent is `/` or `$HOME`) |
-| `--force` | Overwrite existing files |
+| `--force` | Shorthand for `--force-hooks --force-tools --force-config` |
+| `--force-hooks` / `--force-tools` / `--force-config` | Overwrite the selected generated file class when it still matches a managed source |
+| `--overwrite-modified` | Permit a selected `--force*` option to overwrite locally modified managed files |
 | `--venv PATH` | Point to a venv not in a standard location |
+| `--create-venv` | Create `.claude/.venv-tokens` when no venv is detected |
 | `--skip-deps` | Skip `pip install` (dependencies already installed) |
-| `--build` | Build the index immediately after install |
+| `--no-build` | Defer the default initial index build and model download |
 | `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
+| `--codex-savings balanced\|aggressive` | Select the Codex-only savings profile; `balanced` is the default |
 | `--caveman` | Back-compatible; also copy `.claude/rules/` for terse output style |
 | `--truncate` | Back-compatible; truncation hook is wired by default |
 | `--compact` | Back-compatible; compaction trigger is wired by default |
 | `--no-caveman` / `--no-truncate` / `--no-compact` | Opt out of default savings hooks |
+| `--dry-run` | Preview the install without writing files |
+| `--allow-merge` | Allow existing non-less_tokens files in managed tool/schema directories |
+| `--local` | For Claude, write hook wiring to `.claude/settings.local.json` instead of project-shared settings |
+| `--no-gitignore` | Do not add the managed ignore block for generated index/state artifacts |
+| `--update` | Safely refresh generated hooks and tools without changing `search_config.py` or `index.db` |
+| `--self-refresh` | Advanced dogfood mode: refresh this clone's own generated install; implies `--update` |
+| `--check` | Verify an existing installation (see the Codex validation limitation below) |
+| `--uninstall` | Remove a previous deployment |
+| `--purge-index` | With `--uninstall`, also remove `index.db` and its WAL sidecars |
 
 ---
 
@@ -60,6 +73,34 @@ The installer copies tools and schema into `.claude/tools/` and `.claude/schema/
 python3 less_tokens/install.py --agent codex
 python3 less_tokens/install.py --agent both   # Claude + Codex simultaneously
 ```
+
+Upgrade with the same agent selection used for installation:
+
+```bash
+cd ~/myproject/less_tokens
+git pull
+python3 install.py --update --agent codex   # or --agent both
+```
+
+Codex CLI requires matcher groups and command hooks to be nested. The installer owns the less_tokens entries in `.codex/hooks.json` and writes this shape (commands abbreviated here):
+
+```json
+{
+  "hooks": [
+    [
+      {
+        "event": "PostToolUse",
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {"type": "command", "command": "…/.less_tokens/bin/python …/.codex/hooks/index-refresh.py"}
+        ]
+      }
+    ]
+  ]
+}
+```
+
+Re-running `--update --agent codex` rebuilds the pre-CX21 flat form (`{"hooks":[{"event","matcher","command"}]}`) into this CLI-compatible structure. Valid unrelated nested entries are preserved; malformed or legacy flat hook lists are rebuilt because current `codex-cli` rejects the entire file. Do not hand-flatten the generated configuration.
 
 **What gets installed:**
 
@@ -125,12 +166,13 @@ Codex subagents are a Codex app tool surface, not an installed `less_tokens` fea
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
+- The CX21 installer path writes the nested schema accepted by `codex-cli 0.142.3`, but live `codex exec` tests still did not observe `PostToolUse`; interactive-mode firing and tool-output replacement remain unverified (see `DECISIONS.md` → CX17).
+- The current `install.py --check --agent codex` and `codex_parity_audit.py` readers still expect the retired flat hook list and can report a valid nested install as unwired. Track the validator repair in `BACKLOG.md` as CX22; until it lands, inspect the nested shape directly and use live hook telemetry for enforcement evidence.
 - Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
 - Terse output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
-See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data.
-Audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
+See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data. After CX22 updates the validators for the nested schema, audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
 
 ```bash
 .less_tokens/bin/python .less_tokens/tools/codex_parity_audit.py
@@ -647,9 +689,9 @@ For hook behavior and the full install path, verify against a scratch project:
 
 ```bash
 # Install into a scratch project. The installer targets the parent of this clone — cwd doesn't matter.
-python3 install.py --build
+python3 install.py
 # Override the target:
-python3 install.py --target /path/to/scratch --yes --build
+python3 install.py --target /path/to/scratch --yes
 # Build the local index (requires fastembed)
 .claude/bin/python .claude/tools/embeddings.py refresh
 # Search

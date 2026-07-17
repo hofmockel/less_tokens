@@ -10,9 +10,9 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX21 | P0 | Ready | Fix `.codex/hooks.json` schema so installed Codex hooks actually load | — |
+| 1 | CX22 | P0 | Ready | Teach Codex install validators to read the nested hooks schema | CX21 |
 
-- **CX21 — `.codex/hooks.json` schema drift silently disables every Codex hook** *(meta / false-health)* — `wire_codex_hooks_json` (`install.py:967`) emits the flat form `{"hooks": [{"event","matcher","command"}, ...]}`, but the installed `codex-cli 0.142.3` rejects that outright (`invalid type: map, expected a sequence`) — confirmed live, and it fails the same way for this repo's own dogfooded install (`.codex/hooks.json` on this machine). The CLI's real expected shape, recovered empirically from its serde error messages, is `{"hooks": [[{"event","matcher","hooks":[{"type":"command","command"}]}, ...]]}` — one extra list-nesting level, plus Claude-style nested `hooks:[{type,command}]` groups per matcher. Under the current broken schema every one of this repo's 20 Codex hooks (budget-observer, search-first, read-guard, truncate-output, compact-trigger, etc.) silently no-ops — `install.py --check --agent codex`'s existing smoke tests apparently don't catch this (see CX17 finding in `DECISIONS.md`), and there's no visible error to a normal user outside `codex exec --json` trace inspection. Acceptance: regenerate `.codex/hooks.json` in the corrected shape, add/extend an install-check smoke test that actually invokes `codex exec` (or an equivalent parse-only check against a fixture of the real CLI's rejection behavior) so a future schema drift fails loudly instead of silently, and confirm a real hook (e.g. `truncate-output.py`) fires and logs to `savings.jsonl` on a live oversized-output test. Blocks CX17 (Codex tool-output replacement can't be tested at all while hooks don't load).
+- **CX22 — Codex install validators still parse the retired flat hook list** *(meta / false-health)* — CX21 changed `wire_codex_hooks_json` to emit the CLI-required nested `hooks → groups → matchers → command hooks` structure, but `install.py:2054-2073` still iterates the outer `hooks` list as if every item were a matcher dict, and `.claude/tools/codex_parity_audit.py:25-36` filters that same outer list for dicts. A valid post-CX21 install therefore appears missing or unwired to both health checks even though the writer is correct. Acceptance: share one nested-schema parser between install checking and the deployed parity audit (or pin byte-equivalent helpers), reject legacy/malformed shapes explicitly, update audit fixtures to use the real nested representation, and prove `install.py --check --agent codex` plus `codex_parity_audit.py` pass a generated install and fail a missing matcher. This is validator parity only; live `PostToolUse` firing/replacement remains CX17.
 
 ## Next
 
@@ -21,7 +21,7 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
 | 2 | CX18 | P1 | Research | Find a real Codex end-of-turn enforcement surface | — |
-| 3 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX21, CX18 captures |
+| 3 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX18 captures |
 | 4 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
 | 5 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
 | 6 | A1 | P2 | Ready | Generate shared subagent guidance once | — |

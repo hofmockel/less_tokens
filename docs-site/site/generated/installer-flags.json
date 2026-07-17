@@ -195,7 +195,16 @@
     "flags": [
       "--update"
     ],
-    "help": "safe upgrade: re-copy hook and tool files (implies --force-hooks --force-tools --overwrite-modified) but never touch .claude/tools/search_config.py or index.db. Incompatible with --force-config and --build."
+    "help": "safe upgrade: re-copy hook and tool files (implies --force-hooks --force-tools --overwrite-modified) but never touch .claude/tools/search_config.py or index.db. Implies --no-build; incompatible with --force-config and --force."
+  },
+  {
+    "action": "store_true",
+    "choices": null,
+    "default": null,
+    "flags": [
+      "--self-refresh"
+    ],
+    "help": "advanced/dogfooding: install less_tokens into its own source directory (target_root = SOURCE), refreshing this clone's own generated .claude/ and/or .codex/ layer against its checked-in manifest. Implies --update. This is the one explicit, named way to bypass the source-is-target guard; --target still cannot resolve inside SOURCE on its own. Incompatible with --target, --uninstall, and --check."
   },
   {
     "action": null,
