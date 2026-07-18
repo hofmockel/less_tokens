@@ -53,8 +53,14 @@ def print_result(code: int, stdout: str, stderr: str) -> int:
     return code
 
 
+# @modelcontextprotocol/server-filesystem renamed its read tool from
+# read_file to read_text_file (confirmed live against v2026.7.10); accept
+# both so an older pinned server version doesn't silently no-op these hooks.
+FILESYSTEM_READ_TOOLS = ("mcp__filesystem__read_file", "mcp__filesystem__read_text_file")
+
+
 def map_read(raw: dict) -> dict:
-    if raw.get("tool_name") == "mcp__filesystem__read_file":
+    if raw.get("tool_name") in FILESYSTEM_READ_TOOLS:
         inp = raw.setdefault("tool_input", {})
         raw["tool_name"] = "Read"
         inp["file_path"] = inp.get("path", "")
@@ -63,7 +69,7 @@ def map_read(raw: dict) -> dict:
 
 def map_read_or_search(raw: dict) -> dict:
     tool = raw.get("tool_name", "")
-    if tool == "mcp__filesystem__read_file":
+    if tool in FILESYSTEM_READ_TOOLS:
         return map_read(raw)
     if tool.startswith("mcp__filesystem__") and "search" in tool:
         raw["tool_name"] = "Grep"

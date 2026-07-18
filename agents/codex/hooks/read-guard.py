@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin
+from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin
 
 bootstrap()
 
@@ -20,7 +20,7 @@ except Exception:
 
 def _file_input(raw: dict) -> tuple[str, object]:
     inp = raw.get("tool_input") or {}
-    if raw.get("tool_name") == "mcp__filesystem__read_file":
+    if raw.get("tool_name") in FILESYSTEM_READ_TOOLS:
         return str(inp.get("path", "")), inp.get("offset")
     return str(inp.get("file_path") or inp.get("path") or ""), inp.get("offset")
 
@@ -29,7 +29,7 @@ def main() -> int:
     raw = load_json_stdin()
     if not raw:
         return 0
-    if raw.get("tool_name") not in {"Read", "mcp__filesystem__read_file"}:
+    if raw.get("tool_name") not in {"Read", *FILESYSTEM_READ_TOOLS}:
         return 0
     file_path, offset = _file_input(raw)
     reason = check_read_guard(
