@@ -1,28 +1,24 @@
 # Continue: less_tokens
 
-> **Next focus:** land CX21 (fix `.codex/hooks.json` schema so installed Codex hooks actually load).
+> **Next focus:** promote CX18 (Research) — find a real Codex end-of-turn enforcement surface.
 
 ## Current state
-`main` is clean at `4f7cc34`, matches `origin/main`. PR [#70](https://github.com/hofmockel/less_tokens/pull/70) (CX17 finding, CX21 filed) and PR [#71](https://github.com/hofmockel/less_tokens/pull/71) (CN1 filed) are both merged and their branches deleted. No open PRs.
+`main` is clean at `ae0c3b7`, matches `origin/main`. BACKLOG.md's Ready now table is empty; CX21 and CX22 both shipped. No open PRs.
 
 ## What happened this session
-- Landed PR #70: rebased its branch onto `main` (which had shipped SA2 in the meantime), resolved a `BACKLOG.md`/`CHANGELOG.md` conflict by dropping the now-stale SA2 row and renumbering, force-pushed, waited out CI, squash-merged.
-- Filed **CN1** (P2, Ready, in BACKLOG.md's Next table) — `continue_freshness.py` only blocks a stale `continue.md` at agent tool-*Read* time; nothing stops a session from pushing code without ever regenerating the handoff. Proposes a native `pre-push` git hook (new install surface — no native git hook exists in this toolkit yet) reusing `check_continue_freshness`'s hash-distance logic. Left open design questions: hard-block vs warn, and that "update" can't mean auto-regenerating content in a bare git hook (needs an LLM) vs. just gating staleness.
-- `main` is a protected branch (requires PRs, required status checks) — a direct `git push origin main` was rejected. Learned to always branch+PR for this repo, never assume direct push works even for docs-only commits.
-- Landed that CN1 commit via a second PR, #71, same rebase-free flow (no conflict this time), squash-merged after CI passed.
+- CX21 and CX22 (nested `.codex/hooks.json` schema + the two health-check readers that assumed the old flat shape) both shipped via merged PRs while this session and a concurrent session worked the same backlog in parallel — a live instance of the repo's known dual-agent editing pattern (Claude + Codex sessions touching the same repo at different times).
+- This session independently fixed CX22 and opened its own PR (#76) with a byte-equivalent-duplicate-parser approach, only to find PR #75 had already merged the same fix moments earlier with a cleaner design (shared parser via `agents/common/hooks/hook_manifest.py` instead of two drifting copies). Closed #76 as redundant, deleted its branch, fast-forwarded local `main`.
+- **Lesson for next session:** before starting work on a Ready-now/top-of-Next item, `git fetch` and check `origin/main` for commits past what `continue.md`/local `main` shows — this item may already be in flight or shipped elsewhere.
 
 ## Open work
-1. **CX21** (P0, top of BACKLOG.md's Ready now) — fix `wire_codex_hooks_json` (`install.py:967`) to emit the correct nested schema (`{"hooks":[[{event,matcher,hooks:[{type,command}]}]]}`, not the current flat form); add a smoke test that actually invokes `codex exec` (or an equivalent fixture-based parse check) so schema drift fails loudly. Full acceptance criteria in `BACKLOG.md`.
-2. Reopen **CX17** properly once CX21 lands — still need to isolate whether `PostToolUse` non-firing in `codex exec` was exec-mode-specific or purely the schema bug (interactive `codex` TUI untested).
-3. **CN1** (P2) — resolve its open design questions, then implement the `pre-push` hook.
-4. Decide a third `parity.json` status value for "wired but unverified/broken" — `truncate-output.codex` still reads `"shipped"`.
+See `BACKLOG.md`'s Next table (Ready now is empty — promote from here). Top items: **CX18** (P1, Research — find a real Codex end-of-turn enforcement surface, since `hook_manifest.py` currently substitutes `PostToolUse .*` for Claude's `Stop|SubagentStop`), then **CX19** (depends on CX18's findings), then a run of P2 documentation/hygiene items (D1, P4, A1, P5, D2, D3, D4, D6), **CX20** (Research), and **CN1** (pre-push continue.md freshness hook — open design questions on hard-block vs warn still unresolved).
 
 ## Suggested skills
-- `$less-tokens` — inspect `install.py`'s `wire_codex_hooks_json` and the hook manifest before touching CX21.
-- `$bugfix` — CX21 is a well-scoped, single-cause fix once picked up.
+- `$less-tokens` — inspect `agents/common/hooks/hook_manifest.py`'s Codex event mapping before starting CX18.
+- `$bugfix` — once CX18's research lands a concrete surface, CX19's fixture work is well-scoped.
 
 ## Start here
-Read `BACKLOG.md`'s CX21 row, then open `install.py:967` (`wire_codex_hooks_json`) and fix the emitted schema to match the nested shape documented there.
+Re-verify `git log origin/main` for anything newer than `ae0c3b7` (see lesson above), then read CX18's full row in `BACKLOG.md` and start the research spike.
 
 ---
-_Last updated at HEAD `4f7cc34` on 2026-07-17._
+_Last updated at HEAD `ae0c3b7` on 2026-07-17._
