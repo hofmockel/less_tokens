@@ -10,7 +10,11 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 
-from agents.common.hooks.hook_manifest import HOOK_SPECS
+from agents.common.hooks.hook_manifest import (
+    HOOK_SPECS,
+    codex_hooks_json_value,
+    flatten_codex_hooks,
+)
 from install import build_claude_hook_entries, build_codex_hook_entries
 
 _DOCS_SPEC = importlib.util.spec_from_file_location(
@@ -71,3 +75,37 @@ def test_hook_parity_docs_are_current():
     for path in hook_parity_docs.DOCS:
         text = path.read_text(encoding="utf-8")
         assert hook_parity_docs._replace_block(text, block) == text
+
+
+def test_codex_hooks_json_value_isolates_post_tool_use_from_pre_tool_use():
+    """CX23: a PostToolUse entry sharing a group with a PreToolUse entry fires
+    mislabeled as PreToolUse. Every group must contain a single declared event."""
+    flat = [
+        {"event": "PreToolUse", "matcher": "Bash", "command": "pre.py"},
+        {"event": "PostToolUse", "matcher": "Bash", "command": "post.py"},
+        {"event": "PostToolUse", "matcher": "Edit", "command": "post2.py"},
+    ]
+    nested = codex_hooks_json_value(flat)
+    for group in nested:
+        events = {entry["event"] for entry in group}
+        assert len(events) == 1, f"group mixes events: {events}"
+    pre_groups = [g for g in nested if g[0]["event"] == "PreToolUse"]
+    post_groups = [g for g in nested if g[0]["event"] == "PostToolUse"]
+    assert sum(len(g) for g in pre_groups) == 1
+    assert sum(len(g) for g in post_groups) == 2
+
+
+def test_codex_hooks_json_value_round_trips_through_flatten():
+    flat = [
+        {"event": "PreToolUse", "matcher": "Bash", "command": "pre.py"},
+        {"event": "PostToolUse", "matcher": "Bash", "command": "post.py"},
+    ]
+    reflattened, well_formed = flatten_codex_hooks(codex_hooks_json_value(flat))
+    assert well_formed
+    assert sorted(reflattened, key=lambda h: h["command"]) == sorted(
+        flat, key=lambda h: h["command"]
+    )
+
+
+def test_codex_hooks_json_value_empty_is_empty():
+    assert codex_hooks_json_value([]) == []

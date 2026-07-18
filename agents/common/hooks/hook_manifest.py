@@ -279,14 +279,28 @@ def flatten_codex_hooks(raw_hooks: object) -> tuple[list[dict], bool]:
 
 
 def codex_hooks_json_value(flat: list[dict]) -> list:
-    """Wrap a flat `{event,matcher,command}` list back into the CLI's nested shape."""
+    """Wrap a flat `{event,matcher,command}` list back into the CLI's nested shape.
+
+    CX23: entries that share a matcher-group array with a different declared
+    `event` fire mislabeled as whichever event actually triggered (confirmed
+    at production scale — every `PostToolUse` entry fired as `PreToolUse`).
+    One group array per declared event isolates them; an isolated
+    `PostToolUse`-only group simply doesn't fire in headless `codex exec`
+    rather than firing with the wrong label and payload.
+    """
     if not flat:
         return []
-    return [[
-        {
-            "event": h["event"],
-            "matcher": h["matcher"],
-            "hooks": [{"type": "command", "command": h["command"]}],
-        }
-        for h in flat
-    ]]
+    groups: dict[str, list[dict]] = {}
+    for h in flat:
+        groups.setdefault(h["event"], []).append(h)
+    return [
+        [
+            {
+                "event": h["event"],
+                "matcher": h["matcher"],
+                "hooks": [{"type": "command", "command": h["command"]}],
+            }
+            for h in entries
+        ]
+        for entries in groups.values()
+    ]

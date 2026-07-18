@@ -10,7 +10,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX23 | P0 | Ready | Isolate `PostToolUse`-declared entries into their own hooks.json matcher group; add regression coverage | — |
+| 1 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
 
 ## Next
 
@@ -18,23 +18,16 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 2 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
-| 3 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 4 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 5 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 6 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 7 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 8 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 9 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
-| 10 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
-| 11 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
-| 12 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
-
-- **CX23 — Codex's single matcher-group hooks.json wiring confirmed to misfire every `PostToolUse` entry — fix not yet implemented** *(tool / enforcement parity, correctness)* — **CONFIRMED at real production scale.** Built the exact 20-entry nested shape `codex_hooks_json_value()` (`agents/common/hooks/hook_manifest.py`, shipped by CX21) produces for a real Codex install (via `build_codex_hook_entries`/`HOOK_SPECS`, all script commands swapped for a transparent stdin-logging shim), installed it as `.codex/hooks.json` against live `codex-cli 0.142.3`, and ran one `codex exec` turn with a Bash call and an `apply_patch` edit. Two facts, established independently:
-  1. **A solo, isolated single-entry group containing only a `PostToolUse`/`matcher:"Bash"` entry (no other entries in the file) never fires at all** for a matching Bash call — zero log lines, zero `hook:` CLI instrumentation. Headless `codex exec` does not generate a real `PostToolUse`-labeled dispatch, full stop — generalizes CX17's `PostToolUse` finding and CX18's `Stop` finding to the whole non-`PreToolUse` event surface.
-  2. **When those same `PostToolUse` entries instead share the one production matcher-group array with matching `PreToolUse` entries (the shape every real install has today), they fire anyway** — mislabeled as `PreToolUse`, receiving a `PreToolUse`-shaped payload with no tool output to inspect. All 17 real firings logged in the test (10 for the Bash call, 7 for the `apply_patch` call) carried `hook_event_name: "PreToolUse"`, including every entry declared `PostToolUse` whose matcher matched the tool: `truncate-output`, `post-edit-diff`, `index-refresh`, `agent-md-budget`, `savings-html`, `compact-trigger`, `lean-output`, and the `PostToolUse` wires of `budget-observer` and `context-cache`. Matcher-based filtering itself works correctly (no non-matching entries fired); only the declared `event` field is ignored once entries share a group.
-
-  Net effect on the shipped Codex install: dispatch by matcher is fine, but every `PostToolUse`-declared hook — most of the codex-side manifest — currently runs before its tool executes, with no tool-output field available, rather than after. Regrouping alone (one group per declared event) will not restore real post-tool behavior, since fact 1 shows an isolated `PostToolUse` group simply never fires in headless exec; the practical value of regrouping is turning today's "wrong time, wrong payload" misfire into a clean, non-corrupting no-op, pending the still-open question of whether interactive `codex` TUI sessions support genuine `PostToolUse` dispatch (same untested gap CX17/CX18 left open). Acceptance (updated): redesign `codex_hooks_json_value()` to isolate `PostToolUse`-declared entries into their own matcher-group array(s) separate from `PreToolUse` entries; add regression coverage (live or fixture-based) asserting a `PreToolUse` trigger never invokes a `PostToolUse`-only group; and record in `parity.json`/`DOCUMENTATION.md` that Codex `PostToolUse` hooks are unconfirmed/non-functional in headless `codex exec` pending an interactive-mode test.
+| 2 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 3 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 4 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 5 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 6 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 7 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 8 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
+| 9 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 10 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
+| 11 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
 - **CX19 — Replace synthetic Codex hook smoke coverage with semantic, versioned payload coverage** *(meta / reliability)* — `.claude/tests/unit/test_codex_event_contract.py:49-169` invents payloads and accepts any exit code in `{0, 2}` if there is no traceback; unexpected payloads can therefore no-op silently. Store sanitized fixtures for supported Codex versions covering reads, searches, Bash, apply_patch, Edit/Write, tool errors, available final-response events, and unknown MCP tools. Assert semantic outcomes, not non-crash. Acceptance: every supported matcher has a real-shape fixture and outcome assertion; unknown shapes fail open with bounded schema-only telemetry; schema drift creates a targeted failure or audit warning.
 
