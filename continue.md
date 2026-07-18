@@ -3,7 +3,7 @@
 > **Next focus:** implement CX23's fix — isolate `PostToolUse`-declared entries into their own `hooks.json` matcher group(s), add regression coverage.
 
 ## Current state
-`main` is clean at `ae0c3b7`, matches `origin/main`. Open PR: [#78](https://github.com/hofmockel/less_tokens/pull/78) (`docs/cx18-close-cx23-file`, doc-only, not yet merged) — closes CX18's research and confirms CX23 at production scale. No source code changed yet.
+`main` is clean at `ae0c3b7`, matches `origin/main`. Open PR: [#78](https://github.com/hofmockel/less_tokens/pull/78) (`docs/cx18-close-cx23-file`, doc-only, not yet merged) — closes CX18's research and confirms CX23 at production scale. All CI checks green (Changelog gate included, after the fix below). No source code changed yet.
 
 ## What happened this session
 - Landed the prior session's pending doc changes (CX18 close + CX23 file) as PR [#78](https://github.com/hofmockel/less_tokens/pull/78).
@@ -12,6 +12,7 @@
 - Promoted CX23 from Research to Ready in `BACKLOG.md` with updated acceptance criteria; added a `CHANGELOG.md [Unreleased]` entry citing the evidence. Both committed to PR #78 alongside the earlier CX18/CX23-filing commit.
 - Mid-session, a concurrent session (dual-agent Claude/Codex pattern, same as noted in prior handoffs) merged `main` forward via PR #77 (a continue.md refresh) directly into this PR's remote branch, diverging local history from origin. Reconciled with a clean `git merge origin/<branch>` (no conflicts) before pushing — **lesson repeated from two sessions ago: fetch/check `origin` before pushing to a long-lived branch, this repo has real concurrent-session traffic.**
 - Scratch repro harness (`logger.py`, hooks.json builder, scratch git repo) lived in the session scratchpad only — not preserved, not part of this repo. Rebuild it fresh for the fix's regression coverage (see below).
+- **PR #78's Changelog gate failed after the CX23 push**: `changelog_gate.py`'s Rule 2 (backlog cross-check) treats any `[ID]`-bracketed citation in `CHANGELOG.md`'s `[Unreleased]` section as "this ID shipped" and fails if that ID still has a heading in `BACKLOG.md`. The CX23 changelog entry used the `**[CX23] ...**` bracket convention while CX23 is intentionally still open (promoted to Ready, not shipped) in `BACKLOG.md` — a real inconsistency, not a false positive. Fixed by rewording the entry's title to drop the bracket citation (`**CX23 confirmed at production scale: ... — fix not yet shipped, still open in BACKLOG.md**`) since nothing shipped yet. Verified locally first (`python3 .claude/tools/changelog_gate.py main` → exit 0) before pushing. **Lesson: only use the `[ID]` bracket convention in a CHANGELOG entry when that ID's BACKLOG.md heading is being removed in the same diff — it signals "shipped," not "documented."**
 
 ## Open work
 1. **Get PR #78 reviewed/merged** — doc-only, closes CX18 and confirms+promotes CX23. No blockers known.
@@ -33,4 +34,4 @@
 Check whether PR #78 merged (`gh pr view 78`). Then read `BACKLOG.md`'s CX23 row (now in the Ready now table) for full evidence and acceptance criteria, and start the fix at `agents/common/hooks/hook_manifest.py:281` (`codex_hooks_json_value`).
 
 ---
-_Last updated at HEAD `ae0c3b7` (PR #78 open on top, not yet merged) on 2026-07-18._
+_Last updated at HEAD `ae0c3b7` (PR #78 open on top, CI green, not yet merged) on 2026-07-18._
