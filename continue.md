@@ -1,27 +1,27 @@
 # Continue: less_tokens
 
-> **Next focus:** get PR #79 merged (CX23 fix), then move to CX19 (top of `BACKLOG.md`'s Ready now table).
+> **Next focus:** investigate CX24 (`mcp__filesystem__.*` Codex matcher may be dead in a default install) before resuming CX19's live-capture fixture work.
 
 ## Current state
-`main` is at `c5a8afe` (PR #78 merged this session — closed CX18, confirmed+promoted CX23). CX23's fix is implemented on branch `fix/cx23-isolate-post-tool-use-groups` (HEAD `98aa56e`), pushed, PR [#79](https://github.com/hofmockel/less_tokens/pull/79) open — CI was still running when this session ended; check `gh pr checks 79` before doing anything else. Working tree is clean.
+`main` is clean at `ed4b2c7` (CX23's fix, PR #79) plus its continue.md refresh (PR #80) — both merged this session. Working branch `docs/file-cx24-filesystem-matcher` (HEAD `5a9e997`) has PR [#81](https://github.com/hofmockel/less_tokens/pull/81) open, doc-only, mergeable — files CX24 and reorders `BACKLOG.md` so it blocks CX19. Check `gh pr checks 81` before anything else.
 
 ## What happened this session
-- Merged PR #78 (doc-only, all 26 checks green) after user confirmation.
-- Implemented CX23's fix: `codex_hooks_json_value()` (`agents/common/hooks/hook_manifest.py:281`) now buckets flat hook entries by declared `event` before nesting, so `PreToolUse` and `PostToolUse` entries land in separate matcher-group arrays instead of one shared array. This stops the confirmed misfire (every `PostToolUse`-declared entry firing mislabeled `PreToolUse`) — it does **not** restore real `PostToolUse` dispatch; an isolated `PostToolUse`-only group still never fires in headless `codex exec` (CX23's fact 1, still true). `flatten_codex_hooks()` already flattened across groups unconditionally, so `install.py`'s wire/unwire callers needed no changes.
-- Added regression tests in `.claude/tests/unit/test_hook_manifest_parity.py`: group isolation (no group mixes declared events), round-trip through `flatten_codex_hooks`, empty-input case.
-- Recorded the still-open caveat in `DOCUMENTATION.md`'s Known limitations: Codex `PostToolUse` hooks remain unconfirmed/non-functional in headless `codex exec` regardless of grouping, pending an interactive-`codex`-TUI retest. Left `parity.json`'s schema binary (`shipped`/`missing`) per the CX17 precedent — no new field added there, the caveat lives in prose only.
-- Removed CX23's row and detail block from `BACKLOG.md`, renumbered the Ready-now/Next tables; added a `[CX23]` `CHANGELOG.md [Unreleased]` entry (the historical "confirmed at production scale" entry from PR #78 stays as-is — new entry documents the fix itself, not a rewrite).
-- Verified: `dev.py unit` (943 passed), full `.claude/tests` (1033 passed), `changelog_gate.py main` (exit 0) — all before pushing.
-- This session's own transcript hit the `compact-trigger` threshold mid-handoff (632k chars) — a live example of the hook this repo ships, firing on the *session's* transcript rather than anything less_tokens-specific. Not a repo bug; user was told to `/compact` or start fresh.
+- Merged PR #79 (CX23's fix) and PR #80 (continue.md refresh) — both already implemented/queued from the prior session.
+- Started CX19 (replace synthetic Codex hook contract-test payloads with real ones). User chose "multi-version fixture store from the start" over single-version.
+- Before building anything, ran live `codex exec` probes (`codex-cli 0.142.3`, scratch repo, isolated PreToolUse/PostToolUse hook groups) to validate assumptions CX19 would otherwise bake into fixtures:
+  1. **Reconfirmed `PostToolUse` never fires in headless `codex exec`**, even after CX23's isolated-group fix — an isolated `PostToolUse:.*` group alongside an isolated `PreToolUse:.*` group only fired Pre. Genuine post-execution payloads (real `tool_response`) stay uncapturable live pending interactive-TUI testing (same open gap as CX17/18/23).
+  2. **Found `mcp__filesystem__.*` — the matcher gating 7 Codex hooks — may never fire at all.** Asked Codex to read a file "with your file reading tool, not a shell command": under `--ignore-user-config` (clean, no personal plugins) it reported no dedicated read tool exists and only shell (`Bash`) can touch local files; with personal plugins loaded it used `mcp__node_repl__js` instead. Neither run produced `mcp__filesystem__*`. `install.py:1796`'s own smoke-check payload for this matcher was never live-verified either — same class of unverified assumption CX17/18/23 kept finding elsewhere in the Codex adapter.
+- Filed this as **CX24** (P0, Research) in `BACKLOG.md` with full evidence, reordered it ahead of CX19 (CX19's "real-shape fixtures" are pointless for a matcher that may not be real), and paused CX19 mid-investigation (no fixture/code changes made yet — task was research-only this session).
+- Scratch probe harness lived in the session scratchpad only (`cx19-probe/`, not preserved) — rebuild if a future session needs to re-run live probes.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md) — CX23 is gone from Ready now; **CX19** (replace synthetic Codex hook smoke tests with semantic fixtures) is now top of the Ready-now table. CN1 (P2, pre-push freshness gate design questions) and the third `parity.json` status-value question remain open at low priority, unchanged from prior sessions.
+See [BACKLOG.md](BACKLOG.md). Ready-now order is now: **CX24** (new, P0) → **CX19** (blocked on CX24) → CN1. CX24's acceptance: confirm live whether *any* Codex configuration ever emits `mcp__filesystem__*`; if not, redesign the 7 affected hooks (`search-first`, `read-guard`, `auto-slice`, `grep-first-read`, `read-after-edit`, `continue-freshness`, plus shared wires in `budget-observer`/`context-cache`/`truncate-output`) to key off `Bash`-based reads instead, or downgrade their Codex claims in `parity.json`/`DOCUMENTATION.md`.
 
 ## Suggested skills
-- None specific — CX19 is a fresh implementation task once PR #79 is in, not a bugfix/bug-hunt fit.
+- None specific — CX24 is a live-testing investigation (same shape as CX17/18/23's spikes), not a bugfix/bug-hunt fit until root cause is confirmed.
 
 ## Start here
-Run `gh pr checks 79`. If green, `gh pr merge 79 --squash --delete-branch`, pull `main`, then start CX19 per its `BACKLOG.md` row.
+Run `gh pr checks 81`; merge if green. Then investigate CX24: try a few more Codex read-triggering prompts (and check whether an explicit user-configured MCP filesystem server ever produces the `mcp__filesystem__` prefix) to settle whether the matcher is dead across the board or only in untested configurations, then act per its acceptance criteria.
 
 ---
-_Last updated at HEAD `98aa56e` (PR #79 open on `fix/cx23-isolate-post-tool-use-groups`, CI status unconfirmed at write time) on 2026-07-18._
+_Last updated at HEAD `5a9e997` (PR #81 open on `docs/file-cx24-filesystem-matcher`, CI status unconfirmed at write time) on 2026-07-18._
