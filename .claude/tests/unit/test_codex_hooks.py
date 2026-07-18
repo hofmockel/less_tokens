@@ -374,6 +374,18 @@ class TestCodexSearchFirst:
         assert rec["where"] == "README.md"
         assert rec["session_id"] == "codex-sess"
 
+    def test_blocks_bash_cat_of_indexed_file(self, tmp_path):
+        """CX25: a default install has no mcp__filesystem__ server — Bash `cat`
+        is the real default-install read path and must hit the same gate."""
+        state_dir = tmp_path / "state"
+        code, _, stderr = run_hook_with_env("search-first.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cat {REPO / 'README.md'}"},
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 2
+        assert "Search-first rule" in stderr
+
 
 # ---------------------------------------------------------------------------
 # read-guard.py
@@ -415,6 +427,42 @@ class TestCodexReadGuard:
         assert code == 2
         assert "Read-guard" in stderr
 
+    def test_blocks_lockfile_read_via_bash_cat(self, tmp_path):
+        """CX25: `cat` on a default install must reach the same guard a
+        configured mcp__filesystem__ server would."""
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, stderr = run_hook_with_env("read-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cat {p}"},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "Read-guard" in stderr
+
+    def test_allows_sliced_lockfile_read_via_bash_sed(self, tmp_path):
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, _ = run_hook_with_env("read-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"sed -n '1,5p' {p}"},
+            "tool_response": "",
+        })
+        assert code == 0
+
+    def test_piped_bash_read_is_not_mapped_and_passes(self, tmp_path):
+        """CX25's documented fail-open boundary: a pipe leaves the call as
+        plain Bash, so this hook (gated on tool_name=="Read") no-ops — same
+        as an unrecognized command gets today, not a regression."""
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, _ = run_hook_with_env("read-guard.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cat {p} | head"},
+            "tool_response": "",
+        })
+        assert code == 0
+
 
 # ---------------------------------------------------------------------------
 # auto-slice.py
@@ -433,6 +481,20 @@ class TestCodexAutoSlice:
         assert code == 2
         assert "Auto-slice" in stderr
         assert "offset=5" in stderr or "offset=5" in stderr.replace(" ", "")
+
+    def test_blocks_bash_cat_with_recent_search_range(self, tmp_path):
+        """CX25: Bash `cat` must hit the same auto-slice nudge a configured
+        mcp__filesystem__ server's whole-file read would."""
+        state_dir = tmp_path / "state"
+        state_dir.mkdir()
+        (state_dir / "last-search.json").write_text(json.dumps({"src/app.py": [[5, 9]]}))
+        code, _, stderr = run_hook_with_env("auto-slice.py", {
+            "tool_name": "Bash",
+            "tool_input": {"command": "cat /repo/src/app.py"},
+            "tool_response": "",
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        assert code == 2
+        assert "Auto-slice" in stderr
 
 
 # ---------------------------------------------------------------------------

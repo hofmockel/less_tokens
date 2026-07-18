@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, map_read, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_result
 
 REPO = bootstrap()
 
@@ -53,7 +53,7 @@ except Exception:
     state_dir = REPO / ".less_tokens" / "state"
 
 def main() -> int:
-    raw = load_json_stdin(map_read)
+    raw = load_json_stdin(map_read, map_bash_read)
     if not raw:
         return 0
     payload = normalize_codex(raw)

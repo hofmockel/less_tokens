@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, map_read, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_result
 
 REPO = bootstrap()
 
@@ -12,7 +12,7 @@ from continue_freshness import check_continue_freshness  # noqa: E402
 
 
 def main() -> int:
-    raw = load_json_stdin(map_read)
+    raw = load_json_stdin(map_read, map_bash_read)
     if raw.get("tool_name") != "Read":
         return 0
     file_path = (raw.get("tool_input") or {}).get("file_path", "")
