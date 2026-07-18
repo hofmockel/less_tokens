@@ -22,6 +22,7 @@ spec.loader.exec_module(audit_mod)  # type: ignore[union-attr]
 
 from agents.common.hooks.hook_manifest import HOOK_SPECS  # noqa: E402
 from install import (  # noqa: E402
+    _codex_hooks_json_value,
     build_codex_hook_entries,
     launcher_rel,
     write_python_launcher,
@@ -72,7 +73,8 @@ def _write_codex_install(
         if stale_commands:
             command = f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
         hooks.append({"event": event, "matcher": matcher, "command": command})
-    (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+    nested = _codex_hooks_json_value(hooks)
+    (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": nested}), encoding="utf-8")
 
 
 def test_command_script_name_handles_quoted_windows_paths():
@@ -111,6 +113,17 @@ def test_codex_parity_audit_passes_current_generated_install(tmp_path):
     assert parity_rows
     assert all(row.enforcement == "best-effort-only" for row in parity_rows)
     assert any(row.strategy == "subagent-cap" and row.enforcement == "missing" for row in rows)
+
+
+def test_codex_parity_audit_rejects_retired_flat_hooks_schema(tmp_path):
+    _write_codex_install(tmp_path)
+    data = json.loads((tmp_path / ".codex" / "hooks.json").read_text())
+    flat = data["hooks"][0]  # unwrap the nested group back to the retired flat shape (CX22)
+    (tmp_path / ".codex" / "hooks.json").write_text(json.dumps({"hooks": flat}))
+
+    _, problems = audit_mod.audit(tmp_path)
+
+    assert any("unexpected format" in problem for problem in problems)
 
 
 def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):

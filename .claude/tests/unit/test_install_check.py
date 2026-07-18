@@ -12,7 +12,12 @@ from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from install import _CODEX_TOOL_SHIM_MARKER, build_codex_hook_entries, do_check
+from install import (
+    _CODEX_TOOL_SHIM_MARKER,
+    _codex_hooks_json_value,
+    build_codex_hook_entries,
+    do_check,
+)
 
 
 def _args(**kwargs) -> argparse.Namespace:
@@ -86,11 +91,9 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     entries = build_codex_hook_entries(venv_py, root, _args(agent="codex"))
     for _, _, cmd in entries:
         (codex_hooks / Path(shlex.split(cmd)[-1]).name).touch()
+    flat = [{"event": ev, "matcher": matcher, "command": cmd} for ev, matcher, cmd in entries]
     (root / ".codex" / "hooks.json").write_text(json.dumps({
-        "hooks": [
-            {"event": ev, "matcher": matcher, "command": cmd}
-            for ev, matcher, cmd in entries
-        ]
+        "hooks": _codex_hooks_json_value(flat)
     }))
 
     (root / "AGENTS.md").write_text(
@@ -167,6 +170,31 @@ class TestDoCheckAllPass:
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
         assert "truncate-output.py failed from nested cwd" in capsys.readouterr().out
+
+    def test_fails_when_codex_hooks_json_missing_a_matcher(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        data = json.loads((root / ".codex" / "hooks.json").read_text())
+        data["hooks"][0] = data["hooks"][0][:-1]  # drop one matcher entry (CX22)
+        (root / ".codex" / "hooks.json").write_text(json.dumps(data))
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = _successful_codex_check_run
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 1
+        assert ".codex/hooks.json missing 1 less_tokens hook" in capsys.readouterr().out
+
+    def test_fails_when_codex_hooks_json_uses_retired_flat_schema(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        entries = build_codex_hook_entries(
+            root / "fake_venv" / "bin" / "python", root, _args(agent="codex")
+        )
+        (root / ".codex" / "hooks.json").write_text(json.dumps({
+            "hooks": [{"event": ev, "matcher": matcher, "command": cmd} for ev, matcher, cmd in entries]
+        }))
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = _successful_codex_check_run
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 1
+        assert "unexpected format (expected nested hooks schema)" in capsys.readouterr().out
 
     def test_codex_check_does_not_require_claude_hooks(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)

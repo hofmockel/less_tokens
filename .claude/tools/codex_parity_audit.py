@@ -22,6 +22,32 @@ class AuditRow:
     notes: str
 
 
+def _flatten_codex_hooks(raw_hooks: object) -> tuple[list[dict[str, Any]], bool]:
+    """Flatten the CLI's required `[[{event,matcher,hooks:[{type,command}]}, ...]]`
+    shape (CX21) to `{event,matcher,command}` dicts. Kept byte-equivalent with
+    install.py's `_flatten_codex_hooks` — install.py is dev-repo-only and is
+    never copied into installed targets, so this deployed audit script (shipped
+    verbatim via `.claude/tools`) cannot import it and carries its own copy.
+    Anything else — missing, malformed, or the pre-CX21 flat shape the CLI
+    rejects — normalizes to `([], False)`.
+    """
+    if not (isinstance(raw_hooks, list) and all(isinstance(g, list) for g in raw_hooks)):
+        return [], False
+    flat = []
+    for group in raw_hooks:
+        for h in group:
+            if not isinstance(h, dict):
+                continue
+            inner = h.get("hooks")
+            if not (isinstance(inner, list) and inner and isinstance(inner[0], dict)):
+                continue
+            command = inner[0].get("command")
+            if command is None:
+                continue
+            flat.append({"event": h.get("event"), "matcher": h.get("matcher"), "command": command})
+    return flat, True
+
+
 def _load_hooks(path: Path) -> tuple[list[dict[str, Any]], str | None]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -29,10 +55,10 @@ def _load_hooks(path: Path) -> tuple[list[dict[str, Any]], str | None]:
         return [], "missing .codex/hooks.json"
     except (OSError, json.JSONDecodeError) as exc:
         return [], f"unreadable .codex/hooks.json: {exc}"
-    hooks = data.get("hooks")
-    if not isinstance(hooks, list):
-        return [], ".codex/hooks.json has no list-valued hooks key"
-    return [h for h in hooks if isinstance(h, dict)], None
+    hooks, valid = _flatten_codex_hooks(data.get("hooks"))
+    if not valid:
+        return [], ".codex/hooks.json has unexpected format (expected nested hooks schema)"
+    return hooks, None
 
 
 def _is_writable(path: Path) -> bool:

@@ -2056,15 +2056,15 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             try:
                 import json as _json
                 data = _json.loads(hooks_json.read_text(encoding="utf-8"))
-                hooks = data.get("hooks", [])
-                if not isinstance(hooks, list):
-                    _fail(".codex/hooks.json has unexpected format")
+                hooks, hooks_valid = _flatten_codex_hooks(data.get("hooks"))
+                if not hooks_valid:
+                    _fail(".codex/hooks.json has unexpected format (expected nested hooks schema)")
                 else:
                     expected = build_codex_hook_entries(venv_py or Path("python"), target_root, args)
                     missing = [
                         (ev, matcher, cmd)
                         for ev, matcher, cmd in expected
-                        if not any(h.get("event") == ev and h.get("command") == cmd for h in hooks)
+                        if not any(h["event"] == ev and h["command"] == cmd for h in hooks)
                     ]
                     if missing:
                         names = ", ".join(Path(shlex.split(cmd)[-1]).name for _, _, cmd in missing[:5])
