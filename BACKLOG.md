@@ -10,8 +10,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-
-_(empty — promote the next item from **Next** below)_
+| 1 | CX23 | P0 | Ready | Isolate `PostToolUse`-declared entries into their own hooks.json matcher group; add regression coverage | — |
 
 ## Next
 
@@ -19,20 +18,23 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 2 | CX23 | P0 | Research | Verify whether Codex's single matcher-group hooks.json wiring causes cross-event hook misfires | — |
-| 3 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
-| 4 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 5 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 6 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 7 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 8 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
-| 9 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 10 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
-| 11 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
-| 12 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
-| 13 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
+| 2 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
+| 3 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 4 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 5 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 6 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 7 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 8 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 9 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
+| 10 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 11 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
+| 12 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
-- **CX23 — Verify whether Codex's single matcher-group hooks.json wiring causes cross-event hook misfires** *(tool / enforcement parity, correctness)* — `codex_hooks_json_value()` (`agents/common/hooks/hook_manifest.py`, shipped by CX21) always nests every hook entry into **one** inner matcher-group array — `[[ {event, matcher, hooks}, {event, matcher, hooks}, ... ]]` — regardless of each entry's declared `event`. A live CX18 test (see `DECISIONS.md`) put a `Stop`/`matcher:""` entry and a `PreToolUse`/`matcher:".*"` entry in one such group against real `codex-cli 0.142.3`; when only a `PreToolUse` trigger fired, the `Stop`-labeled entry's script ran too, receiving a `PreToolUse`-shaped payload. That suggests the CLI may dispatch by scanning every entry in a group against the current trigger and treating an empty matcher as a group-wide wildcard, rather than hard-gating on each entry's declared `event` — which would mean any of the ~20 real hook entries `codex_hooks_json_value()` currently packs into one group for every shipped install could misfire on the wrong event if a neighbor's matcher is broad enough. Not yet confirmed at realistic scale: only tested with 2 entries (1 empty matcher), and a follow-up attempt to isolate the same two entries into separate matcher-group arrays timed out before completing (inconclusive, not a disproof). Acceptance: reproduce or rule out cross-event misfire using entry counts/matchers matching the real shipped manifest (`HOOK_SPECS`); if confirmed, redesign `codex_hooks_json_value()`'s grouping (e.g. one group per declared event, or per exact `(event, matcher)` pair) and add regression coverage that exercises live or fixture-based multi-event dispatch, not just on-disk schema shape.
+- **CX23 — Codex's single matcher-group hooks.json wiring confirmed to misfire every `PostToolUse` entry — fix not yet implemented** *(tool / enforcement parity, correctness)* — **CONFIRMED at real production scale.** Built the exact 20-entry nested shape `codex_hooks_json_value()` (`agents/common/hooks/hook_manifest.py`, shipped by CX21) produces for a real Codex install (via `build_codex_hook_entries`/`HOOK_SPECS`, all script commands swapped for a transparent stdin-logging shim), installed it as `.codex/hooks.json` against live `codex-cli 0.142.3`, and ran one `codex exec` turn with a Bash call and an `apply_patch` edit. Two facts, established independently:
+  1. **A solo, isolated single-entry group containing only a `PostToolUse`/`matcher:"Bash"` entry (no other entries in the file) never fires at all** for a matching Bash call — zero log lines, zero `hook:` CLI instrumentation. Headless `codex exec` does not generate a real `PostToolUse`-labeled dispatch, full stop — generalizes CX17's `PostToolUse` finding and CX18's `Stop` finding to the whole non-`PreToolUse` event surface.
+  2. **When those same `PostToolUse` entries instead share the one production matcher-group array with matching `PreToolUse` entries (the shape every real install has today), they fire anyway** — mislabeled as `PreToolUse`, receiving a `PreToolUse`-shaped payload with no tool output to inspect. All 17 real firings logged in the test (10 for the Bash call, 7 for the `apply_patch` call) carried `hook_event_name: "PreToolUse"`, including every entry declared `PostToolUse` whose matcher matched the tool: `truncate-output`, `post-edit-diff`, `index-refresh`, `agent-md-budget`, `savings-html`, `compact-trigger`, `lean-output`, and the `PostToolUse` wires of `budget-observer` and `context-cache`. Matcher-based filtering itself works correctly (no non-matching entries fired); only the declared `event` field is ignored once entries share a group.
+
+  Net effect on the shipped Codex install: dispatch by matcher is fine, but every `PostToolUse`-declared hook — most of the codex-side manifest — currently runs before its tool executes, with no tool-output field available, rather than after. Regrouping alone (one group per declared event) will not restore real post-tool behavior, since fact 1 shows an isolated `PostToolUse` group simply never fires in headless exec; the practical value of regrouping is turning today's "wrong time, wrong payload" misfire into a clean, non-corrupting no-op, pending the still-open question of whether interactive `codex` TUI sessions support genuine `PostToolUse` dispatch (same untested gap CX17/CX18 left open). Acceptance (updated): redesign `codex_hooks_json_value()` to isolate `PostToolUse`-declared entries into their own matcher-group array(s) separate from `PreToolUse` entries; add regression coverage (live or fixture-based) asserting a `PreToolUse` trigger never invokes a `PostToolUse`-only group; and record in `parity.json`/`DOCUMENTATION.md` that Codex `PostToolUse` hooks are unconfirmed/non-functional in headless `codex exec` pending an interactive-mode test.
 
 - **CX19 — Replace synthetic Codex hook smoke coverage with semantic, versioned payload coverage** *(meta / reliability)* — `.claude/tests/unit/test_codex_event_contract.py:49-169` invents payloads and accepts any exit code in `{0, 2}` if there is no traceback; unexpected payloads can therefore no-op silently. Store sanitized fixtures for supported Codex versions covering reads, searches, Bash, apply_patch, Edit/Write, tool errors, available final-response events, and unknown MCP tools. Assert semantic outcomes, not non-crash. Acceptance: every supported matcher has a real-shape fixture and outcome assertion; unknown shapes fail open with bounded schema-only telemetry; schema drift creates a targeted failure or audit warning.
 
