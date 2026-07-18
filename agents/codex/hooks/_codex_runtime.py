@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -73,4 +75,89 @@ def map_read_or_search(raw: dict) -> dict:
         return map_read(raw)
     if tool.startswith("mcp__filesystem__") and "search" in tool:
         raw["tool_name"] = "Grep"
+    return raw
+
+
+# CX25: a default Codex install exposes no `mcp__filesystem__` server, so the
+# 6 hooks gated on that matcher alone never fire — Bash is the only real
+# default-install read path. Recognize a narrow, unambiguous set of
+# single-file read shapes and rewrite them into the same synthetic Read shape
+# `map_read` produces, so downstream hook logic (which only ever branches on
+# tool_name=="Read" + tool_input file_path/offset) needs no changes.
+#
+# Deliberately conservative: any shell metacharacter (pipe, redirect, glob,
+# substitution, chaining) bails out and leaves the call as plain Bash, so the
+# 6 hooks silently no-op on it today. That is the same fail-open behavior an
+# unrecognized command already gets — no regression, just an unclosed gap
+# documented rather than guessed at (CX25 acceptance).
+_BASH_READ_METACHARS = re.compile(r"[|&;<>`~*?{}\[\]]|\$\(")
+_SED_PRINT_SCRIPT = re.compile(r"^(\d+)(?:,\d+)?p$")
+
+
+def _parse_bash_read(command: str) -> tuple[str, int | None] | None:
+    if _BASH_READ_METACHARS.search(command):
+        return None
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    name = Path(parts[0]).name
+    args = parts[1:]
+
+    if name == "cat":
+        if len(args) == 1 and not args[0].startswith("-"):
+            return args[0], None
+        return None
+
+    if name in ("head", "tail"):
+        positionals: list[str] = []
+        skip_next = False
+        for arg in args:
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == "-n":
+                skip_next = True
+                continue
+            if arg.startswith("-n") or re.fullmatch(r"-\d+", arg):
+                continue
+            if arg.startswith("-"):
+                return None  # e.g. tail -f, head -c: not a bounded read
+            positionals.append(arg)
+        if len(positionals) == 1:
+            return positionals[0], 1  # partial read; exact offset unused by consumers
+        return None
+
+    if name == "sed":
+        if "-n" not in args:
+            return None
+        rest = [a for a in args if a != "-n"]
+        if len(rest) != 2:
+            return None
+        script, path = rest
+        match = _SED_PRINT_SCRIPT.fullmatch(script)
+        if not match:
+            return None
+        return path, int(match.group(1))
+
+    return None
+
+
+def map_bash_read(raw: dict) -> dict:
+    if raw.get("tool_name") != "Bash":
+        return raw
+    command = (raw.get("tool_input") or {}).get("command", "")
+    if not isinstance(command, str) or not command.strip():
+        return raw
+    parsed = _parse_bash_read(command)
+    if parsed is None:
+        return raw
+    file_path, offset = parsed
+    raw["tool_name"] = "Read"
+    new_input: dict = {"file_path": file_path}
+    if offset is not None:
+        new_input["offset"] = offset
+    raw["tool_input"] = new_input
     return raw

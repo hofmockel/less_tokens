@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin
+from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin, map_bash_read
 
 bootstrap()
 
@@ -26,7 +26,7 @@ def _file_input(raw: dict) -> tuple[str, object]:
 
 
 def main() -> int:
-    raw = load_json_stdin()
+    raw = load_json_stdin(map_bash_read)
     if not raw:
         return 0
     if raw.get("tool_name") not in {"Read", *FILESYSTEM_READ_TOOLS}:
