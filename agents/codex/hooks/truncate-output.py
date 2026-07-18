@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin
+from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin
 
 REPO = bootstrap()
 
@@ -54,7 +54,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _cap_for_tool(tool_name: str) -> int:
-    if tool_name == "mcp__filesystem__read_file":
+    if tool_name in FILESYSTEM_READ_TOOLS:
         return _env_int("LESS_TOKENS_CODEX_MAX_FILESYSTEM_READ_CHARS", CODEX_MAX_FILESYSTEM_READ_CHARS)
     return _env_int("LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS", CODEX_MAX_TOOL_OUTPUT_CHARS)
 

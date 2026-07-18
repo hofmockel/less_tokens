@@ -401,6 +401,20 @@ class TestCodexReadGuard:
         })
         assert code == 0
 
+    def test_blocks_lockfile_read_via_current_server_tool_name(self, tmp_path):
+        """CX24: @modelcontextprotocol/server-filesystem's live tool name
+        (confirmed against v2026.7.10) is read_text_file, not read_file —
+        the hardcoded read_file match previously silently no-op'd this."""
+        p = tmp_path / "package-lock.json"
+        p.write_text("{}")
+        code, _, stderr = run_hook_with_env("read-guard.py", {
+            "tool_name": "mcp__filesystem__read_text_file",
+            "tool_input": {"path": str(p)},
+            "tool_response": "",
+        })
+        assert code == 2
+        assert "Read-guard" in stderr
+
 
 # ---------------------------------------------------------------------------
 # auto-slice.py

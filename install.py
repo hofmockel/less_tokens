@@ -1793,7 +1793,7 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             (
                 "read-guard.py",
                 {
-                    "tool_name": "mcp__filesystem__read_file",
+                    "tool_name": "mcp__filesystem__read_text_file",
                     "tool_input": {"path": str(target_root / "README.md"), "offset": 1, "limit": 1},
                 },
                 0,

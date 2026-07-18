@@ -48,7 +48,13 @@ def truncate_glob(text: str, max_results: int) -> str:
     return "\n".join(kept)
 
 
-_TARGETED_TOOLS = {"Bash", "Read", "WebFetch", "Glob", "mcp__filesystem__read_file"}
+# @modelcontextprotocol/server-filesystem renamed its read tool from
+# read_file to read_text_file (confirmed live against v2026.7.10); accept
+# both so an older pinned server version doesn't silently no-op this hook.
+_TARGETED_TOOLS = {
+    "Bash", "Read", "WebFetch", "Glob",
+    "mcp__filesystem__read_file", "mcp__filesystem__read_text_file",
+}
 
 _SUBAGENT_KEY_MARKERS = (
     "verdict:", "pass:", "fail:", "failed:", "blocker:", "blockers:",

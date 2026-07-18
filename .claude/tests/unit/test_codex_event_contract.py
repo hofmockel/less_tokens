@@ -61,6 +61,14 @@ def _payloads_for_token(token: str, tmp_path: Path) -> list[dict]:
                 "tool_response": "old\n",
             },
             {
+                # CX24: @modelcontextprotocol/server-filesystem's live tool
+                # name (confirmed against v2026.7.10) — read_file above is
+                # the legacy alias some pinned server versions still use.
+                "tool_name": "mcp__filesystem__read_text_file",
+                "tool_input": {"path": str(target), "offset": 0, "limit": 20},
+                "tool_response": "old\n",
+            },
+            {
                 "tool_name": "mcp__filesystem__search_files",
                 "tool_input": {"path": str(tmp_path), "pattern": "contract"},
                 "tool_response": str(target),
@@ -139,6 +147,7 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
 
     assert {
         "mcp__filesystem__read_file",
+        "mcp__filesystem__read_text_file",
         "mcp__filesystem__search_files",
         "Bash",
         "apply_patch",
