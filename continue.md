@@ -1,48 +1,46 @@
 # Continue: less_tokens
 
 > **Next focus:** CX19 (P1, Ready) — implement per approved plan at
-> `/Users/michael/.claude/plans/floating-spinning-waffle.md`. Research done. No code written yet.
+> `/Users/michael/.claude/plans/floating-spinning-waffle.md`. No code written yet.
 
 ## Current state
-CX25 shipped — merged via PR #83 (`d02f918`), not the direct-to-`main` push the prior handoff
-flagged as a possible deviation: `main` is branch-protected (confirmed this session — a direct
-`git push origin main` was rejected, "Changes must be made through a pull request"), so PR #83 is
-actually consistent with this repo's established CX19–CX24 branch+PR pattern. `main` is at `e57815a`, working tree clean. The prior refresh merged as PR #84 with a stale
-self-referential HEAD anchor (`18bffd2`, written before that PR's own base commit was known) —
-this commit fixes the anchor and this paragraph's accuracy in a follow-up PR rather than amending
-a merged commit.
-**Branch `fix/cx19-semantic-read-fixtures` is stale** — it still points at the old local-only
-`18bffd2` (content-identical to `d02f918`/PR #83 but a different SHA, predates the
-branch-protection discovery) and is not based on current `main`. Rebase it onto `main` before
-starting CX19 work. No CX19 implementation exists yet.
+`main` clean at `1f59a6b`. Since the last handoff, 5 unrelated docs commits landed (`sources.md`
+triage work, #85-#88) — no CX19 code exists anywhere. Branch `fix/cx19-semantic-read-fixtures`
+still only touches `BACKLOG.md`/`continue.md`/`sources.md` docs (confirmed again this session via
+`git diff main..fix/cx19-semantic-read-fixtures --stat`), no test/fixture code — rebase it onto
+`main` before use, or just branch fresh from `main`.
 
 ## What happened this session
-- Confirmed CX25 landed via PR #83, and confirmed why: `main` push protection.
-- Researched CX19 in full: read every hook wrapper (`agents/codex/hooks/{search-first,read-guard,
-  auto-slice,grep-first-read,read-after-edit,continue-freshness}.py`) and shared logic
-  (`agents/common/hooks/{search_first,read_guard,auto_slice,grep_first_read,read_after_edit,
-  continue_freshness}.py`) — exact block/allow exit codes, message prefixes, state-file formats
-  (`last-search`, `last-search.json`, `last-edit.json` under `LESS_TOKENS_STATE_DIR`), and config
-  wiring (thresholds, window seconds) per hook.
-- Key finding: today's `_payloads_for_token` in `test_codex_event_contract.py` never seeds hook
-  state, so 5 of 6 gate hooks only ever exercise their **allow** path — block path is untested.
-  `continue-freshness` isn't exercised at all (no `continue.md`-named fixture exists today).
-- Wrote and got user approval on a 7-step implementation plan (add scenario dimension to fixtures,
-  outcome table, rewritten assertions, error-agnosticism coverage, unknown-MCP-tool fail-open test,
-  Stop-wiring regression guard, BACKLOG/CHANGELOG/continue.md updates). Full plan file has exact
-  block-message prefixes and state-file shapes needed — read it before re-deriving any of this.
+- Re-verified the approved plan is still accurate: read it in full, cross-checked its "no CX19 code
+  exists yet" and "branch is docs-only" claims against current `main` — both hold.
+- A separate Explore-agent pass this session independently re-researched the same hook set and
+  proposed a much larger redesign (per-script fixture tables, new production telemetry for unknown
+  tool names, etc.) — **do not use that; it's superseded.** The approved plan below is smaller,
+  test-only (no `agents/` source changes), and already has user sign-off. Follow it, not the
+  Explore report.
+- No code written. Session paused here on user request to write this handoff.
 
 ## Open work
-CX19 implementation itself — not started. See plan file above for the 7 steps; all research
-needed to execute them is already captured there. After CX19: next backlog item per `BACKLOG.md`
-order.
+CX19 implementation — 7 steps, all in `/Users/michael/.claude/plans/floating-spinning-waffle.md`:
+1. Add a scenario dimension (`no-state` vs `state-seeded`) to `_payloads_for_token` in
+   `.claude/tests/unit/test_codex_event_contract.py`.
+2. Add a `(script_name, token, scenario_name) → (expected_code, expected_substring)` outcome table.
+3. Rewrite `test_codex_hook_entry_accepts_representative_payload` to assert against that table
+   (keep the existing traceback/JSONDecodeError floor checks).
+4. Add error-agnosticism scenarios (error-shaped `tool_response`, same expected outcome).
+5. Add `test_codex_unknown_mcp_tool_fails_open` (all 6 gate hooks, not just `search-first`).
+6. Add `test_codex_has_no_stop_wiring_yet` regression guard.
+7. Update `BACKLOG.md` (delete CX19 row), `CHANGELOG.md` (`[CX19]` entry), `continue.md`.
+
+Exact block-message prefixes and state-file shapes needed for step 1 are already in the plan file —
+don't re-derive them. After CX19 ships: next item is `BACKLOG.md`'s **Ready now** order (currently
+empty after CX19; next pull from **Next**, top of table).
 
 ## Suggested skills
-- None specific — continue straight from the approved plan, no bugfix/bug-hunt shape needed.
+- None specific — continue straight from the approved plan.
 
 ## Start here
-Read `/Users/michael/.claude/plans/floating-spinning-waffle.md` in full, then start on step 1
-(add scenario dimension to `_payloads_for_token` in `.claude/tests/unit/test_codex_event_contract.py`).
+Read `/Users/michael/.claude/plans/floating-spinning-waffle.md` in full, then start on step 1.
 
 ---
-_Last updated at HEAD `e57815a` on 2026-07-18._
+_Last updated at HEAD `1f59a6b` on 2026-07-18._
