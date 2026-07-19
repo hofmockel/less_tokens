@@ -10,7 +10,6 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
 
 ## Next
 
@@ -32,8 +31,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 13 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
 | 14 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | — |
 | 15 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
-
-- **CX19 — Replace synthetic Codex hook smoke coverage with semantic, versioned payload coverage** *(meta / reliability)* — `.claude/tests/unit/test_codex_event_contract.py:49-169` invents payloads and accepts any exit code in `{0, 2}` if there is no traceback; unexpected payloads can therefore no-op silently. Store sanitized fixtures for supported Codex versions covering reads, searches, Bash, apply_patch, Edit/Write, tool errors, available final-response events, and unknown MCP tools. Assert semantic outcomes, not non-crash. Acceptance: every supported matcher has a real-shape fixture and outcome assertion; unknown shapes fail open with bounded schema-only telemetry; schema drift creates a targeted failure or audit warning. **Live-testing note (this session):** confirmed `PostToolUse` still never fires in headless `codex exec` even after CX23's isolated-group fix (probed directly: isolated `PreToolUse:.*`+`PostToolUse:.*` groups, only Pre fired) — genuine post-execution payloads (with a real `tool_response`) remain uncapturable live pending interactive-TUI testing (same gap CX17/18/23 left open). Fixture work should proceed on the Pre-side matchers that are confirmed live first: CX24 resolved that `mcp__filesystem__.*` fires with real tool name `mcp__filesystem__read_text_file` for opt-in configs (fixed this session), and `Bash` is the confirmed default-install read path — no longer blocked on CX24.
 
 - **HS1 — Benchmark hybrid lexical + vector retrieval before changing `search.py` ranking** *(input / retrieval)* — The local backend ranks only dense-vector cosine similarity, while exact symbol lookup is a separate manual path. Technical identifiers, error codes, rare names, and exact API strings are a known weak spot for pure vector retrieval; a small lexical leg (SQLite FTS5/BM25) fused with vector ranks via reciprocal-rank fusion could raise top-k precision and prevent follow-up searches or broad reads. Do not add a second service or cross-encoder: keep the candidate indexes local and cheap. Acceptance: build a versioned held-out query set containing semantic questions plus exact identifiers from at least two real repositories; report vector-only versus lexical-only versus fused recall@k/MRR, latency, index-size, and printed-token deltas; ship the fused path only if it improves exact-query retrieval without regressing semantic queries beyond a stated tolerance, otherwise record the negative result in `DECISIONS.md`.
 
