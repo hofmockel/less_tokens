@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -45,7 +46,13 @@ def _entries() -> list[tuple[str, str, str]]:
 
 
 def _script(command: str) -> str:
-    return Path(command.split()[-1]).name
+    script = shlex.split(command)[-1].replace("\\", "/")
+    return Path(script).name
+
+
+def test_script_extracts_shell_quoted_windows_path():
+    command = r"LESS_TOKENS_AGENT=codex python 'C:\workspace\hooks\search-first.py'"
+    assert _script(command) == "search-first.py"
 
 
 MCP_TOKEN = "mcp__filesystem__.*"
