@@ -125,6 +125,14 @@ def _successful_codex_check_run(command, **kwargs):
     return result
 
 
+def _supported_codex_runtime():
+    """Keep do_check tests independent of Codex installations on the test host."""
+    return patch(
+        "install.detect_codex_releases",
+        return_value=[(Path("/fake/codex"), (0, 144, 6))],
+    )
+
+
 class TestDoCheckAllPass:
     def test_returns_0_on_valid_install(self, tmp_path, capsys):
         root = _minimal_install(tmp_path)
@@ -138,7 +146,7 @@ class TestDoCheckAllPass:
 
     def test_returns_0_on_valid_codex_install(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
@@ -174,7 +182,7 @@ class TestDoCheckAllPass:
 
     def test_fails_when_codex_truncation_smoke_does_not_truncate(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
@@ -184,7 +192,7 @@ class TestDoCheckAllPass:
         root = _minimal_codex_install(tmp_path)
         import shutil
         shutil.rmtree(root / ".claude" / "hooks")
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
@@ -306,7 +314,7 @@ class TestDoCheckHooks:
                 for ev, matcher, cmd in entries
             ]
         }))
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
@@ -326,7 +334,7 @@ class TestDoCheckHooks:
             for event, matcher, command in entries
         ]]
         (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": legacy}))
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
