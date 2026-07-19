@@ -1,49 +1,40 @@
 # Continue: less_tokens
 
-> **Next focus:** CX19 (P1, Ready, next in `BACKLOG.md` order) — replace synthetic Codex hook smoke
-> tests with semantic fixtures.
+> **Next focus:** CX19 (P1, Ready) — implement per approved plan at
+> `/Users/michael/.claude/plans/floating-spinning-waffle.md`. Research done. No code written yet.
 
 ## Current state
-CX25 is shipped: the 6 Codex hooks that only fired on an opt-in `mcp__filesystem__` server
-(`search-first`, `read-guard`, `auto-slice`, `grep-first-read`, `read-after-edit`,
-`continue-freshness`) now also fire on `cat`/`head`/`tail`/`sed -n` Bash reads via a new
-`map_bash_read` mapper. `dev.py unit` (985 passed), `codex_parity_audit.py` (`Problems: none`),
-`changelog_gate.py` (ok) all clean. This session's commit is about to land on `main` directly (no
-branch/PR — see note below).
+CX25 shipped, on `main` (HEAD `18bffd2`), working tree clean. Branch
+`fix/cx19-semantic-read-fixtures` exists, checked out, same commit as `main` — no CX19 work
+committed yet. This session did research + planning only for CX19; interrupted before first Edit.
 
 ## What happened this session
-- Merged PR #82 (CX24 fix), synced `main` to `e5582c1`.
-- Implemented and shipped **CX25**: see `CHANGELOG.md`'s `[CX25]` entry for the full design
-  (recognized Bash read shapes, fail-open boundary, files touched). Caught and fixed a `sed -n
-  '12p'` offset-parsing bug (`script.split(",")[0]` on `"12p"` isn't an int) during test-writing.
-- Regenerated this repo's own dogfooded install (`install.py --self-refresh --agent codex --yes`)
-  and the generated docs tables (`hook_parity_docs.py`) after the matcher change — both needed a
-  refresh pass, not just the source edit.
-- Added 30 unit cases (`test_codex_bash_read_mapping.py`) plus live-shape subprocess fixtures in
-  `test_codex_hooks.py` (including a piped-command fail-open case) satisfying CX25's "add
-  live-shape fixture coverage" acceptance criterion.
-- `BACKLOG.md` CX25 row/detail bullet removed; `CHANGELOG.md` `[Unreleased]` entry added.
-- **Deviation from this repo's established CX19–CX24 pattern**: those shipped via a feature branch
-  + PR. This session committed straight to `main` on explicit user instruction ("commit") without
-  cutting a branch first — flagging in case that's not the intended convention going forward.
+- Confirmed CX25 landed on `main` as planned (no new push-status change).
+- Researched CX19 in full: read every hook wrapper (`agents/codex/hooks/{search-first,read-guard,
+  auto-slice,grep-first-read,read-after-edit,continue-freshness}.py`) and shared logic
+  (`agents/common/hooks/{search_first,read_guard,auto_slice,grep_first_read,read_after_edit,
+  continue_freshness}.py`) — exact block/allow exit codes, message prefixes, state-file formats
+  (`last-search`, `last-search.json`, `last-edit.json` under `LESS_TOKENS_STATE_DIR`), and config
+  wiring (thresholds, window seconds) per hook.
+- Key finding: today's `_payloads_for_token` in `test_codex_event_contract.py` never seeds hook
+  state, so 5 of 6 gate hooks only ever exercise their **allow** path — block path is untested.
+  `continue-freshness` isn't exercised at all (no `continue.md`-named fixture exists today).
+- Wrote and got user approval on a 7-step implementation plan (add scenario dimension to fixtures,
+  outcome table, rewritten assertions, error-agnosticism coverage, unknown-MCP-tool fail-open test,
+  Stop-wiring regression guard, BACKLOG/CHANGELOG/continue.md updates). Full plan file has exact
+  block-message prefixes and state-file shapes needed — read it before re-deriving any of this.
 
 ## Open work
-See [BACKLOG.md](BACKLOG.md). Next up: **CX19** (P1, Ready) — replace
-`test_codex_event_contract.py`'s synthetic any-non-crash-code payloads with real-shape fixtures and
-semantic outcome assertions. No longer blocked on CX24 (resolved last session) or CX25 (this
-session); CX25's own `test_codex_bash_read_mapping.py`/`test_codex_hooks.py` additions are a partial
-head start on CX19's "every supported matcher has a real-shape fixture" requirement for the
-Bash-read matchers specifically — CX19 still needs to cover the rest (searches, apply_patch,
-Edit/Write, tool errors, unknown MCP tools).
+CX19 implementation itself — not started. See plan file above for the 7 steps; all research
+needed to execute them is already captured there. After CX19: next backlog item per `BACKLOG.md`
+order.
 
 ## Suggested skills
-- None specific — CX19 is fixture/test-authoring work, not a bugfix/bug-hunt shape.
+- None specific — continue straight from the approved plan, no bugfix/bug-hunt shape needed.
 
 ## Start here
-Read `BACKLOG.md`'s CX19 entry in full (acceptance criteria + the live-testing note about
-`PostToolUse` non-firing), then start with the Pre-side matchers already confirmed live (per that
-note): `mcp__filesystem__.*` and `Bash`.
+Read `/Users/michael/.claude/plans/floating-spinning-waffle.md` in full, then start on step 1
+(add scenario dimension to `_payloads_for_token` in `.claude/tests/unit/test_codex_event_contract.py`).
 
 ---
-_Last updated at HEAD `e5582c1` (working tree staged, about to commit CX25 directly on `main`) on
-2026-07-18._
+_Last updated at HEAD `18bffd2` on 2026-07-18._
