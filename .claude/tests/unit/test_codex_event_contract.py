@@ -112,13 +112,25 @@ def _read_payload(token: str, path: Path, *, offset: int | None = None) -> dict:
             "tool_response": path.read_text(encoding="utf-8", errors="replace"),
         }
     if token == "Bash":
-        command = f"cat {path}" if offset is None else f"sed -n '{offset},20p' {path}"
+        quoted_path = shlex.quote(str(path))
+        command = (
+            f"cat {quoted_path}"
+            if offset is None
+            else f"sed -n '{offset},20p' {quoted_path}"
+        )
         return {
             "tool_name": "Bash",
             "tool_input": {"command": command},
             "tool_response": path.read_text(encoding="utf-8", errors="replace"),
         }
     raise AssertionError(f"{token!r} is not a read matcher token")
+
+
+def test_bash_read_payload_shell_quotes_target(tmp_path):
+    target = tmp_path / "path with spaces.txt"
+    target.write_text("content\n", encoding="utf-8")
+    payload = _read_payload("Bash", target)
+    assert shlex.split(payload["tool_input"]["command"])[-1] == str(target)
 
 
 def _base_payload(token: str, scenario: str, tmp_path: Path) -> dict:
