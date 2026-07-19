@@ -129,7 +129,7 @@ def test_codex_parity_audit_fails_on_legacy_flat_hooks_json(tmp_path):
 
     _, problems = audit_mod.audit(tmp_path)
 
-    assert any("not the expected nested schema" in p for p in problems)
+    assert any("malformed or unsupported" in p for p in problems)
 
 
 def test_codex_parity_audit_fails_when_matcher_missing(tmp_path):

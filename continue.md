@@ -1,34 +1,35 @@
 # Continue: less_tokens
 
-> **Next focus:** Finish the CX19 branch/commit handoff, then take HS1 from `BACKLOG.md`.
+> **Next focus:** Complete CX19's remaining release-labeled Codex contract matrix.
 
 ## Current state
-`main` is at `1f59a6b`, ahead of `origin/main` by 1 and behind by 2. The working tree is dirty with
-the uncommitted CX19 implementation in `.claude/tests/unit/test_codex_event_contract.py`, plus
-required `BACKLOG.md`, `CHANGELOG.md`, and this handoff update. Do not discard the local commit or
-these changes when reconciling with remote. Branch protection requires the established branch + PR
-workflow.
+Branch `codex/cx19-semantic-hook-fixtures` is one commit ahead of `origin/main` (`15d2823`). The
+working tree is dirty with the completed CX26 implementation plus the earlier committed legacy CX19
+baseline. CX19 is now the first Ready item.
 
 ## What happened
-- CX19 now expands each installed Codex matcher into named semantic scenarios with exact exit-code
-  and block-message assertions.
-- All six confirmed PreToolUse gates cover state-driven block/allow behavior for filesystem MCP and
-  Bash reads, plus error-shaped responses; unknown MCP tools fail open and absent Stop wiring is
-  guarded explicitly.
-- Verification passed: targeted contract suite (99), full unit suite (1045), and Codex parity audit
-  (`Problems: none`; required running outside the sandbox's read-only `.codex` override).
-- CX19 was removed from `BACKLOG.md` and cited under `[Unreleased]` in `CHANGELOG.md`.
+- CX26 now renders the published event-keyed hook contract, migrates the retired matcher-array form,
+  preserves unrelated metadata, and fails before writes on malformed files or runtimes outside
+  `0.142.3–0.144.6`.
+- Install/check/uninstall/parity audit share the contract parser. Health checks verify
+  `[features].hooks` and explicitly defer definition-hash trust review to `/hooks`.
+- Added sanitized live Bash and `apply_patch` payloads for standalone `0.142.3` and desktop-bundled
+  `0.144.5`. The migrated project hook file blocked an unsearched `cat README.md` on both releases.
+- Verification: focused CX26/CX19 suite 202 passed; full unit+integration suite 1147 passed;
+  `git diff --check` clean; parity audit `Problems: none` outside the sandbox permission shim.
 
 ## Open work
-No CX19 implementation work remains. Preserve/review the dirty diff and publish it through a branch
-and PR when requested. The next canonical backlog item is HS1, the hybrid retrieval benchmark.
+CX19 still needs the remaining supported matcher aliases, MCP/other local tools, error, lifecycle,
+unsupported-path, surface-separation, and bounded schema-drift telemetry coverage. Follow
+`BACKLOG.md` acceptance criteria; do not infer interactive/app/IDE behavior from headless runs.
 
 ## Suggested skills
-- `less-tokens` — targeted codebase exploration for HS1.
+- `less-tokens` — targeted exploration and fixture lookup.
+- `openai-docs` — only when a missing current lifecycle field requires official contract research.
 
 ## Start here
-Run `git diff --check` and the targeted CX19 test, then preserve these changes on a `codex/` branch
-before reconciling the diverged local `main` with `origin/main`.
+Inventory CX19's uncovered matcher/event/surface cells against `.claude/tests/fixtures/codex-hooks/`
+and `.claude/tests/unit/test_codex_event_contract.py`, then implement the smallest next complete slice.
 
 ---
-_Last updated at HEAD `1f59a6b` on 2026-07-19._
+_Last updated at HEAD `32e689d` on 2026-07-19._

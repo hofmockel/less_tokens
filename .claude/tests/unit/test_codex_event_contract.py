@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -18,6 +19,7 @@ sys.path.insert(0, str(REPO))
 from install import build_codex_hook_entries  # noqa: E402
 
 CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
+LIVE_FIXTURES = REPO / ".claude" / "tests" / "fixtures" / "codex-hooks"
 
 
 def _env(state_dir: Path) -> dict[str, str]:
@@ -44,7 +46,13 @@ def _entries() -> list[tuple[str, str, str]]:
 
 
 def _script(command: str) -> str:
-    return Path(command.split()[-1]).name
+    script = shlex.split(command)[-1].replace("\\", "/")
+    return Path(script).name
+
+
+def test_script_extracts_shell_quoted_windows_path():
+    command = r"LESS_TOKENS_AGENT=codex python 'C:\workspace\hooks\search-first.py'"
+    assert _script(command) == "search-first.py"
 
 
 MCP_TOKEN = "mcp__filesystem__.*"
@@ -104,13 +112,25 @@ def _read_payload(token: str, path: Path, *, offset: int | None = None) -> dict:
             "tool_response": path.read_text(encoding="utf-8", errors="replace"),
         }
     if token == "Bash":
-        command = f"cat {path}" if offset is None else f"sed -n '{offset},20p' {path}"
+        quoted_path = shlex.quote(str(path))
+        command = (
+            f"cat {quoted_path}"
+            if offset is None
+            else f"sed -n '{offset},20p' {quoted_path}"
+        )
         return {
             "tool_name": "Bash",
             "tool_input": {"command": command},
             "tool_response": path.read_text(encoding="utf-8", errors="replace"),
         }
     raise AssertionError(f"{token!r} is not a read matcher token")
+
+
+def test_bash_read_payload_shell_quotes_target(tmp_path):
+    target = tmp_path / "path with spaces.txt"
+    target.write_text("content\n", encoding="utf-8")
+    payload = _read_payload("Bash", target)
+    assert shlex.split(payload["tool_input"]["command"])[-1] == str(target)
 
 
 def _base_payload(token: str, scenario: str, tmp_path: Path) -> dict:
@@ -296,6 +316,28 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
         "Edit",
         "Write",
     } <= seen_tools
+
+
+@pytest.mark.parametrize("release", ["0.142.3", "0.144.5"])
+@pytest.mark.parametrize(
+    "fixture_name,tool_name",
+    [("pre-tool-use-bash.json", "Bash"), ("pre-tool-use-apply-patch.json", "apply_patch")],
+)
+def test_release_labeled_live_pre_tool_use_fixture(release, fixture_name, tool_name):
+    payload = json.loads(
+        (LIVE_FIXTURES / release / fixture_name).read_text(encoding="utf-8")
+    )
+    assert payload["hook_event_name"] == "PreToolUse"
+    assert payload["tool_name"] == tool_name
+    if tool_name == "Bash":
+        assert payload["tool_input"] == {"command": "pwd"}
+    else:
+        assert payload["tool_input"]["command"].startswith("*** Begin Patch")
+    assert payload["session_id"] == f"session-{release}"
+    assert payload["turn_id"] == f"turn-{release}"
+    assert payload["cwd"] == "/workspace"
+    expected_prefix = "call_" if release == "0.142.3" else "exec-"
+    assert payload["tool_use_id"].startswith(expected_prefix)
 
 
 @pytest.mark.parametrize(

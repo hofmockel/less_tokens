@@ -11,9 +11,13 @@ REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 
 from agents.common.hooks.hook_manifest import (
+    CODEX_HOOK_CONTRACT_RANGE,
     HOOK_SPECS,
+    codex_hook_contract_supports,
     codex_hooks_json_value,
+    codex_hooks_schema,
     flatten_codex_hooks,
+    parse_codex_version,
 )
 from install import build_claude_hook_entries, build_codex_hook_entries
 
@@ -77,22 +81,17 @@ def test_hook_parity_docs_are_current():
         assert hook_parity_docs._replace_block(text, block) == text
 
 
-def test_codex_hooks_json_value_isolates_post_tool_use_from_pre_tool_use():
-    """CX23: a PostToolUse entry sharing a group with a PreToolUse entry fires
-    mislabeled as PreToolUse. Every group must contain a single declared event."""
+def test_codex_hooks_json_value_is_event_keyed():
     flat = [
         {"event": "PreToolUse", "matcher": "Bash", "command": "pre.py"},
         {"event": "PostToolUse", "matcher": "Bash", "command": "post.py"},
         {"event": "PostToolUse", "matcher": "Edit", "command": "post2.py"},
     ]
-    nested = codex_hooks_json_value(flat)
-    for group in nested:
-        events = {entry["event"] for entry in group}
-        assert len(events) == 1, f"group mixes events: {events}"
-    pre_groups = [g for g in nested if g[0]["event"] == "PreToolUse"]
-    post_groups = [g for g in nested if g[0]["event"] == "PostToolUse"]
-    assert sum(len(g) for g in pre_groups) == 1
-    assert sum(len(g) for g in post_groups) == 2
+    rendered = codex_hooks_json_value(flat)
+    assert set(rendered) == {"PreToolUse", "PostToolUse"}
+    assert len(rendered["PreToolUse"]) == 1
+    assert len(rendered["PostToolUse"]) == 2
+    assert all("event" not in group for groups in rendered.values() for group in groups)
 
 
 def test_codex_hooks_json_value_round_trips_through_flatten():
@@ -108,4 +107,43 @@ def test_codex_hooks_json_value_round_trips_through_flatten():
 
 
 def test_codex_hooks_json_value_empty_is_empty():
-    assert codex_hooks_json_value([]) == []
+    assert codex_hooks_json_value([]) == {}
+
+
+def test_codex_hooks_legacy_nested_input_migrates_to_event_keyed():
+    legacy = [[{
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": "pre.py"}],
+    }]]
+    flat, well_formed = flatten_codex_hooks(legacy)
+    assert well_formed
+    assert codex_hooks_schema(legacy) == "legacy-nested"
+    rendered = codex_hooks_json_value(flat)
+    assert codex_hooks_schema(rendered) == "event-keyed"
+    assert rendered["PreToolUse"][0]["hooks"][0]["command"] == "pre.py"
+
+
+def test_codex_hooks_preserve_unrelated_valid_metadata():
+    current = {
+        "Stop": [{
+            "statusMessage": "Checking",
+            "hooks": [{
+                "type": "command",
+                "command": "user.py",
+                "timeout": 12,
+            }],
+        }],
+    }
+    flat, well_formed = flatten_codex_hooks(current)
+    assert well_formed
+    assert codex_hooks_json_value(flat) == current
+
+
+def test_codex_hook_release_window_is_explicit():
+    assert CODEX_HOOK_CONTRACT_RANGE == "0.142.3–0.144.6"
+    assert parse_codex_version("codex-cli 0.142.3") == (0, 142, 3)
+    assert codex_hook_contract_supports((0, 142, 3))
+    assert codex_hook_contract_supports((0, 144, 6))
+    assert not codex_hook_contract_supports((0, 142, 2))
+    assert not codex_hook_contract_supports((0, 144, 7))

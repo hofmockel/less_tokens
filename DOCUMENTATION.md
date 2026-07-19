@@ -86,21 +86,22 @@ Codex CLI requires matcher groups and command hooks to be nested. The installer 
 
 ```json
 {
-  "hooks": [
-    [
+  "hooks": {
+    "PostToolUse": [
       {
-        "event": "PostToolUse",
         "matcher": "apply_patch|Edit|Write",
         "hooks": [
           {"type": "command", "command": "…/.less_tokens/bin/python …/.codex/hooks/index-refresh.py"}
         ]
       }
     ]
-  ]
+  }
 }
 ```
 
-Re-running `--update --agent codex` rebuilds the pre-CX21 flat form (`{"hooks":[{"event","matcher","command"}]}`) into this CLI-compatible structure. Valid unrelated nested entries are preserved; malformed or legacy flat hook lists are rebuilt because current `codex-cli` rejects the entire file. Do not hand-flatten the generated configuration.
+Re-running `--update --agent codex` migrates the retired CX21 matcher-array form into this published event-keyed structure. Valid unrelated hook metadata is preserved. Malformed and pre-CX21 flat files fail before installation writes, because silently rebuilding an unknown contract could discard user hooks. Detected Codex executables must fall within the live-verified `0.142.3–0.144.6` support window.
+
+Contract sources: [current Codex hooks reference](https://learn.chatgpt.com/docs/hooks), [release-tagged `0.142.3` schemas](https://github.com/openai/codex/tree/rust-v0.142.3/codex-rs/hooks/schema/generated), and [release-tagged `0.144.5` schemas](https://github.com/openai/codex/tree/rust-v0.144.5/codex-rs/hooks/schema/generated). The hooks reference warns that `main` schemas can include unreleased fields, so version-tagged schemas and live probes are the compatibility evidence.
 
 **What gets installed:**
 
@@ -166,14 +167,15 @@ Codex subagents are a Codex app tool surface, not an installed `less_tokens` fea
 
 - Codex hook enforcement is best-effort — interception depends on `.codex/hooks.json` being writable and Codex emitting the expected tool events. If `.codex/` is not writable at install time, the skill and `AGENTS.md` fragment are installed but hooks are skipped.
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
-- The CX21 installer path writes the nested schema accepted by `codex-cli 0.142.3`, but live `codex exec` tests still did not observe `PostToolUse`; interactive-mode firing and tool-output replacement remain unverified (see `DECISIONS.md` → CX17).
-- Codex `PostToolUse` hooks are unconfirmed/non-functional in headless `codex exec` regardless of matcher-group wiring (CX23): an isolated `PostToolUse`-only group simply never fires. `codex_hooks_json_value()` now writes one matcher-group array per declared event so a `PostToolUse` entry can no longer fire mislabeled as `PreToolUse` (production's prior single-group shape did this for every `PostToolUse`-declared hook), but that only turns a wrong-time misfire into a clean no-op — it does not restore real post-tool dispatch. Whether interactive `codex` TUI sessions fire `PostToolUse` for real remains untested (same gap CX17/CX18 left open).
-- The current `install.py --check --agent codex` and `codex_parity_audit.py` readers still expect the retired flat hook list and can report a valid nested install as unwired. Track the validator repair in `BACKLOG.md` as CX22; until it lands, inspect the nested shape directly and use live hook telemetry for enforcement evidence.
+- CX26 writes the published event-keyed contract and keeps the retired CX21 matcher-array shape as upgrade/uninstall input only. Live headless tests proved `PreToolUse:Bash` blocking and `PreToolUse:apply_patch` delivery on `codex-cli 0.142.3` and the ChatGPT desktop-bundled `0.144.5`; release-labeled sanitized fixtures live under `.claude/tests/fixtures/codex-hooks/`.
+- The verified surface is headless `codex exec`. Interactive CLI, desktop UI/app-server, IDE, hosted, and specialized tool paths are not inferred from those runs. Current official docs say hosted tools and some specialized paths can bypass local tool hooks.
+- `PostToolUse`, Stop, subagent, and compaction lifecycle migration remains separate CX28/CX29 work. Historical CX17/CX18/CX23 findings describe the retired matcher-array representation and must not be treated as current-contract proof.
+- `install.py --check --agent codex` verifies the release window, event-keyed file shape, manifest coverage, and canonical `[features].hooks` state. Hook trust is definition-hash scoped and has no stable non-interactive query, so the check directs users to `/hooks` and does not claim live enforcement from configuration alone.
 - Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
 - Terse output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
 - Codex has extra adapter handling for `apply_patch`; Claude does not need that path because Claude edits arrive through `Edit|Write`.
 
-See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, including which strategies are wired by default, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data. After CX22 updates the validators for the nested schema, audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
+See `agents/common/hooks/hook_manifest.py` for the exact hook matrix, release window, parser, and renderer, and `agents/common/hooks/parity.json` for the CI-checked shipped/missing parity data. Audit a Codex install's actual `.codex/hooks.json` wiring against that manifest with:
 
 ```bash
 .less_tokens/bin/python .less_tokens/tools/codex_parity_audit.py
