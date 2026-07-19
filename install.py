@@ -52,10 +52,14 @@ import sys
 from pathlib import Path
 
 from agents.common.hooks.hook_manifest import (
+    CODEX_HOOK_CONTRACT_RANGE,
     build_codex_hook_entries as build_shared_codex_hook_entries,
+    codex_hook_contract_supports,
     codex_hooks_json_value,
+    codex_hooks_schema,
     flatten_codex_hooks,
     hook_entries,
+    parse_codex_version,
 )
 
 SOURCE = Path(__file__).resolve().parent
@@ -96,6 +100,98 @@ def selected_agents(value: str) -> set[str]:
     if value == "both":
         return {"claude", "codex"}
     return {value}
+
+
+def detect_codex_releases() -> list[tuple[Path, tuple[int, int, int]]]:
+    """Return distinct locally installed Codex executables with parsed releases."""
+    candidates: list[Path] = []
+    on_path = shutil.which("codex")
+    if on_path:
+        candidates.append(Path(on_path).resolve())
+    if sys.platform == "darwin":
+        candidates.extend(
+            Path(path)
+            for path in (
+                "/Applications/ChatGPT.app/Contents/Resources/codex",
+                "/Applications/Codex.app/Contents/Resources/codex",
+            )
+        )
+
+    releases: list[tuple[Path, tuple[int, int, int]]] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen or not candidate.is_file():
+            continue
+        seen.add(candidate)
+        try:
+            result = subprocess.run(
+                [str(candidate), "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        version = parse_codex_version(f"{result.stdout}\n{result.stderr}")
+        if version is not None:
+            releases.append((candidate, version))
+    return releases
+
+
+def validate_codex_hook_releases(*, emit: bool = True) -> bool:
+    """Fail loud when a detected runtime falls outside CX26's verified window."""
+    releases = detect_codex_releases()
+    if not releases:
+        if emit:
+            print(
+                "  ! Codex executable not detected; hook contract cannot be verified. "
+                f"Supported releases: {CODEX_HOOK_CONTRACT_RANGE}."
+            )
+        return True
+    unsupported = [item for item in releases if not codex_hook_contract_supports(item[1])]
+    if unsupported:
+        if emit:
+            for path, version in unsupported:
+                rendered = ".".join(str(part) for part in version)
+                print(
+                    f"ERROR: Codex {rendered} at {path} is outside the verified hook "
+                    f"contract range {CODEX_HOOK_CONTRACT_RANGE}. Upgrade/downgrade Codex "
+                    "or update less_tokens before wiring hooks.",
+                    file=sys.stderr,
+                )
+        return False
+    if emit:
+        labels = ", ".join(
+            f"{'.'.join(str(part) for part in version)} ({path})"
+            for path, version in releases
+        )
+        print(f"  Codex hook contract verified for: {labels}")
+    return True
+
+
+def codex_hooks_feature_enabled(executable: Path) -> bool | None:
+    """Read the canonical hooks feature flag from a detected Codex runtime."""
+    try:
+        result = subprocess.run(
+            [str(executable), "features", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        columns = line.split()
+        if columns and columns[0] == "hooks":
+            if columns[-1].lower() == "true":
+                return True
+            if columns[-1].lower() == "false":
+                return False
+    return None
 
 
 def codex_savings_profile(args: argparse.Namespace) -> str:
@@ -966,6 +1062,23 @@ def _codex_hook_script_name(command: str) -> str | None:
     return Path(script).name or None
 
 
+def codex_hooks_file_error(hooks_json_path: Path) -> str | None:
+    """Return an actionable parse error without mutating a hook file."""
+    if not hooks_json_path.exists():
+        return None
+    try:
+        data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return f"unreadable JSON: {exc}"
+    if not isinstance(data, dict):
+        return "top level must be a JSON object"
+    raw_hooks = data.get("hooks", {})
+    _, well_formed = flatten_codex_hooks(raw_hooks)
+    if not well_formed:
+        return "hooks value is malformed or uses an unsupported schema"
+    return None
+
+
 def wire_codex_hooks_json(
     hooks_json_path: Path,
     entries: list[tuple[str, str, str]],
@@ -979,16 +1092,21 @@ def wire_codex_hooks_json(
     left in place alongside a new duplicate — see _codex_hook_script_name.
     """
     if hooks_json_path.exists():
-        try:
-            data: dict = json.loads(hooks_json_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            data = {}
+        error = codex_hooks_file_error(hooks_json_path)
+        if error:
+            raise ValueError(f"{hooks_json_path}: {error}")
+        data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
     else:
         data = {}
 
-    hooks, _ = flatten_codex_hooks(data.get("hooks"))
-    added = already_present = 0
-    dirty = False
+    raw_hooks = data.get("hooks", {})
+    hooks, well_formed = flatten_codex_hooks(raw_hooks)
+    schema = codex_hooks_schema(raw_hooks)
+    dirty = well_formed and schema == "legacy-nested"
+    added = 1 if dirty else 0
+    already_present = 0
+    if dirty:
+        print("  ~ migrating Codex hooks from the retired nested schema to event-keyed hooks")
 
     for event_type, matcher, command in entries:
         script = _codex_hook_script_name(command)
@@ -1044,10 +1162,10 @@ def unwire_codex_hooks_json(hooks_json_path: Path, source: Path, dry_run: bool) 
     """Strip less_tokens hook entries from .codex/hooks.json. Returns count removed."""
     if not hooks_json_path.exists():
         return 0
-    try:
-        data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return 0
+    error = codex_hooks_file_error(hooks_json_path)
+    if error:
+        raise ValueError(f"{hooks_json_path}: {error}")
+    data = json.loads(hooks_json_path.read_text(encoding="utf-8"))
     hooks, was_correct_shape = flatten_codex_hooks(data.get("hooks"))
     if not was_correct_shape:
         return 0
@@ -1773,6 +1891,38 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         ok = False
         print(f"  [✗] {msg}")
 
+    if "codex" in agents:
+        releases = detect_codex_releases()
+        if not releases:
+            _fail(
+                "Codex executable not detected — cannot verify hook contract release, "
+                "feature enablement, or trust state"
+            )
+        for executable, version in releases:
+            rendered = ".".join(str(part) for part in version)
+            if codex_hook_contract_supports(version):
+                _pass(
+                    f"Codex {rendered} is within the verified hook contract range "
+                    f"{CODEX_HOOK_CONTRACT_RANGE}"
+                )
+            else:
+                _fail(
+                    f"Codex {rendered} at {executable} is outside the verified hook "
+                    f"contract range {CODEX_HOOK_CONTRACT_RANGE}"
+                )
+            feature = codex_hooks_feature_enabled(executable)
+            if feature is True:
+                _pass(f"Codex {rendered} has [features].hooks enabled")
+            elif feature is False:
+                _fail(f"Codex {rendered} has [features].hooks disabled")
+            else:
+                _fail(f"Codex {rendered} hook feature state could not be determined")
+        print(
+            "  [!] Hook trust is definition-hash scoped and has no stable non-interactive "
+            "query; verify every non-managed less_tokens hook in Codex `/hooks`. "
+            "Configuration checks below do not claim live enforcement."
+        )
+
     def _smoke_codex_nested_hooks(codex_launcher: Path) -> None:
         nested_cwd = target_root / ".less_tokens" / "tools"
         if not nested_cwd.is_dir():
@@ -2021,11 +2171,17 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             try:
                 import json as _json
                 data = _json.loads(hooks_json.read_text(encoding="utf-8"))
-                hooks, well_formed = flatten_codex_hooks(data.get("hooks"))
+                raw_hooks = data.get("hooks")
+                hooks, well_formed = flatten_codex_hooks(raw_hooks)
                 if not well_formed:
                     _fail(
-                        ".codex/hooks.json hooks value is not the expected nested "
-                        "schema (stale flat format or malformed) — re-run install.py --update"
+                        ".codex/hooks.json hooks value is malformed or unsupported — "
+                        "re-run install.py --update"
+                    )
+                elif codex_hooks_schema(raw_hooks) != "event-keyed":
+                    _fail(
+                        ".codex/hooks.json still uses the retired nested schema — "
+                        "re-run install.py --update"
                     )
                 else:
                     expected = build_codex_hook_entries(venv_py or Path("python"), target_root, args)
@@ -2257,6 +2413,16 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
+    if "codex" in agents:
+        hooks_error = codex_hooks_file_error(target_root / ".codex" / "hooks.json")
+        if hooks_error:
+            print(
+                f"ERROR: refusing to modify {target_root / '.codex' / 'hooks.json'}: "
+                f"{hooks_error}. Repair or move the file, then re-run the installer.",
+                file=sys.stderr,
+            )
+            return 1
+
     # Uninstall is a distinct mode — it reverses a deployment and shares only
     # target resolution / the suspicious-target + source-self guards above.
     if args.uninstall:
@@ -2264,6 +2430,9 @@ def main() -> int:
 
     if args.check:
         return do_check(target_root, args)
+
+    if "codex" in agents and not validate_codex_hook_releases():
+        return 1
 
     # Resolve source version (git short hash) once; used in header + state file.
     src_version = _source_git_hash()
@@ -2471,7 +2640,7 @@ def main() -> int:
             print("  → .codex/hooks.json")
             codex_entries = build_codex_hook_entries(venv_py, target_root, args)
             c_added, c_present = wire_codex_hooks_json(codex_hooks_json, codex_entries, dry_run=dry)
-            print(f"  {c_added} codex hook(s) {'would be ' if dry else ''}wired, "
+            print(f"  {c_added} codex hook change(s) {'would be ' if dry else ''}applied, "
                   f"{c_present} already present")
             changes += c_added
         else:
