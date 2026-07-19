@@ -18,6 +18,7 @@ sys.path.insert(0, str(REPO))
 from install import build_codex_hook_entries  # noqa: E402
 
 CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
+LIVE_FIXTURES = REPO / ".claude" / "tests" / "fixtures" / "codex-hooks"
 
 
 def _env(state_dir: Path) -> dict[str, str]:
@@ -296,6 +297,28 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
         "Edit",
         "Write",
     } <= seen_tools
+
+
+@pytest.mark.parametrize("release", ["0.142.3", "0.144.5"])
+@pytest.mark.parametrize(
+    "fixture_name,tool_name",
+    [("pre-tool-use-bash.json", "Bash"), ("pre-tool-use-apply-patch.json", "apply_patch")],
+)
+def test_release_labeled_live_pre_tool_use_fixture(release, fixture_name, tool_name):
+    payload = json.loads(
+        (LIVE_FIXTURES / release / fixture_name).read_text(encoding="utf-8")
+    )
+    assert payload["hook_event_name"] == "PreToolUse"
+    assert payload["tool_name"] == tool_name
+    if tool_name == "Bash":
+        assert payload["tool_input"] == {"command": "pwd"}
+    else:
+        assert payload["tool_input"]["command"].startswith("*** Begin Patch")
+    assert payload["session_id"] == f"session-{release}"
+    assert payload["turn_id"] == f"turn-{release}"
+    assert payload["cwd"] == "/workspace"
+    expected_prefix = "call_" if release == "0.142.3" else "exec-"
+    assert payload["tool_use_id"].startswith(expected_prefix)
 
 
 @pytest.mark.parametrize(

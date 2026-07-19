@@ -10,8 +10,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX26 | P0 | Ready | Rebase Codex hook wiring on the current published lifecycle contract | — |
-| 2 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | CX26 |
+| 1 | CX19 | P1 | Ready | Replace synthetic hook smoke tests with semantic fixtures | — |
 
 ## Next
 
@@ -19,29 +18,27 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 3 | CX27 | P1 | Ready | Use native Codex `PreToolUse` decisions and rewrites to prevent input waste | CX26, CX19 |
-| 4 | CX28 | P1 | Research | Prove and implement current Codex tool-result replacement and truncation | CX26, CX19, CX27 |
-| 5 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | CX26, CX19 |
-| 6 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX26, CX19, CX28, CX29 |
-| 7 | HP1 | P1 | Ready | Gate parity claims on a live Claude/Codex conformance and savings matrix | CX27, CX28, CX29, CX30 |
-| 8 | HS1 | P1 | Research | Benchmark hybrid lexical + vector retrieval against vector-only search | — |
-| 9 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
-| 10 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
-| 11 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
-| 12 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
-| 13 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 14 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
-| 15 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
-| 16 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | CX26 |
-| 17 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 18 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | HP1 |
-| 19 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
-| 20 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX26, CX29 |
-| 21 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
+| 2 | CX27 | P1 | Ready | Use native Codex `PreToolUse` decisions and rewrites to prevent input waste | CX19 |
+| 3 | CX28 | P1 | Research | Prove and implement current Codex tool-result replacement and truncation | CX19, CX27 |
+| 4 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | CX19 |
+| 5 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX19, CX28, CX29 |
+| 6 | HP1 | P1 | Ready | Gate parity claims on a live Claude/Codex conformance and savings matrix | CX27, CX28, CX29, CX30 |
+| 7 | HS1 | P1 | Research | Benchmark hybrid lexical + vector retrieval against vector-only search | — |
+| 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
+| 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
+| 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
+| 11 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
+| 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
+| 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
+| 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
+| 15 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
+| 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
+| 17 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | HP1 |
+| 18 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
+| 19 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX29 |
+| 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
-- **CX26 — Rebase Codex hook wiring on the current published lifecycle contract** *(correctness / platform compatibility)* — The repository currently emits the matcher-group-array shape recovered from `codex-cli 0.142.3`, while the current Codex hook reference documents event-keyed `hooks.json`/`config.toml` configuration, explicit trust review, the canonical `[features].hooks` flag, and native `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SubagentStart`, `SubagentStop`, and `Stop` events. Treat this as a versioned contract migration, not another guessed schema rewrite. Declare the supported Codex release range; capture sanitized generated-schema and live payload fixtures for each supported contract; either emit the correct representation for a detected supported version or stop with an actionable compatibility message; preserve unrelated valid hooks and managed-policy boundaries; and make installer write/unwrite, `--check`, parity audit, and docs consume one parser/renderer. Acceptance: clean install/update/uninstall tests cover the legacy `0.142.3` contract and the current published contract without silently mixing them; malformed or unsupported shapes fail loud; `/hooks` trust state and `[features].hooks` enablement are checked before health is reported; at least `PreToolUse:Bash` and one non-Bash local tool fire live in every claimed Codex surface/version; and no Codex strategy is labeled enforced merely because its configuration parses. Sources: `https://learn.chatgpt.com/codex/hooks` and the release-matched generated schemas linked there.
-
-- **CX19 — Replace synthetic Codex hook smoke coverage with semantic, versioned payload coverage** *(meta / reliability)* — `.claude/tests/unit/test_codex_event_contract.py:49-169` invents payloads and accepts any exit code in `{0, 2}` if there is no traceback; unexpected payloads can therefore no-op silently. After CX26 defines the supported contracts, store sanitized live fixtures covering reads, searches, Bash/unified exec, apply_patch/Edit/Write aliases, MCP and other local tools, tool errors, compaction, subagent, final-response events, and unsupported hosted/specialized paths. Assert semantic outcomes, not non-crash. Acceptance: every supported matcher has a release-labeled real-shape fixture and outcome assertion; unknown shapes fail open with bounded schema-only telemetry; schema drift creates a targeted failure or audit warning; headless CLI, interactive CLI, and app/IDE claims are recorded separately rather than inferred from one surface. Historical note: `codex-cli 0.142.3` emitted `PreToolUse` in `codex exec` but did not emit isolated `PostToolUse` or `Stop`; retain those fixtures as legacy evidence, not as a durable statement about current Codex. **Partial baseline:** the legacy installed-manifest matrix now has named semantic block/allow/error scenarios and exact outcome assertions for the six existing read gates across filesystem MCP and Bash paths. CX19 remains open for CX26's release-labeled live fixtures, current lifecycle events/surfaces, and schema telemetry.
+- **CX19 — Replace synthetic Codex hook smoke coverage with semantic, versioned payload coverage** *(meta / reliability)* — `.claude/tests/unit/test_codex_event_contract.py:49-169` invents payloads and accepts any exit code in `{0, 2}` if there is no traceback; unexpected payloads can therefore no-op silently. Using CX26's declared contract window, store sanitized live fixtures covering reads, searches, Bash/unified exec, apply_patch/Edit/Write aliases, MCP and other local tools, tool errors, compaction, subagent, final-response events, and unsupported hosted/specialized paths. Assert semantic outcomes, not non-crash. Acceptance: every supported matcher has a release-labeled real-shape fixture and outcome assertion; unknown shapes fail open with bounded schema-only telemetry; schema drift creates a targeted failure or audit warning; headless CLI, interactive CLI, and app/IDE claims are recorded separately rather than inferred from one surface. Historical note: `codex-cli 0.142.3` emitted `PreToolUse` in `codex exec` but did not emit isolated `PostToolUse` or `Stop`; retain those fixtures as legacy evidence, not as a durable statement about current Codex. **Partial baseline:** the legacy installed-manifest matrix now has named semantic block/allow/error scenarios and exact outcome assertions for the six existing read gates across filesystem MCP and Bash paths; CX26 added release-labeled live `Bash` and `apply_patch` payloads for `0.142.3` and `0.144.5`. CX19 remains open for the rest of the matcher/lifecycle/surface matrix and bounded schema telemetry.
 
 - **CX27 — Use native Codex `PreToolUse` decisions and rewrites to prevent input waste before it is paid for** *(input / direct savings)* — Current Codex documents structured `permissionDecision: "deny"` and `permissionDecision: "allow"` with `updatedInput` for Bash, `apply_patch`, MCP, and other local function tools. Move the Codex budget observer, search-first, read guard, auto-slice, grep-first, context-cache, listing guard, and continue-freshness paths from reminder/exit-code assumptions to the release-matched structured contract. For unambiguous whole-file Bash and filesystem-MCP reads, prefer a safe `updatedInput` rewrite to the exact search-derived slice so the useful call completes once; deny with a concise replacement command when safe rewriting is impossible; retain the existing shell-metacharacter fail-open boundary and record it. Acceptance: live tests prove an oversized whole-file read is either rewritten to the expected slice or denied before execution, its omitted sentinel never enters the transcript, already-sliced and unrecognized commands preserve behavior, hosted/specialized tools outside Codex's hook path are reported as coverage gaps, and measured input characters/tokens are recorded without double-counting retries. Run the equivalent Claude `PreToolUse` fixtures to prevent a Codex improvement from regressing the direct Claude path.
 
