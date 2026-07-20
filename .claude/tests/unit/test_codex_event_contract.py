@@ -66,6 +66,7 @@ GATE_HOOKS = {
     "read-after-edit.py": "read-after-edit:",
     "continue-freshness.py": "continue.md is",
 }
+NATIVE_DECISION_HOOKS = set(GATE_HOOKS) - {"read-after-edit.py"}
 
 BASE_SCENARIOS = {
     MCP_TOKEN: ("filesystem-read-legacy", "filesystem-read-current", "filesystem-search"),
@@ -307,8 +308,9 @@ OUTCOMES = {
 for _script_name, _message in GATE_HOOKS.items():
     _stem = _script_name.removesuffix(".py")
     for _token in (MCP_TOKEN, "Bash"):
-        OUTCOMES[(_script_name, _token, f"{_stem}-block")] = (2, _message)
-        OUTCOMES[(_script_name, _token, f"{_stem}-error")] = (2, _message)
+        _code = 0 if _script_name in NATIVE_DECISION_HOOKS else 2
+        OUTCOMES[(_script_name, _token, f"{_stem}-block")] = (_code, _message)
+        OUTCOMES[(_script_name, _token, f"{_stem}-error")] = (_code, _message)
 
 
 def test_every_codex_matcher_has_representative_payload(tmp_path):
@@ -512,7 +514,18 @@ def test_codex_hook_entry_has_semantic_outcome(event, matcher, script, token, sc
     combined = result.stdout + result.stderr
     expected_code, expected_message = OUTCOMES[(script, token, scenario)]
     assert result.returncode == expected_code, combined
-    if expected_message is not None:
+    if script in NATIVE_DECISION_HOOKS and scenario.endswith(("-block", "-error")):
+        assert result.stderr == ""
+        output = json.loads(result.stdout)
+        specific = output["hookSpecificOutput"]
+        assert specific["hookEventName"] == "PreToolUse"
+        if script == "auto-slice.py" and token == "Bash":
+            assert specific["permissionDecision"] == "allow"
+            assert specific["updatedInput"]["command"].startswith("sed -n 2,3p ")
+        else:
+            assert specific["permissionDecision"] == "deny"
+            assert expected_message in specific["permissionDecisionReason"]
+    elif expected_message is not None:
         assert expected_message in combined
     assert "Traceback" not in combined
     assert "JSONDecodeError" not in combined

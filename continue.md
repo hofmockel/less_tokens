@@ -14,14 +14,14 @@ working tree. CX27 remains in `BACKLOG.md`; do not close it until all acceptance
   search-first, read guard, auto-slice, grep-first, context-cache, listing guard, and continue-freshness.
 - Auto-slice now rewrites safe whole-file Bash `cat` calls to the exact search-derived `sed` range;
   filesystem MCP reads deny when their tool schema cannot express an exact offset.
-- Began converting `.claude/tests/unit/test_codex_hooks.py` from exit-code assertions to semantic JSON.
+- Converted the Codex hook and event-contract suites from exit-code assertions to semantic JSON;
+  focused suites pass (`49` and `166` tests) and the full unit suite passes (`1117` tests).
 
 ## Open work
 
-Finish the remaining Codex hook assertions (grep-first, listing guard, context cache, search-first),
-then update `test_codex_event_contract.py` to require native structured outcomes. Add measured input
-character/token telemetry without retry double-counting, document unsupported surfaces, run equivalent
-Claude `PreToolUse` fixtures, execute focused/full tests, and only then update backlog/changelog.
+Add measured input character/token telemetry without retry double-counting, document unsupported
+surfaces, and run equivalent Claude `PreToolUse` fixtures. CX27 now has an in-progress changelog entry;
+only close the backlog item after the remaining acceptance evidence is implemented and verified.
 
 ## Suggested skills
 
@@ -30,8 +30,8 @@ Claude `PreToolUse` fixtures, execute focused/full tests, and only then update b
 
 ## Start here
 
-Run `.claude/.venv-tokens/bin/python -m pytest -q .claude/tests/unit/test_codex_hooks.py`, then migrate
-each remaining legacy `code == 2` assertion for the eight CX27 hooks to `deny_reason` or `allowed_input`.
+Trace the current savings/event telemetry from `agents/common/hooks/budget_observer.py` and
+`agents/common/savings.py`, then add one correlation-safe measurement for rewritten or denied input.
 
 ---
-_Last updated at HEAD `4993e26` on 2026-07-19._
+_Last updated at HEAD `74b5e7e` on 2026-07-20._
