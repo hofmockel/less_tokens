@@ -36,6 +36,28 @@ def run_hook_with_env(hook_name: str, payload: dict, extra_env: dict | None = No
     return result.returncode, result.stdout, result.stderr
 
 
+def deny_reason(code: int, stdout: str, stderr: str) -> str:
+    """Assert and unpack the native Codex PreToolUse deny response."""
+    assert code == 0, stderr
+    assert stderr == ""
+    output = json.loads(stdout)
+    specific = output["hookSpecificOutput"]
+    assert specific["hookEventName"] == "PreToolUse"
+    assert specific["permissionDecision"] == "deny"
+    return specific["permissionDecisionReason"]
+
+
+def allowed_input(code: int, stdout: str, stderr: str) -> dict:
+    """Assert and unpack the native Codex PreToolUse rewrite response."""
+    assert code == 0, stderr
+    assert stderr == ""
+    output = json.loads(stdout)
+    specific = output["hookSpecificOutput"]
+    assert specific["hookEventName"] == "PreToolUse"
+    assert specific["permissionDecision"] == "allow"
+    return specific["updatedInput"]
+
+
 def _records(state_dir: Path) -> list[dict]:
     log = state_dir / "savings.jsonl"
     if not log.exists():
@@ -57,14 +79,14 @@ class TestCodexContinueFreshness:
             encoding="utf-8",
         )
 
-        code, _, stderr = run_hook_with_env("continue-freshness.py", {
+        code, stdout, stderr = run_hook_with_env("continue-freshness.py", {
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": str(handoff)},
         }, extra_env={"LESS_TOKENS_REPO": str(repo)})
 
-        assert code == 2
-        assert "continue.md is" in stderr
-        assert "commit(s) stale" in stderr
+        reason = deny_reason(code, stdout, stderr)
+        assert "continue.md is" in reason
+        assert "commit(s) stale" in reason
 
     def test_passes_fresh_handoff_read(self, tmp_path):
         repo, recorded = _handoff_repo(tmp_path)
@@ -355,15 +377,14 @@ class TestCodexSearchFirst:
 
     def test_logs_upper_bound_when_blocking_indexed_read(self, tmp_path):
         state_dir = tmp_path / "state"
-        code, _, stderr = run_hook_with_env("search-first.py", {
+        code, stdout, stderr = run_hook_with_env("search-first.py", {
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": str(REPO / "README.md")},
             "tool_response": "",
             "session_id": "codex-sess",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
 
-        assert code == 2
-        assert "Search-first rule" in stderr
+        assert "Search-first rule" in deny_reason(code, stdout, stderr)
         recs = _records(state_dir)
         assert len(recs) == 1
         rec = recs[0]
@@ -378,13 +399,12 @@ class TestCodexSearchFirst:
         """CX25: a default install has no mcp__filesystem__ server — Bash `cat`
         is the real default-install read path and must hit the same gate."""
         state_dir = tmp_path / "state"
-        code, _, stderr = run_hook_with_env("search-first.py", {
+        code, stdout, stderr = run_hook_with_env("search-first.py", {
             "tool_name": "Bash",
             "tool_input": {"command": f"cat {REPO / 'README.md'}"},
             "tool_response": "",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-        assert code == 2
-        assert "Search-first rule" in stderr
+        assert "Search-first rule" in deny_reason(code, stdout, stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -395,13 +415,12 @@ class TestCodexReadGuard:
     def test_blocks_lockfile_filesystem_read(self, tmp_path):
         p = tmp_path / "package-lock.json"
         p.write_text("{}")
-        code, _, stderr = run_hook_with_env("read-guard.py", {
+        code, stdout, stderr = run_hook_with_env("read-guard.py", {
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": str(p)},
             "tool_response": "",
         })
-        assert code == 2
-        assert "Read-guard" in stderr
+        assert "Read-guard" in deny_reason(code, stdout, stderr)
 
     def test_allows_sliced_lockfile_read(self, tmp_path):
         p = tmp_path / "package-lock.json"
@@ -419,26 +438,24 @@ class TestCodexReadGuard:
         the hardcoded read_file match previously silently no-op'd this."""
         p = tmp_path / "package-lock.json"
         p.write_text("{}")
-        code, _, stderr = run_hook_with_env("read-guard.py", {
+        code, stdout, stderr = run_hook_with_env("read-guard.py", {
             "tool_name": "mcp__filesystem__read_text_file",
             "tool_input": {"path": str(p)},
             "tool_response": "",
         })
-        assert code == 2
-        assert "Read-guard" in stderr
+        assert "Read-guard" in deny_reason(code, stdout, stderr)
 
     def test_blocks_lockfile_read_via_bash_cat(self, tmp_path):
         """CX25: `cat` on a default install must reach the same guard a
         configured mcp__filesystem__ server would."""
         p = tmp_path / "package-lock.json"
         p.write_text("{}")
-        code, _, stderr = run_hook_with_env("read-guard.py", {
+        code, stdout, stderr = run_hook_with_env("read-guard.py", {
             "tool_name": "Bash",
             "tool_input": {"command": f"cat {p}"},
             "tool_response": "",
         })
-        assert code == 2
-        assert "Read-guard" in stderr
+        assert "Read-guard" in deny_reason(code, stdout, stderr)
 
     def test_allows_sliced_lockfile_read_via_bash_sed(self, tmp_path):
         p = tmp_path / "package-lock.json"
@@ -473,14 +490,14 @@ class TestCodexAutoSlice:
         state_dir = tmp_path / "state"
         state_dir.mkdir()
         (state_dir / "last-search.json").write_text(json.dumps({"src/app.py": [[5, 9]]}))
-        code, _, stderr = run_hook_with_env("auto-slice.py", {
+        code, stdout, stderr = run_hook_with_env("auto-slice.py", {
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": "/repo/src/app.py"},
             "tool_response": "",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-        assert code == 2
-        assert "Auto-slice" in stderr
-        assert "offset=5" in stderr or "offset=5" in stderr.replace(" ", "")
+        reason = deny_reason(code, stdout, stderr)
+        assert "Auto-slice" in reason
+        assert "offset=5" in reason or "offset=5" in reason.replace(" ", "")
 
     def test_blocks_bash_cat_with_recent_search_range(self, tmp_path):
         """CX25: Bash `cat` must hit the same auto-slice nudge a configured
@@ -488,13 +505,13 @@ class TestCodexAutoSlice:
         state_dir = tmp_path / "state"
         state_dir.mkdir()
         (state_dir / "last-search.json").write_text(json.dumps({"src/app.py": [[5, 9]]}))
-        code, _, stderr = run_hook_with_env("auto-slice.py", {
+        code, stdout, stderr = run_hook_with_env("auto-slice.py", {
             "tool_name": "Bash",
             "tool_input": {"command": "cat /repo/src/app.py"},
             "tool_response": "",
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-        assert code == 2
-        assert "Auto-slice" in stderr
+        updated = allowed_input(code, stdout, stderr)
+        assert updated == {"command": "sed -n 5,9p /repo/src/app.py"}
 
 
 # ---------------------------------------------------------------------------

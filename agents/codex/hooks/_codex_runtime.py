@@ -136,6 +136,61 @@ def print_result(code: int, stdout: str, stderr: str) -> int:
     return code
 
 
+def pre_tool_deny(reason: str) -> str:
+    """Return the current Codex PreToolUse structured deny contract."""
+    return json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    })
+
+
+def pre_tool_allow(updated_input: dict) -> str:
+    """Return the current Codex PreToolUse structured rewrite contract."""
+    return json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "updatedInput": updated_input,
+        }
+    })
+
+
+def print_pre_tool_result(code: int, stdout: str, stderr: str) -> int:
+    """Translate legacy hook outcomes to Codex's native PreToolUse contract."""
+    if code == 2:
+        print(pre_tool_deny(stderr or stdout or "Tool call denied by hook."))
+        return 0
+    return print_result(code, stdout, stderr)
+
+
+def bash_slice_updated_input(
+    tool_name: object,
+    tool_input: object,
+    *,
+    start: int,
+    limit: int,
+) -> dict | None:
+    """Safely rewrite an unambiguous whole-file Bash read to an exact slice."""
+    if tool_name != "Bash" or not isinstance(tool_input, dict):
+        return None
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return None
+    parsed = _parse_bash_read(command)
+    if parsed is None:
+        return None
+    file_path, offset = parsed
+    if offset is not None or not file_path or file_path.startswith("-"):
+        return None
+    end = start + max(1, limit) - 1
+    updated = dict(tool_input)
+    updated["command"] = f"sed -n {shlex.quote(f'{start},{end}p')} {shlex.quote(file_path)}"
+    return updated
+
+
 # @modelcontextprotocol/server-filesystem renamed its read tool from
 # read_file to read_text_file (confirmed live against v2026.7.10); accept
 # both so an older pinned server version doesn't silently no-op these hooks.
