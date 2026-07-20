@@ -1,35 +1,32 @@
 # Continue: less_tokens
 
-> **Next focus:** Complete CX19's remaining release-labeled Codex contract matrix.
+> **Next focus:** Close CX19 after the authentic lifecycle fixture matrix passed.
 
 ## Current state
-Branch `codex/cx19-semantic-hook-fixtures` is one commit ahead of `origin/main` (`15d2823`). The
-working tree is dirty with the completed CX26 implementation plus the earlier committed legacy CX19
-baseline. CX19 is now the first Ready item.
+Branch `codex/cx19-contract-matrix` is two commits ahead of `origin/main` at `ca49ff4`. The working
+tree is dirty with the refreshed handoff plus CX19 fixture, test, and README changes. Do not discard
+them. `BACKLOG.md` and `CHANGELOG.md` are not yet updated.
 
 ## What happened
-- CX26 now renders the published event-keyed hook contract, migrates the retired matcher-array form,
-  preserves unrelated metadata, and fails before writes on malformed files or runtimes outside
-  `0.142.3–0.144.6`.
-- Install/check/uninstall/parity audit share the contract parser. Health checks verify
-  `[features].hooks` and explicitly defer definition-hash trust review to `/hooks`.
-- Added sanitized live Bash and `apply_patch` payloads for standalone `0.142.3` and desktop-bundled
-  `0.144.5`. The migrated project hook file blocked an unsearched `cat README.md` on both releases.
-- Verification: focused CX26/CX19 suite 202 passed; full unit+integration suite 1147 passed;
-  `git diff --check` clean; parity audit `Problems: none` outside the sandbox permission shim.
+- Captured a live interactive `PermissionRequest` for denied escalated Bash `pwd`; preserved
+  `permission_mode: default` and the observed absence of `tool_use_id`.
+- Captured an ordered manual `PreCompact` / `PostCompact` pair with `trigger: manual`.
+- Captured a correlated `SubagentStart` / `SubagentStop` pair for one awaited read-only `pwd` child;
+  preserved `agent_type: default`, transcript linkage, and the final child message.
+- Added five sanitized `0.144.6` fixtures and semantic assertions. Focused tests: `166 passed`.
+  Broader Codex hook suite: `375 passed`. `git diff --check` is clean.
 
 ## Open work
-CX19 still needs the remaining supported matcher aliases, MCP/other local tools, error, lifecycle,
-unsupported-path, surface-separation, and bounded schema-drift telemetry coverage. Follow
-`BACKLOG.md` acceptance criteria; do not infer interactive/app/IDE behavior from headless runs.
+Review the final diff against CX19 acceptance, update `BACKLOG.md` and `CHANGELOG.md` if complete,
+rerun the focused suite if either code or fixtures change, then commit the coherent CX19 closure.
 
 ## Suggested skills
-- `less-tokens` — targeted exploration and fixture lookup.
-- `openai-docs` — only when a missing current lifecycle field requires official contract research.
+- `$less-tokens` — targeted backlog/changelog lookup and final diff inspection.
+- `$continue` — remove or refresh this handoff after committing.
 
 ## Start here
-Inventory CX19's uncovered matcher/event/surface cells against `.claude/tests/fixtures/codex-hooks/`
-and `.claude/tests/unit/test_codex_event_contract.py`, then implement the smallest next complete slice.
+Search `BACKLOG.md` and `CHANGELOG.md` for CX19, then mark it complete if the existing matcher,
+lifecycle, telemetry, and surface-separation assertions satisfy the recorded acceptance criteria.
 
 ---
-_Last updated at HEAD `32e689d` on 2026-07-19._
+_Last updated at HEAD `ca49ff4` on 2026-07-19._

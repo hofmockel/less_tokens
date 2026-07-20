@@ -6,8 +6,26 @@ import os
 import re
 import shlex
 import sys
+from datetime import datetime, timezone
 from collections.abc import Callable
 from pathlib import Path
+
+
+_KNOWN_EVENTS = {
+    "SessionStart",
+    "SubagentStart",
+    "PreToolUse",
+    "PermissionRequest",
+    "PostToolUse",
+    "PreCompact",
+    "PostCompact",
+    "UserPromptSubmit",
+    "SubagentStop",
+    "Stop",
+}
+_TOOL_EVENTS = {"PreToolUse", "PermissionRequest", "PostToolUse"}
+_SCHEMA_LOG_LIMIT = 64
+_SCHEMA_FIELD_LIMIT = 32
 
 
 def resolve_repo() -> Path:
@@ -35,13 +53,76 @@ def bootstrap() -> Path:
     return repo
 
 
+def _state_dir() -> Path:
+    configured = os.environ.get("LESS_TOKENS_STATE_DIR")
+    return Path(configured) if configured else resolve_repo() / ".less_tokens" / "state"
+
+
+def _type_name(value: object) -> str:
+    if value is None:
+        return "null"
+    return type(value).__name__
+
+
+def _record_schema_drift(raw: object, reason: str) -> None:
+    """Record bounded schema metadata without retaining payload values."""
+    try:
+        fields = sorted(str(key)[:80] for key in raw)[:_SCHEMA_FIELD_LIMIT] if isinstance(raw, dict) else []
+        record = {
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "reason": reason,
+            "payload_type": _type_name(raw),
+            "fields": fields,
+        }
+        if isinstance(raw, dict):
+            event = raw.get("hook_event_name")
+            tool = raw.get("tool_name")
+            record["event"] = str(event)[:80] if isinstance(event, str) else _type_name(event)
+            record["tool"] = str(tool)[:80] if isinstance(tool, str) else _type_name(tool)
+            record["field_types"] = {
+                key: _type_name(raw[key]) for key in fields if key in raw
+            }
+
+        path = _state_dir() / "codex-hook-schema-drift.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        previous = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+        encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
+        path.write_text("\n".join([*previous[-(_SCHEMA_LOG_LIMIT - 1):], encoded]) + "\n", encoding="utf-8")
+    except Exception as exc:
+        try:
+            print(f"[codex-runtime] failed to record schema drift: {exc}", file=sys.stderr)
+        except Exception:
+            return
+
+
+def _schema_issue(raw: dict) -> str | None:
+    event = raw.get("hook_event_name")
+    if not isinstance(event, str) or not event:
+        return "missing-or-invalid-hook-event"
+    if event not in _KNOWN_EVENTS:
+        return "unknown-hook-event"
+    if event in _TOOL_EVENTS:
+        if not isinstance(raw.get("tool_name"), str) or not raw.get("tool_name"):
+            return "missing-or-invalid-tool-name"
+        if not isinstance(raw.get("tool_input"), dict):
+            return "missing-or-invalid-tool-input"
+    if event == "PostToolUse" and "tool_response" not in raw and "tool_result" not in raw:
+        return "missing-tool-response"
+    return None
+
+
 def load_json_stdin(*mappers: Callable[[dict], dict]) -> dict:
     try:
         raw = json.loads(sys.stdin.read() or "{}")
     except Exception:
+        _record_schema_drift({}, "invalid-json")
         return {}
     if not isinstance(raw, dict):
+        _record_schema_drift(raw, "non-object-payload")
         return {}
+    issue = _schema_issue(raw)
+    if issue:
+        _record_schema_drift(raw, issue)
     for mapper in mappers:
         raw = mapper(raw)
     return raw
