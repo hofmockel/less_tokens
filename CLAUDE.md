@@ -18,7 +18,7 @@ _Moved to DOCUMENTATION.md → Project purpose._
 
 ## Backlog and changelog lifecycle
 
-Code-changing PRs need a `CHANGELOG.md` `[Unreleased]` entry — enforced by `changelog_gate.py` (CI + pre-commit). Also delete the shipped item from `BACKLOG.md` (no strike-through, no "DONE" marker); when the entry ships a backlog item, cite its ID (`- [P2] ...`) and the gate fails if that ID still has a heading in `BACKLOG.md`. A duplicate across README and BACKLOG is a bookkeeping bug.
+Code-changing PRs need a `CHANGELOG.md` `[Unreleased]` entry — enforced by `changelog_gate.py` in pull-request CI, not on each commit. Also delete the shipped item from `BACKLOG.md` (no strike-through, no "DONE" marker); when the entry ships a backlog item, cite its ID (`- [P2] ...`) and the gate fails if that ID still has a heading in `BACKLOG.md`. A duplicate across README and BACKLOG is a bookkeeping bug.
 
 ## graphify
 
