@@ -88,8 +88,11 @@ def _record_schema_drift(raw: object, reason: str) -> None:
         previous = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
         encoded = json.dumps(record, sort_keys=True, separators=(",", ":"))
         path.write_text("\n".join([*previous[-(_SCHEMA_LOG_LIMIT - 1):], encoded]) + "\n", encoding="utf-8")
-    except Exception:
-        pass
+    except Exception as exc:
+        try:
+            print(f"[codex-runtime] failed to record schema drift: {exc}", file=sys.stderr)
+        except Exception:
+            return
 
 
 def _schema_issue(raw: dict) -> str | None:
