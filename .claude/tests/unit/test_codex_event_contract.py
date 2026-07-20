@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import io
 import os
 import re
 import shlex
@@ -17,6 +18,7 @@ REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 
 from install import build_codex_hook_entries  # noqa: E402
+from agents.codex.hooks import _codex_runtime  # noqa: E402
 
 CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 LIVE_FIXTURES = REPO / ".claude" / "tests" / "fixtures" / "codex-hooks"
@@ -71,7 +73,7 @@ BASE_SCENARIOS = {
     "apply_patch": ("apply-patch",),
     "Edit": ("edit",),
     "Write": ("write",),
-    ".*": ("any-tool",),
+    ".*": ("any-tool", "other-local-tool", "agent-local-tool"),
 }
 
 
@@ -174,18 +176,16 @@ def _base_payload(token: str, scenario: str, tmp_path: Path) -> dict:
         }
     if token == "Edit" and scenario == "edit":
         return {
-            "tool_name": "Edit",
-            "tool_input": {
-                "file_path": str(target),
-                "old_string": "old\n",
-                "new_string": "new\n",
-            },
+            # Edit/Write are matcher aliases; the published hook input keeps
+            # apply_patch as the canonical tool name.
+            "tool_name": "apply_patch",
+            "tool_input": {"command": patch},
             "tool_response": "",
         }
     if token == "Write" and scenario == "write":
         return {
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(agents), "content": agents.read_text(encoding="utf-8")},
+            "tool_name": "apply_patch",
+            "tool_input": {"command": patch},
             "tool_response": "",
         }
     if token == ".*" and scenario == "any-tool":
@@ -193,6 +193,18 @@ def _base_payload(token: str, scenario: str, tmp_path: Path) -> dict:
             "tool_name": "Bash",
             "tool_input": {"command": "pytest"},
             "tool_response": "1 passed\n",
+        }
+    if token == ".*" and scenario == "other-local-tool":
+        return {
+            "tool_name": "update_plan",
+            "tool_input": {"plan": [{"step": "verify", "status": "in_progress"}]},
+            "tool_response": {"ok": True},
+        }
+    if token == ".*" and scenario == "agent-local-tool":
+        return {
+            "tool_name": "Agent",
+            "tool_input": {"description": "inspect contract coverage"},
+            "tool_response": {"agent_id": "agent-contract"},
         }
     raise AssertionError(f"no Codex fixture for {token!r} scenario {scenario!r}")
 
@@ -261,11 +273,13 @@ def _payloads_for_matcher(matcher: str, tmp_path: Path) -> list[dict]:
     ]
 
 
-def _scenarios_for(script: str, token: str) -> tuple[str, ...]:
+def _scenarios_for(event: str, script: str, token: str) -> tuple[str, ...]:
     scenarios = BASE_SCENARIOS[token]
     if script in GATE_HOOKS and token in {MCP_TOKEN, "Bash"}:
         stem = script.removesuffix(".py")
         return (*scenarios, f"{stem}-block", f"{stem}-allow", f"{stem}-error")
+    if event == "PostToolUse":
+        return (*scenarios, *(f"{scenario}-error" for scenario in scenarios))
     return scenarios
 
 
@@ -274,7 +288,7 @@ def _contract_cases() -> list[tuple[str, str, str, str, str]]:
     for event, matcher, command in _entries():
         script = _script(command)
         for token in matcher.split("|"):
-            for scenario in _scenarios_for(script, token):
+            for scenario in _scenarios_for(event, script, token):
                 cases.append((event, matcher, script, token, scenario))
     return cases
 
@@ -302,10 +316,15 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
     for _, matcher, _ in _entries():
         payloads = _payloads_for_matcher(matcher, tmp_path)
         assert payloads, matcher
-        for payload in payloads:
-            tool_name = payload["tool_name"]
-            assert re.fullmatch(matcher, tool_name), f"{tool_name!r} does not match {matcher!r}"
-            seen_tools.add(tool_name)
+        for token in matcher.split("|"):
+            for scenario in BASE_SCENARIOS[token]:
+                payload = _base_payload(token, scenario, tmp_path)
+                tool_name = payload["tool_name"]
+                if token in {"Edit", "Write"}:
+                    assert tool_name == "apply_patch"
+                else:
+                    assert re.fullmatch(token, tool_name), f"{tool_name!r} does not match {token!r}"
+                seen_tools.add(tool_name)
 
     assert {
         "mcp__filesystem__read_file",
@@ -313,12 +332,12 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
         "mcp__filesystem__search_files",
         "Bash",
         "apply_patch",
-        "Edit",
-        "Write",
+        "update_plan",
+        "Agent",
     } <= seen_tools
 
 
-@pytest.mark.parametrize("release", ["0.142.3", "0.144.5"])
+@pytest.mark.parametrize("release", ["0.142.3", "0.144.5", "0.144.6"])
 @pytest.mark.parametrize(
     "fixture_name,tool_name",
     [("pre-tool-use-bash.json", "Bash"), ("pre-tool-use-apply-patch.json", "apply_patch")],
@@ -341,14 +360,143 @@ def test_release_labeled_live_pre_tool_use_fixture(release, fixture_name, tool_n
 
 
 @pytest.mark.parametrize(
+    "fixture_name,event,tool_name",
+    [
+        ("session-start-startup.json", "SessionStart", None),
+        ("user-prompt-submit.json", "UserPromptSubmit", None),
+        ("pre-tool-use-bash.json", "PreToolUse", "Bash"),
+        ("permission-request-bash.json", "PermissionRequest", "Bash"),
+        ("post-tool-use-bash.json", "PostToolUse", "Bash"),
+        ("post-tool-use-bash-error.json", "PostToolUse", "Bash"),
+        ("pre-tool-use-apply-patch.json", "PreToolUse", "apply_patch"),
+        ("post-tool-use-apply-patch.json", "PostToolUse", "apply_patch"),
+        ("pre-tool-use-update-plan.json", "PreToolUse", "update_plan"),
+        ("post-tool-use-update-plan.json", "PostToolUse", "update_plan"),
+        ("pre-compact-manual.json", "PreCompact", None),
+        ("post-compact-manual.json", "PostCompact", None),
+        ("subagent-start-default.json", "SubagentStart", None),
+        ("subagent-stop-default.json", "SubagentStop", None),
+        ("stop.json", "Stop", None),
+    ],
+)
+def test_current_cli_live_fixture_matrix(fixture_name, event, tool_name):
+    payload = json.loads(
+        (LIVE_FIXTURES / "0.144.6" / fixture_name).read_text(encoding="utf-8")
+    )
+    assert payload["hook_event_name"] == event
+    assert payload["session_id"] == "session-0.144.6"
+    assert payload["cwd"] == "/workspace"
+    assert payload["model"] == "gpt-5.6-sol"
+    if event != "SessionStart":
+        assert payload["turn_id"] == "turn-0.144.6"
+    if tool_name:
+        assert payload["tool_name"] == tool_name
+        assert isinstance(payload["tool_input"], dict)
+        if event == "PermissionRequest":
+            assert payload["permission_mode"] == "default"
+            assert payload["tool_input"] == {
+                "command": "pwd",
+                "description": "PermissionRequest fixture probe",
+            }
+            assert "tool_use_id" not in payload
+        else:
+            assert payload["tool_use_id"] == "exec-SANITIZED"
+    if event == "PostToolUse":
+        assert isinstance(payload["tool_response"], str)
+
+
+def test_current_cli_manual_compaction_fixture_pair_is_ordered_and_correlated():
+    paths = ["pre-compact-manual.json", "post-compact-manual.json"]
+    payloads = [
+        json.loads((LIVE_FIXTURES / "0.144.6" / path).read_text(encoding="utf-8"))
+        for path in paths
+    ]
+    assert [payload["hook_event_name"] for payload in payloads] == [
+        "PreCompact",
+        "PostCompact",
+    ]
+    assert {payload["session_id"] for payload in payloads} == {"session-0.144.6"}
+    assert {payload["turn_id"] for payload in payloads} == {"turn-0.144.6"}
+    assert {payload["trigger"] for payload in payloads} == {"manual"}
+
+
+def test_current_cli_subagent_fixture_pair_is_correlated():
+    paths = ["subagent-start-default.json", "subagent-stop-default.json"]
+    started, stopped = [
+        json.loads((LIVE_FIXTURES / "0.144.6" / path).read_text(encoding="utf-8"))
+        for path in paths
+    ]
+    assert [started["hook_event_name"], stopped["hook_event_name"]] == [
+        "SubagentStart",
+        "SubagentStop",
+    ]
+    assert started["session_id"] == stopped["session_id"] == "session-0.144.6"
+    assert started["turn_id"] == stopped["turn_id"] == "turn-0.144.6"
+    assert started["agent_id"] == stopped["agent_id"] == "agent-0.144.6"
+    assert started["agent_type"] == stopped["agent_type"] == "default"
+    assert started["transcript_path"] == stopped["agent_transcript_path"]
+    assert stopped["last_assistant_message"] == "/workspace"
+    assert stopped["stop_hook_active"] is False
+
+
+def test_current_cli_failed_bash_fixture_preserves_observed_empty_response():
+    payload = json.loads(
+        (LIVE_FIXTURES / "0.144.6" / "post-tool-use-bash-error.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["tool_input"] == {"command": "false"}
+    assert payload["tool_response"] == ""
+    assert "error" not in payload
+
+
+def test_current_cli_live_fixtures_are_sanitized():
+    fixture_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((LIVE_FIXTURES / "0.144.6").glob("*.json"))
+    )
+    assert "/tmp/" not in fixture_text
+    assert "/private/" not in fixture_text
+    assert not re.search(
+        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+        fixture_text,
+        re.IGNORECASE,
+    )
+
+
+def test_schema_drift_telemetry_preserves_payload_and_omits_values(tmp_path, monkeypatch):
+    payload = {
+        "hook_event_name": "FutureToolEvent",
+        "tool_name": "future_tool",
+        "tool_input": {"secret": "DO-NOT-RECORD"},
+    }
+    monkeypatch.setenv("LESS_TOKENS_STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+
+    mapped = _codex_runtime.load_json_stdin(lambda raw: {**raw, "mapped": True})
+
+    assert mapped == {**payload, "mapped": True}
+    telemetry = (tmp_path / "codex-hook-schema-drift.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "unknown-hook-event" in telemetry
+    assert "FutureToolEvent" in telemetry
+    assert "future_tool" in telemetry
+    assert "DO-NOT-RECORD" not in telemetry
+
+
+@pytest.mark.parametrize(
     "event,matcher,script,token,scenario",
     CONTRACT_CASES,
     ids=[_case_id(case) for case in CONTRACT_CASES],
 )
 def test_codex_hook_entry_has_semantic_outcome(event, matcher, script, token, scenario, tmp_path):
     state_dir = tmp_path / "state"
-    if scenario in BASE_SCENARIOS[token]:
-        payload = _base_payload(token, scenario, tmp_path)
+    base_scenario = scenario.removesuffix("-error")
+    if base_scenario in BASE_SCENARIOS[token]:
+        payload = _base_payload(token, base_scenario, tmp_path)
+        if scenario.endswith("-error"):
+            payload["tool_response"] = {"error": "boom", "exit_code": 1}
         extra_env = {}
     else:
         payload, extra_env = _gate_payload(script, token, scenario, tmp_path, state_dir)
