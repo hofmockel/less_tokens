@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin, map_bash_read
+from _codex_runtime import bootstrap, FILESYSTEM_READ_TOOLS, load_json_stdin, map_bash_read, print_pre_tool_result
 
 bootstrap()
 
@@ -40,8 +40,7 @@ def main() -> int:
         data_exts=READ_DENY_DATA_EXTS,
     )
     if reason:
-        print("Read-guard: " + reason, file=sys.stderr)
-        return 2
+        return print_pre_tool_result(2, "", "Read-guard: " + reason)
     return 0
 
 
