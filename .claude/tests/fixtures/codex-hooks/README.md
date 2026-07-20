@@ -29,4 +29,21 @@ field set and the release-specific tool-use ID prefix are retained.
 `PostCompact`, `SubagentStart`, and `SubagentStop` remain schema-documented but are not represented
 as live fixtures here.
 
+## Remaining live capture plan
+
+Run each probe in a new temporary Git repository with a recorder hook for only the named event and
+`--dangerously-bypass-hook-trust`. Keep raw logs outside this repository. A missing event is a probe
+result, not a fixture.
+
+| Events | Surface and trigger | Bound and acceptance evidence |
+| --- | --- | --- |
+| `PermissionRequest` | Interactive CLI with `--ask-for-approval on-request`; ask for one harmless escalated Bash command and deny it at the prompt. | Stop after the first decision or 60 seconds. Accept only a payload emitted before the decision whose matcher/tool is `Bash`. |
+| `PreCompact`, `PostCompact` | Interactive CLI; complete one short turn, then invoke manual compaction. | Stop after one compaction or 90 seconds. Require one ordered pair from the same session with the documented `manual` trigger. Capture `auto` separately only if a real automatic compaction occurs. |
+| `SubagentStart`, `SubagentStop` | Standalone CLI with the stable `multi_agent` feature enabled; request exactly one read-only subagent that runs `pwd`, returns, and is awaited. | Stop after one child completes or 120 seconds. Require one ordered start/stop pair tied to the parent session and retain the observed subagent type. |
+
+For every accepted payload, record the exact CLI version, model, surface, prompt/action, and
+timeout here. Sanitize path and identifier values while preserving field names, field types,
+event order, matcher values, and release-specific ID shapes. Add fixture assertions in
+`test_codex_event_contract.py` in the same change.
+
 Schema provenance: [`rust-v0.142.3`](https://github.com/openai/codex/tree/rust-v0.142.3/codex-rs/hooks/schema/generated), [`rust-v0.144.5`](https://github.com/openai/codex/tree/rust-v0.144.5/codex-rs/hooks/schema/generated), and the current official Codex hook manual captured alongside the `0.144.6` probe.
