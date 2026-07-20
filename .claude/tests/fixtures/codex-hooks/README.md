@@ -9,8 +9,9 @@ repository.
   `gpt-5.6-sol`.
 - Each release directory also contains `pre-tool-use-apply-patch.json` from its non-Bash probe.
 - `0.144.6/`: standalone `codex-cli 0.144.6`, model `gpt-5.6-sol`. This release adds live
-  `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop` payloads across Bash,
-  `apply_patch`, and `update_plan`. The failed Bash probe (`false`) emitted an empty string in
+  `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`,
+  `PostCompact`, `SubagentStart`, `SubagentStop`, and `Stop` payloads across Bash, `apply_patch`, and `update_plan`. The failed Bash
+  probe (`false`) emitted an empty string in
   `tool_response` with no separate error field.
 
 Session, turn, tool-use, and filesystem identifiers are replaced with stable placeholders. The
@@ -25,11 +26,12 @@ field set and the release-specific tool-use ID prefix are retained.
 | IDE extension | Not captured | Keep separate; do not infer from CLI fixtures. |
 | Hosted/cloud tools | Not applicable to local tool hooks | Published docs say hosted tools do not enter this hook path. |
 
-`PermissionRequest` did not fire in the non-interactive read-only probe. `PreCompact`,
-`PostCompact`, `SubagentStart`, and `SubagentStop` remain schema-documented but are not represented
-as live fixtures here.
+`PermissionRequest` did not fire in the non-interactive read-only probe, but a bounded interactive
+approval request emitted it before the decision. Manual compaction emitted an ordered `PreCompact` /
+`PostCompact` pair. A standalone read-only subagent emitted one correlated `SubagentStart` /
+`SubagentStop` pair with the observed `default` agent type.
 
-## Remaining live capture plan
+## Bounded live capture protocol
 
 Run each probe in a new temporary Git repository with a recorder hook for only the named event and
 `--dangerously-bypass-hook-trust`. Keep raw logs outside this repository. A missing event is a probe

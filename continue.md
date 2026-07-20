@@ -1,42 +1,32 @@
 # Continue: less_tokens
 
-> **Next focus:** Finish CX19's live lifecycle coverage without overstating unsupported surfaces.
+> **Next focus:** Close CX19 after the authentic lifecycle fixture matrix passed.
 
 ## Current state
-Branch `codex/cx19-contract-matrix` is one commit ahead of `origin/main` at `2ea6442`. The committed
-CX19 runtime, tests, fixture documentation, and `0.144.6` fixture matrix are committed. The working
-tree contains only this refreshed handoff and the bounded live-capture plan added to the fixture
-README. `BACKLOG.md` and `CHANGELOG.md` remain unchanged because CX19 is not yet complete.
+Branch `codex/cx19-contract-matrix` is two commits ahead of `origin/main` at `ca49ff4`. The working
+tree is dirty with the refreshed handoff plus CX19 fixture, test, and README changes. Do not discard
+them. `BACKLOG.md` and `CHANGELOG.md` are not yet updated.
 
 ## What happened
-- Upgraded standalone CLI is `codex-cli 0.144.6`.
-- Captured sanitized live `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and
-  `Stop` payloads for Bash, `apply_patch`, and `update_plan` in an isolated temporary repository.
-- A failed Bash command (`false`) emitted `tool_response: ""` with no separate error field.
-- Added release-labeled fixture matrix/sanitization tests and documented CLI/app/IDE/hosted
-  coverage separately.
-- Fixed schema-drift telemetry so it records bounded field/type metadata but preserves the raw
-  payload for normal mapping. Added a no-values/fail-open regression test.
-- Committed the live hook contract matrix as `2ea6442` (`test(codex): capture live hook contract
-  matrix`).
-- Added bounded interactive/manual probe designs for permission, compaction, and subagent lifecycle
-  events, including stop rules and authenticity requirements.
-- Verification passes: focused contract suite `159 passed`; broader Codex hook suite `263 passed`;
-  `git diff --check` is clean.
+- Captured a live interactive `PermissionRequest` for denied escalated Bash `pwd`; preserved
+  `permission_mode: default` and the observed absence of `tool_use_id`.
+- Captured an ordered manual `PreCompact` / `PostCompact` pair with `trigger: manual`.
+- Captured a correlated `SubagentStart` / `SubagentStop` pair for one awaited read-only `pwd` child;
+  preserved `agent_type: default`, transcript linkage, and the final child message.
+- Added five sanitized `0.144.6` fixtures and semantic assertions. Focused tests: `166 passed`.
+  Broader Codex hook suite: `375 passed`. `git diff --check` is clean.
 
 ## Open work
-The non-interactive read-only probe did not emit `PermissionRequest`. Live `PreCompact`,
-`PostCompact`, `SubagentStart`, and `SubagentStop` fixtures are still absent. Run the documented
-bounded probes, add only genuinely emitted fixtures plus assertions, then run the full relevant
-suite before closing CX19/updating backlog and changelog.
+Review the final diff against CX19 acceptance, update `BACKLOG.md` and `CHANGELOG.md` if complete,
+rerun the focused suite if either code or fixtures change, then commit the coherent CX19 closure.
 
 ## Suggested skills
-- `less-tokens` — targeted fixture and hook exploration.
-- `openai-docs` — verify exact lifecycle triggering and surface limits.
+- `$less-tokens` — targeted backlog/changelog lookup and final diff inspection.
+- `$continue` — remove or refresh this handoff after committing.
 
 ## Start here
-Run the bounded interactive `PermissionRequest` probe documented in
-`.claude/tests/fixtures/codex-hooks/README.md`; do not synthesize a fixture if no event is emitted.
+Search `BACKLOG.md` and `CHANGELOG.md` for CX19, then mark it complete if the existing matcher,
+lifecycle, telemetry, and surface-separation assertions satisfy the recorded acceptance criteria.
 
 ---
-_Last updated at HEAD `2ea6442` on 2026-07-19._
+_Last updated at HEAD `ca49ff4` on 2026-07-19._

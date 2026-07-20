@@ -365,12 +365,17 @@ def test_release_labeled_live_pre_tool_use_fixture(release, fixture_name, tool_n
         ("session-start-startup.json", "SessionStart", None),
         ("user-prompt-submit.json", "UserPromptSubmit", None),
         ("pre-tool-use-bash.json", "PreToolUse", "Bash"),
+        ("permission-request-bash.json", "PermissionRequest", "Bash"),
         ("post-tool-use-bash.json", "PostToolUse", "Bash"),
         ("post-tool-use-bash-error.json", "PostToolUse", "Bash"),
         ("pre-tool-use-apply-patch.json", "PreToolUse", "apply_patch"),
         ("post-tool-use-apply-patch.json", "PostToolUse", "apply_patch"),
         ("pre-tool-use-update-plan.json", "PreToolUse", "update_plan"),
         ("post-tool-use-update-plan.json", "PostToolUse", "update_plan"),
+        ("pre-compact-manual.json", "PreCompact", None),
+        ("post-compact-manual.json", "PostCompact", None),
+        ("subagent-start-default.json", "SubagentStart", None),
+        ("subagent-stop-default.json", "SubagentStop", None),
         ("stop.json", "Stop", None),
     ],
 )
@@ -387,9 +392,51 @@ def test_current_cli_live_fixture_matrix(fixture_name, event, tool_name):
     if tool_name:
         assert payload["tool_name"] == tool_name
         assert isinstance(payload["tool_input"], dict)
-        assert payload["tool_use_id"] == "exec-SANITIZED"
+        if event == "PermissionRequest":
+            assert payload["permission_mode"] == "default"
+            assert payload["tool_input"] == {
+                "command": "pwd",
+                "description": "PermissionRequest fixture probe",
+            }
+            assert "tool_use_id" not in payload
+        else:
+            assert payload["tool_use_id"] == "exec-SANITIZED"
     if event == "PostToolUse":
         assert isinstance(payload["tool_response"], str)
+
+
+def test_current_cli_manual_compaction_fixture_pair_is_ordered_and_correlated():
+    paths = ["pre-compact-manual.json", "post-compact-manual.json"]
+    payloads = [
+        json.loads((LIVE_FIXTURES / "0.144.6" / path).read_text(encoding="utf-8"))
+        for path in paths
+    ]
+    assert [payload["hook_event_name"] for payload in payloads] == [
+        "PreCompact",
+        "PostCompact",
+    ]
+    assert {payload["session_id"] for payload in payloads} == {"session-0.144.6"}
+    assert {payload["turn_id"] for payload in payloads} == {"turn-0.144.6"}
+    assert {payload["trigger"] for payload in payloads} == {"manual"}
+
+
+def test_current_cli_subagent_fixture_pair_is_correlated():
+    paths = ["subagent-start-default.json", "subagent-stop-default.json"]
+    started, stopped = [
+        json.loads((LIVE_FIXTURES / "0.144.6" / path).read_text(encoding="utf-8"))
+        for path in paths
+    ]
+    assert [started["hook_event_name"], stopped["hook_event_name"]] == [
+        "SubagentStart",
+        "SubagentStop",
+    ]
+    assert started["session_id"] == stopped["session_id"] == "session-0.144.6"
+    assert started["turn_id"] == stopped["turn_id"] == "turn-0.144.6"
+    assert started["agent_id"] == stopped["agent_id"] == "agent-0.144.6"
+    assert started["agent_type"] == stopped["agent_type"] == "default"
+    assert started["transcript_path"] == stopped["agent_transcript_path"]
+    assert stopped["last_assistant_message"] == "/workspace"
+    assert stopped["stop_hook_active"] is False
 
 
 def test_current_cli_failed_bash_fixture_preserves_observed_empty_response():
