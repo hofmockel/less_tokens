@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Codex PostToolUse hook: nudge for concise responses."""
+"""Codex Stop/SubagentStop hook: continue overly verbose responses once."""
 from __future__ import annotations
 
 import sys
@@ -25,9 +25,11 @@ def main() -> int:
     payload = load_json_stdin()
     if not payload:
         return 0
+    if payload.get("hook_event_name") not in {"Stop", "SubagentStop"}:
+        return 0
     if payload.get("stop_hook_active"):
         return 0
-    response = payload.get("response", "") or ""
+    response = payload.get("last_assistant_message", "") or ""
     if not isinstance(response, str):
         return 0
     violations = analyze(response, max_response_words=MAX_RESPONSE_WORDS, min_filler_hits=1)

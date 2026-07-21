@@ -137,8 +137,9 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         optional_flag="truncate",
         claude_script="truncate-output.py",
         claude=(HookWire("PostToolUse", "Bash|Read|WebFetch|Glob"),),
-        codex_script="truncate-output.py",
-        codex=(HookWire("PostToolUse", "Bash|mcp__filesystem__.*"),),
+        # CX28: Codex 0.144.6 can add PostToolUse feedback, but exposes no
+        # contract that replaces or suppresses the original tool result.
+        # Keep known-noisy Codex calls bounded through CX27 PreToolUse gates.
     ),
     # Claude-only (G15/SA1): no Codex Task-boundary hook exists — Codex has no
     # subagent-spawn tool to cap a return from.
@@ -165,7 +166,25 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         claude_script="compact-trigger.py",
         claude=(HookWire("PostToolUse", ".*"),),
         codex_script="compact-trigger.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(
+            HookWire("PreCompact", "manual|auto"),
+            HookWire("PostCompact", "manual|auto"),
+        ),
+    ),
+    HookSpec(
+        name="subagent-guidance",
+        codex_script="subagent-guidance.py",
+        codex=(HookWire("SubagentStart", ""),),
+    ),
+    HookSpec(
+        name="subagent-metrics",
+        codex_script="subagent-metrics.py",
+        codex=(
+            HookWire("PreToolUse", "^Agent$"),
+            HookWire("PostToolUse", "^Agent$"),
+            HookWire("SubagentStart", ""),
+            HookWire("SubagentStop", ""),
+        ),
     ),
     HookSpec(
         name="terse-output",
@@ -177,17 +196,17 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         # behaves identically for a subagent's own transcript.
         claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="terse-reminder.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
     ),
-    # Regenerates state/savings.html. Claude can do this once per assistant turn
-    # through Stop; Codex has no native Stop equivalent, so refresh after tools.
+    # Regenerates state/savings.html at real assistant/subagent stop boundaries
+    # on both platforms. Codex output must use the event's JSON response shape.
     HookSpec(
         name="savings-html",
         claude_script="savings-html.py",
         # SubagentStop (G15): same reasoning as terse-output above.
         claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="savings-html.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
     ),
 )
 

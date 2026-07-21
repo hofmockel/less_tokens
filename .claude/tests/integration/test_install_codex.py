@@ -218,7 +218,7 @@ class TestBuildCodexHookEntries:
         assert any("index-refresh.py" in cmd for cmd in commands)
         assert any("agentsmd-budget.py" in cmd for cmd in commands)
         assert any("savings-html.py" in cmd for cmd in commands)
-        assert any("truncate-output.py" in cmd for cmd in commands)
+        assert not any("truncate-output.py" in cmd for cmd in commands)
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("terse-reminder.py" in cmd for cmd in commands)
 
@@ -283,7 +283,7 @@ class TestBuildCodexHookEntries:
             ),
         )
         commands = [cmd for _, _, cmd in entries]
-        assert any("truncate-output.py" in cmd for cmd in commands)
+        assert not any("truncate-output.py" in cmd for cmd in commands)
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("terse-reminder.py" in cmd for cmd in commands)
 

@@ -43,17 +43,17 @@ class TestCompactTriggerStateDirIsolation:
         transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "codex_state"
 
-        code, _, _ = run_hook(
+        code, stdout, stderr = run_hook(
             CODEX_HOOKS / "compact-trigger.py",
-            {"tool_name": "Bash", "tool_input": {}, "tool_response": "",
+            {"hook_event_name": "PreCompact", "trigger": "auto",
              "transcript_path": str(transcript)},
             extra_env={
                 "LESS_TOKENS_STATE_DIR": str(state_dir),
                 "LESS_TOKENS_AGENT": "codex",
             },
         )
-        assert code == 2
-        assert (state_dir / "compact-trigger-last").exists()
+        assert (code, stdout, stderr) == (0, "", "")
+        assert (state_dir / "compact-peak").exists()
 
     def test_claude_hook_writes_state_to_custom_dir(self, tmp_path):
         """Claude compact-trigger also respects LESS_TOKENS_STATE_DIR."""
