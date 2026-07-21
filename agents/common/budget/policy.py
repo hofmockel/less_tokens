@@ -38,6 +38,7 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
                 estimated_tokens_after=int(summary.get("estimated_tokens", 0) or 0),
                 budget_limit=int(summary.get("budget_limit", config.category_limit("session_summary")) or 0),
                 reason="budget pressure triggered compact session summary",
+                invocation_id=budget_input.invocation_id,
             )
         for decision in decisions:
             append_event(root, event_from_decision(
@@ -48,6 +49,9 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
                 phase=budget_input.phase,
                 tool_name=budget_input.tool_name,
                 mode=config.mode,
+                invocation_id=budget_input.invocation_id,
+                input_characters=budget_input.input_characters,
+                estimated_input_tokens=budget_input.estimated_input_tokens,
                 strategy=_strategy_for_decision(decision),
             ))
         return decisions
@@ -61,6 +65,9 @@ def evaluate_budget_input(root: Path, budget_input: BudgetInput, config: BudgetC
             tool_name=budget_input.tool_name,
             mode=config.mode,
             error=repr(exc),
+            invocation_id=budget_input.invocation_id,
+            input_characters=budget_input.input_characters,
+            estimated_input_tokens=budget_input.estimated_input_tokens,
         )
         return []
 

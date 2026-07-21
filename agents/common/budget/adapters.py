@@ -1,9 +1,9 @@
 """Normalize native hook payloads into budget inputs."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,6 +19,9 @@ class BudgetInput:
     tool_name: str
     session_id: str
     run_id: str
+    invocation_id: str
+    input_characters: int
+    estimated_input_tokens: int
     query: str = ""
     candidates: list[ContextCandidate] = field(default_factory=list)
 
@@ -62,8 +65,36 @@ def _session_id(payload: dict) -> str:
     )
 
 
-def _run_id(payload: dict) -> str:
-    return str(payload.get("run_id") or os.environ.get("LESS_TOKENS_RUN_ID") or uuid.uuid4().hex[:12])
+def _run_id(payload: dict, *, session_id: str) -> str:
+    return str(payload.get("run_id") or os.environ.get("LESS_TOKENS_RUN_ID") or session_id)
+
+
+def _canonical_tool_input(payload: dict) -> str:
+    return json.dumps(
+        _payload_tool_input(payload),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _invocation_id(
+    payload: dict,
+    *,
+    session_id: str,
+    phase: str,
+    tool_name: str,
+    canonical_input: str,
+) -> str:
+    native_id = payload.get("tool_use_id") or payload.get("tool_call_id") or payload.get("call_id")
+    if native_id:
+        return str(native_id)
+    fingerprint = json.dumps(
+        [session_id, phase, tool_name, canonical_input],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return "derived-" + hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:20]
 
 
 def _path_candidate(path: str, *, candidate_type: str = "file_ref", text: str = "") -> ContextCandidate:
@@ -170,6 +201,15 @@ def normalize_budget_input(payload: dict, *, agent: str | None = None) -> Budget
     tool_name = str(payload.get("tool_name") or "")
     resolved_agent = agent or str(payload.get("agent") or os.environ.get("LESS_TOKENS_AGENT") or "claude")
     phase = _phase(payload)
+    session_id = _session_id(payload)
+    canonical_input = _canonical_tool_input(payload)
+    invocation_id = _invocation_id(
+        payload,
+        session_id=session_id,
+        phase=phase,
+        tool_name=tool_name,
+        canonical_input=canonical_input,
+    )
     inp = _payload_tool_input(payload)
     query = " ".join(str(v) for v in inp.values() if isinstance(v, (str, int, float)))
     candidates = _candidates_from_payload(payload, phase=phase, tool_name=tool_name)
@@ -177,8 +217,11 @@ def normalize_budget_input(payload: dict, *, agent: str | None = None) -> Budget
         agent=resolved_agent,
         phase=phase,
         tool_name=tool_name,
-        session_id=_session_id(payload),
-        run_id=_run_id(payload),
+        session_id=session_id,
+        run_id=_run_id(payload, session_id=session_id),
+        invocation_id=invocation_id,
+        input_characters=len(canonical_input),
+        estimated_input_tokens=estimate_tokens(canonical_input),
         query=query,
         candidates=candidates,
     )
