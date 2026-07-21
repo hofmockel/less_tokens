@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **HP1 progress: workload catalog + live Codex `indexed_whole_file_read` capture** — added
+  `agents/common/conformance/workloads.py`, a frozen-dataclass catalog of HP1's 7 versioned
+  conformance workloads (no evidence stored there yet; `matrix.json` is still to build). Live-
+  captured `indexed_whole_file_read` on Codex `0.144.6`: an unsearched `cat` of an indexed file
+  is denied via the native `permissionDecision` contract and logged to `savings.jsonl`
+  (`elided_chars` equal to the exact file size), then allowed after a recent search. `codex exec`
+  itself could not be invoked this session (sandboxed against spawning a second CLI agent), so
+  the real installed `search-first.py` hook was probed directly with a stdin payload matching the
+  live `0.144.6` schema instead — see the caveat and fixtures in
+  `.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md`. HP1 remains open
+  in `BACKLOG.md`; `matrix.json`, the remaining workload captures, `conformance_matrix.py`, and
+  the README/DOCUMENTATION parity-table updates are still outstanding.
+
 - **Bug-hunt/bugfix skills are now mode-aware and portable, and a `bugfix` skill now exists** — `agents/common/bug-hunt-protocol.md` and a new `agents/common/bugfix-protocol.md` auto-detect, against an arbitrary target repo, whether it's in "docs mode" (no test suite, Markdown-spec-driven — a bug is a cross-document inconsistency, fixed by editing docs and re-reading) or "code mode" (application code with a detectable test suite — a bug is a logic/state/silent-failure error, fixed via a failing regression test written first). The shared heuristic (test-runner detection vs `BACKLOG.md`-plus-no-test-runner) lives once in `.claude/tools/protocol_mode.py` and is rendered verbatim into both protocol docs so they can't drift on what each mode means. `bug_hunt_registry.py`'s severity tiers/target-files/prompt-template — and the new `bugfix_registry.py`'s verification-commands/commit-template (which re-exports `SEVERITY_TIERS` rather than redefining it) — stay registry-driven, but are now explicitly scoped as less_tokens' own code-mode defaults rather than generic protocol content; docs mode is hand-authored, repo-agnostic prose, since a target repo this one has never seen has no per-repo registry to generate a target-file list from. The bug-hunt prompt template's previously-hardcoded absolute path (`/Users/michael/Documents/GitHub/less_tokens/`) is now `$REPO_ROOT`. Four new thin-pointer `bugfix/SKILL.md` files mirror the existing bug-hunt ones at `.claude/skills/`, `.agents/skills/`, `agents/codex/skills/`, and `.less_tokens/skills/`; the existing bug-hunt pointers are unchanged (their generic descriptions didn't need updating for dual-mode behavior). Added `bugfix-docs` to `.pre-commit-config.yaml` alongside the existing `bug-hunt-docs` check. New tests: `.claude/tests/unit/test_bugfix_docs.py` (5 cases, including a same-source check that the two protocols' mode-detection blocks render identically). `dev.py unit` (1109 passed); `bug_hunt_docs.py --check` and `bugfix_docs.py --check` both clean. `DOCUMENTATION.md`'s repository-layout and skills sections and `BACKLOG.md`'s protocol pointer now list `bugfix` alongside `bug-hunt`.
 
 - **Native Codex lifecycle hooks (CX29)** — replaced wildcard `PostToolUse` approximations with release-matched `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` wiring. Terse checks now inspect `last_assistant_message` with the documented loop guard, measured savings report at real stop boundaries, subagents receive bounded start context, and compaction refreshes the task-state snapshot before pairing measured pre/post transcript sizes without blocking compaction. The native contract is verified on Codex 0.144.6; older supported releases are explicitly best-effort.
