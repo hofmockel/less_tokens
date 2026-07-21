@@ -166,7 +166,15 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         claude_script="compact-trigger.py",
         claude=(HookWire("PostToolUse", ".*"),),
         codex_script="compact-trigger.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(
+            HookWire("PreCompact", "manual|auto"),
+            HookWire("PostCompact", "manual|auto"),
+        ),
+    ),
+    HookSpec(
+        name="subagent-guidance",
+        codex_script="subagent-guidance.py",
+        codex=(HookWire("SubagentStart", ""),),
     ),
     HookSpec(
         name="terse-output",
@@ -178,17 +186,17 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         # behaves identically for a subagent's own transcript.
         claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="terse-reminder.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
     ),
-    # Regenerates state/savings.html. Claude can do this once per assistant turn
-    # through Stop; Codex has no native Stop equivalent, so refresh after tools.
+    # Regenerates state/savings.html at real assistant/subagent stop boundaries
+    # on both platforms. Codex output must use the event's JSON response shape.
     HookSpec(
         name="savings-html",
         claude_script="savings-html.py",
         # SubagentStop (G15): same reasoning as terse-output above.
         claude=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
         codex_script="savings-html.py",
-        codex=(HookWire("PostToolUse", ".*"),),
+        codex=(HookWire("Stop", ""), HookWire("SubagentStop", "")),
     ),
 )
 

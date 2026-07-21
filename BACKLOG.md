@@ -10,7 +10,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 3 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | — |
+| 4 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX28, CX29 |
 
 ## Next
 
@@ -18,7 +18,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 4 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX28, CX29 |
 | 6 | HP1 | P1 | Ready | Gate parity claims on a live Claude/Codex conformance and savings matrix | CX27, CX28, CX29, CX30 |
 | 7 | HS1 | P1 | Research | Benchmark hybrid lexical + vector retrieval against vector-only search | — |
 | 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
@@ -35,8 +34,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 19 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX29 |
 | 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
-
-- **CX29 — Adopt native Codex Stop, subagent, and compaction lifecycle events** *(output / context lifecycle)* — Replace Codex's `PostToolUse:.*` approximations with the documented `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` events on supported releases. Use `last_assistant_message` and loop guards for terse-output checks, use real stop events for end-of-turn savings reporting, inject only bounded subagent guidance at start, and connect compaction hooks to the existing task-state snapshot without blocking automatic compaction. Keep Claude's direct `Stop`/`SubagentStop` implementation as the behavioral reference while preserving platform-specific payload adapters. Acceptance: live interactive and non-interactive tests show each claimed event fires at the correct boundary and never misfires under another event; terse enforcement cannot loop; final-message and subagent checks read the documented field; pre/post-compaction telemetry pairs one compaction without inventing savings; and legacy versions retain an explicit best-effort label rather than a misleading PostToolUse substitute.
 
 - **CX30 — Add measured Codex subagent prompt/return controls where the current surface permits** *(delegation / context control)* — Current Codex releases document isolated subagent threads, `spawn_agent` matching the `Agent` tool path, and `SubagentStart`/`SubagentStop` payloads with `agent_id`, `agent_type`, transcript path, and final message. Determine whether `PreToolUse:Agent`/`PostToolUse:Agent` plus CX28 result replacement can reproduce Claude's SA2 prompt/return measurement and SA1 bounded parent-visible return without replaying child transcripts or increasing total token use. Acceptance: capture live spawn/start/stop/return payloads with correlation IDs; report prompt, child-final, and parent-absorbed sizes separately; implement a bounded parent-visible digest only if a sentinel test proves replacement occurs before parent absorption; otherwise ship measurement and concise-return continuation guidance only and record the remaining platform boundary in `DECISIONS.md`; verify that a one-search task is not delegated and that multi-agent workflows are never reported as token-saving unless total-token measurements beat the single-agent baseline.
 

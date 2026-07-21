@@ -287,6 +287,8 @@ def _scenarios_for(event: str, script: str, token: str) -> tuple[str, ...]:
 def _contract_cases() -> list[tuple[str, str, str, str, str]]:
     cases = []
     for event, matcher, command in _entries():
+        if event not in {"PreToolUse", "PostToolUse"}:
+            continue
         script = _script(command)
         for token in matcher.split("|"):
             for scenario in _scenarios_for(event, script, token):
@@ -315,7 +317,9 @@ for _script_name, _message in GATE_HOOKS.items():
 
 def test_every_codex_matcher_has_representative_payload(tmp_path):
     seen_tools = set()
-    for _, matcher, _ in _entries():
+    for event, matcher, _ in _entries():
+        if event not in {"PreToolUse", "PostToolUse"}:
+            continue
         payloads = _payloads_for_matcher(matcher, tmp_path)
         assert payloads, matcher
         for token in matcher.split("|"):
@@ -334,8 +338,6 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
         "mcp__filesystem__search_files",
         "Bash",
         "apply_patch",
-        "update_plan",
-        "Agent",
     } <= seen_tools
 
 
@@ -551,7 +553,21 @@ def test_codex_unknown_mcp_tool_fails_open(tmp_path):
         assert (result.returncode, result.stdout, result.stderr) == (0, "", ""), script
 
 
-def test_codex_has_no_stop_wiring_yet():
-    # CX23 found no real Codex Stop/SubagentStop event surface. Force fixture
-    # coverage to be added if the platform contract changes.
-    assert not [entry for entry in _entries() if entry[0] in {"Stop", "SubagentStop"}]
+def test_codex_native_lifecycle_wiring_replaces_post_tool_use_approximations():
+    entries = {(event, matcher, _script(command)) for event, matcher, command in _entries()}
+    expected = {
+        ("PreCompact", "manual|auto", "compact-trigger.py"),
+        ("PostCompact", "manual|auto", "compact-trigger.py"),
+        ("SubagentStart", "", "subagent-guidance.py"),
+        ("Stop", "", "terse-reminder.py"),
+        ("SubagentStop", "", "terse-reminder.py"),
+        ("Stop", "", "savings-html.py"),
+        ("SubagentStop", "", "savings-html.py"),
+    }
+    assert expected <= entries
+    approximated = {
+        script for event, _, script in entries
+        if event == "PostToolUse"
+        and script in {"compact-trigger.py", "terse-reminder.py", "savings-html.py"}
+    }
+    assert not approximated

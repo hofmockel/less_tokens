@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Codex PostToolUse hook: nudge to start a fresh session when transcript grows large."""
+"""Codex PreCompact/PostCompact hook: snapshot state and measure compaction."""
 from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, print_result
+from _codex_runtime import bootstrap, load_json_stdin
 
 REPO = bootstrap()
 
 from payload import normalize_codex  # noqa: E402
-from compact_trigger import check_compact_trigger, measure_compaction  # noqa: E402
+from agents.common.budget.compaction import refresh_compaction_snapshot  # noqa: E402
+from agents.common.budget.config import load_budget_config  # noqa: E402
+from compact_trigger import measure_compaction  # noqa: E402
 
 try:
     from savings_log import append as _log_savings  # noqa: E402
@@ -32,7 +34,19 @@ def main() -> int:
     raw = load_json_stdin()
     if not raw:
         return 0
+    event = raw.get("hook_event_name")
+    if event not in {"PreCompact", "PostCompact"}:
+        return 0
     payload = normalize_codex(raw)
+    if event == "PreCompact":
+        try:
+            refresh_compaction_snapshot(
+                REPO,
+                "codex",
+                load_budget_config(REPO, agent="codex"),
+            )
+        except Exception:
+            pass
     try:
         measure_compaction(
             payload,
@@ -43,16 +57,7 @@ def main() -> int:
         )
     except Exception:
         pass
-    code, stdout, stderr = check_compact_trigger(
-        payload,
-        state_dir=state_dir,
-        max_session_chars=MAX_SESSION_CHARS,
-        message=(
-            "Session transcript is now {size:,} chars (threshold {threshold:,}). "
-            "Start a fresh or compacted Codex session if context pressure is high."
-        ),
-    )
-    return print_result(code, stdout, stderr)
+    return 0
 
 
 if __name__ == "__main__":
