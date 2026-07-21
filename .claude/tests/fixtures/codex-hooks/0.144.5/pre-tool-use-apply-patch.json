@@ -1,0 +1,14 @@
+{
+  "session_id": "session-0.144.5",
+  "turn_id": "turn-0.144.5",
+  "transcript_path": null,
+  "cwd": "/workspace",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Update File: probe.txt\n@@\n+probe\n*** End Patch"
+  },
+  "tool_use_id": "exec-SANITIZED"
+}

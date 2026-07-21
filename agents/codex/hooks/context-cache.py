@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, map_read_or_search, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_read_or_search, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -35,7 +35,7 @@ def main() -> int:
         bash_ttl=CONTEXT_CACHE_BASH_TTL,
         event_name=str(raw.get("hook_event_name") or raw.get("hookEventName") or "PreToolUse"),
     )
-    return print_result(code, stdout, stderr)
+    return print_pre_tool_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

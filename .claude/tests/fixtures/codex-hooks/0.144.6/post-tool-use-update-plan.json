@@ -1,0 +1,20 @@
+{
+  "session_id": "session-0.144.6",
+  "turn_id": "turn-0.144.6",
+  "transcript_path": "/transcripts/session-0.144.6.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "update_plan",
+  "tool_input": {
+    "plan": [
+      {
+        "status": "in_progress",
+        "step": "Run the shell probes and create probe.txt"
+      }
+    ]
+  },
+  "tool_response": "Plan updated",
+  "tool_use_id": "exec-SANITIZED"
+}

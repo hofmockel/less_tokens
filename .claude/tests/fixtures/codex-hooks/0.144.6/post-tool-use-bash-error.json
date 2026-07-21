@@ -1,0 +1,15 @@
+{
+  "session_id": "session-0.144.6",
+  "turn_id": "turn-0.144.6",
+  "transcript_path": "/transcripts/session-0.144.6.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "false"
+  },
+  "tool_response": "",
+  "tool_use_id": "exec-SANITIZED"
+}

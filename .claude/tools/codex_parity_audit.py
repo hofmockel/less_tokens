@@ -22,19 +22,19 @@ class AuditRow:
     notes: str
 
 
-def _load_hooks(path: Path, flatten_fn) -> tuple[list[dict[str, Any]], str | None]:
+def _load_hooks(path: Path, manifest: ModuleType) -> tuple[list[dict[str, Any]], str | None]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return [], "missing .codex/hooks.json"
     except (OSError, json.JSONDecodeError) as exc:
         return [], f"unreadable .codex/hooks.json: {exc}"
-    hooks, well_formed = flatten_fn(data.get("hooks"))
+    raw_hooks = data.get("hooks")
+    hooks, well_formed = manifest.flatten_codex_hooks(raw_hooks)
     if not well_formed:
-        return [], (
-            ".codex/hooks.json hooks value is not the expected nested schema "
-            "(stale flat format or malformed)"
-        )
+        return [], ".codex/hooks.json hooks value is malformed or unsupported"
+    if manifest.codex_hooks_schema(raw_hooks) != "event-keyed":
+        return [], ".codex/hooks.json uses the retired nested schema; run install.py --update"
     return hooks, None
 
 
@@ -140,7 +140,7 @@ def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
         problems.append(f"cannot derive expected Codex hook commands: {exc}")
         return [], problems
 
-    hooks, hooks_error = _load_hooks(hooks_json, manifest.flatten_codex_hooks)
+    hooks, hooks_error = _load_hooks(hooks_json, manifest)
     if hooks_error:
         problems.append(hooks_error)
     if not _is_writable(hooks_json):

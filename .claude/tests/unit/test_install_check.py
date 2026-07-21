@@ -17,6 +17,7 @@ from install import (
     build_codex_hook_entries,
     codex_hooks_json_value,
     do_check,
+    validate_codex_hook_releases,
 )
 
 
@@ -107,6 +108,12 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
 def _successful_codex_check_run(command, **kwargs):
     """Model the real truncation hook contract for do_check subprocess mocks."""
     result = subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+    if command and command[-1] == "--version":
+        result.stdout = "codex-cli 0.144.6\n"
+        return result
+    if command and command[-2:] == ["features", "list"]:
+        result.stdout = "hooks stable true\n"
+        return result
     if command and str(command[-1]).endswith("truncate-output.py"):
         payload = json.loads(kwargs["input"])
         output = payload.get("tool_response", "")
@@ -116,6 +123,14 @@ def _successful_codex_check_run(command, **kwargs):
             result.stdout = "smoke-head\n[... 7,700 chars omitted ...]\nsmoke-tail\n"
             result.stderr = "[truncated — 7,700 chars omitted (8,214 total)]\n"
     return result
+
+
+def _supported_codex_runtime():
+    """Keep do_check tests independent of Codex installations on the test host."""
+    return patch(
+        "install.detect_codex_releases",
+        return_value=[(Path("/fake/codex"), (0, 144, 6))],
+    )
 
 
 class TestDoCheckAllPass:
@@ -131,7 +146,7 @@ class TestDoCheckAllPass:
 
     def test_returns_0_on_valid_codex_install(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
@@ -167,7 +182,7 @@ class TestDoCheckAllPass:
 
     def test_fails_when_codex_truncation_smoke_does_not_truncate(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
@@ -177,7 +192,7 @@ class TestDoCheckAllPass:
         root = _minimal_codex_install(tmp_path)
         import shutil
         shutil.rmtree(root / ".claude" / "hooks")
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 0
@@ -299,11 +314,38 @@ class TestDoCheckHooks:
                 for ev, matcher, cmd in entries
             ]
         }))
-        with patch("subprocess.run") as mock_run:
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
         assert rc == 1
-        assert "not the expected nested schema" in capsys.readouterr().out
+        assert "malformed or unsupported" in capsys.readouterr().out
+
+    def test_fails_on_retired_nested_codex_hooks_json(self, tmp_path, capsys):
+        root = _minimal_codex_install(tmp_path)
+        entries = build_codex_hook_entries(
+            root / "fake_venv" / "bin" / "python", root, _args(agent="codex")
+        )
+        legacy = [[
+            {
+                "event": event,
+                "matcher": matcher,
+                "hooks": [{"type": "command", "command": command}],
+            }
+            for event, matcher, command in entries
+        ]]
+        (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": legacy}))
+        with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
+            mock_run.side_effect = _successful_codex_check_run
+            rc = do_check(root, _args(agent="codex"))
+        assert rc == 1
+        assert "retired nested schema" in capsys.readouterr().out
+
+
+def test_codex_release_validation_fails_outside_verified_range(capsys):
+    with patch("install.detect_codex_releases") as detect:
+        detect.return_value = [(Path("/tmp/codex"), (0, 144, 7))]
+        assert not validate_codex_hook_releases()
+    assert "outside the verified hook contract range" in capsys.readouterr().err
 
 
 class TestDoCheckSettings:
