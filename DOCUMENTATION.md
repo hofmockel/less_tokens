@@ -147,6 +147,7 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 | `subagent-fanout` | Claude only | enforced; `.claude/hooks/subagent-fanout.py`; PreToolUse `Task`, PostToolUse `Task` | missing |
 | `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PreCompact `manual|auto`, PostCompact `manual|auto` |
 | `subagent-guidance` | Codex only | missing | best-effort; `.codex/hooks/subagent-guidance.py`; SubagentStart `*` |
+| `subagent-metrics` | Codex only | missing | best-effort; `.codex/hooks/subagent-metrics.py`; PreToolUse `^Agent$`, PostToolUse `^Agent$`, SubagentStart `*`, SubagentStop `*` |
 | `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; Stop `*`, SubagentStop `*` |
 | `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*` |
 
@@ -202,7 +203,7 @@ Subagents can reduce parent-context noise when they absorb independent explorati
 | Capability | Claude | Codex |
 |---|---|---|
 | Return-size control (SA1) | `PostToolUse:Task` runs `.claude/hooks/subagent-cap.py`; returns over `MAX_SUBAGENT_OUTPUT_CHARS` (default 6,000) keep verdict/recommendation/summary/blocker-style fields when possible, otherwise use bounded head/tail elision. The hook replaces the parent-visible tool result and logs measured elided characters as `subagent-cap`. | No hookable subagent-return boundary is available, so no automatic cap is claimed. |
-| Fan-out measurement (SA2) | `PreToolUse:Task` records serialized prompt size and `PostToolUse:Task` pairs it with return size, subagent type, and session metadata in one `subagent_fanout` event. Measurement is always wired and never mutates output. | No equivalent `Task` boundary; no fan-out event is emitted. |
+| Fan-out measurement (SA2) | `PreToolUse:Task` records serialized prompt size and `PostToolUse:Task` pairs it with return size, subagent type, and session metadata in one `subagent_fanout` event. Measurement is always wired and never mutates output. | `PreToolUse:Agent` and `PostToolUse:Agent` record prompt and parent-absorbed sizes keyed by `tool_use_id`; `SubagentStart` and `SubagentStop` record lifecycle and child-final size keyed by `agent_id`. Records go to `.less_tokens/state/subagent-metrics.jsonl`, retain counts rather than content, and never mutate output. Cross-ID pairing and savings claims require a measured single-agent baseline. |
 | Delegation guidance | Installed Claude skill recommends narrow `explorer` and `verifier` agents, pointer-only context, disjoint ownership, and compact returns. | Installed Codex skill requires explicit user authorization, defaults to `fork_context=false`, distinguishes `explorer` from `worker`, and requires compact four-field returns. |
 | Subagent completion | Claude `terse-output` and `savings-html` also wire `SubagentStop`. | Best-effort tool hooks do not provide equivalent end-of-subagent enforcement. |
 

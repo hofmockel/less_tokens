@@ -177,6 +177,16 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         codex=(HookWire("SubagentStart", ""),),
     ),
     HookSpec(
+        name="subagent-metrics",
+        codex_script="subagent-metrics.py",
+        codex=(
+            HookWire("PreToolUse", "^Agent$"),
+            HookWire("PostToolUse", "^Agent$"),
+            HookWire("SubagentStart", ""),
+            HookWire("SubagentStop", ""),
+        ),
+    ),
+    HookSpec(
         name="terse-output",
         optional_flag="caveman",
         claude_script="caveman-reminder.py",

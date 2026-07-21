@@ -74,6 +74,7 @@ BASE_SCENARIOS = {
     "apply_patch": ("apply-patch",),
     "Edit": ("edit",),
     "Write": ("write",),
+    "^Agent$": ("agent-local-tool",),
     ".*": ("any-tool", "other-local-tool", "agent-local-tool"),
 }
 
@@ -201,7 +202,7 @@ def _base_payload(token: str, scenario: str, tmp_path: Path) -> dict:
             "tool_input": {"plan": [{"step": "verify", "status": "in_progress"}]},
             "tool_response": {"ok": True},
         }
-    if token == ".*" and scenario == "agent-local-tool":
+    if token in {".*", "^Agent$"} and scenario == "agent-local-tool":
         return {
             "tool_name": "Agent",
             "tool_input": {"description": "inspect contract coverage"},
