@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Render agents/common/bug-hunt-protocol.md's data-bearing blocks.
+"""Render agents/common/bugfix-protocol.md's data-bearing blocks.
 
-Two sources, two different reasons:
+Two sources, mirroring bug_hunt_docs.py's split:
 - `protocol_mode.MODE_HEURISTIC` -> the "mode-detection" block. Shared verbatim with
-  bugfix_docs.py so bug-hunt-protocol.md and bugfix-protocol.md can never disagree on
-  what "docs mode" vs "code mode" means (see protocol_mode.py's docstring).
-- `bug_hunt_registry` -> severity-rubric/target-files/thresholds/prompt-template.
-  These are less_tokens' own CODE-MODE defaults for THIS repo, not generic across
-  targets — there's no equivalent registry for docs-mode targets (see
-  bug_hunt_registry.py's docstring), so the docs-mode section of the protocol doc is
-  hand-authored prose, not rendered here.
+  bug_hunt_docs.py so bug-hunt-protocol.md and bugfix-protocol.md can never disagree
+  on what "docs mode" vs "code mode" means (see protocol_mode.py's docstring).
+- `bugfix_registry` -> severity-rubric/verification-commands/commit-template. These
+  are less_tokens' own CODE-MODE defaults for THIS repo, not generic across targets
+  — there's no equivalent registry for docs-mode targets (see bugfix_registry.py's
+  docstring), so the docs-mode section of the protocol doc is hand-authored prose,
+  not rendered here.
 """
 
 from __future__ import annotations
@@ -22,16 +22,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from bug_hunt_registry import (  # noqa: E402
-    COVERAGE_THRESHOLD,
-    OVERLAP_THRESHOLD,
-    PROMPT_TEMPLATE,
+from bugfix_registry import (  # noqa: E402
+    COMMIT_MESSAGE_TEMPLATE,
+    REGRESSION_TEST_DIR,
+    REGRESSION_TEST_NAMING,
     SEVERITY_TIERS,
-    TARGET_FILES,
+    VERIFICATION_COMMANDS,
 )
 from protocol_mode import MODE_HEURISTIC  # noqa: E402
 
-PROTOCOL = REPO / "agents" / "common" / "bug-hunt-protocol.md"
+PROTOCOL = REPO / "agents" / "common" / "bugfix-protocol.md"
 
 BLOCKS = {
     "mode-detection": (
@@ -42,11 +42,13 @@ BLOCKS = {
         "<!-- severity-rubric: begin -->",
         "<!-- severity-rubric: end -->",
     ),
-    "target-files": ("<!-- target-files: begin -->", "<!-- target-files: end -->"),
-    "thresholds": ("<!-- thresholds: begin -->", "<!-- thresholds: end -->"),
-    "prompt-template": (
-        "<!-- prompt-template: begin -->",
-        "<!-- prompt-template: end -->",
+    "verification-commands": (
+        "<!-- verification-commands: begin -->",
+        "<!-- verification-commands: end -->",
+    ),
+    "commit-template": (
+        "<!-- commit-template: begin -->",
+        "<!-- commit-template: end -->",
     ),
 }
 
@@ -65,37 +67,31 @@ def _render_severity_rubric() -> str:
     return "\n".join(lines)
 
 
-def _render_target_files() -> str:
-    begin, end = BLOCKS["target-files"]
-    files = ", ".join(f"`{name}`" for name in sorted(TARGET_FILES))
-    lines = [begin, f"{files} ({len(TARGET_FILES)} files).", end]
-    return "\n".join(lines)
-
-
-def _render_thresholds() -> str:
-    begin, end = BLOCKS["thresholds"]
+def _render_verification_commands() -> str:
+    begin, end = BLOCKS["verification-commands"]
     lines = [
         begin,
-        f"2. **Overlap** — of bugs surfaced, how many match a prior-round bug by file:line or "
-        f'paraphrase? Record as `{{"matched": N, "total": N}}`. Passes at >= {OVERLAP_THRESHOLD:.0%}.',
-        f"3. **File coverage** — list new files hit in `new_files`; scorer accumulates across all "
-        f"rounds vs the target file list. Passes at >= {COVERAGE_THRESHOLD:.0%}.",
-        end,
+        f"Regression test convention: `{REGRESSION_TEST_NAMING}` in `{REGRESSION_TEST_DIR}`.",
+        "",
+        "Run in order after the minimal fix, before changelog/backlog/commit:",
+        "",
     ]
+    for i, vc in enumerate(VERIFICATION_COMMANDS, start=1):
+        lines.append(f"{i}. **{vc.label}** — `{vc.command}`")
+    lines.append(end)
     return "\n".join(lines)
 
 
-def _render_prompt_template() -> str:
-    begin, end = BLOCKS["prompt-template"]
-    return "\n".join([begin, "```", PROMPT_TEMPLATE, "```", end])
+def _render_commit_template() -> str:
+    begin, end = BLOCKS["commit-template"]
+    return "\n".join([begin, "```", COMMIT_MESSAGE_TEMPLATE, "```", end])
 
 
 RENDERERS = {
     "mode-detection": _render_mode_detection,
     "severity-rubric": _render_severity_rubric,
-    "target-files": _render_target_files,
-    "thresholds": _render_thresholds,
-    "prompt-template": _render_prompt_template,
+    "verification-commands": _render_verification_commands,
+    "commit-template": _render_commit_template,
 }
 
 

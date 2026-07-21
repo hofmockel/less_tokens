@@ -549,8 +549,10 @@ less_tokens/
     ├── schema/                # deployed to <host>/.claude/schema/
     │   └── index.sql              # documents table schema
     ├── skills/                # Claude Code skills (not deployed; dev tooling only)
-    │   └── bug-hunt/
-    │       └── SKILL.md           # bug-hunt protocol and round log
+    │   ├── bug-hunt/
+    │   │   └── SKILL.md           # bug-hunt protocol and round log
+    │   └── bugfix/
+    │       └── SKILL.md           # bugfix protocol
     ├── tests/                 # test suite (not deployed)
     │   ├── unit/
     │   └── integration/
@@ -645,7 +647,7 @@ The source tree has a Claude runtime, a Codex adapter layer, and shared hook log
 .claude/
   hooks/           ← PreToolUse / PostToolUse / Stop hooks
   rules/           ← Output style rules
-  skills/          ← Claude Code skills (bug-hunt, claudemd)
+  skills/          ← Claude Code skills (bug-hunt, bugfix, claudemd)
   tools/           ← Core Python scripts deployed to host projects
   schema/          ← SQL schema deployed to host projects
   tests/           ← Unit and integration test suites
@@ -703,12 +705,16 @@ agents/
 
 **Skills (`.claude/skills/`)**
 - `.claude/skills/bug-hunt/SKILL.md` — bug-hunt protocol: severity rubric, stop rule, agent prompt template
+- `.claude/skills/bugfix/SKILL.md` — bugfix protocol: mode-aware fix workflow (docs vs code+tests), changelog-before-backlog discipline
 - `.claude/skills/claudemd/SKILL.md` — prune CLAUDE.md to only what must be always-loaded
 
 **Doc and skill generation (`--check` wired into pre-commit)**
 Registries and shared templates are the source of truth; renderer scripts update checked-in outputs and verify them with `--check`.
-- `.claude/tools/bug_hunt_registry.py` — `SEVERITY_TIERS`, `TARGET_FILES`, `OVERLAP_THRESHOLD`/`COVERAGE_THRESHOLD`, `PROMPT_TEMPLATE`, `ROUND_REQUIRED_KEYS`; single source for the bug-hunt protocol
-- `.claude/tools/bug_hunt_docs.py` — renders/verifies `agents/common/bug-hunt-protocol.md`'s severity-rubric, thresholds, target-files, and prompt-template blocks from the registry
+- `.claude/tools/protocol_mode.py` — single source of the docs-mode/code-mode detection heuristic, rendered identically into both `bug-hunt-protocol.md` and `bugfix-protocol.md` so the two skills can't drift on what each mode means
+- `.claude/tools/bug_hunt_registry.py` — `SEVERITY_TIERS`, `TARGET_FILES`, `OVERLAP_THRESHOLD`/`COVERAGE_THRESHOLD`, `PROMPT_TEMPLATE`, `ROUND_REQUIRED_KEYS`; this repo's own code-mode defaults for the bug-hunt protocol
+- `.claude/tools/bug_hunt_docs.py` — renders/verifies `agents/common/bug-hunt-protocol.md`'s mode-detection, severity-rubric, thresholds, target-files, and prompt-template blocks from the registry
+- `.claude/tools/bugfix_registry.py` — verification commands, regression-test naming convention, and commit template for this repo's own code-mode bugfix defaults; re-exports `SEVERITY_TIERS` from `bug_hunt_registry` rather than redefining it
+- `.claude/tools/bugfix_docs.py` — renders/verifies `agents/common/bugfix-protocol.md`'s mode-detection and code-mode blocks from `bugfix_registry.py` and `protocol_mode.py`
 - `.claude/tools/hunt_round.py` — validates a round JSON record (sequential round number, known severity tiers, severity sum matches `bugs_surfaced`, `overlap.matched <= overlap.total`), appends it to `.claude/skills/bug-hunt/bughuntlog.jsonl`, and scores it via `hunt_score.py` in one command
 - `.claude/tools/hunt_score.py` — evaluates severity slide, overlap, and file-coverage signals from `bughuntlog.jsonl`; imports its constants from `bug_hunt_registry.py` rather than hardcoding them
 - `.claude/tools/strategy_registry.py` — `STRATEGIES` (name, how, savings claim, flag/default, `savings_log` telemetry key or `None`); single source for the README strategy table and `label_consistency_gate.py`'s label map

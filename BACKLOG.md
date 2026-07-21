@@ -4,7 +4,7 @@ Canonical list of planned work not yet started. Work the **Ready now** table fro
 
 Priorities: **P0** = correctness or false-health reporting, **P1** = direct token savings or enforcement proof, **P2** = maintainability/documentation, **P3** = opportunistic. States: **Ready**, **Research** (time-boxed investigation with a decision as a valid outcome), **Blocked**, and **Later**.
 
-Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md` `[Unreleased]` entry and delete the item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) and [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol. Rejected or resolved proposals belong in [DECISIONS.md](DECISIONS.md), not here.
+Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md` `[Unreleased]` entry and delete the item here before merging. See [.claude/skills/bug-hunt/SKILL.md](.claude/skills/bug-hunt/SKILL.md) and [.claude/skills/bug-hunt/bughuntlog.md](.claude/skills/bug-hunt/bughuntlog.md) for the bug-hunt protocol, and [.claude/skills/bugfix/SKILL.md](.claude/skills/bugfix/SKILL.md) for the bugfix protocol. Rejected or resolved proposals belong in [DECISIONS.md](DECISIONS.md), not here.
 
 ## Ready now
 

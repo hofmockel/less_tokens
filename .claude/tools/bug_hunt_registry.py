@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Canonical registry for the bug-hunt protocol.
+"""Canonical registry for the bug-hunt protocol's CODE-MODE defaults for this repo.
 
-Single source of truth for severity tiers, target files, stop-rule
-thresholds, and the agent prompt template. Consumed by:
+Single source of truth for less_tokens' own severity tiers, target files,
+stop-rule thresholds, and agent prompt template — i.e. what a hunt against
+*this* repo looks like once bug-hunt-protocol.md's mode detection (see
+protocol_mode.py) lands on code mode. Consumed by:
 - hunt_score.py (stop-rule scorer)
 - hunt_round.py (round validator/appender)
-- bug_hunt_docs.py (renders agents/common/bug-hunt-protocol.md)
+- bug_hunt_docs.py (renders the code-mode section of agents/common/bug-hunt-protocol.md)
 
 Changing a tier, a target file, or a threshold means editing this file
 once — every consumer stays in sync automatically.
+
+Docs mode has no equivalent registry: bug-hunt-protocol.md is delivered to other
+repos as a portable skill, and there is no "target Markdown file list to regenerate
+from" for a repo this one has never seen. Docs-mode content in the protocol doc is
+therefore hand-authored generic prose, not generated from data here. See
+bug_hunt_docs.py's module docstring for the render-time split.
 """
 
 from __future__ import annotations
@@ -82,7 +90,7 @@ OVERLAP_THRESHOLD = 0.60
 COVERAGE_THRESHOLD = 0.80
 
 PROMPT_TEMPLATE = """\
-Find 10 real, undocumented bugs in /Users/michael/Documents/GitHub/less_tokens/.
+Find 10 real, undocumented bugs in $REPO_ROOT (this repo — less_tokens).
 - Read BACKLOG.md ## Bugs section first; do NOT pre-exclude (overlap is a signal we want to measure).
 - Bug definition: logic / silent failure / state / docstring drift / schema / encoding / hook-ordering.
 - NOT bugs: features, refactors, "add tests", performance unless incorrect, anything in non-Bugs backlog sections.
