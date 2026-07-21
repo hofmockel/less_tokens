@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks"))
 
 from budget_observer import budget_hook_outcome, observe_budget_payload  # noqa: E402
+from agents.common.budget import load_events  # noqa: E402
 
 
 def test_observer_returns_advice_only_in_advise_mode(tmp_path):
@@ -97,3 +98,43 @@ def test_observer_bypass_disables_enforce_block(tmp_path):
     assert outcome is not None
     assert outcome.exit_code == 0
     assert outcome.message is None
+
+
+def test_observer_records_retry_safe_pretool_measurement_for_codex_and_claude(tmp_path):
+    for agent in ("codex", "claude"):
+        root = tmp_path / agent
+        root.mkdir()
+        target = root / "big.py"
+        target.write_text("x" * 20000, encoding="utf-8")
+        tool_input = {"file_path": str(target)}
+        raw = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_input": tool_input,
+            "tool_use_id": f"{agent}-tool-use-1",
+            "session_id": f"{agent}-session",
+        }
+        canonical_input = json.dumps(
+            tool_input,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
+        assert budget_hook_outcome(raw, repo=root, agent=agent) is not None
+        first_events = load_events(root)
+        assert first_events
+        first_ids = {event["event_id"] for event in first_events}
+        assert budget_hook_outcome(raw, repo=root, agent=agent) is not None
+
+        events = load_events(root)
+        assert first_ids <= {event["event_id"] for event in events}
+        assert len({event["event_id"] for event in events}) == len(events)
+        assert {event["agent"] for event in events} == {agent}
+        assert "pre_read" in {event["phase"] for event in events}
+        assert {event["invocation_id"] for event in events} == {raw["tool_use_id"]}
+        measured = [event for event in events if event["input_characters"]]
+        assert len(measured) == 1
+        assert measured[0]["phase"] == "pre_read"
+        assert measured[0]["input_characters"] == len(canonical_input)
+        assert measured[0]["estimated_input_tokens"] > 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -44,7 +44,7 @@ def main() -> int:
         return 0
     payload = normalize_codex(raw)
     code, stdout, stderr = check_grep_first_read(payload, repo=REPO, state_dir=state_dir, config=config)
-    return print_result(code, stdout, stderr)
+    return print_pre_tool_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

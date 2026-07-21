@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -18,7 +18,7 @@ def main() -> int:
     file_path = (raw.get("tool_input") or {}).get("file_path", "")
     if not file_path:
         return 0
-    return print_result(*check_continue_freshness(file_path, repo=REPO))
+    return print_pre_tool_result(*check_continue_freshness(file_path, repo=REPO))
 
 
 if __name__ == "__main__":

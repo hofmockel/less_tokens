@@ -308,6 +308,13 @@ Configure it in `.less_tokens/config/budget.json`:
 
 The default mode is `observe`. Events are appended to `.less_tokens/state/events.jsonl`; compact per-agent session snapshots are written beside it, such as `.less_tokens/state/claude-session.json` and `.less_tokens/state/codex-session.json`.
 
+Pre-tool decision events include `invocation_id`, `event_id`, `input_characters`, and
+`estimated_input_tokens`. Native call identifiers such as `tool_use_id` are preferred; a stable
+fingerprint of the session, phase, tool, and canonical input is used when the surface omits one.
+Input size is recorded once per agent/session/invocation/phase even when one call produces several
+candidate decisions or the hook payload is retried; later events keep the correlation IDs and
+record zero input size so reports cannot double-count the same model-visible input.
+
 `agent_overrides` lets one agent use tighter limits without changing the shared defaults or the other agent's effective budget. The shipped project config uses `agent_overrides.claude` for lower Claude limits on retrieved context, tool output, full-file reads, single tool outputs, and broad directory listings. Codex keeps its own effective profile through `agent_overrides.codex` and the built-in defaults in `agents/common/budget/config.py`.
 
 Example shape:

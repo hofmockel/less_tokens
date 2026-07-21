@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, map_read
+from _codex_runtime import bootstrap, load_json_stdin, map_read, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -24,10 +24,10 @@ def main() -> int:
     if not outcome:
         return 0
     if outcome.message:
-        if outcome.stream == "stderr":
-            print(outcome.message, file=sys.stderr)
-        else:
+        if outcome.exit_code == 0:
             print(hook_additional_context_output(outcome.message))
+            return 0
+        return print_pre_tool_result(outcome.exit_code, "", outcome.message)
     return outcome.exit_code
 
 

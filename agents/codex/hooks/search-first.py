@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -78,7 +78,7 @@ def main() -> int:
             "session_source": ssrc,
             "correlation_id": f"sf:{rel}",
         })
-    return print_result(code, stdout, stderr)
+    return print_pre_tool_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

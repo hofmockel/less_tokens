@@ -7,7 +7,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, print_result
+from _codex_runtime import bootstrap, load_json_stdin, print_pre_tool_result
 
 
 REPO = bootstrap()
@@ -81,8 +81,7 @@ def main() -> int:
     cmd = (payload.get("tool_input") or {}).get("command", "")
     replacement = _codex_bash_replacement(cmd)
     if replacement:
-        print(replacement)
-        return 2
+        return print_pre_tool_result(2, "", replacement)
     code, stdout, stderr = check_listing_guard(
         cmd,
         enabled=_enabled(),
@@ -90,7 +89,7 @@ def main() -> int:
         lean_ls=TOOLS / "lean-ls.py",
         tip_prefix=".less_tokens/tools",
     )
-    return print_result(code, stdout, stderr)
+    return print_pre_tool_result(code, stdout, stderr)
 
 
 if __name__ == "__main__":

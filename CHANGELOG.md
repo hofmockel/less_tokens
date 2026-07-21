@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **Native Codex `PreToolUse` prevention and measured telemetry (CX27)** — migrated the budget, search, read, slicing, cache, listing, and handoff gates from legacy exit-code blocking to structured allow/deny responses. Safe whole-file Bash reads can now be rewritten to the exact search-derived slice through `updatedInput`; calls without a safe exact rewrite are denied before execution. Shared Codex/Claude events now retain stable native invocation IDs, canonical input character and estimated-token measurements, and atomic retry deduplication; parity fixtures cover both agents, while the documented coverage matrix explicitly excludes interactive, IDE, desktop/app-server, hosted, and specialized paths that bypass local hooks.
+
 - **Changelog enforcement now runs only at PR scope** — removed the local pre-commit changelog gate; pull-request CI still requires code-changing PRs to include an `[Unreleased]` entry.
 
 ### Added
