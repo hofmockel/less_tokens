@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -80,8 +81,8 @@ def main() -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        sys.stderr.write(f"subagent-metrics: failed to persist metrics: {exc}\n")
     return 0
 
 
