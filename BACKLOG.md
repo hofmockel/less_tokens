@@ -8,7 +8,9 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 ## Ready now
 
-No items are ready.
+| Order | ID | Priority | State | Outcome | Depends on |
+|---:|---|:---:|---|---|---|
+| 3 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | — |
 
 ## Next
 
@@ -16,7 +18,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 3 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | — |
 | 4 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX28, CX29 |
 | 6 | HP1 | P1 | Ready | Gate parity claims on a live Claude/Codex conformance and savings matrix | CX27, CX28, CX29, CX30 |
 | 7 | HS1 | P1 | Research | Benchmark hybrid lexical + vector retrieval against vector-only search | — |
