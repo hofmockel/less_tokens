@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).parent.parent.parent.parent
 CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 
@@ -319,6 +317,67 @@ class TestCodexSubagentGuidance:
             "agent_id": "agent-1",
         })
         assert result == (0, "", "")
+
+
+class TestCodexSubagentMetrics:
+    def test_records_separate_correlated_sizes(self, tmp_path):
+        env = {"LESS_TOKENS_STATE_DIR": str(tmp_path)}
+        payloads = (
+            {
+                "hook_event_name": "PreToolUse",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "tool_name": "Agent",
+                "tool_use_id": "tool-1",
+                "tool_input": {"message": "search narrowly"},
+            },
+            {
+                "hook_event_name": "SubagentStart",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "agent_id": "agent-1",
+                "agent_type": "explorer",
+            },
+            {
+                "hook_event_name": "SubagentStop",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "agent_id": "agent-1",
+                "agent_type": "explorer",
+                "last_assistant_message": "child final",
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "tool_name": "Agent",
+                "tool_use_id": "tool-1",
+                "tool_input": {"message": "search narrowly"},
+                "tool_response": "parent visible result",
+            },
+        )
+        for payload in payloads:
+            assert run_hook_with_env("subagent-metrics.py", payload, env) == (0, "", "")
+
+        records = [json.loads(line) for line in
+                   (tmp_path / "subagent-metrics.jsonl").read_text().splitlines()]
+        assert [record["phase"] for record in records] == [
+            "prompt", "child_start", "child_final", "parent_absorbed",
+        ]
+        assert records[0]["tool_use_id"] == records[3]["tool_use_id"] == "tool-1"
+        assert records[1]["agent_id"] == records[2]["agent_id"] == "agent-1"
+        assert records[0]["prompt_chars"] == len("search narrowly")
+        assert records[2]["child_final_chars"] == len("child final")
+        assert records[3]["parent_absorbed_chars"] == len("parent visible result")
+
+    def test_ignores_non_agent_tool_calls(self, tmp_path):
+        result = run_hook_with_env("subagent-metrics.py", {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "update_plan",
+            "tool_input": {"plan": []},
+        }, {"LESS_TOKENS_STATE_DIR": str(tmp_path)})
+        assert result == (0, "", "")
+        assert not (tmp_path / "subagent-metrics.jsonl").exists()
 
 
 # ---------------------------------------------------------------------------
