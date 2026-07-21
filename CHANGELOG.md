@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **HP1 progress: workload catalog + live Codex `indexed_whole_file_read` capture** — added
+  `agents/common/conformance/workloads.py`, a frozen-dataclass catalog of HP1's 7 versioned
+  conformance workloads (no evidence stored there yet; `matrix.json` is still to build). Live-
+  captured `indexed_whole_file_read` on Codex `0.144.6`: an unsearched `cat` of an indexed file
+  is denied via the native `permissionDecision` contract and logged to `savings.jsonl`
+  (`elided_chars` equal to the exact file size), then allowed after a recent search. `codex exec`
+  itself could not be invoked this session (sandboxed against spawning a second CLI agent), so
+  the real installed `search-first.py` hook was probed directly with a stdin payload matching the
+  live `0.144.6` schema instead — see the caveat and fixtures in
+  `.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md`. HP1 remains open
+  in `BACKLOG.md`; `matrix.json`, the remaining workload captures, `conformance_matrix.py`, and
+  the README/DOCUMENTATION parity-table updates are still outstanding.
+
 - **Native Codex lifecycle hooks (CX29)** — replaced wildcard `PostToolUse` approximations with release-matched `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` wiring. Terse checks now inspect `last_assistant_message` with the documented loop guard, measured savings report at real stop boundaries, subagents receive bounded start context, and compaction refreshes the task-state snapshot before pairing measured pre/post transcript sizes without blocking compaction. The native contract is verified on Codex 0.144.6; older supported releases are explicitly best-effort.
 
 - **Codex tool-result truncation truthfulness (CX28)** — verified against the release-matched 0.144.6 hook contract that `PostToolUse` feedback cannot replace or suppress the original model-visible result. Codex truncation is now marked missing and unwired, the installer no longer treats adapter stdout as replacement proof, and savings telemetry remains limited to observed removals; CX27 pre-execution deny/rewrite controls remain the fallback for known noisy commands. Closing CX28 unblocked the now-completed CX29 lifecycle migration.
