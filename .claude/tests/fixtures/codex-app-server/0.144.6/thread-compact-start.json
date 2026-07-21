@@ -1,0 +1,18 @@
+{
+  "capture_date": "2026-07-20",
+  "cli_version": "0.144.6",
+  "method": "thread/compact/start",
+  "method_maturity": "experimental",
+  "request": {
+    "threadId": "thread-SANITIZED"
+  },
+  "response": {},
+  "completion_item_type": "contextCompaction",
+  "context_tokens_before": 19533,
+  "context_tokens_after": 6588,
+  "measured_tokens_elided": 12945,
+  "transcript_bytes_before": 71514,
+  "transcript_bytes_after": 82722,
+  "working_directory_kind": "empty-temporary-directory",
+  "content_retained": false
+}

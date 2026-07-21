@@ -67,14 +67,22 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 | `agent-md-budget` | yes | enforced; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write` |
 | `lean-output` | yes | enforced; `.claude/hooks/lean-output.py`; PostToolUse `Bash` | best-effort; `.codex/hooks/lean-output.py`; PostToolUse `Bash` |
 | `listing-guard` | yes | enforced; `.claude/hooks/listing-guard.py`; PreToolUse `Bash` | best-effort; `.codex/hooks/listing-guard.py`; PreToolUse `Bash` |
-| `truncate-output` | yes; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | best-effort; `.codex/hooks/truncate-output.py`; PostToolUse `Bash|mcp__filesystem__.*` |
+| `truncate-output` | Claude only; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | missing |
 | `subagent-cap` | Claude only; default-on optional | enforced; `.claude/hooks/subagent-cap.py`; PostToolUse `Task` | missing |
 | `subagent-fanout` | Claude only | enforced; `.claude/hooks/subagent-fanout.py`; PreToolUse `Task`, PostToolUse `Task` | missing |
-| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PostToolUse `.*` |
-| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; PostToolUse `.*` |
-| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; PostToolUse `.*` |
+| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PreCompact `manual|auto`, PostCompact `manual|auto` |
+| `subagent-guidance` | Codex only | missing | best-effort; `.codex/hooks/subagent-guidance.py`; SubagentStart `*` |
+| `subagent-metrics` | Codex only | missing | best-effort; `.codex/hooks/subagent-metrics.py`; PreToolUse `^Agent$`, PostToolUse `^Agent$`, SubagentStart `*`, SubagentStop `*` |
+| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; Stop `*`, SubagentStop `*` |
+| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*` |
 
 <!-- hook-parity: end -->
+
+Codex 0.144.6 app-server clients can initiate compaction with the experimental
+`thread/compact/start` method. A synthetic live probe measured context falling
+from 19,533 to 6,588 tokens. Installed hooks remain advisory because the hook
+contract exposes no app-server client channel; append-only transcript byte size
+is not reported as savings.
 
 ```
 Without less_tokens:           With less_tokens:
@@ -91,7 +99,7 @@ Files are chunked by structure (functions, headings, SQL statements, JS/TS decla
 | Surface | Shipped support |
 |---|---|
 | **Claude** | `subagent-cap` trims oversized `Task` returns to key fields or a bounded head/tail digest; `subagent-fanout` measures prompt and return size for every observed spawn. |
-| **Codex** | The installed `less-tokens` skill provides explicit, pointer-first delegation templates and compact return contracts. Codex has no equivalent repo-hookable `Task` boundary, so automatic return capping and fan-out telemetry are not claimed. |
+| **Codex** | The installed `less-tokens` skill provides pointer-first delegation templates and compact return contracts. Codex `Agent` and lifecycle hooks now record prompt, child-final, and parent-absorbed character counts separately with tool/agent correlation IDs. The hooks do not cap or replace results, and multi-agent work is not claimed as token-saving without a measured single-agent baseline. |
 
 Claude's return cap defaults to 6,000 characters and follows the default-on truncation setting (`--no-truncate` opts out). Fan-out telemetry is measurement-only and always wired: reports show spawn count, prompt characters sent, and return characters absorbed by the parent, separately from token-savings totals.
 

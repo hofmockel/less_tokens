@@ -142,12 +142,14 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 | `agent-md-budget` | yes | enforced; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write` |
 | `lean-output` | yes | enforced; `.claude/hooks/lean-output.py`; PostToolUse `Bash` | best-effort; `.codex/hooks/lean-output.py`; PostToolUse `Bash` |
 | `listing-guard` | yes | enforced; `.claude/hooks/listing-guard.py`; PreToolUse `Bash` | best-effort; `.codex/hooks/listing-guard.py`; PreToolUse `Bash` |
-| `truncate-output` | yes; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | best-effort; `.codex/hooks/truncate-output.py`; PostToolUse `Bash|mcp__filesystem__.*` |
+| `truncate-output` | Claude only; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | missing |
 | `subagent-cap` | Claude only; default-on optional | enforced; `.claude/hooks/subagent-cap.py`; PostToolUse `Task` | missing |
 | `subagent-fanout` | Claude only | enforced; `.claude/hooks/subagent-fanout.py`; PreToolUse `Task`, PostToolUse `Task` | missing |
-| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PostToolUse `.*` |
-| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; PostToolUse `.*` |
-| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; PostToolUse `.*` |
+| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PreCompact `manual|auto`, PostCompact `manual|auto` |
+| `subagent-guidance` | Codex only | missing | best-effort; `.codex/hooks/subagent-guidance.py`; SubagentStart `*` |
+| `subagent-metrics` | Codex only | missing | best-effort; `.codex/hooks/subagent-metrics.py`; PreToolUse `^Agent$`, PostToolUse `^Agent$`, SubagentStart `*`, SubagentStop `*` |
+| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; Stop `*`, SubagentStop `*` |
+| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*` |
 
 <!-- hook-parity: end -->
 
@@ -169,7 +171,8 @@ Codex subagents are a Codex app tool surface, not an installed `less_tokens` fea
 - `.codex/hooks.json` write is optional — install always exits 0 regardless of hook wiring success.
 - CX26 writes the published event-keyed contract and keeps the retired CX21 matcher-array shape as upgrade/uninstall input only. Live headless tests proved `PreToolUse:Bash` blocking and `PreToolUse:apply_patch` delivery on `codex-cli 0.142.3` and the ChatGPT desktop-bundled `0.144.5`; release-labeled sanitized fixtures live under `.claude/tests/fixtures/codex-hooks/`.
 - The verified surface is headless `codex exec`. Interactive CLI, desktop UI/app-server, IDE, hosted, and specialized tool paths are not inferred from those runs. Current official docs say hosted tools and some specialized paths can bypass local tool hooks.
-- `PostToolUse`, Stop, subagent, and compaction lifecycle migration remains separate CX28/CX29 work. Historical CX17/CX18/CX23 findings describe the retired matcher-array representation and must not be treated as current-contract proof.
+- CX20 separately verified the experimental Codex 0.144.6 app-server method `thread/compact/start` on a synthetic thread in an empty temporary directory. It completed a `contextCompaction` item and reduced the protocol/rollout context count from 19,533 to 6,588 tokens (12,945 measured tokens elided). The append-only rollout grew from 71,514 to 82,722 bytes, so transcript file size is not a valid savings signal. Installed hooks still emit an advisory nudge because hook payloads expose no supported app-server client channel or token counts; only an app-server client can initiate compaction and consume the numeric notification stream. The method is experimental and must be re-probed per supported release.
+- CX28 verified that Codex 0.144.6 `PostToolUse` can add feedback but cannot replace or suppress the original tool result: `suppressOutput` is explicitly unsupported and there is no `updatedToolOutput` equivalent. Codex output truncation is therefore unwired and records no savings; CX27 pre-execution deny/rewrite controls remain the supported fallback. CX29 replaces the former wildcard `PostToolUse` approximations with native `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` wiring on the verified 0.144.6 contract. Older releases keep an explicit best-effort label because lifecycle delivery was not proven there. Historical CX17/CX18/CX23 findings describe the retired matcher-array representation and must not be treated as current-contract proof.
 - `install.py --check --agent codex` verifies the release window, event-keyed file shape, manifest coverage, and canonical `[features].hooks` state. Hook trust is definition-hash scoped and has no stable non-interactive query, so the check directs users to `/hooks` and does not claim live enforcement from configuration alone.
 - Budget telemetry lives in `.less_tokens/state/events.jsonl` for both agents. Codex runtime state also lives in `.less_tokens/state/`; older Claude search state remains in `.claude/state/`. The vector index is shared at `.claude/index.db`.
 - Terse output style (`--caveman`) wires Claude's Stop hook and Codex's concise-reminder hook; Codex enforcement remains best-effort like the other Codex hooks.
@@ -200,7 +203,7 @@ Subagents can reduce parent-context noise when they absorb independent explorati
 | Capability | Claude | Codex |
 |---|---|---|
 | Return-size control (SA1) | `PostToolUse:Task` runs `.claude/hooks/subagent-cap.py`; returns over `MAX_SUBAGENT_OUTPUT_CHARS` (default 6,000) keep verdict/recommendation/summary/blocker-style fields when possible, otherwise use bounded head/tail elision. The hook replaces the parent-visible tool result and logs measured elided characters as `subagent-cap`. | No hookable subagent-return boundary is available, so no automatic cap is claimed. |
-| Fan-out measurement (SA2) | `PreToolUse:Task` records serialized prompt size and `PostToolUse:Task` pairs it with return size, subagent type, and session metadata in one `subagent_fanout` event. Measurement is always wired and never mutates output. | No equivalent `Task` boundary; no fan-out event is emitted. |
+| Fan-out measurement (SA2) | `PreToolUse:Task` records serialized prompt size and `PostToolUse:Task` pairs it with return size, subagent type, and session metadata in one `subagent_fanout` event. Measurement is always wired and never mutates output. | `PreToolUse:Agent` and `PostToolUse:Agent` record prompt and parent-absorbed sizes keyed by `tool_use_id`; `SubagentStart` and `SubagentStop` record lifecycle and child-final size keyed by `agent_id`. Records go to `.less_tokens/state/subagent-metrics.jsonl`, retain counts rather than content, and never mutate output. Cross-ID pairing and savings claims require a measured single-agent baseline. |
 | Delegation guidance | Installed Claude skill recommends narrow `explorer` and `verifier` agents, pointer-only context, disjoint ownership, and compact returns. | Installed Codex skill requires explicit user authorization, defaults to `fork_context=false`, distinguishes `explorer` from `worker`, and requires compact four-field returns. |
 | Subagent completion | Claude `terse-output` and `savings-html` also wire `SubagentStop`. | Best-effort tool hooks do not provide equivalent end-of-subagent enforcement. |
 
@@ -307,6 +310,13 @@ Configure it in `.less_tokens/config/budget.json`:
 | `strict` | Enforce plus block oversized unscored context |
 
 The default mode is `observe`. Events are appended to `.less_tokens/state/events.jsonl`; compact per-agent session snapshots are written beside it, such as `.less_tokens/state/claude-session.json` and `.less_tokens/state/codex-session.json`.
+
+Pre-tool decision events include `invocation_id`, `event_id`, `input_characters`, and
+`estimated_input_tokens`. Native call identifiers such as `tool_use_id` are preferred; a stable
+fingerprint of the session, phase, tool, and canonical input is used when the surface omits one.
+Input size is recorded once per agent/session/invocation/phase even when one call produces several
+candidate decisions or the hook payload is retried; later events keep the correlation IDs and
+record zero input size so reports cannot double-count the same model-visible input.
 
 `agent_overrides` lets one agent use tighter limits without changing the shared defaults or the other agent's effective budget. The shipped project config uses `agent_overrides.claude` for lower Claude limits on retrieved context, tool output, full-file reads, single tool outputs, and broad directory listings. Codex keeps its own effective profile through `agent_overrides.codex` and the built-in defaults in `agents/common/budget/config.py`.
 

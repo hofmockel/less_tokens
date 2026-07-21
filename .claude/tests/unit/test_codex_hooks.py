@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).parent.parent.parent.parent
 CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 
@@ -246,42 +244,140 @@ class TestCodexTruncateOutput:
 class TestCodexTerseReminder:
     def test_passes_concise_response(self):
         code, _, _ = run_hook_with_env("terse-reminder.py", {
-            "response": "Done. Tests pass.",
+            "hook_event_name": "Stop",
+            "last_assistant_message": "Done. Tests pass.",
         })
         assert code == 0
 
     def test_blocks_filler_response(self):
         code, _, stderr = run_hook_with_env("terse-reminder.py", {
-            "response": "Certainly. Of course, I hope this helps.",
+            "hook_event_name": "Stop",
+            "last_assistant_message": "Certainly. Of course, I hope this helps.",
         })
         assert code == 2
         assert "filler phrases detected" in stderr
 
     def test_blocks_single_filler_response(self):
         code, _, stderr = run_hook_with_env("terse-reminder.py", {
-            "response": "Certainly.",
+            "hook_event_name": "SubagentStop",
+            "last_assistant_message": "Certainly.",
         })
         assert code == 2
         assert "filler phrases detected" in stderr
 
     def test_ignores_non_string_response(self):
         code, _, _ = run_hook_with_env("terse-reminder.py", {
-            "response": {"text": "Certainly. Of course."},
+            "hook_event_name": "Stop",
+            "last_assistant_message": {"text": "Certainly. Of course."},
         })
         assert code == 0
 
     def test_stop_hook_active_guard_exits_zero(self):
         code, _, _ = run_hook_with_env("terse-reminder.py", {
+            "hook_event_name": "Stop",
             "stop_hook_active": True,
-            "response": "Certainly.",
+            "last_assistant_message": "Certainly.",
         })
         assert code == 0
 
     def test_document_draft_sentinel_exempts_response(self):
         code, _, _ = run_hook_with_env("terse-reminder.py", {
-            "response": "<!-- less-tokens: document-draft -->\nCertainly. Of course, I hope this helps.",
+            "hook_event_name": "Stop",
+            "last_assistant_message": "<!-- less-tokens: document-draft -->\nCertainly. Of course, I hope this helps.",
         })
         assert code == 0
+
+    def test_post_tool_use_no_longer_misfires(self):
+        code, stdout, stderr = run_hook_with_env("terse-reminder.py", {
+            "hook_event_name": "PostToolUse",
+            "last_assistant_message": "Certainly.",
+        })
+        assert (code, stdout, stderr) == (0, "", "")
+
+
+class TestCodexSubagentGuidance:
+    def test_subagent_start_adds_bounded_context(self):
+        code, stdout, stderr = run_hook_with_env("subagent-guidance.py", {
+            "hook_event_name": "SubagentStart",
+            "agent_id": "agent-1",
+            "agent_type": "default",
+        })
+        assert (code, stderr) == (0, "")
+        output = json.loads(stdout)
+        specific = output["hookSpecificOutput"]
+        assert specific["hookEventName"] == "SubagentStart"
+        context = specific["additionalContext"]
+        assert len(context) <= 300
+        assert "files changed" in context
+        assert "Do not paste" in context
+
+    def test_other_events_add_no_context(self):
+        result = run_hook_with_env("subagent-guidance.py", {
+            "hook_event_name": "Stop",
+            "agent_id": "agent-1",
+        })
+        assert result == (0, "", "")
+
+
+class TestCodexSubagentMetrics:
+    def test_records_separate_correlated_sizes(self, tmp_path):
+        env = {"LESS_TOKENS_STATE_DIR": str(tmp_path)}
+        payloads = (
+            {
+                "hook_event_name": "PreToolUse",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "tool_name": "Agent",
+                "tool_use_id": "tool-1",
+                "tool_input": {"message": "search narrowly"},
+            },
+            {
+                "hook_event_name": "SubagentStart",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "agent_id": "agent-1",
+                "agent_type": "explorer",
+            },
+            {
+                "hook_event_name": "SubagentStop",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "agent_id": "agent-1",
+                "agent_type": "explorer",
+                "last_assistant_message": "child final",
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "tool_name": "Agent",
+                "tool_use_id": "tool-1",
+                "tool_input": {"message": "search narrowly"},
+                "tool_response": "parent visible result",
+            },
+        )
+        for payload in payloads:
+            assert run_hook_with_env("subagent-metrics.py", payload, env) == (0, "", "")
+
+        records = [json.loads(line) for line in
+                   (tmp_path / "subagent-metrics.jsonl").read_text().splitlines()]
+        assert [record["phase"] for record in records] == [
+            "prompt", "child_start", "child_final", "parent_absorbed",
+        ]
+        assert records[0]["tool_use_id"] == records[3]["tool_use_id"] == "tool-1"
+        assert records[1]["agent_id"] == records[2]["agent_id"] == "agent-1"
+        assert records[0]["prompt_chars"] == len("search narrowly")
+        assert records[2]["child_final_chars"] == len("child final")
+        assert records[3]["parent_absorbed_chars"] == len("parent visible result")
+
+    def test_ignores_non_agent_tool_calls(self, tmp_path):
+        result = run_hook_with_env("subagent-metrics.py", {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "update_plan",
+            "tool_input": {"plan": []},
+        }, {"LESS_TOKENS_STATE_DIR": str(tmp_path)})
+        assert result == (0, "", "")
+        assert not (tmp_path / "subagent-metrics.jsonl").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -289,43 +385,45 @@ class TestCodexTerseReminder:
 # ---------------------------------------------------------------------------
 
 class TestCodexCompactTrigger:
-    def test_fires_with_large_transcript(self, tmp_path):
+    def test_precompact_snapshots_without_blocking(self, tmp_path):
         transcript = tmp_path / "session.json"
         transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
 
-        code, _, stderr = run_hook_with_env("compact-trigger.py", {
-            "tool_name": "Bash",
-            "tool_input": {},
-            "tool_response": "",
+        code, stdout, stderr = run_hook_with_env("compact-trigger.py", {
+            "hook_event_name": "PreCompact",
+            "trigger": "auto",
             "transcript_path": str(transcript),
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        }, extra_env={
+            "LESS_TOKENS_REPO": str(tmp_path),
+            "LESS_TOKENS_STATE_DIR": str(state_dir),
+        })
 
-        assert code == 2
-        assert "/compact" not in stderr
-        assert "Codex" in stderr or "session" in stderr.lower()
+        assert (code, stdout, stderr) == (0, "", "")
+        assert (tmp_path / ".less_tokens" / "state" / "codex-session.json").exists()
 
     def test_passes_without_transcript(self):
         code, _, _ = run_hook_with_env("compact-trigger.py", {
-            "tool_name": "Bash",
-            "tool_input": {},
-            "tool_response": "",
+            "hook_event_name": "PostCompact",
+            "trigger": "manual",
         })
         assert code == 0
 
-    def test_message_does_not_contain_slash_compact(self, tmp_path):
+    def test_post_tool_use_no_longer_misfires(self, tmp_path):
         transcript = tmp_path / "session.json"
         transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
 
-        _, _, stderr = run_hook_with_env("compact-trigger.py", {
+        code, stdout, stderr = run_hook_with_env("compact-trigger.py", {
+            "hook_event_name": "PostToolUse",
             "tool_name": "Bash",
             "tool_input": {},
             "tool_response": "",
             "transcript_path": str(transcript),
         }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
 
-        assert "/compact" not in stderr
+        assert (code, stdout, stderr) == (0, "", "")
+        assert not (state_dir / "compact-peak").exists()
 
     def test_logs_measured_compaction_when_transcript_shrinks(self, tmp_path):
         transcript = tmp_path / "session.json"
@@ -333,21 +431,25 @@ class TestCodexCompactTrigger:
         state_dir = tmp_path / "state"
 
         run_hook_with_env("compact-trigger.py", {
-            "tool_name": "Bash",
-            "tool_input": {},
-            "tool_response": "",
+            "hook_event_name": "PreCompact",
+            "trigger": "manual",
             "transcript_path": str(transcript),
             "session_id": "codex-sess",
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        }, extra_env={
+            "LESS_TOKENS_REPO": str(tmp_path),
+            "LESS_TOKENS_STATE_DIR": str(state_dir),
+        })
 
         transcript.write_text("x" * 40_000)
         code, _, _ = run_hook_with_env("compact-trigger.py", {
-            "tool_name": "Bash",
-            "tool_input": {},
-            "tool_response": "",
+            "hook_event_name": "PostCompact",
+            "trigger": "manual",
             "transcript_path": str(transcript),
             "session_id": "codex-sess",
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        }, extra_env={
+            "LESS_TOKENS_REPO": str(tmp_path),
+            "LESS_TOKENS_STATE_DIR": str(state_dir),
+        })
 
         assert code == 0
         recs = _records(state_dir)
