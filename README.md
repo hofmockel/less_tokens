@@ -77,6 +77,12 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 
 <!-- hook-parity: end -->
 
+Codex 0.144.6 app-server clients can initiate compaction with the experimental
+`thread/compact/start` method. A synthetic live probe measured context falling
+from 19,533 to 6,588 tokens. Installed hooks remain advisory because the hook
+contract exposes no app-server client channel; append-only transcript byte size
+is not reported as savings.
+
 ```
 Without less_tokens:           With less_tokens:
 Read(large_file.py)            search.py "validate imports"
