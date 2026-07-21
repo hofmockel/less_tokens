@@ -175,6 +175,58 @@ def test_evaluate_budget_input_writes_v2_event(tmp_path):
     assert events[0]["phase"] == "pre_read"
 
 
+def test_native_invocation_measurement_deduplicates_codex_and_claude_retries(tmp_path):
+    for agent in ("codex", "claude"):
+        root = tmp_path / agent
+        root.mkdir()
+        file_path = root / "README.md"
+        file_path.write_text("# hello\n", encoding="utf-8")
+        tool_input = {"file_path": str(file_path)}
+        payload = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_input": tool_input,
+            "tool_use_id": f"{agent}-tool-use-1",
+            "session_id": f"{agent}-session",
+        }
+        canonical_input = json.dumps(
+            tool_input,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
+        first = normalize_budget_input(payload, agent=agent)
+        retry = normalize_budget_input(payload, agent=agent)
+        assert first.invocation_id == retry.invocation_id == payload["tool_use_id"]
+        assert first.run_id == retry.run_id == payload["session_id"]
+        assert first.input_characters == len(canonical_input)
+        assert first.estimated_input_tokens == estimate_tokens(canonical_input)
+
+        config = load_budget_config(root)
+        evaluate_budget_input(root, first, config)
+        evaluate_budget_input(root, retry, config)
+        events = load_events(root)
+        assert len(events) == 1
+        assert events[0]["invocation_id"] == payload["tool_use_id"]
+        assert events[0]["input_characters"] == len(canonical_input)
+        assert events[0]["estimated_input_tokens"] == estimate_tokens(canonical_input)
+        assert events[0]["event_id"]
+
+
+def test_missing_native_invocation_id_uses_stable_fingerprint():
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "sed -n '1,40p' README.md"},
+        "session_id": "stable-session",
+    }
+    first = normalize_budget_input(payload, agent="codex")
+    retry = normalize_budget_input(payload, agent="codex")
+    assert first.invocation_id == retry.invocation_id
+    assert first.invocation_id.startswith("derived-")
+
+
 def test_event_append_writes_when_lock_fails(tmp_path, monkeypatch):
     decision = BudgetDecision(
         action="allow",

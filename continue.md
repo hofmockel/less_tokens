@@ -1,37 +1,39 @@
 # Continue: less_tokens
 
-> **Next focus:** Finish CX27's native Codex `PreToolUse` decisions, safe read rewrites, telemetry, and parity tests.
+> **Next focus:** Start CX28's release-matched Codex tool-result replacement research.
 
 ## Current state
-Branch `codex/cx27-native-pretool` contains an intentional WIP handoff commit and should have a clean
-working tree. CX27 remains in `BACKLOG.md`; do not close it until all acceptance evidence passes.
+
+The worktree is on `codex/cx27-telemetry`, based on `origin/main` at `5087b59` and
+dirty with the completed CX27 telemetry, tests, documentation, changelog/backlog closeout,
+and this handoff. HEAD `187c54d` contains the earlier handoff-only commit.
 
 ## What happened
 
-- Verified the current official Codex contract at `https://learn.chatgpt.com/docs/hooks#pretooluse`:
-  structured deny uses `permissionDecision: "deny"`; rewrites use `"allow"` plus `updatedInput`.
-- Added native response helpers in `agents/codex/hooks/_codex_runtime.py` and migrated budget observer,
-  search-first, read guard, auto-slice, grep-first, context-cache, listing guard, and continue-freshness.
-- Auto-slice now rewrites safe whole-file Bash `cat` calls to the exact search-derived `sed` range;
-  filesystem MCP reads deny when their tool schema cannot express an exact offset.
-- Converted the Codex hook and event-contract suites from exit-code assertions to semantic JSON;
-  focused suites pass (`49` and `166` tests) and the full unit suite passes (`1117` tests).
+- PR #95 merged native Codex `PreToolUse` structured allow/deny decisions and safe Bash
+  `updatedInput` rewrites for CX27.
+- Eight guard wrappers now use the structured contract; focused suites (`49` and `166`
+  tests) and the full unit suite (`1117` tests) passed before merge.
+- PR #96's conflict was resolved by keeping the canonical backlog from `main`; it merged as
+  `5087b59`.
+- Budget events now use native invocation IDs or stable fallbacks, record canonical input
+  characters/estimated tokens once, and atomically deduplicate retries across candidates.
+- Shared Codex/Claude `PreToolUse` fixtures pass; the full unit suite is `1120 passed`.
+- CX27 moved to `[Unreleased]` and was removed from `BACKLOG.md`; CX28 is now Ready now.
 
 ## Open work
 
-Add measured input character/token telemetry without retry double-counting, document unsupported
-surfaces, and run equivalent Claude `PreToolUse` fixtures. CX27 now has an in-progress changelog entry;
-only close the backlog item after the remaining acceptance evidence is implemented and verified.
+CX27 is complete. Continue with the canonical `BACKLOG.md` Ready now table, beginning with CX28.
 
 ## Suggested skills
 
-- `$less-tokens` — targeted symbol lookup and final diff inspection.
-- `$openai-docs` — re-check the live Codex hook contract if response-shape questions arise.
+- `less-tokens` for targeted exploration.
+- `openai-docs` if the current Codex hook contract needs verification.
+- `continue` when handing off again.
 
 ## Start here
 
-Trace the current savings/event telemetry from `agents/common/hooks/budget_observer.py` and
-`agents/common/savings.py`, then add one correlation-safe measurement for rewritten or denied input.
+Verify the current Codex `PostToolUse` result contract and existing live fixtures before
+designing CX28's bounded replacement envelope.
 
----
-_Last updated at HEAD `74b5e7e` on 2026-07-20._
+_Last updated at HEAD `187c54d` on 2026-07-20._

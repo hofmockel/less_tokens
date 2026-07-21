@@ -10,7 +10,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | CX27 | P1 | Ready | Use native Codex `PreToolUse` decisions and rewrites to prevent input waste | — |
+| 1 | CX28 | P1 | Research | Prove and implement current Codex tool-result replacement and truncation | — |
 
 ## Next
 
@@ -18,7 +18,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 2 | CX28 | P1 | Research | Prove and implement current Codex tool-result replacement and truncation | CX27 |
 | 3 | CX29 | P1 | Ready | Adopt native Codex Stop, subagent, and compaction lifecycle events | — |
 | 4 | CX30 | P1 | Research | Add measured Codex subagent prompt/return controls where the current surface permits | CX28, CX29 |
 | 6 | HP1 | P1 | Ready | Gate parity claims on a live Claude/Codex conformance and savings matrix | CX27, CX28, CX29, CX30 |
@@ -37,8 +36,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 19 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX29 |
 | 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
-
-- **CX27 — Use native Codex `PreToolUse` decisions and rewrites to prevent input waste before it is paid for** *(input / direct savings)* — Current Codex documents structured `permissionDecision: "deny"` and `permissionDecision: "allow"` with `updatedInput` for Bash, `apply_patch`, MCP, and other local function tools. Move the Codex budget observer, search-first, read guard, auto-slice, grep-first, context-cache, listing guard, and continue-freshness paths from reminder/exit-code assumptions to the release-matched structured contract. For unambiguous whole-file Bash and filesystem-MCP reads, prefer a safe `updatedInput` rewrite to the exact search-derived slice so the useful call completes once; deny with a concise replacement command when safe rewriting is impossible; retain the existing shell-metacharacter fail-open boundary and record it. Acceptance: live tests prove an oversized whole-file read is either rewritten to the expected slice or denied before execution, its omitted sentinel never enters the transcript, already-sliced and unrecognized commands preserve behavior, hosted/specialized tools outside Codex's hook path are reported as coverage gaps, and measured input characters/tokens are recorded without double-counting retries. Run the equivalent Claude `PreToolUse` fixtures to prevent a Codex improvement from regressing the direct Claude path.
 
 - **CX28 — Prove and implement current Codex tool-result replacement and truncation** *(tool output / enforcement proof)* — Current Codex documents `PostToolUse` feedback replacement through `decision: "block"` or `continue: false`, while `updatedMCPToolOutput`/`suppressOutput` remain unsupported; this differs from Claude's proven `hookSpecificOutput.updatedToolOutput` contract and from the repository's historical plain-stdout/exit-2 adapter. Build a release-matched Codex result envelope that supplies the bounded head/tail or semantic digest as the replacement feedback, and keep Claude on its native replacement field. Acceptance: live sentinel tests across Bash/unified exec and one MCP/local-function result prove the original oversized middle is absent from the model-visible transcript and the bounded digest is present; non-zero Bash exits preserve essential diagnostics; code-mode nested calls receive the documented rejection/replacement behavior; side effects are never described as undone; unsupported versions/surfaces fall back to CX27 pre-execution prevention for known noisy commands rather than claiming truncation; and savings telemetry counts only observed removed model-visible bytes.
 
