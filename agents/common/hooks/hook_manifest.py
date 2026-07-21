@@ -137,8 +137,9 @@ HOOK_SPECS: tuple[HookSpec, ...] = (
         optional_flag="truncate",
         claude_script="truncate-output.py",
         claude=(HookWire("PostToolUse", "Bash|Read|WebFetch|Glob"),),
-        codex_script="truncate-output.py",
-        codex=(HookWire("PostToolUse", "Bash|mcp__filesystem__.*"),),
+        # CX28: Codex 0.144.6 can add PostToolUse feedback, but exposes no
+        # contract that replaces or suppresses the original tool result.
+        # Keep known-noisy Codex calls bounded through CX27 PreToolUse gates.
     ),
     # Claude-only (G15/SA1): no Codex Task-boundary hook exists — Codex has no
     # subagent-spawn tool to cap a return from.

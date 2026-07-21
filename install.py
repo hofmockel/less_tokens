@@ -1937,8 +1937,6 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
             _fail(".codex/hooks/ missing — cannot run Codex hook wrapper smoke check")
             return
 
-        truncation_cap = 512
-        truncation_output = "smoke-head\n" + ("x" * 8_192) + "\nsmoke-tail\n"
         samples = [
             (
                 "read-guard.py",
@@ -1947,15 +1945,6 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                     "tool_input": {"path": str(target_root / "README.md"), "offset": 1, "limit": 1},
                 },
                 0,
-            ),
-            (
-                "truncate-output.py",
-                {
-                    "tool_name": "Bash",
-                    "tool_input": {"command": "printf smoke"},
-                    "tool_response": truncation_output,
-                },
-                2,
             ),
             (
                 "listing-guard.py",
@@ -1969,7 +1958,6 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
         env = {
             **os.environ,
             "LESS_TOKENS_AGENT": "codex",
-            "LESS_TOKENS_CODEX_MAX_TOOL_OUTPUT_CHARS": str(truncation_cap),
         }
         for script_name, payload, expected_returncode in samples:
             script = hooks_dir / script_name
@@ -2000,23 +1988,6 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
                 else:
                     _fail(f".codex/hooks/{script_name} failed from nested cwd: {detail}")
                 return
-            if script_name == "truncate-output.py":
-                stdout = r.stdout.rstrip("\n")
-                stderr = r.stderr.strip()
-                semantic_ok = (
-                    stdout.startswith("smoke-head\n")
-                    and stdout.endswith("\nsmoke-tail")
-                    and "chars omitted ...]" in stdout
-                    and len(stdout) <= truncation_cap + 64
-                    and "[truncated —" in stderr
-                    and "chars omitted" in stderr
-                )
-                if not semantic_ok:
-                    _fail(
-                        ".codex/hooks/truncate-output.py did not demonstrate capped output "
-                        "with preserved head/tail and omission markers"
-                    )
-                    return
         _pass("Codex hook wrappers run from nested cwd with LESS_TOKENS_AGENT=codex")
 
     print(f"Checking less_tokens install in {target_root} ({', '.join(sorted(agents))})\n")

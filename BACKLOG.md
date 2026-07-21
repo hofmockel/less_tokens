@@ -8,9 +8,7 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 ## Ready now
 
-| Order | ID | Priority | State | Outcome | Depends on |
-|---:|---|:---:|---|---|---|
-| 1 | CX28 | P1 | Research | Prove and implement current Codex tool-result replacement and truncation | — |
+No items are ready.
 
 ## Next
 
@@ -36,8 +34,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 19 | CX20 | P2 | Research | Determine whether Codex can initiate compaction | CX29 |
 | 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 
-
-- **CX28 — Prove and implement current Codex tool-result replacement and truncation** *(tool output / enforcement proof)* — Current Codex documents `PostToolUse` feedback replacement through `decision: "block"` or `continue: false`, while `updatedMCPToolOutput`/`suppressOutput` remain unsupported; this differs from Claude's proven `hookSpecificOutput.updatedToolOutput` contract and from the repository's historical plain-stdout/exit-2 adapter. Build a release-matched Codex result envelope that supplies the bounded head/tail or semantic digest as the replacement feedback, and keep Claude on its native replacement field. Acceptance: live sentinel tests across Bash/unified exec and one MCP/local-function result prove the original oversized middle is absent from the model-visible transcript and the bounded digest is present; non-zero Bash exits preserve essential diagnostics; code-mode nested calls receive the documented rejection/replacement behavior; side effects are never described as undone; unsupported versions/surfaces fall back to CX27 pre-execution prevention for known noisy commands rather than claiming truncation; and savings telemetry counts only observed removed model-visible bytes.
 
 - **CX29 — Adopt native Codex Stop, subagent, and compaction lifecycle events** *(output / context lifecycle)* — Replace Codex's `PostToolUse:.*` approximations with the documented `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` events on supported releases. Use `last_assistant_message` and loop guards for terse-output checks, use real stop events for end-of-turn savings reporting, inject only bounded subagent guidance at start, and connect compaction hooks to the existing task-state snapshot without blocking automatic compaction. Keep Claude's direct `Stop`/`SubagentStop` implementation as the behavioral reference while preserving platform-specific payload adapters. Acceptance: live interactive and non-interactive tests show each claimed event fires at the correct boundary and never misfires under another event; terse enforcement cannot loop; final-message and subagent checks read the documented field; pre/post-compaction telemetry pairs one compaction without inventing savings; and legacy versions retain an explicit best-effort label rather than a misleading PostToolUse substitute.
 
