@@ -153,6 +153,31 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 
 <!-- hook-parity: end -->
 
+#### Conformance matrix
+
+<!-- conformance-matrix: begin -->
+
+Every cell below is either a live-captured, agent+release-tagged workload measurement or an explicit `not_yet_measured` gap — never a guessed number. `code_present`/`configured`/`event_fired`/`action_enforced` are reported separately so shipped-but-unwired and wired-but-unenforced are never conflated with fully proven. See each fixture for method and caveats.
+
+| Workload:agent:release | Code present | Configured | Event fired | Action enforced | Basis | Fixture |
+|---|---|---|---|---|---|---|
+| `indexed_whole_file_read:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/indexed_whole_file_read/claude/README.md](.claude/tests/fixtures/conformance/indexed_whole_file_read/claude/README.md) |
+| `indexed_whole_file_read:codex:0.144.6` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md](.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md) |
+| `noisy_command_output:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md](.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md) |
+| `noisy_command_output:codex:0.144.6` | yes | no | yes | no | measured | [DECISIONS.md (CX28 entry)](DECISIONS.md (CX28 entry)) |
+| `repeated_read_search:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md](.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md) |
+| `repeated_read_search:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `edit_verification:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
+| `edit_verification:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `long_session_compaction:claude:2026-07-21` | yes | yes | yes | no | measured | [this session's own transcript](this session's own transcript) |
+| `long_session_compaction:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX20 entry)](DECISIONS.md (CX20 entry)) |
+| `verbose_final_response:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
+| `verbose_final_response:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `bounded_subagent_exploration:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md](.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md) |
+| `bounded_subagent_exploration:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX30 entry)](DECISIONS.md (CX30 entry)) |
+
+<!-- conformance-matrix: end -->
+
 This is feature parity, not identical enforcement parity. The shared source of truth is `agents/common/hooks/hook_manifest.py`; `agents/common/hooks/parity.json` records whether each strategy is shipped for Claude and Codex. Claude hooks are enforced directly by Claude Code. Codex hooks are adapter-based and best-effort through `.codex/hooks.json`, so they can lose enforcement if `.codex/` is not writable or Codex changes event payloads/matchers.
 
 **Parity is the floor, not the ceiling.** Every shipped strategy should reach both agents; regressions below that bar are bugs. Claude also has reliable controls that Codex does not expose, including direct PreToolUse/Stop hooks, per-agent `agent_overrides.claude`, and model-aware thresholds. When those Claude-only controls reduce tokens without changing Codex behavior, they are valid improvements rather than parity violations. The isolation boundaries are `agent_overrides.claude` for budget settings and `.claude/settings.json` for Claude-only hook wiring.

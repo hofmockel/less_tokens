@@ -70,3 +70,6 @@ jobs:
 
       - name: Check hook parity documentation matches manifest
         run: python .claude/tools/hook_parity_docs.py --check
+
+      - name: Check conformance matrix documentation matches evidence store
+        run: python .claude/tools/conformance_matrix.py --check

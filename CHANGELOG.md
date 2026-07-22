@@ -16,9 +16,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   itself could not be invoked this session (sandboxed against spawning a second CLI agent), so
   the real installed `search-first.py` hook was probed directly with a stdin payload matching the
   live `0.144.6` schema instead — see the caveat and fixtures in
-  `.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md`. HP1 remains open
-  in `BACKLOG.md`; `matrix.json`, the remaining workload captures, `conformance_matrix.py`, and
-  the README/DOCUMENTATION parity-table updates are still outstanding.
+  `.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md`.
+  **2026-07-21 update:** built `agents/common/conformance/matrix.json` (the evidence store) and
+  `.claude/tools/conformance_matrix.py` (+ `.less_tokens/tools/` shim) to render it into new
+  `<!-- conformance-matrix -->` blocks in `README.md`/`DOCUMENTATION.md`, mirroring
+  `hook_parity_docs.py`. Live-captured 4 more workloads for both agents this session
+  (`noisy_command_output`, `long_session_compaction`, `bounded_subagent_exploration` on Claude,
+  each paired with an existing `DECISIONS.md` citation — CX28/CX20/CX30 — for the Codex side; plus
+  `repeated_read_search:claude`) — see
+  `.claude/tests/fixtures/conformance/{noisy_command_output,repeated_read_search,bounded_subagent_exploration}/claude/README.md`.
+  `README.md`'s strategy-table rows for terse-output/truncate-output/compact-trigger (via
+  `strategy_registry.py`, never hand-edited directly) now link to the matrix or state
+  "not yet measured" instead of carrying unlinked percentage ranges. Added
+  `.claude/tests/unit/test_conformance_matrix.py` (6 cases) and a `conformance_matrix.py --check`
+  CI step in `tests.yml`. Cited `install.py:do_check()` (~line 1879) in `DECISIONS.md` as already
+  satisfying HP1's install-health acceptance bullet — no new code needed there. Full methodology:
+  `reports/runs/2026-07-21-hp1-conformance-matrix/report.md`. HP1 remains open in `BACKLOG.md`:
+  `repeated_read_search:codex`, `edit_verification` (both agents), and `verbose_final_response`
+  (both agents) are still `not_yet_measured`.
 
 - **Native Codex lifecycle hooks (CX29)** — replaced wildcard `PostToolUse` approximations with release-matched `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` wiring. Terse checks now inspect `last_assistant_message` with the documented loop guard, measured savings report at real stop boundaries, subagents receive bounded start context, and compaction refreshes the task-state snapshot before pairing measured pre/post transcript sizes without blocking compaction. The native contract is verified on Codex 0.144.6; older supported releases are explicitly best-effort.
 
