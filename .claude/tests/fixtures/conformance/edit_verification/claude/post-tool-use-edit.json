@@ -1,0 +1,13 @@
+{
+  "session_id": "capture-2026-07-22",
+  "transcript_path": "/tmp/capture-2026-07-22.jsonl",
+  "cwd": "/Users/michael/Documents/GitHub/less_tokens",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/Users/michael/Documents/GitHub/less_tokens/.claude/tests/fixtures/conformance/edit_verification/claude/sample.py",
+    "old_string": "def greet(name):\n    return f\"Hi, {name}.\"",
+    "new_string": "def greet(name):\n    return f\"Hello, {name}!\""
+  },
+  "tool_response": {"filePath": "/Users/michael/Documents/GitHub/less_tokens/.claude/tests/fixtures/conformance/edit_verification/claude/sample.py", "success": true}
+}

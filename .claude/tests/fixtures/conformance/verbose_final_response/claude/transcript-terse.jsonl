@@ -1,0 +1,1 @@
+{"type": "assistant", "message": {"content": [{"type": "text", "text": "Fixed. Root cause: off-by-one in the loop bound. Verified with the added test."}]}}

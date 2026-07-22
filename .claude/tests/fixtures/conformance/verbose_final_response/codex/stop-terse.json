@@ -1,0 +1,8 @@
+{
+  "session_id": "capture-2026-07-22",
+  "turn_id": "turn-capture",
+  "hook_event_name": "Stop",
+  "model": "gpt-5.6-sol",
+  "response": "Fixed. Root cause: off-by-one in the loop bound. Verified with the added test.",
+  "stop_hook_active": false
+}

@@ -1,47 +1,54 @@
 # Continue: less_tokens
 
-> **Next focus:** capture the 2 remaining `not_yet_measured` HP1 cells (`edit_verification`,
-> `verbose_final_response`, both agents), or move to the next `BACKLOG.md` item.
+> **Next focus:** HP1 is closed (14/14 matrix cells measured). Pick the next `BACKLOG.md` "Ready
+> now"/"Next" item — nothing is currently in flight.
 
 ## Current state
 
-HP1's matrix now has 12 of 14 workload:agent:release cells with real live-captured evidence; only
-`edit_verification:{claude,codex}` and `verbose_final_response:{claude,codex}` remain
-`not_yet_measured`. All 4 doc/parity gates pass (`conformance_matrix.py --check` on both the real
-tool and the Codex shim, `hook_parity_docs.py --check`, `strategy_table_docs.py --check`,
-`label_consistency_gate.py`) plus the full unit suite (1115 passed). Working tree is clean at HEAD
-`7bd4829`.
+HP1's conformance matrix now has all 14 workload:agent:release cells `measured` — the last 3
+(`repeated_read_search:codex`, `edit_verification:{claude,codex}`, `verbose_final_response:{claude,codex}`)
+were captured this session. All 4 doc/parity gates pass (`conformance_matrix.py --check` on both
+the real tool and the Codex shim, `hook_parity_docs.py --check`, `strategy_table_docs.py --check`,
+`label_consistency_gate.py`) plus the full unit suite (1208 passed). `BACKLOG.md`'s HP1 row is
+deleted; `CHANGELOG.md`'s `[Unreleased]` HP1 bullet has a closing 2026-07-22 update. Working tree
+has real changes but **nothing is committed** (`BACKLOG.md`, `CHANGELOG.md`, `README.md`,
+`DOCUMENTATION.md`, `agents/common/conformance/matrix.json` modified; two new fixture dirs
+`edit_verification/`, `verbose_final_response/` under `.claude/tests/fixtures/conformance/`) —
+per "no commit unless asked," same as the prior session. Repo HEAD at session start was `5e53e24`.
 
 ## What happened this session
 
-- Captured `repeated_read_search:codex:0.144.6` (`.claude/tests/fixtures/conformance/repeated_read_search/codex/`).
-  Method: `context-cache.py` only records a read on `PostToolUse`, never `PreToolUse` — so the
-  correct probe sequence is Pre (allow) → Post (record) → Pre (now blocked), not two bare
-  PreToolUse calls (the first attempt with two PreToolUse-only calls silently no-opped — worth
-  remembering if this pattern comes up again for `edit_verification`).
-- Found a real, more severe gap than the Claude-side one: `context-cache.py` never applies
-  `map_bash_read` (unlike `search-first.py`/`read-guard.py`/`grep-first-read.py`/`auto-slice.py`/
-  `read-after-edit.py`/`continue-freshness.py`), and a default Codex install has no
-  `mcp__filesystem__` server — so `Bash cat` (the *only* real default-install read path) is
-  completely unguarded by this gate. Set `action_enforced: false` for
-  `repeated_read_search:codex:0.144.6` to reflect that honestly, matching the precedent already
-  set by `noisy_command_output:codex`.
-- Installed less_tokens into a disposable temp repo for the capture. `install.py`'s Codex
-  version-scan unconditionally checks `/Applications/ChatGPT.app`'s bundled Codex (0.145.0,
-  outside the verified contract range) even when only testing the PATH `codex-cli 0.144.6` —
-  worked around by monkeypatching `detect_codex_releases` in-process rather than touching
-  `/Applications`. If that ChatGPT.app Codex build ever gets upgraded into range, this workaround
-  becomes unnecessary.
-- Tightened (not rewrote) `BACKLOG.md`'s HP1 row per the "delete only when actually done" rule.
+- Captured `edit_verification` for both agents: `post-edit-diff.py` surfaced a real diff (Claude:
+  pure `old_string`/`new_string` diffing on an `Edit`; Codex: real `git diff HEAD` on a staged
+  `apply_patch` addition), then `read-after-edit.py` genuinely blocked the follow-up re-read on
+  both agents. Notable finding: Codex's `read-after-edit.py` *does* call `map_bash_read` (unlike
+  `context-cache.py`), so a plain `Bash cat` of a just-edited file was blocked too — a real,
+  better-than-expected result given the gap found in `repeated_read_search:codex` last session.
+- Captured `verbose_final_response` for both agents: `caveman-reminder.py`/`terse-reminder.py`
+  blocked a 654-char/119-word filler-laden response and passed a 78-char/13-word terse rewrite of
+  the same underlying content (576 chars / 88% removed) on both agents. Key parity nuance: Codex's
+  `terse-reminder.py` reads `payload["response"]` directly, while Claude's `caveman-reminder.py`
+  reads the response out of a transcript file via `transcript_path` — different plumbing, same
+  shared `response_budget.analyze()` logic underneath.
+- Method for all 4 new cells: hooks invoked directly with real stdin payloads matching each
+  agent's installed schema (no live interactive Claude/Codex session was spawned this run — this
+  session is rooted in a different project directory), same precedent as
+  `indexed_whole_file_read/codex/README.md`'s method note from 2026-07-21.
+- Fixtures: `.claude/tests/fixtures/conformance/{edit_verification,verbose_final_response}/{claude,codex}/README.md`
+  plus the raw JSON/JSONL payloads used.
+- Regenerated `README.md`/`DOCUMENTATION.md`'s conformance-matrix tables via
+  `conformance_matrix.py` (no `--write` flag exists — running without `--check` writes in place).
+- Deleted `BACKLOG.md`'s HP1 row (all acceptance criteria met) and appended a closing update to
+  `CHANGELOG.md`'s `[Unreleased]` HP1 bullet, folding in the previously-uncommitted-in-CHANGELOG
+  `repeated_read_search:codex` finding from the prior session (that session's commit `7bd4829`
+  updated `BACKLOG.md`/`matrix.json`/docs but not `CHANGELOG.md` — a real gap, now closed here).
 
 ## Open work
 
-Only `edit_verification` and `verbose_final_response` (both agents) remain for HP1:
-1. `edit_verification` — needs a real Edit/Write plus read-after-edit/post-edit-diff probe.
-2. `verbose_final_response` — needs an unmodified-vs-terse Stop-response baseline diff.
-
-Once all 14 cells are `measured`, delete HP1's `BACKLOG.md` row per the "delete only when actually
-done" rule and add a closing `CHANGELOG.md` entry.
+Nothing in flight. Next: pick the top "Ready now"/"Next" `BACKLOG.md` item. Candidates worth
+noting: **D4** (publish reproducible savings benchmarks) was blocked on HP1 and is now unblocked
+(`Depends on` column cleared). **HS1**, **IR1**, **CP1** are the other P1 research items still
+open.
 
 ## Suggested skills
 
@@ -50,10 +57,9 @@ done" rule and add a closing `CHANGELOG.md` entry.
 
 ## Start here
 
-Pick `edit_verification` or `verbose_final_response` next. For Codex captures needing a disposable
-install, remember the `ChatGPT.app` version-gate workaround above, and remember `context-cache.py`'s
-PreToolUse/PostToolUse recording split in case similar record-then-check plumbing exists for
-edit-verification hooks (`read-after-edit.py`/`post-edit-diff.py`).
+Review `git status`/`git diff` in this repo before doing anything — the working tree has real
+uncommitted HP1-closing changes from this session that should not be discarded. If continuing
+straight into new work, pick the next `BACKLOG.md` row per its `Order` column.
 
 ---
-_Last updated at HEAD `7bd4829` on 2026-07-22._
+_Last updated at HEAD `5e53e24` (HP1 closing work uncommitted) on 2026-07-22._

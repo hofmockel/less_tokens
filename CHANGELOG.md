@@ -31,9 +31,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.claude/tests/unit/test_conformance_matrix.py` (6 cases) and a `conformance_matrix.py --check`
   CI step in `tests.yml`. Cited `install.py:do_check()` (~line 1879) in `DECISIONS.md` as already
   satisfying HP1's install-health acceptance bullet — no new code needed there. Full methodology:
-  `reports/runs/2026-07-21-hp1-conformance-matrix/report.md`. HP1 remains open in `BACKLOG.md`:
-  `repeated_read_search:codex`, `edit_verification` (both agents), and `verbose_final_response`
-  (both agents) are still `not_yet_measured`.
+  `reports/runs/2026-07-21-hp1-conformance-matrix/report.md`. **2026-07-22 update (closing):**
+  captured the remaining 3 cells. `repeated_read_search:codex` — `context-cache.py` genuinely
+  blocks a repeated `mcp__filesystem__read_text_file`, but `action_enforced` is `false`: a
+  default Codex install has no `mcp__filesystem__` server, so `Bash cat`/`head`/`tail`/`sed` is
+  the only real read path and this hook never applies `map_bash_read` to it, unlike its sibling
+  hooks (`.claude/tests/fixtures/conformance/repeated_read_search/codex/README.md`).
+  `edit_verification` (both agents) — `post-edit-diff.py` surfaced a real diff on both a Claude
+  `Edit` (pure string diff) and a Codex `apply_patch` (real `git diff HEAD`), then
+  `read-after-edit.py` genuinely blocked the follow-up re-read on both agents; notably the Codex
+  adapter *does* call `map_bash_read` (unlike `context-cache.py`), so a plain `Bash cat` of a
+  just-edited file was blocked too
+  (`.claude/tests/fixtures/conformance/edit_verification/{claude,codex}/README.md`).
+  `verbose_final_response` (both agents) — `caveman-reminder.py`/`terse-reminder.py` blocked a
+  654-char/119-word filler-laden response and passed a 78-char/13-word terse rewrite of the same
+  content on both agents (576 chars / 88% removed); Codex's adapter reads `payload["response"]`
+  directly rather than a transcript file like Claude's, a real mechanism difference worth noting
+  for future adapter work
+  (`.claude/tests/fixtures/conformance/verbose_final_response/{claude,codex}/README.md`). All
+  hooks invoked directly with real stdin payloads matching each agent's installed schema — no
+  live interactive session was spawned this run, same precedent as `indexed_whole_file_read:codex`.
+  HP1's matrix is now 14/14 `measured`; `conformance_matrix.py --check`, `hook_parity_docs.py
+  --check`, `strategy_table_docs.py --check`, and `label_consistency_gate.py` all pass; full unit
+  suite: 1208 passed. `BACKLOG.md` HP1 row removed — shipped.
 
 - **Native Codex lifecycle hooks (CX29)** — replaced wildcard `PostToolUse` approximations with release-matched `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, and `PostCompact` wiring. Terse checks now inspect `last_assistant_message` with the documented loop guard, measured savings report at real stop boundaries, subagents receive bounded start context, and compaction refreshes the task-state snapshot before pairing measured pre/post transcript sizes without blocking compaction. The native contract is verified on Codex 0.144.6; older supported releases are explicitly best-effort.
 

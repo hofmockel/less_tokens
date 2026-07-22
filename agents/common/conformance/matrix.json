@@ -72,10 +72,28 @@
     "notes": "CX28: a live 0.144.6 PostToolUse fixture proves the hook fires and receives tool_response, but suppressOutput is parsed-yet-unsupported and no updatedToolOutput equivalent exists, so stdout+exit-2 cannot replace what the model sees. parity.json marks truncate-output.codex as missing; code_present is true (the adapter exists) but it is unwired, which is exactly the code-present-vs-enforced distinction HP1 exists to stop conflating."
   },
   "edit_verification:claude:2026-07-21": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 99,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/edit_verification/claude/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "post-edit-diff.py surfaced a real 2-line unified diff for an Edit to sample.py (pure old_string/new_string diffing, no git involved); read-after-edit.py then blocked a full re-Read of the same 99-byte file 10s later, citing the diff already in context. Hooks invoked directly with real stdin payloads matching the installed schema; a live Claude Code session in this repo was not spawned this run (this session is rooted in a different project) -- same direct-invocation precedent as indexed_whole_file_read:codex."
   },
   "edit_verification:codex:0.144.6": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 99,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/edit_verification/codex/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "post-edit-diff.py's apply_patch branch surfaced a real git-diff-derived hunk summary + full diff for a staged (not committed) sample.py addition; read-after-edit.py then blocked a Bash `cat` of the same file 11s later via map_bash_read -- a materially better result than repeated_read_search:codex, since this hook (unlike context-cache.py) does map Bash reads onto the guarded surface. Hooks invoked directly with real stdin payloads matching the verified 0.144.6 schema; codex exec itself was not spawned this session (sandbox policy)."
   },
   "long_session_compaction:claude:2026-07-21": {
     "code_present": true,
@@ -102,10 +120,28 @@
     "notes": "CX20: a bounded live probe against 0.144.6's experimental thread/compact/start app-server method measured context falling from 19,533 to 6,588 tokens on a synthetic thread. The append-only rollout file grew (71,514 -> 82,722 bytes) so byte-size is explicitly rejected as a savings measure. Installed hooks remain advisory: the documented hook payload/output contract exposes no app-server client channel or token counts, so action_enforced is false even though the underlying platform capability is real and measured."
   },
   "verbose_final_response:claude:2026-07-21": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 576,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/verbose_final_response/claude/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "caveman-reminder.py blocked (exit 2) a 654-char/119-word filler-laden Stop response, citing 5 detected filler phrases, and passed (exit 0) a 78-char/13-word terse rewrite of the same content -- a real 576-char (88%) reduction between the two. Hook invoked directly with real Stop payloads pointing at crafted single-turn transcript fixtures; a live session was not spawned this run."
   },
   "verbose_final_response:codex:0.144.6": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 576,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/verbose_final_response/codex/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "terse-reminder.py reproduced the identical result on the same verbose/terse pair (exit 2 with 5 filler phrases vs exit 0), but reads payload['response'] directly rather than a transcript file like Claude's caveman-reminder.py -- a real mechanism difference: a Codex host that omits `response` from the Stop payload silently no-ops this hook. Hook invoked directly with a real stdin payload matching the verified 0.144.6 schema; codex exec itself was not spawned this session (sandbox policy)."
   },
   "bounded_subagent_exploration:claude:2026-07-21": {
     "code_present": true,

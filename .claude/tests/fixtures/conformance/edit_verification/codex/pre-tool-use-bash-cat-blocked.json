@@ -1,0 +1,12 @@
+{
+  "session_id": "capture-2026-07-22",
+  "turn_id": "turn-capture",
+  "transcript_path": "/transcripts/capture-2026-07-22.jsonl",
+  "cwd": "/Users/michael/Documents/GitHub/less_tokens",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {"command": "cat .claude/tests/fixtures/conformance/edit_verification/codex/sample.py"},
+  "tool_use_id": "exec-capture-2"
+}
