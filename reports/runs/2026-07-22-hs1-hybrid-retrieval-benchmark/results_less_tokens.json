@@ -1,0 +1,441 @@
+{
+  "repo": "less_tokens",
+  "n_documents": 416,
+  "fts_build_s": 0.0042,
+  "index_overhead_bytes": {
+    "vector_blobs": 638976,
+    "fts5_index": 20480,
+    "fts5_over_vector_ratio": 0.032
+  },
+  "summary": {
+    "vector/semantic": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 0.386,
+      "mean_latency_ms": 70.17,
+      "mean_chars_to_find": 1804.1
+    },
+    "vector/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 3.456,
+      "mean_chars_to_find": 495.3
+    },
+    "vector/all": {
+      "n": 14,
+      "recall_at_5": 1.0,
+      "mrr": 0.693,
+      "mean_latency_ms": 36.813,
+      "mean_chars_to_find": 1149.7
+    },
+    "lexical/semantic": {
+      "n": 7,
+      "recall_at_5": 0.571,
+      "mrr": 0.411,
+      "mean_latency_ms": 0.487,
+      "mean_chars_to_find": 13930.1
+    },
+    "lexical/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 0.049,
+      "mean_chars_to_find": 495.3
+    },
+    "lexical/all": {
+      "n": 14,
+      "recall_at_5": 0.786,
+      "mrr": 0.706,
+      "mean_latency_ms": 0.268,
+      "mean_chars_to_find": 7212.7
+    },
+    "fused/semantic": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 0.45,
+      "mean_latency_ms": 70.797,
+      "mean_chars_to_find": 1529.6
+    },
+    "fused/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 3.602,
+      "mean_chars_to_find": 495.3
+    },
+    "fused/all": {
+      "n": 14,
+      "recall_at_5": 1.0,
+      "mrr": 0.725,
+      "mean_latency_ms": 37.199,
+      "mean_chars_to_find": 1012.4
+    }
+  },
+  "per_query": [
+    {
+      "id": "lt-s1",
+      "type": "semantic",
+      "query": "how does auto-slice figure out which lines to read after a search hit without an explicit offset",
+      "vector": {
+        "rank": 4,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.25,
+        "latency_ms": 461.975,
+        "chars_to_find": 2303
+      },
+      "lexical": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 0.676,
+        "chars_to_find": 1800
+      },
+      "fused": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 462.799,
+        "chars_to_find": 1200
+      }
+    },
+    {
+      "id": "lt-s2",
+      "type": "semantic",
+      "query": "when should a parent hand work off to a spawned subagent instead of doing it inline",
+      "vector": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 4.754,
+        "chars_to_find": 1620
+      },
+      "lexical": {
+        "rank": 4,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.25,
+        "latency_ms": 0.514,
+        "chars_to_find": 2400
+      },
+      "fused": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 5.408,
+        "chars_to_find": 1200
+      }
+    },
+    {
+      "id": "lt-s3",
+      "type": "semantic",
+      "query": "a table showing each token-saving strategy with its measured savings percentage",
+      "vector": {
+        "rank": 4,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.25,
+        "latency_ms": 5.206,
+        "chars_to_find": 2400
+      },
+      "lexical": {
+        "rank": 10,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.1,
+        "latency_ms": 0.406,
+        "chars_to_find": 21772
+      },
+      "fused": {
+        "rank": 4,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.25,
+        "latency_ms": 5.75,
+        "chars_to_find": 2400
+      }
+    },
+    {
+      "id": "lt-s4",
+      "type": "semantic",
+      "query": "how to handle the token-savings calibration sample when there is no captured tool output yet",
+      "vector": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 5.032,
+        "chars_to_find": 1227
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.559,
+        "chars_to_find": 367
+      },
+      "fused": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 5.736,
+        "chars_to_find": 627
+      }
+    },
+    {
+      "id": "lt-s5",
+      "type": "semantic",
+      "query": "example budget override config that raises the retrieved-context token cap",
+      "vector": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 4.425,
+        "chars_to_find": 1800
+      },
+      "lexical": {
+        "rank": 9,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.1111111111111111,
+        "latency_ms": 0.402,
+        "chars_to_find": 62050
+      },
+      "fused": {
+        "rank": 5,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.2,
+        "latency_ms": 4.966,
+        "chars_to_find": 2001
+      }
+    },
+    {
+      "id": "lt-s6",
+      "type": "semantic",
+      "query": "what conclusion did the telemetry review reach about the compaction threshold decision",
+      "vector": {
+        "rank": 5,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.2,
+        "latency_ms": 5.787,
+        "chars_to_find": 2679
+      },
+      "lexical": {
+        "rank": 12,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.08333333333333333,
+        "latency_ms": 0.438,
+        "chars_to_find": 8522
+      },
+      "fused": {
+        "rank": 5,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.2,
+        "latency_ms": 6.361,
+        "chars_to_find": 2679
+      }
+    },
+    {
+      "id": "lt-s7",
+      "type": "semantic",
+      "query": "proposal to filter what a parent hands a subagent at spawn time",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.009,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.413,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.558,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "lt-e1",
+      "type": "exact",
+      "query": "codex_hooks_file_error",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.242,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.053,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.384,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "lt-e2",
+      "type": "exact",
+      "query": "validate_codex_hook_releases",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.028,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.05,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.228,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "lt-e3",
+      "type": "exact",
+      "query": "write_codex_tool_shims",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.242,
+        "chars_to_find": 240
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.054,
+        "chars_to_find": 240
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.386,
+        "chars_to_find": 240
+      }
+    },
+    {
+      "id": "lt-e4",
+      "type": "exact",
+      "query": "patch_indexed_source_dirs",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.301,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.047,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.436,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "lt-e5",
+      "type": "exact",
+      "query": "_SOURCE_DIR_EXCLUDE",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 2.715,
+        "chars_to_find": 227
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.04,
+        "chars_to_find": 227
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 2.842,
+        "chars_to_find": 227
+      }
+    },
+    {
+      "id": "lt-e6",
+      "type": "exact",
+      "query": "apply_codex_savings_profile",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.05,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.053,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.194,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "lt-e7",
+      "type": "exact",
+      "query": "_smoke_codex_nested_hooks",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.611,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.046,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.743,
+        "chars_to_find": 600
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "repo": "ever_better",
+  "queries": [
+    {"id": "eb-s1", "type": "semantic", "query": "how the escalation and stop conditions loop revises the chosen tier mid-run", "gt_path": "framework/DECISION_WORKFLOW.md", "gt_key": "Step 6 — Escalation & stop conditions (control loop)"},
+    {"id": "eb-s2", "type": "semantic", "query": "why the ownership rows that used to say vacant now have owners", "gt_path": "framework/ENFORCEMENT_MAP.md", "gt_key": "Ownership note"},
+    {"id": "eb-s3", "type": "semantic", "query": "principle that effort should scale with how much is at stake in a claim", "gt_path": "framework/OPERATING_CONTRACT.md", "gt_key": "Proportional Rigor"},
+    {"id": "eb-s4", "type": "semantic", "query": "definition of a high quality output for an agent", "gt_path": "framework/agent_charter.md", "gt_key": "Quality Standards"},
+    {"id": "eb-s5", "type": "semantic", "query": "metric for mean tokens or time or agent count spent per decision", "gt_path": "framework/agent_charter.md", "gt_key": "Cost-per-decision"},
+    {"id": "eb-s6", "type": "semantic", "query": "what happens to a run when its budget runs out before convergence is reached", "gt_path": "framework/DECISION_WORKFLOW.md", "gt_key": "Step 6 — Escalation & stop conditions (control loop)_2"},
+    {"id": "eb-s7", "type": "semantic", "query": "example run log entry for a schema migration decision", "gt_path": "framework/COLLABORATION_PROTOCOL.md", "gt_key": "Run log — 2026-06-18-schema-migration"},
+    {"id": "eb-e1", "type": "exact", "query": "reconcile_check.py", "match_contains": "reconcile_check.py"},
+    {"id": "eb-e2", "type": "exact", "query": "target-guard.py", "match_contains": "target-guard.py"},
+    {"id": "eb-e3", "type": "exact", "query": "DMAIC", "match_contains": "DMAIC"},
+    {"id": "eb-e4", "type": "exact", "query": "Six Sigma", "match_contains": "Six Sigma"},
+    {"id": "eb-e5", "type": "exact", "query": "grep-first-read.py", "match_contains": "grep-first-read.py"},
+    {"id": "eb-e6", "type": "exact", "query": "budget_doctor.py", "match_contains": "budget_doctor.py"},
+    {"id": "eb-e7", "type": "exact", "query": "portfolio_rollup.py", "match_contains": "portfolio_rollup.py"}
+  ]
+}
