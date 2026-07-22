@@ -55,10 +55,10 @@ def render() -> str:
     lines = [
         BEGIN,
         "",
-        "Every cell below is either a live-captured, agent+release-tagged workload "
-        "measurement or an explicit `not_yet_measured` gap — never a guessed number. "
-        "`code_present`/`configured`/`event_fired`/`action_enforced` are reported "
-        "separately so shipped-but-unwired and wired-but-unenforced are never "
+        "Every cell below is either a live-captured, agent+release-tagged workload " +
+        "measurement or an explicit `not_yet_measured` gap — never a guessed number. " +
+        "`code_present`/`configured`/`event_fired`/`action_enforced` are reported " +
+        "separately so shipped-but-unwired and wired-but-unenforced are never " +
         "conflated with fully proven. See each fixture for method and caveats.",
         "",
         "| Workload:agent:release | Code present | Configured | Event fired | Action enforced | Basis | Fixture |",
