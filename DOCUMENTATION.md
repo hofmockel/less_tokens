@@ -167,12 +167,12 @@ Every cell below is either a live-captured, agent+release-tagged workload measur
 | `noisy_command_output:codex:0.144.6` | yes | no | yes | no | measured | [DECISIONS.md (CX28 entry)](DECISIONS.md (CX28 entry)) |
 | `repeated_read_search:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md](.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md) |
 | `repeated_read_search:codex:0.144.6` | yes | yes | yes | no | measured | [.claude/tests/fixtures/conformance/repeated_read_search/codex/README.md](.claude/tests/fixtures/conformance/repeated_read_search/codex/README.md) |
-| `edit_verification:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
-| `edit_verification:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `edit_verification:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/edit_verification/claude/README.md](.claude/tests/fixtures/conformance/edit_verification/claude/README.md) |
+| `edit_verification:codex:0.144.6` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/edit_verification/codex/README.md](.claude/tests/fixtures/conformance/edit_verification/codex/README.md) |
 | `long_session_compaction:claude:2026-07-21` | yes | yes | yes | no | measured | [this session's own transcript](this session's own transcript) |
 | `long_session_compaction:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX20 entry)](DECISIONS.md (CX20 entry)) |
-| `verbose_final_response:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
-| `verbose_final_response:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `verbose_final_response:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/verbose_final_response/claude/README.md](.claude/tests/fixtures/conformance/verbose_final_response/claude/README.md) |
+| `verbose_final_response:codex:0.144.6` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/verbose_final_response/codex/README.md](.claude/tests/fixtures/conformance/verbose_final_response/codex/README.md) |
 | `bounded_subagent_exploration:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md](.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md) |
 | `bounded_subagent_exploration:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX30 entry)](DECISIONS.md (CX30 entry)) |
 
