@@ -36,7 +36,16 @@
     "notes": "context-cache.py blocked a Read of a 120-line/3,809-byte file already served within the TTL window (WINDOW_SECONDS=300), citing a prior read ~3 minutes earlier. The blocked Read's full 3,809 bytes never reached the model. Caveat: the gate covers the Read/Grep tool surface, not raw shell `cat` -- a Bash fallback bypassed it in the same session, which is a real enforcement-boundary gap, not a false claim about this workload."
   },
   "repeated_read_search:codex:0.144.6": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": 0,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/repeated_read_search/codex/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "context-cache.py's PreToolUse hook was invoked directly with real stdin payloads (LESS_TOKENS_STATE_DIR pointed at a disposable temp state dir) across 3 probes. A repeated `rg` search over Bash IS blocked (context-cache: Bash `rg ...` already ran ... skip repeat, via the native permissionDecision:deny contract) -- the Bash branch's cacheable_bash_command allowlist covers pwd/git status/rg/pytest. But a repeated whole-file `cat`/`head`/`tail`/`sed -n` read over Bash -- the dominant default-install read path, and the exact scenario repeated_read_search:claude demonstrated -- is NOT blocked: context-cache.py imports map_read_or_search, which (unlike search-first.py/grep-first-read.py/read-guard.py/continue-freshness.py/read-after-edit.py/auto-slice.py) never calls CX25's map_bash_read, so the Bash cat shape never reaches the Read branch, and cat isn't in cacheable_bash_command either. The same repeated read IS blocked when issued via the opt-in mcp__filesystem__read_text_file tool shape, proving the Read-branch logic itself works -- it just isn't reachable from a default install's Bash-only surface. action_enforced is false because the workload's primary case (repeated whole-file read) fails by default; the search-repeat sub-case that does work is documented in notes rather than folded into the boolean. Also note: local installed Codex is 0.145.0, outside install.py's verified 0.142.3-0.144.6 window (CX26), so install.py --dry-run correctly refused to wire real hooks this session -- probes replayed the 0.144.6 schema directly against the hook script instead."
   },
   "noisy_command_output:claude:2026-07-21": {
     "code_present": true,
