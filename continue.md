@@ -1,82 +1,70 @@
 # Continue: less_tokens
 
-> **Next focus:** Continue HP1 — live Claude/Codex conformance and savings matrix.
+> **Next focus:** capture the 3 remaining `not_yet_measured` HP1 cells, or move to the next
+> `BACKLOG.md` item — HP1's infrastructure and doc/CI wiring are done.
 
 ## Current state
 
-On `main` at `8df7292` (CX27–CX30 all landed/closed since the last handoff). Working tree has
-two untracked, uncommitted additions: `agents/common/conformance/` (`__init__.py`,
-`workloads.py` — a 7-workload catalog, no evidence yet) and (new this session)
-`.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/` (live Codex evidence, see
-below). HP1 is in progress, not yet committed. `matrix.json` still doesn't exist.
+HP1's plan (`/Users/michael/.claude/plans/validated-scribbling-wirth.md`, steps 1-10) is fully
+built except for evidence coverage. `agents/common/conformance/matrix.json` has 11 of 14
+workload:agent:release cells with real live-captured evidence; 3 are honestly `not_yet_measured`
+(`repeated_read_search:codex`, `edit_verification:{claude,codex}`, `verbose_final_response`
+already had both agents `not_yet_measured` — unchanged). `.claude/tools/conformance_matrix.py`
+(+ `.less_tokens/tools/` runpy shim) renders the matrix into `#### Conformance matrix` sections in
+`README.md`/`DOCUMENTATION.md`. `README.md`'s strategy table (via `strategy_registry.py`) links
+its terse-output/truncate-output/compact-trigger rows to the matrix instead of carrying unlinked
+percentages. `.claude/tests/unit/test_conformance_matrix.py` (6 cases) and a
+`conformance_matrix.py --check` CI step in `tests.yml` are both in place. `DECISIONS.md` cites
+`install.py:do_check()` for HP1's install-health bullet. `BACKLOG.md`'s HP1 row and the
+`[Unreleased]` `CHANGELOG.md` entry both name the 3 outstanding cells explicitly. Full writeup:
+`reports/runs/2026-07-21-hp1-conformance-matrix/report.md`.
+
+Working tree was committed and pushed to `main` this session — should be clean at HEAD after
+this handoff (verify with `git status` before starting new work).
 
 ## What happened this session
 
-- Picked HP1 as next backlog item (P1, `Ready`, deps CX27–30 all shipped — verified in
-  CHANGELOG.md/DECISIONS.md).
-- Planned in `/Users/michael/.claude/plans/validated-scribbling-wirth.md` (full design there —
-  read it first). Key finding: `stats.py`/`savings.jsonl` and `BudgetEvent`/`events.jsonl` are
-  parallel, non-unified logs, neither release/workload-tagged; `hook_manifest.py`'s
-  `HookSpec`/`HookWire` is wiring-only and stays as-is; `install.py`'s `do_check` (line 1879)
-  **already** fails when Codex `[features].hooks` is disabled (line 1917) — that satisfies HP1's
-  install-health acceptance bullet, no new code needed, just cite it in DECISIONS.md.
-- Built `agents/common/conformance/workloads.py`: the 7 HP1 workloads as a frozen-dataclass
-  catalog (no evidence yet — that's `matrix.json`, not built).
-- Got one real, live-captured evidence point: `indexed_whole_file_read` for Claude. Installed
-  less_tokens into a fresh scratch target via `install.py --agent claude`, invoked the actual
-  `.claude/hooks/search-first.py` directly via its real stdin JSON contract against a real
-  1200-line fixture file. Confirmed: unsearched `Read` → exit 2, blocks, logs
-  `elided_chars: 13780` to `savings.jsonl`; after touching `last-search` → exit 0, allowed. Scratch
-  dir was outside this repo (a session scratchpad) — recreate it fresh next time, nothing to reuse.
-- A `noisy_command_output` (lean-output.py) capture attempt was inconclusive (synthetic pytest
-  payload didn't shrink enough to trigger output) — not resolved, don't assume it works.
-- Did the Codex mirror of `indexed_whole_file_read` (task #4). `codex exec` itself is blocked by
-  this session's sandbox classifier (spawning a second autonomous CLI agent) — asked the user,
-  confirmed, retried, still blocked; not a retry-able failure. Fell back to the same method
-  already used for the Claude capture: invoked the real installed `.codex/hooks/search-first.py`
-  directly via a stdin payload matching the live 0.144.6 schema (`codex-hooks/0.144.6/pre-tool-use-bash.json`),
-  in a disposable temp repo with a real ~855-byte `src/example.py`. Confirmed: unsearched
-  `cat src/example.py` → native `permissionDecision: "deny"`, `savings.jsonl` gets
-  `elided_chars: 855` (== exact file size); after touching `.less_tokens/state/last-search` →
-  empty stdout (native allow), no new log row. Written up in
-  `.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md` +
-  `0.144.6/pre-tool-use-bash-search-{blocked,recent}.json`. Honest caveat recorded in that README:
-  this proves the shipped hook logic, not that `codex exec` itself dispatches this exact payload
-  for `cat` — CX26's live headless runs already cover that part.
-- To reproduce/extend: `--agent codex` install fails loud on this machine because
-  `detect_codex_releases()` always probes `/Applications/ChatGPT.app/...codex` (currently
-  0.145.0, outside the verified 0.142.3–0.144.6 window) regardless of which `codex` is on PATH.
-  Real fix is out of scope for HP1 (it's CX26's intentional fail-loud design, working as
-  designed) — for a disposable temp-repo probe only, comment out the `sys.platform == "darwin"`
-  block in a throwaway *clone's* `install.py` (never the real repo) so the installer proceeds
-  using the verified PATH binary.
+- Regenerated docs via the tools rather than hand-editing generated blocks — caught myself
+  starting to hand-edit `README.md`'s strategy table directly and reverted, since `continue.md`
+  itself (this file, previous version) warned that table is `strategy_registry.py`-generated.
+  Lesson for next time: always check for a `_docs.py`/`_registry.py` generator before editing
+  anything between `<!-- ... -->` markers.
+- All 4 doc/parity gates pass (`conformance_matrix.py --check` on both the real tool and the
+  Codex shim, `hook_parity_docs.py --check`, `strategy_table_docs.py --check`,
+  `label_consistency_gate.py`, `changelog_gate.py`), plus the full unit suite (1115 passed).
+- Did not re-run the Codex-side `repeated_read_search` capture, or either agent's
+  `edit_verification`/`verbose_final_response` — those need a fresh bounded live-capture session
+  each, same protocol as the ones already done (see fixture READMEs under
+  `.claude/tests/fixtures/conformance/*/claude/` for the pattern to mirror).
 
 ## Open work
 
-Full task list (9 tasks, #1 done) is in the plan file above. Next: #4 mirror the same workload
-for Codex (`codex-cli 0.144.6` is installed locally — use the bounded live-capture protocol in
-`.claude/tests/fixtures/codex-hooks/README.md` as the template), then #5–9 (`matrix.json`, the
-`conformance_matrix.py` tool, README claim updates, tests, the `reports/runs/` writeup). Partial
-coverage (some workload×agent cells left `not_yet_measured`) was pre-approved — don't force full
-7×2 live coverage before shipping the infra. Only close HP1's `BACKLOG.md` row if it actually
-reaches full coverage.
+Only the 3 `not_yet_measured` cells remain for HP1 to close for real:
+1. `repeated_read_search:codex:0.144.6` — mirror the Claude `context-cache.py` capture
+   (`.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md`) against the Codex
+   adapter, same bounded live-capture style used for `indexed_whole_file_read:codex`.
+2. `edit_verification` (both agents) — needs a real Edit/Write plus read-after-edit/post-edit-diff
+   probe; not yet attempted this session.
+3. `verbose_final_response` (both agents) — needs an unmodified-vs-terse Stop-response baseline
+   diff; not yet attempted.
+
+Once all 14 cells are `measured`, delete HP1's `BACKLOG.md` row per the "delete only when actually
+done" rule and add a closing `CHANGELOG.md` entry. Until then, keep tightening the row rather than
+deleting it.
 
 ## Suggested skills
 
-- `less-tokens` — targeted exploration of the hook/budget code before extending it.
 - `continue` — when handing off again.
+- `less-tokens` — targeted exploration of the hook/budget code before extending the remaining
+  workload captures.
 
 ## Start here
 
-Task #4 (Codex mirror of `indexed_whole_file_read`) is done — see fixture above. Read the plan
-file, then build `agents/common/conformance/matrix.json` (Build step 2): at minimum, add the
-`indexed_whole_file_read:codex:0.144.6` cell (`code_present/configured/event_fired/action_enforced:
-true`, `basis: "measured"`, `model_visible_bytes_removed: 855`, fixture path as above,
-`captured_at: "2026-07-21"`) and the `indexed_whole_file_read:claude:2026-07` cell from the prior
-session's finding (`elided_chars: 13780` — no saved fixture for that one, note `basis: "measured"`
-but "fixture not retained, scratch dir was ephemeral" in its `notes`). Then continue with the
-remaining workload captures (`noisy_command_output`, `repeated_read_search`,
-`bounded_subagent_exploration`) per the plan's step 5.
+Pick one of the 3 outstanding cells above (Codex `repeated_read_search` is the most similar to
+work already done this session, so probably the fastest next capture), follow the same
+bounded-live-capture-plus-fixture-README pattern as the existing entries in
+`agents/common/conformance/matrix.json`, then re-run `conformance_matrix.py` to regenerate docs.
 
 ---
-_Last updated at HEAD `8df7292` on 2026-07-21. Working tree dirty (see Current state)._
+_Last updated at HEAD `1c34ffb` on 2026-07-21 (pre-commit — see git log for the actual HP1-wiring
+commit hash once pushed)._

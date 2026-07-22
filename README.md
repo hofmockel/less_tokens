@@ -34,9 +34,9 @@ Agent token waste comes from several sources: reading entire files when only a f
 | **Vector search + symbols** | Pre-embeds source files; exact symbol lookup for Python and JS/TS via `symbols.py` (`/def` only when slash commands are installed) | 5–10× fewer input tokens | always on |
 | **Read guards** | Search-first, auto-slice, grep-first, noise-file, context-cache, and post-edit reread gates | large-file Reads become small slices | always on |
 | **Lean tool output** | Parses pytest/ruff/eslint/git output and blocks recursive listing dumps | 40–90% fewer tool-output chars (not telemetry-backed — no savings.jsonl category) | always on |
-| **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | 30–60% fewer output tokens (not telemetry-backed — no baseline to diff against) | default; opt out with `--no-caveman` |
-| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | 40–80% fewer tool-output tokens | default; opt out with `--no-truncate` |
-| **Compaction trigger** | PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large | 50–70% fewer input tokens on long sessions | default; opt out with `--no-compact` |
+| **Terse output mode** | Claude Stop hook and Codex terse reminder reduce filler prose | not yet measured against a versioned workload (`verbose_final_response` in the [conformance matrix](#conformance-matrix)) | default; opt out with `--no-caveman` |
+| **Tool output truncation** | PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results | Claude: 80% of chars elided in one live-captured session ([`noisy_command_output:claude`](#conformance-matrix)); Codex: adapter exists but unwired, not enforced (same workload, `configured: false`) | default; opt out with `--no-truncate` |
+| **Compaction trigger** | PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large | advisory only, not measured savings — Claude hook fires a nudge with no post-compaction size check; a bounded Codex probe measured 19,533→6,588 tokens on a synthetic thread via an experimental app-server method the installed hook can't invoke ([`long_session_compaction`](#conformance-matrix)) | default; opt out with `--no-compact` |
 | **Instruction pruning** | `CLAUDE.md` and `AGENTS.md` budget audits keep always-loaded files small | eliminates per-turn always-loaded tax | always on |
 <!-- strategy-table: end -->
 
@@ -77,6 +77,31 @@ Feature parity means the same strategy is shipped for both agents. Enforcement p
 | `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*` |
 
 <!-- hook-parity: end -->
+
+#### Conformance matrix
+
+<!-- conformance-matrix: begin -->
+
+Every cell below is either a live-captured, agent+release-tagged workload measurement or an explicit `not_yet_measured` gap — never a guessed number. `code_present`/`configured`/`event_fired`/`action_enforced` are reported separately so shipped-but-unwired and wired-but-unenforced are never conflated with fully proven. See each fixture for method and caveats.
+
+| Workload:agent:release | Code present | Configured | Event fired | Action enforced | Basis | Fixture |
+|---|---|---|---|---|---|---|
+| `indexed_whole_file_read:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/indexed_whole_file_read/claude/README.md](.claude/tests/fixtures/conformance/indexed_whole_file_read/claude/README.md) |
+| `indexed_whole_file_read:codex:0.144.6` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md](.claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md) |
+| `noisy_command_output:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md](.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md) |
+| `noisy_command_output:codex:0.144.6` | yes | no | yes | no | measured | [DECISIONS.md (CX28 entry)](DECISIONS.md (CX28 entry)) |
+| `repeated_read_search:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md](.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md) |
+| `repeated_read_search:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `edit_verification:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
+| `edit_verification:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `long_session_compaction:claude:2026-07-21` | yes | yes | yes | no | measured | [this session's own transcript](this session's own transcript) |
+| `long_session_compaction:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX20 entry)](DECISIONS.md (CX20 entry)) |
+| `verbose_final_response:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
+| `verbose_final_response:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `bounded_subagent_exploration:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md](.claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md) |
+| `bounded_subagent_exploration:codex:0.144.6` | yes | yes | yes | no | measured | [DECISIONS.md (CX30 entry)](DECISIONS.md (CX30 entry)) |
+
+<!-- conformance-matrix: end -->
 
 Codex 0.144.6 app-server clients can initiate compaction with the experimental
 `thread/compact/start` method. A synthetic live probe measured context falling

@@ -1,0 +1,125 @@
+{
+  "indexed_whole_file_read:claude:2026-07-21": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 12302,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/indexed_whole_file_read/claude/README.md",
+    "captured_at": "2026-07-21",
+    "notes": "grep-first-read.py blocked a full Read of a 389-line/14,546-byte indexed source file (threshold 150 lines), redirecting to a targeted offset/limit slice; the follow-up Read pulled only lines 1-60. model_visible_bytes_removed is a proportional estimate (60/389 lines kept => ~12,302 of 14,546 bytes elided), not an exact byte diff -- see fixture for the literal blocked/allowed payloads."
+  },
+  "indexed_whole_file_read:codex:0.144.6": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 855,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/indexed_whole_file_read/codex/README.md",
+    "captured_at": "2026-07-21",
+    "notes": "search-first.py denied an unsearched cat of an indexed 855-byte file via the native permissionDecision contract (savings.jsonl elided_chars == exact file size), then allowed the identical command after a recent search. Hook invoked directly with a real stdin payload matching the installed 0.144.6 schema; codex exec itself was not spawned this session (sandbox policy). See fixture for full method/caveats."
+  },
+  "repeated_read_search:claude:2026-07-21": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 3809,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/repeated_read_search/claude/README.md",
+    "captured_at": "2026-07-21",
+    "notes": "context-cache.py blocked a Read of a 120-line/3,809-byte file already served within the TTL window (WINDOW_SECONDS=300), citing a prior read ~3 minutes earlier. The blocked Read's full 3,809 bytes never reached the model. Caveat: the gate covers the Read/Grep tool surface, not raw shell `cat` -- a Bash fallback bypassed it in the same session, which is a real enforcement-boundary gap, not a false claim about this workload."
+  },
+  "repeated_read_search:codex:0.144.6": {
+    "status": "not_yet_measured"
+  },
+  "noisy_command_output:claude:2026-07-21": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": 20304,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/noisy_command_output/claude/README.md",
+    "captured_at": "2026-07-21",
+    "notes": "truncate-output.py's PostToolUse:Bash hook capped a 25,336-char shell output down to a 5,032-char model-visible result this session (20,304 chars / ~80% removed). Figures are the literal 'X chars omitted (Y total)' annotation attached to the tool result in-session, not a savings.jsonl aggregate (that log is shared/non-session-scoped and was not used as evidence here -- see report.md)."
+  },
+  "noisy_command_output:codex:0.144.6": {
+    "code_present": true,
+    "configured": false,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": 0,
+    "host_tokens": "unavailable",
+    "fixture": "DECISIONS.md (CX28 entry)",
+    "captured_at": "2026-07-17",
+    "notes": "CX28: a live 0.144.6 PostToolUse fixture proves the hook fires and receives tool_response, but suppressOutput is parsed-yet-unsupported and no updatedToolOutput equivalent exists, so stdout+exit-2 cannot replace what the model sees. parity.json marks truncate-output.codex as missing; code_present is true (the adapter exists) but it is unwired, which is exactly the code-present-vs-enforced distinction HP1 exists to stop conflating."
+  },
+  "edit_verification:claude:2026-07-21": {
+    "status": "not_yet_measured"
+  },
+  "edit_verification:codex:0.144.6": {
+    "status": "not_yet_measured"
+  },
+  "long_session_compaction:claude:2026-07-21": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": "not_applicable",
+    "host_tokens": "unavailable",
+    "fixture": "this session's own transcript",
+    "captured_at": "2026-07-21",
+    "notes": "compact-trigger.py fired PostToolUse mid-session at a 660,189-char transcript (threshold 625,000), instructing '/compact or start a fresh Claude session'. Advisory only by design -- the hook cannot measure post-compaction size or force compaction, matching Codex's CX20 advisory-only finding for the same workload."
+  },
+  "long_session_compaction:codex:0.144.6": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": "not_applicable",
+    "host_tokens": "6588 after / 19533 before (12945 elided)",
+    "fixture": "DECISIONS.md (CX20 entry)",
+    "captured_at": "2026-07-17",
+    "notes": "CX20: a bounded live probe against 0.144.6's experimental thread/compact/start app-server method measured context falling from 19,533 to 6,588 tokens on a synthetic thread. The append-only rollout file grew (71,514 -> 82,722 bytes) so byte-size is explicitly rejected as a savings measure. Installed hooks remain advisory: the documented hook payload/output contract exposes no app-server client channel or token counts, so action_enforced is false even though the underlying platform capability is real and measured."
+  },
+  "verbose_final_response:claude:2026-07-21": {
+    "status": "not_yet_measured"
+  },
+  "verbose_final_response:codex:0.144.6": {
+    "status": "not_yet_measured"
+  },
+  "bounded_subagent_exploration:claude:2026-07-21": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": true,
+    "basis": "measured",
+    "model_visible_bytes_removed": "not_precisely_measured",
+    "host_tokens": "77966 subagent-internal (harness-reported)",
+    "fixture": ".claude/tests/fixtures/conformance/bounded_subagent_exploration/claude/README.md",
+    "captured_at": "2026-07-21",
+    "notes": "A live Explore-type subagent spawned this session ran 42 tool uses over ~326s and reported 77,966 internal tokens; only its final structured text report was absorbed into the parent's context, not the raw child transcript. The 77,966 figure is the harness's subagent-internal token count, not a byte count of what the parent absorbed -- those are different units and are not directly diffed here (an apples-to-oranges gap, stated rather than papered over). No fixture snapshot of the exact report text was retained, matching the same honesty gap continue.md already recorded for this workload's earlier Claude-side attempt."
+  },
+  "bounded_subagent_exploration:codex:0.144.6": {
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": "not_applicable",
+    "host_tokens": "unavailable",
+    "fixture": "DECISIONS.md (CX30 entry)",
+    "captured_at": "2026-07-17",
+    "notes": "CX30: prompt, child-final, and parent-absorbed character counts are recorded as separate content-free events correlated by tool_use_id/agent_id. This is measurement, not enforcement -- no digest or automatic delegation policy exists, and CX30's own verdict forbids reporting multi-agent work as token-saving without a single-agent baseline, so action_enforced is false by design."
+  }
+}
