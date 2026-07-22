@@ -1,0 +1,19 @@
+{
+  "repo": "less_tokens",
+  "queries": [
+    {"id": "lt-s1", "type": "semantic", "query": "how does auto-slice figure out which lines to read after a search hit without an explicit offset", "gt_path": "DOCUMENTATION.md", "gt_key": "Layer split_3"},
+    {"id": "lt-s2", "type": "semantic", "query": "when should a parent hand work off to a spawned subagent instead of doing it inline", "gt_path": "DOCUMENTATION.md", "gt_key": "Delegation contract"},
+    {"id": "lt-s3", "type": "semantic", "query": "a table showing each token-saving strategy with its measured savings percentage", "gt_path": "README.md", "gt_key": "What it does_2"},
+    {"id": "lt-s4", "type": "semantic", "query": "how to handle the token-savings calibration sample when there is no captured tool output yet", "gt_path": "stats_plan.md", "gt_key": "Review decisions_2"},
+    {"id": "lt-s5", "type": "semantic", "query": "example budget override config that raises the retrieved-context token cap", "gt_path": "DOCUMENTATION.md", "gt_key": "Budget control plane_2"},
+    {"id": "lt-s6", "type": "semantic", "query": "what conclusion did the telemetry review reach about the compaction threshold decision", "gt_path": "eb_telemetry_9jul26.md", "gt_key": "Bottom line"},
+    {"id": "lt-s7", "type": "semantic", "query": "proposal to filter what a parent hands a subagent at spawn time", "gt_path": "BACKLOG.md", "gt_key": "Blocked / evidence collection_2"},
+    {"id": "lt-e1", "type": "exact", "query": "codex_hooks_file_error", "match_contains": "codex_hooks_file_error"},
+    {"id": "lt-e2", "type": "exact", "query": "validate_codex_hook_releases", "match_contains": "validate_codex_hook_releases"},
+    {"id": "lt-e3", "type": "exact", "query": "write_codex_tool_shims", "match_contains": "write_codex_tool_shims"},
+    {"id": "lt-e4", "type": "exact", "query": "patch_indexed_source_dirs", "match_contains": "patch_indexed_source_dirs"},
+    {"id": "lt-e5", "type": "exact", "query": "_SOURCE_DIR_EXCLUDE", "match_contains": "_SOURCE_DIR_EXCLUDE"},
+    {"id": "lt-e6", "type": "exact", "query": "apply_codex_savings_profile", "match_contains": "apply_codex_savings_profile"},
+    {"id": "lt-e7", "type": "exact", "query": "_smoke_codex_nested_hooks", "match_contains": "_smoke_codex_nested_hooks"}
+  ]
+}

@@ -1,0 +1,441 @@
+{
+  "repo": "ever_better",
+  "n_documents": 6115,
+  "fts_build_s": 0.0239,
+  "index_overhead_bytes": {
+    "vector_blobs": 9392640,
+    "fts5_index": 819200,
+    "fts5_over_vector_ratio": 0.087
+  },
+  "summary": {
+    "vector/semantic": {
+      "n": 7,
+      "recall_at_5": 0.714,
+      "mrr": 0.668,
+      "mean_latency_ms": 75.81,
+      "mean_chars_to_find": 7168.6
+    },
+    "vector/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 3.929,
+      "mean_chars_to_find": 145.3
+    },
+    "vector/all": {
+      "n": 14,
+      "recall_at_5": 0.857,
+      "mrr": 0.834,
+      "mean_latency_ms": 39.87,
+      "mean_chars_to_find": 3656.9
+    },
+    "lexical/semantic": {
+      "n": 7,
+      "recall_at_5": 0.714,
+      "mrr": 0.503,
+      "mean_latency_ms": 2.889,
+      "mean_chars_to_find": 5538.4
+    },
+    "lexical/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 0.095,
+      "mean_chars_to_find": 428.1
+    },
+    "lexical/all": {
+      "n": 14,
+      "recall_at_5": 0.857,
+      "mrr": 0.752,
+      "mean_latency_ms": 1.492,
+      "mean_chars_to_find": 2983.3
+    },
+    "fused/semantic": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 0.719,
+      "mean_latency_ms": 80.649,
+      "mean_chars_to_find": 1046.9
+    },
+    "fused/exact": {
+      "n": 7,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_latency_ms": 5.264,
+      "mean_chars_to_find": 222.7
+    },
+    "fused/all": {
+      "n": 14,
+      "recall_at_5": 1.0,
+      "mrr": 0.86,
+      "mean_latency_ms": 42.956,
+      "mean_chars_to_find": 634.8
+    }
+  },
+  "per_query": [
+    {
+      "id": "eb-s1",
+      "type": "semantic",
+      "query": "how the escalation and stop conditions loop revises the chosen tier mid-run",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 500.414,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 2.918,
+        "chars_to_find": 1200
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 505.152,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "eb-s2",
+      "type": "semantic",
+      "query": "why the ownership rows that used to say vacant now have owners",
+      "vector": {
+        "rank": 20,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.05,
+        "latency_ms": 4.91,
+        "chars_to_find": 26289
+      },
+      "lexical": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 2.454,
+        "chars_to_find": 1775
+      },
+      "fused": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 9.976,
+        "chars_to_find": 1200
+      }
+    },
+    {
+      "id": "eb-s3",
+      "type": "semantic",
+      "query": "principle that effort should scale with how much is at stake in a claim",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.05,
+        "chars_to_find": 600
+      },
+      "lexical": {
+        "rank": 21,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.047619047619047616,
+        "latency_ms": 2.456,
+        "chars_to_find": 12071
+      },
+      "fused": {
+        "rank": 5,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.2,
+        "latency_ms": 9.175,
+        "chars_to_find": 3000
+      }
+    },
+    {
+      "id": "eb-s4",
+      "type": "semantic",
+      "query": "definition of a high quality output for an agent",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.543,
+        "chars_to_find": 46
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.585,
+        "chars_to_find": 46
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 9.916,
+        "chars_to_find": 46
+      }
+    },
+    {
+      "id": "eb-s5",
+      "type": "semantic",
+      "query": "metric for mean tokens or time or agent count spent per decision",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.271,
+        "chars_to_find": 82
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 2.389,
+        "chars_to_find": 82
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 9.425,
+        "chars_to_find": 82
+      }
+    },
+    {
+      "id": "eb-s6",
+      "type": "semantic",
+      "query": "what happens to a run when its budget runs out before convergence is reached",
+      "vector": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 6.069,
+        "chars_to_find": 1200
+      },
+      "lexical": {
+        "rank": 2,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 4.013,
+        "chars_to_find": 1200
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 11.976,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "eb-s7",
+      "type": "semantic",
+      "query": "example run log entry for a schema migration decision",
+      "vector": {
+        "rank": 8,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.125,
+        "latency_ms": 4.414,
+        "chars_to_find": 21363
+      },
+      "lexical": {
+        "rank": 7,
+        "hit_at_5": false,
+        "reciprocal_rank": 0.14285714285714285,
+        "latency_ms": 2.408,
+        "chars_to_find": 22395
+      },
+      "fused": {
+        "rank": 3,
+        "hit_at_5": true,
+        "reciprocal_rank": 0.3333333333333333,
+        "latency_ms": 8.923,
+        "chars_to_find": 1800
+      }
+    },
+    {
+      "id": "eb-e1",
+      "type": "exact",
+      "query": "reconcile_check.py",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.913,
+        "chars_to_find": 58
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.102,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.28,
+        "chars_to_find": 600
+      }
+    },
+    {
+      "id": "eb-e2",
+      "type": "exact",
+      "query": "target-guard.py",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.682,
+        "chars_to_find": 254
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.116,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.029,
+        "chars_to_find": 254
+      }
+    },
+    {
+      "id": "eb-e3",
+      "type": "exact",
+      "query": "DMAIC",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.41,
+        "chars_to_find": 231
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.062,
+        "chars_to_find": 231
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.694,
+        "chars_to_find": 231
+      }
+    },
+    {
+      "id": "eb-e4",
+      "type": "exact",
+      "query": "Six Sigma",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.208,
+        "chars_to_find": 231
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.059,
+        "chars_to_find": 231
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.491,
+        "chars_to_find": 231
+      }
+    },
+    {
+      "id": "eb-e5",
+      "type": "exact",
+      "query": "grep-first-read.py",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.529,
+        "chars_to_find": 53
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.133,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.903,
+        "chars_to_find": 53
+      }
+    },
+    {
+      "id": "eb-e6",
+      "type": "exact",
+      "query": "budget_doctor.py",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 3.751,
+        "chars_to_find": 135
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.084,
+        "chars_to_find": 135
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.041,
+        "chars_to_find": 135
+      }
+    },
+    {
+      "id": "eb-e7",
+      "type": "exact",
+      "query": "portfolio_rollup.py",
+      "vector": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 4.01,
+        "chars_to_find": 55
+      },
+      "lexical": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 0.109,
+        "chars_to_find": 600
+      },
+      "fused": {
+        "rank": 1,
+        "hit_at_5": true,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 5.41,
+        "chars_to_find": 55
+      }
+    }
+  ]
+}

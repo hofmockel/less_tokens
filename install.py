@@ -1262,6 +1262,31 @@ def configured_search_backend(target_root: Path) -> str:
     return "sqlite"
 
 
+def run_target_tests(venv_py: Path, target_root: Path, dry_run: bool = False) -> int:
+    """Run the target repo's own .claude/tools/ test suite after --update, so
+    a vendor sync that reverts a pinned fix fails the install loudly instead
+    of landing on an unverified "Verified: ..." commit message."""
+    if not any((target_root / ".claude" / "tools").glob("test_*.py")):
+        return 0
+    if dry_run:
+        print("\n[DRY RUN] would run target test suite (.claude/tools/).")
+        return 0
+    print("\nRunning target test suite (.claude/tools/)...")
+    try:
+        subprocess.check_call(
+            [str(venv_py), "-m", "pytest", ".claude/tools/", "-q"], cwd=target_root
+        )
+        return 0
+    except subprocess.CalledProcessError as e:
+        print(f"  target test suite failed (exit {e.returncode}) — "
+              "vendor sync may have broken a pinned fix", file=sys.stderr)
+        return 1
+    except FileNotFoundError:
+        print("  ! pytest not available in venv — skipping target test suite",
+              file=sys.stderr)
+        return 0
+
+
 def init_db(venv_py: Path, target_root: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Initialize / migrate index.db. Returns (exit_code, did_init)."""
     if configured_search_backend(target_root) != "sqlite":
@@ -2565,6 +2590,15 @@ def main() -> int:
             changes += 1
     else:
         print("\n[3/5] Skipping dep install (--skip-deps).")
+
+    # ------------------------------------------------------------------
+    # Step 3.5: Under --update, run the target's own test suite so a vendor
+    # sync that reverts a pinned fix fails loudly instead of landing on an
+    # unverified "Verified: ..." commit message (see run_target_tests()).
+    # ------------------------------------------------------------------
+    if args.update:
+        if run_target_tests(venv_py, target_root, dry_run=dry) != 0:
+            return 1
 
     # ------------------------------------------------------------------
     # Step 4: Init / migrate DB (skipped under --update — index.db is
