@@ -21,6 +21,22 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_source_type ON documents(source_type);
 CREATE INDEX IF NOT EXISTS idx_documents_source_path ON documents(source_path);
 
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+  text,
+  content='documents',
+  content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS documents_fts_insert AFTER INSERT ON documents BEGIN
+  INSERT INTO documents_fts(rowid, text) VALUES (new.id, new.text);
+END;
+CREATE TRIGGER IF NOT EXISTS documents_fts_delete AFTER DELETE ON documents BEGIN
+  INSERT INTO documents_fts(documents_fts, rowid, text) VALUES ('delete', old.id, old.text);
+END;
+CREATE TRIGGER IF NOT EXISTS documents_fts_update AFTER UPDATE OF text ON documents BEGIN
+  INSERT INTO documents_fts(documents_fts, rowid, text) VALUES ('delete', old.id, old.text);
+  INSERT INTO documents_fts(rowid, text) VALUES (new.id, new.text);
+END;
+
 -- Symbol index (S8): exact file:line for top-level defs/classes/constants.
 -- AST-only, populated by tools/symbols.py; independent of the embedding rows.
 CREATE TABLE IF NOT EXISTS symbols (

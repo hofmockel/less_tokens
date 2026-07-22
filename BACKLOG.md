@@ -16,7 +16,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 7 | HS2 | P1 | Ready | Ship RRF-fused lexical+vector retrieval into `search.py` production path | — |
 | 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
 | 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
 | 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |

@@ -7,6 +7,7 @@ Usage:
   python3 tools/search.py "rationale for COPX trim" --source-type journal -k 3
   python3 tools/search.py "cash floor" --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
 
 def _find_base() -> Path:
     """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor."""
@@ -50,6 +52,7 @@ from savings_log import STRATEGY_SEARCH  # noqa: E402
 
 DEFAULT_K = 3
 CODEX_DEFAULT_K = 2
+RRF_K = 60
 DEFAULT_SNIPPET_CHARS = 600
 CODEX_DEFAULT_SNIPPET_CHARS = 400
 
@@ -63,10 +66,14 @@ class SearchBackendError(RuntimeError):
 
 def _backend_name() -> str:
     """Selected semantic backend. Environment override is useful for CI/sessions."""
-    return os.environ.get(
-        "LESS_TOKENS_SEARCH_BACKEND",
-        getattr(search_config, "SEARCH_BACKEND", "sqlite"),
-    ).strip().lower()
+    return (
+        os.environ.get(
+            "LESS_TOKENS_SEARCH_BACKEND",
+            getattr(search_config, "SEARCH_BACKEND", "sqlite"),
+        )
+        .strip()
+        .lower()
+    )
 
 
 def _backend_command() -> list[str]:
@@ -191,10 +198,17 @@ def _record_search_near_miss(state_dir: Path, query: str, session_id: str) -> No
     if query in seen:
         try:
             with (state_dir / "near_misses.jsonl").open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps({
-                    "kind": "search", "signature": query[:80],
-                    "session_id": session_id, "ts": time.time(),
-                }) + "\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "kind": "search",
+                            "signature": query[:80],
+                            "session_id": session_id,
+                            "ts": time.time(),
+                        }
+                    )
+                    + "\n"
+                )
         except OSError:
             pass
         return
@@ -230,8 +244,34 @@ def _search_sqlite(
                 sql += " AND source_type = ?"
                 params = (search_config.EMBEDDING_MODEL, source_type)
             rows = c.execute(sql, params).fetchall()
+            lexical_ids: list[int] = []
+            terms = query.replace('"', " ").split()
+            if terms:
+                match_expr = " OR ".join(f'"{term}"' for term in terms)
+                try:
+                    lexical_sql = (
+                        "SELECT documents_fts.rowid FROM documents_fts "
+                        "JOIN documents ON documents.id = documents_fts.rowid "
+                        "WHERE documents_fts MATCH ? AND documents.embedding_model = ?"
+                    )
+                    lexical_params: tuple = (match_expr, search_config.EMBEDDING_MODEL)
+                    if source_type:
+                        lexical_sql += " AND documents.source_type = ?"
+                        lexical_params += (source_type,)
+                    lexical_sql += " ORDER BY bm25(documents_fts)"
+                    lexical_ids = [
+                        row[0]
+                        for row in c.execute(lexical_sql, lexical_params).fetchall()
+                    ]
+                except sqlite3.OperationalError:
+                    # A legacy index remains searchable by vectors until its
+                    # normal refresh path applies the FTS migration.
+                    lexical_ids = []
     except sqlite3.OperationalError as e:
-        print(f"ERROR: index unavailable ({e}); run `tools/embeddings.py refresh`", file=sys.stderr)
+        print(
+            f"ERROR: index unavailable ({e}); run `tools/embeddings.py refresh`",
+            file=sys.stderr,
+        )
         return []
 
     if not rows:
@@ -242,16 +282,29 @@ def _search_sqlite(
     scores = vecs @ qvec
     # Collapse multiple chunks from the same file to the single best-scoring
     # one and spend the freed budget on the next distinct file, so k results
-    # cover k files instead of near-duplicate chunks. Scores are sorted
-    # descending, so the first chunk seen per path is its best.
+    # cover k files instead of near-duplicate chunks. RRF order makes the
+    # first chunk seen per path its best fused lexical+vector match.
+    vector_order = [int(i) for i in np.argsort(-scores)]
+    row_index_by_id = {row[0]: i for i, row in enumerate(rows)}
+    lexical_order = [
+        row_index_by_id[row_id] for row_id in lexical_ids if row_id in row_index_by_id
+    ]
+    fused_scores: dict[int, float] = {}
+    for ranking in (vector_order, lexical_order):
+        for rank, row_index in enumerate(ranking, start=1):
+            fused_scores[row_index] = fused_scores.get(row_index, 0.0) + 1.0 / (
+                RRF_K + rank
+            )
+    fused_order = sorted(fused_scores, key=lambda row_index: -fused_scores[row_index])
+
     results: list[dict] = []
     seen_paths: set[str] = set()
     # Unit vectors of already-selected hits, for cross-file dedup below.
     selected_units: list[np.ndarray] = []
     dedup_sim = search_config.SEARCH_DEDUP_SIM
-    for i in np.argsort(-scores):
+    for i in fused_order:
         if min_score is not None and scores[i] < min_score:
-            break
+            continue
         path = rows[i][2]
         if path in seen_paths:
             continue
@@ -266,13 +319,15 @@ def _search_sqlite(
                 continue
         seen_paths.add(path)
         selected_units.append(cand_unit)
-        results.append({
-            "score": float(scores[i]),
-            "source_type": rows[i][1],
-            "source_path": path,
-            "source_key": rows[i][3],
-            "text": rows[i][4],
-        })
+        results.append(
+            {
+                "score": float(scores[i]),
+                "source_type": rows[i][1],
+                "source_path": path,
+                "source_key": rows[i][3],
+                "text": rows[i][4],
+            }
+        )
         if len(results) >= k:
             break
     return results
@@ -517,8 +572,7 @@ def _write_last_search_ranges(results: list[dict]) -> None:
     try:
         sd = active_state_dir()
         sd.mkdir(parents=True, exist_ok=True)
-        (sd / "last-search.json").write_text(
-            json.dumps(ranges), encoding="utf-8")
+        (sd / "last-search.json").write_text(json.dumps(ranges), encoding="utf-8")
     except OSError:
         pass
 
@@ -551,14 +605,26 @@ def main() -> int:
     # Default k=3 keeps lookups under ~300 tokens for the common case;
     # the long tail (rank 4+) is rarely informative. Pass -k 5/8 explicitly
     # for broad-research queries where you want the wider funnel.
-    ap.add_argument("-k", type=int, default=None,
-                    help="Number of chunks to return "
-                         "(default: Codex 2, else AGENT_MODEL profile, else 3)")
-    ap.add_argument("--snippet-chars", type=int, default=None,
-                    help="Characters to print per hit (default: Codex 400, else 600)")
+    ap.add_argument(
+        "-k",
+        type=int,
+        default=None,
+        help="Number of chunks to return "
+        "(default: Codex 2, else AGENT_MODEL profile, else 3)",
+    )
+    ap.add_argument(
+        "--snippet-chars",
+        type=int,
+        default=None,
+        help="Characters to print per hit (default: Codex 400, else 600)",
+    )
     ap.add_argument("--source-type", choices=_source_type_choices())
-    ap.add_argument("--min-score", type=float, default=None,
-                    help="Drop results with cosine score below this floor")
+    ap.add_argument(
+        "--min-score",
+        type=float,
+        default=None,
+        help="Drop results with cosine score below this floor",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -575,8 +641,9 @@ def main() -> int:
     k = _resolve_k(args.k, prof)
     snippet_chars = _resolve_snippet_chars(args.snippet_chars)
     try:
-        results = search(args.query, k=k, source_type=args.source_type,
-                         min_score=args.min_score)
+        results = search(
+            args.query, k=k, source_type=args.source_type, min_score=args.min_score
+        )
     except SearchBackendError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -592,7 +659,9 @@ def main() -> int:
     # Warn if returned chunks would consume a large fraction of the
     # configured model's window.
     if prof and results:
-        approx_tokens = int(sum(len(r["text"]) for r in results) / search_config.CHARS_PER_TOKEN)
+        approx_tokens = int(
+            sum(len(r["text"]) for r in results) / search_config.CHARS_PER_TOKEN
+        )
         window = prof.get("context_window", 0)
         if window and approx_tokens > window // 4:
             print(
@@ -611,16 +680,18 @@ def main() -> int:
                 full_file_chars += (BASE / fp).stat().st_size
             except OSError:
                 pass
-        _log_savings({
-            "strategy": STRATEGY_SEARCH,
-            "basis": "upper_bound",
-            "kept_chars": chunk_chars,
-            "elided_chars": max(0, full_file_chars - chunk_chars),
-            "content_kind": "search_result",
-            "where": args.query,
-            "session_id": sid,
-            "session_source": ssrc,
-        })
+        _log_savings(
+            {
+                "strategy": STRATEGY_SEARCH,
+                "basis": "upper_bound",
+                "kept_chars": chunk_chars,
+                "elided_chars": max(0, full_file_chars - chunk_chars),
+                "content_kind": "search_result",
+                "where": args.query,
+                "session_id": sid,
+                "session_source": ssrc,
+            }
+        )
 
     _write_last_search_ranges(results)
 
@@ -629,12 +700,16 @@ def main() -> int:
         return 0
     if not results:
         if _backend_name() == "sqlite":
-            print("(no results — index may be empty; run `tools/embeddings.py refresh`)")
+            print(
+                "(no results — index may be empty; run `tools/embeddings.py refresh`)"
+            )
         else:
             print("(no results)")
         return 0
     for r in results:
-        print(f"\n[{r['score']:.3f}] {r['source_path']}::{r['source_key']}  ({r['source_type']})")
+        print(
+            f"\n[{r['score']:.3f}] {r['source_path']}::{r['source_key']}  ({r['source_type']})"
+        )
         snippet = r["text"][:snippet_chars]
         print(snippet + ("…" if len(r["text"]) > snippet_chars else ""))
     return 0

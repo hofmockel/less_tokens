@@ -90,7 +90,7 @@ def _no_fastembed(monkeypatch):
 
 
 class TestMigrateInvalidatesV1:
-    def test_migrate_v1_to_v2_drops_documents(self, tmp_path, monkeypatch):
+    def test_migrate_v1_to_current_drops_documents(self, tmp_path, monkeypatch):
         dbp = tmp_path / "index.db"
         _make_v1_index(dbp)
         monkeypatch.setattr(_DB, "INDEX_DB", dbp)
@@ -98,23 +98,23 @@ class TestMigrateInvalidatesV1:
 
         assert _DB.migrate() == 0
 
-        assert _version(dbp) == 2
+        assert _version(dbp) == _DB.SCHEMA_VERSION
         assert _doc_count(dbp) == 0  # stale native-endian rows invalidated
 
-    def test_migrate_is_noop_once_at_v2(self, tmp_path, monkeypatch):
+    def test_migrate_is_noop_once_current(self, tmp_path, monkeypatch):
         dbp = tmp_path / "index.db"
         _make_v1_index(dbp)
         monkeypatch.setattr(_DB, "INDEX_DB", dbp)
-        _DB.migrate()  # v1 -> v2, clears the stale row
-        _insert_row(dbp)  # as if a fresh v2 refresh repopulated
+        _DB.migrate()  # v1 -> current, clears the stale row
+        _insert_row(dbp)  # as if a fresh refresh repopulated
 
-        assert _DB.migrate() == 0  # already v2 -> no-op
-        assert _version(dbp) == 2
-        assert _doc_count(dbp) == 1  # v2 row preserved, not re-dropped
+        assert _DB.migrate() == 0  # already current -> no-op
+        assert _version(dbp) == _DB.SCHEMA_VERSION
+        assert _doc_count(dbp) == 1  # current row preserved, not re-dropped
 
 
 class TestEnsureCurrentSchema:
-    def test_missing_db_initializes_at_v2(self, tmp_path, monkeypatch):
+    def test_missing_db_initializes_at_current_version(self, tmp_path, monkeypatch):
         dbp = tmp_path / "index.db"
         monkeypatch.setattr(_DB, "INDEX_DB", dbp)
         assert not dbp.exists()
@@ -122,7 +122,7 @@ class TestEnsureCurrentSchema:
         assert _DB.ensure_current_schema() == 0
 
         assert dbp.exists()
-        assert _version(dbp) == 2
+        assert _version(dbp) == _DB.SCHEMA_VERSION
         assert _doc_count(dbp) == 0
 
     def test_existing_v1_db_is_migrated(self, tmp_path, monkeypatch):
@@ -132,7 +132,7 @@ class TestEnsureCurrentSchema:
 
         assert _DB.ensure_current_schema() == 0
 
-        assert _version(dbp) == 2
+        assert _version(dbp) == _DB.SCHEMA_VERSION
         assert _doc_count(dbp) == 0
 
 
@@ -150,5 +150,5 @@ class TestRefreshAutoMigrates:
         _no_fastembed(monkeypatch)
 
         assert embeddings.refresh() == 0
-        assert _version(dbp) == 2
+        assert _version(dbp) == _DB.SCHEMA_VERSION
         assert _doc_count(dbp) == 0
