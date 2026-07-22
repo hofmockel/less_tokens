@@ -1,0 +1,14 @@
+{
+  "session_id": "session-0.144.6",
+  "turn_id": "turn-0.144.6",
+  "transcript_path": "/transcripts/session-0.144.6.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "mcp__filesystem__read_text_file",
+  "tool_input": {
+    "path": "src/example.py"
+  },
+  "tool_use_id": "exec-SANITIZED-3"
+}

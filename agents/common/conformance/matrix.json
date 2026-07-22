@@ -36,7 +36,16 @@
     "notes": "context-cache.py blocked a Read of a 120-line/3,809-byte file already served within the TTL window (WINDOW_SECONDS=300), citing a prior read ~3 minutes earlier. The blocked Read's full 3,809 bytes never reached the model. Caveat: the gate covers the Read/Grep tool surface, not raw shell `cat` -- a Bash fallback bypassed it in the same session, which is a real enforcement-boundary gap, not a false claim about this workload."
   },
   "repeated_read_search:codex:0.144.6": {
-    "status": "not_yet_measured"
+    "code_present": true,
+    "configured": true,
+    "event_fired": true,
+    "action_enforced": false,
+    "basis": "measured",
+    "model_visible_bytes_removed": 0,
+    "host_tokens": "unavailable",
+    "fixture": ".claude/tests/fixtures/conformance/repeated_read_search/codex/README.md",
+    "captured_at": "2026-07-22",
+    "notes": "context-cache.py genuinely blocks a repeated mcp__filesystem__read_text_file of the same unchanged file within the TTL window (PreToolUse allow -> PostToolUse record -> PreToolUse deny, real permissionDecision JSON, 1,142 bytes kept out) -- but a default Codex install ships no mcp__filesystem__ server, so Bash cat/head/tail/sed is the only read path a real session takes, and this hook's load_json_stdin never applies map_bash_read (unlike search-first.py/read-guard.py/grep-first-read.py/auto-slice.py/read-after-edit.py/continue-freshness.py), so a repeated Bash cat of the same file was not blocked either time it was tried. action_enforced is false because the mechanism only covers an optional surface a default install doesn't have, not the real default read path."
   },
   "noisy_command_output:claude:2026-07-21": {
     "code_present": true,

@@ -166,7 +166,7 @@ Every cell below is either a live-captured, agent+release-tagged workload measur
 | `noisy_command_output:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md](.claude/tests/fixtures/conformance/noisy_command_output/claude/README.md) |
 | `noisy_command_output:codex:0.144.6` | yes | no | yes | no | measured | [DECISIONS.md (CX28 entry)](DECISIONS.md (CX28 entry)) |
 | `repeated_read_search:claude:2026-07-21` | yes | yes | yes | yes | measured | [.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md](.claude/tests/fixtures/conformance/repeated_read_search/claude/README.md) |
-| `repeated_read_search:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
+| `repeated_read_search:codex:0.144.6` | yes | yes | yes | no | measured | [.claude/tests/fixtures/conformance/repeated_read_search/codex/README.md](.claude/tests/fixtures/conformance/repeated_read_search/codex/README.md) |
 | `edit_verification:claude:2026-07-21` | — | — | — | — | not_yet_measured | — |
 | `edit_verification:codex:0.144.6` | — | — | — | — | not_yet_measured | — |
 | `long_session_compaction:claude:2026-07-21` | yes | yes | yes | no | measured | [this session's own transcript](this session's own transcript) |
