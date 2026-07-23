@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, map_read_or_search, print_pre_tool_result
+from _codex_runtime import bootstrap, load_json_stdin, map_bash_read, map_read_or_search, print_pre_tool_result
 
 REPO = bootstrap()
 
@@ -24,7 +24,7 @@ except Exception:
 
 
 def main() -> int:
-    raw = load_json_stdin(map_read_or_search)
+    raw = load_json_stdin(map_read_or_search, map_bash_read)
     if not raw:
         return 0
     code, stdout, stderr = check_context_cache(
