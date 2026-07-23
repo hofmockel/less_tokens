@@ -19,7 +19,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
 | 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
 | 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
-| 11 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
 | 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
 | 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
 | 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
