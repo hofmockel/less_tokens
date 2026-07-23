@@ -16,10 +16,8 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
 | 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
 | 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
-| 11 | D1 | P2 | Ready | Add recovery guidance for common install/index failures | — |
 | 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
 | 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
 | 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
@@ -33,14 +31,9 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 
 
-
-- **IR1 — Audit the complete instruction chain, not only one root file** *(input / instruction pruning)* — `claudemd_audit.py` and `agentsmd_audit.py` currently default to a single root file; `--rules` only scans top-level `.claude/rules/*.md` and reports size, not whether a rule is unconditionally loaded. Current Claude behavior recursively discovers rules, loads rules without `paths:` at startup, lazy-loads path-scoped rules, and also loads the bounded `MEMORY.md` entrypoint; Codex concatenates the global and root-to-CWD `AGENTS.md`/override chain up to `project_doc_max_bytes`. Report the actual launch-time chain and distinguish fixed from on-demand tokens before suggesting moves. Acceptance: one command accepts agent + launch CWD, lists every instruction source in effective load order with per-file and total estimated tokens, recursively includes Claude rules and flags unscoped non-global candidates, includes Claude auto-memory's startup-loaded portion when discoverable without exposing its contents, models Codex override/fallback/max-byte rules, and has fixtures for nested/conditional/over-limit chains on both platforms. Any rewrite remains explicit opt-in.
-
 - **CP1 — Make compaction retention task-aware and test it on real traces** *(input / compaction quality)* — The compaction trigger currently emits a generic `/compact` reminder, while the budget control plane separately records active files, commands, decisions, tests, and open questions in `compact_summary`; the two paths are not connected. Claude supports `/compact <instructions>` and project compaction instructions, and Anthropic recommends tuning compaction prompts for recall before precision. Generate a bounded, task-specific preservation prompt from the existing snapshot rather than adding a permanent verbose instruction block. Acceptance: define a versioned trace/evaluation set with modified files, failing/passing tests, decisions, unresolved blockers, and discarded log noise; compare generic compaction with snapshot-guided compaction for critical-fact recall and summary tokens; wire the improved Claude nudge only if recall improves without exceeding the `session_summary` budget; keep Codex advisory-only unless CX20 establishes an invocation surface.
 
 - **PC1 — Measure prompt-cache health from native usage records** *(telemetry / cost and rate-limit efficiency)* — `stats.py` reports estimated tokens saved by less_tokens strategies but does not report the host's cache-read/cache-write usage. Prompt caching is prefix-sensitive: model or tool-set changes and unstable instruction prefixes can invalidate a long session's cache, making a small configuration change dominate cost and rate-limit pressure even when raw context size is unchanged. First determine which supported Claude and Codex transcript/event versions expose cache usage; do not infer hits from transcript size. Acceptance: parse versioned native fixtures when cache-read/write counters exist, report cache-read share and abrupt miss windows separately from token-savings totals, attach schema/source labels, and identify only evidence-backed correlations (for example a model/tool/config transition). Unsupported platforms/versions report `unavailable`, never zero; no cache-savings estimate is added without native counters.
-
-- **D1 — Add a troubleshooting section** *(documentation / recovery)* — Cover the common failures currently requiring source inspection: first-run model download failure, wrong venv path, empty or stale indexes, background refresh failures and `.claude/state/index-refresh.log`, and what an empty search result does to the search-first gate. Acceptance: each symptom has a check, likely cause, and recovery command.
 
 - **P4 — Generate installer flag docs from argparse metadata** *(prose-to-code / doc drift)* — `DOCUMENTATION.md:37-51` hand-lists optional flags while `install.py:1930-1996` is authoritative. Render an `<!-- installer-flags -->` block from parser metadata or a shared registry. Acceptance: every public flag is documented unless explicitly hidden and CI catches drift.
 
