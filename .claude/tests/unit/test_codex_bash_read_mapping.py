@@ -30,10 +30,24 @@ class TestParseBashRead:
             ("tail -n 20 src/app.py", "src/app.py", 1),
             ("sed -n '5,9p' src/app.py", "src/app.py", 5),
             ("sed -n '12p' src/app.py", "src/app.py", 12),
+            (
+                r"cat C:\Users\runneradmin\AppData\Local\Temp\app.py",
+                r"C:\Users\runneradmin\AppData\Local\Temp\app.py",
+                None,
+            ),
         ],
     )
     def test_recognizes_single_file_read_shapes(self, command, expected_path, expected_offset):
         assert _parse_bash_read(command) == (expected_path, expected_offset)
+
+    def test_windows_path_backslashes_survive_shlex_posix_mode(self):
+        """POSIX-mode shlex.split() treats backslash as an escape char and used to strip it, mangling Windows paths."""
+        command = r"cat C:\Users\runneradmin\AppData\Local\Temp\pytest-0\app.py"
+        result = _parse_bash_read(command)
+        assert result is not None
+        path, offset = result
+        assert path == r"C:\Users\runneradmin\AppData\Local\Temp\pytest-0\app.py"
+        assert offset is None
 
     @pytest.mark.parametrize(
         "command",
