@@ -7,7 +7,8 @@ from pathlib import Path
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
-from install import _INDEX_SCHEMA_VERSION, _index_db_at_current_schema
+from install import _INDEX_SCHEMA_VERSION, _index_db_at_current_schema  # noqa: E402
+from tools.db import SCHEMA_VERSION  # noqa: E402
 
 
 def _make_db(tmp_path: Path, version: int) -> Path:
@@ -23,6 +24,10 @@ def _make_db(tmp_path: Path, version: int) -> Path:
 def test_current_version_accepted(tmp_path):
     root = _make_db(tmp_path, _INDEX_SCHEMA_VERSION)
     assert _index_db_at_current_schema(root) is True
+
+
+def test_installer_schema_version_matches_database_schema():
+    assert _INDEX_SCHEMA_VERSION == SCHEMA_VERSION
 
 
 def test_v1_rejected(tmp_path):
