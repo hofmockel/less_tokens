@@ -234,7 +234,16 @@ def _parse_bash_read(command: str) -> tuple[str, int | None] | None:
     if _BASH_READ_METACHARS.search(command):
         return None
     try:
-        parts = shlex.split(command)
+        # shlex.split() runs in POSIX mode, where backslash is an escape
+        # character — it silently strips every backslash in a Windows path
+        # (C:\Users\...\app.py becomes C:Users...app.py), corrupting the
+        # argument before the cat/head/tail/sed branches below ever see it.
+        # Doubling backslashes first makes POSIX escape-decoding round-trip
+        # them back to single literal backslashes instead of consuming them.
+        # A command that legitimately used `\ ` to escape a space now splits
+        # into two args and falls through to the existing len(args)==1 bail
+        # below — the same fail-open behavior any unrecognized shape gets.
+        parts = shlex.split(command.replace("\\", "\\\\"))
     except ValueError:
         return None
     if not parts:
