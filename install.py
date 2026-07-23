@@ -255,7 +255,7 @@ def _write_text_or_degrade(path: Path, text: str, chmod: int | None = None) -> b
 _INSTALL_STATE_PATH = Path(".claude") / "state" / "install.json"
 
 # Must stay in sync with .claude/tools/db.py SCHEMA_VERSION.
-_INDEX_SCHEMA_VERSION = 2
+_INDEX_SCHEMA_VERSION = 3
 
 
 # ---------------------------------------------------------------------------

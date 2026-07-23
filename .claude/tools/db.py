@@ -5,6 +5,7 @@ Usage:
   python3 tools/db.py migrate  # apply any pending schema migrations
   python3 tools/db.py verify   # print row counts
 """
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +13,7 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
 
 def _find_base() -> Path:
     """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor."""
@@ -30,7 +32,7 @@ _schema_local = CLAUDE_DIR / "schema" / "index.sql"
 _schema_global = Path(__file__).resolve().parent.parent / "schema" / "index.sql"
 SCHEMA_FILE = _schema_local if _schema_local.exists() else _schema_global
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class _ClosingConn:
@@ -107,6 +109,9 @@ def migrate() -> int:
                 c.execute("DELETE FROM documents")
             except sqlite3.OperationalError:
                 pass  # no documents table yet — nothing to invalidate
+        if v < 3:
+            c.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+            c.execute("INSERT INTO documents_fts(documents_fts) VALUES ('rebuild')")
         # Future migrations: add more `if v < N:` blocks here, then bump
         # SCHEMA_VERSION and let the version row below record it.
         c.execute(
