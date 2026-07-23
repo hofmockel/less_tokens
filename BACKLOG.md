@@ -16,7 +16,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
 | 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
 | 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
 | 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
@@ -30,8 +29,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **CP1 — Make compaction retention task-aware and test it on real traces** *(input / compaction quality)* — The compaction trigger currently emits a generic `/compact` reminder, while the budget control plane separately records active files, commands, decisions, tests, and open questions in `compact_summary`; the two paths are not connected. Claude supports `/compact <instructions>` and project compaction instructions, and Anthropic recommends tuning compaction prompts for recall before precision. Generate a bounded, task-specific preservation prompt from the existing snapshot rather than adding a permanent verbose instruction block. Acceptance: define a versioned trace/evaluation set with modified files, failing/passing tests, decisions, unresolved blockers, and discarded log noise; compare generic compaction with snapshot-guided compaction for critical-fact recall and summary tokens; wire the improved Claude nudge only if recall improves without exceeding the `session_summary` budget; keep Codex advisory-only unless CX20 establishes an invocation surface.
 
 - **PC1 — Measure prompt-cache health from native usage records** *(telemetry / cost and rate-limit efficiency)* — `stats.py` reports estimated tokens saved by less_tokens strategies but does not report the host's cache-read/cache-write usage. Prompt caching is prefix-sensitive: model or tool-set changes and unstable instruction prefixes can invalidate a long session's cache, making a small configuration change dominate cost and rate-limit pressure even when raw context size is unchanged. First determine which supported Claude and Codex transcript/event versions expose cache usage; do not infer hits from transcript size. Acceptance: parse versioned native fixtures when cache-read/write counters exist, report cache-read share and abrupt miss windows separately from token-savings totals, attach schema/source labels, and identify only evidence-backed correlations (for example a model/tool/config transition). Unsupported platforms/versions report `unavailable`, never zero; no cache-savings estimate is added without native counters.
 
