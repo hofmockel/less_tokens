@@ -90,15 +90,14 @@ def test_claude_chain_nested_rules_dir_is_on_demand(tmp_path):
 def test_memory_summary_flags_over_limit(tmp_path):
     base = tmp_path / "repo"
     base.mkdir()
-    slug = str(base).replace("/", "-")
-    mem_dir = tmp_path / "home" / ".claude" / "projects" / slug / "memory"
-    mem_dir.mkdir(parents=True)
-    (mem_dir / "MEMORY.md").write_text("\n".join(f"- entry {i}" for i in range(250)),
-                                        encoding="utf-8")
-    (mem_dir / "topic.md").write_text("detail\n", encoding="utf-8")
-
     home = tmp_path / "home"
     with patch.object(Path, "home", return_value=home):
+        mem_dir = m._memory_dir_for(base)
+        mem_dir.mkdir(parents=True)
+        (mem_dir / "MEMORY.md").write_text("\n".join(f"- entry {i}" for i in range(250)),
+                                            encoding="utf-8")
+        (mem_dir / "topic.md").write_text("detail\n", encoding="utf-8")
+
         summary = m._memory_summary(base)
 
     assert summary["found"] is True

@@ -145,7 +145,13 @@ def _memory_dir_for(base: Path) -> Path:
     already visible on disk (path with '/' -> '-', leading '-' kept).
     ASSUMPTION: exact slug algorithm is not published; this matches observed
     directory names, not verified against Claude Code source."""
-    slug = str(base).replace("/", "-")
+    posix = base.as_posix()
+    if len(posix) >= 2 and posix[1] == ":":
+        # strip a Windows drive prefix (e.g. "C:") so the slug is always a
+        # plain relative-looking segment — a leading "C:" makes pathlib treat
+        # it as a new anchor and discard the joined-in Path.home() prefix
+        posix = posix[2:]
+    slug = posix.replace("/", "-")
     return Path.home() / ".claude" / "projects" / slug / "memory"
 
 
