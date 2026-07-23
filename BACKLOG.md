@@ -16,7 +16,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 8 | IR1 | P1 | Research | Audit the complete instruction chain and its always-loaded token tax | — |
 | 9 | CP1 | P1 | Research | Make compaction prompts preserve task-critical state and verify recall | — |
 | 10 | PC1 | P2 | Research | Measure prompt-cache health from native usage records | — |
 | 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
@@ -32,8 +31,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 
 
-
-- **IR1 — Audit the complete instruction chain, not only one root file** *(input / instruction pruning)* — `claudemd_audit.py` and `agentsmd_audit.py` currently default to a single root file; `--rules` only scans top-level `.claude/rules/*.md` and reports size, not whether a rule is unconditionally loaded. Current Claude behavior recursively discovers rules, loads rules without `paths:` at startup, lazy-loads path-scoped rules, and also loads the bounded `MEMORY.md` entrypoint; Codex concatenates the global and root-to-CWD `AGENTS.md`/override chain up to `project_doc_max_bytes`. Report the actual launch-time chain and distinguish fixed from on-demand tokens before suggesting moves. Acceptance: one command accepts agent + launch CWD, lists every instruction source in effective load order with per-file and total estimated tokens, recursively includes Claude rules and flags unscoped non-global candidates, includes Claude auto-memory's startup-loaded portion when discoverable without exposing its contents, models Codex override/fallback/max-byte rules, and has fixtures for nested/conditional/over-limit chains on both platforms. Any rewrite remains explicit opt-in.
 
 - **CP1 — Make compaction retention task-aware and test it on real traces** *(input / compaction quality)* — The compaction trigger currently emits a generic `/compact` reminder, while the budget control plane separately records active files, commands, decisions, tests, and open questions in `compact_summary`; the two paths are not connected. Claude supports `/compact <instructions>` and project compaction instructions, and Anthropic recommends tuning compaction prompts for recall before precision. Generate a bounded, task-specific preservation prompt from the existing snapshot rather than adding a permanent verbose instruction block. Acceptance: define a versioned trace/evaluation set with modified files, failing/passing tests, decisions, unresolved blockers, and discarded log noise; compare generic compaction with snapshot-guided compaction for critical-fact recall and summary tokens; wire the improved Claude nudge only if recall improves without exceeding the `session_summary` budget; keep Codex advisory-only unless CX20 establishes an invocation surface.
 
