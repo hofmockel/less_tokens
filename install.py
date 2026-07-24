@@ -2234,17 +2234,10 @@ def do_check(target_root: Path, args: argparse.Namespace) -> int:
 # Main
 # ---------------------------------------------------------------------------
 
-def main() -> int:
-    # Force UTF-8 console output. Status lines use non-ASCII glyphs (→ ~ ✓ ·);
-    # on Windows the default stdout/stderr codec is cp1252, which raises
-    # UnicodeEncodeError on those characters and aborts the install. reconfigure
-    # exists on 3.7+; guard for non-TextIOWrapper streams (pipes, captured output).
-    for _stream in (sys.stdout, sys.stderr):
-        try:
-            _stream.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
-            pass
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the installer's CLI parser. Split from main() so docs tooling
+    (installer_flags_docs.py) can import flag metadata without running an
+    install."""
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -2325,7 +2318,21 @@ def main() -> int:
                     help="remove a previous less_tokens deployment from the target")
     ap.add_argument("--purge-index", action="store_true",
                     help="with --uninstall, also delete index.db and its WAL sidecars")
-    args = ap.parse_args()
+    return ap
+
+
+def main() -> int:
+    # Force UTF-8 console output. Status lines use non-ASCII glyphs (→ ~ ✓ ·);
+    # on Windows the default stdout/stderr codec is cp1252, which raises
+    # UnicodeEncodeError on those characters and aborts the install. reconfigure
+    # exists on 3.7+; guard for non-TextIOWrapper streams (pipes, captured output).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+    args = build_arg_parser().parse_args()
     agents = selected_agents(args.agent)
 
     # Reset the module-level write-failure log: main() can be invoked more
