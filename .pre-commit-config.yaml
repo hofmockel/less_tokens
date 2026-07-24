@@ -52,3 +52,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: canonical-home-docs
+        name: root docs point to their canonical home, no duplicate sections
+        entry: python .claude/tools/claudemd_audit.py --docs --strict
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -4,14 +4,8 @@ Guidance for Claude Code in this repo. Architecture, internals, and the full ins
 
 ## Output style
 
-Use concise, direct prose. Avoid filler such as "certainly", "I'd be happy to", and "Great question". Do not add padding or a recap when the answer is already complete. Say what is needed, then stop.
+Terse, direct prose — no filler, no padding. Full spec: `.claude/rules/caveman.md`.
 
-Good: "File not found. Check path."
-Bad: "I apologize, but I was unable to locate the file you specified."
-
-Code blocks should stay idiomatic and readable. The full terse-output spec is in `.claude/rules/caveman.md`.
-
-_Moved to DOCUMENTATION.md → Project purpose._
 ## Test commands
 
 `.claude/.venv-tokens/bin/python .claude/tools/dev.py {unit|integration|all|single <nodeid>}`. Full install/verify walkthrough and CI matrix: `DOCUMENTATION.md`.

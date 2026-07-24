@@ -16,6 +16,7 @@ Usage:
   python .claude/tools/claudemd_audit.py [path] [--budget N] [--json] [--strict]
   python .claude/tools/claudemd_audit.py --rules [--rules-dir .claude/rules]
   python .claude/tools/claudemd_audit.py --skills [--word-cap N]
+  python .claude/tools/claudemd_audit.py --docs [--max-pointer-tokens N]
 """
 from __future__ import annotations
 
@@ -61,6 +62,26 @@ DUP_SIM = 0.80          # cosine above which a section is "already discoverable"
 DUP_MIN_TOKENS = 120    # don't bother flagging tiny sections as dup
 BIG_SECTION_TOKENS = 250  # size that warrants review when no dup data
 LONG_SENTENCE_WORDS = 40
+DOC_POINTER_MAX_TOKENS = 80  # non-canonical section over this must collapse to a pointer
+
+# One canonical home per cross-cutting root-doc topic; everywhere else in
+# `others` should reduce to a short pointer, not restate the content.
+CANONICAL_HOMES = [
+    {"topic": "Repo layout tree", "canonical": "DOCUMENTATION.md",
+     "others": ["README.md"]},
+    {"topic": "Install / config / usage / hook wiring", "canonical": "DOCUMENTATION.md",
+     "others": ["README.md"]},
+    {"topic": "Contributing", "canonical": "CONTRIBUTING.md",
+     "others": ["README.md", "DOCUMENTATION.md"]},
+    {"topic": "License", "canonical": "README.md",
+     "others": ["DOCUMENTATION.md"]},
+    {"topic": "Caveman / terse-output spec", "canonical": ".claude/rules/caveman.md",
+     "others": ["CLAUDE.md", "DOCUMENTATION.md"]},
+    {"topic": "Token-reduction strategy", "canonical": "DOCUMENTATION.md",
+     "others": ["BACKLOG.md"]},
+]
+
+_TOPIC_STOPWORDS = {"the", "and", "for", "spec"}
 
 FILLER = re.compile(
     r"\b(I apologize|I'm sorry|certainly|absolutely|I'd be (?:happy|glad) to|"
@@ -104,6 +125,16 @@ def parse_sections(text: str) -> list[dict]:
 
 def _strip_code(body: str) -> str:
     return re.sub(r"```.*?(?:```|\Z)", "", body, flags=re.DOTALL)
+
+
+def _topic_keywords(topic: str) -> list[str]:
+    words = re.findall(r"[a-z]{4,}", topic.lower())
+    return [w for w in words if w not in _TOPIC_STOPWORDS]
+
+
+def _matches_topic(title: str, keywords: list[str]) -> bool:
+    t = title.lower()
+    return any(k in t for k in keywords)
 
 
 
@@ -285,6 +316,64 @@ def audit_rules(rules_dir: Path, budget: int) -> dict:
         "dead_refs": [ref for a in audits for ref in a["dead_refs"]],
         "overflow_doc": RULES_OVERFLOW_DOC,
     }
+
+
+def audit_docs(base: Path, homes: list[dict] | None = None,
+                max_tokens: int | None = None) -> dict:
+    """Check root-doc CANONICAL_HOMES: each topic's canonical file must exist,
+    and any matching-heading section elsewhere must stay short (a pointer),
+    not restate the content."""
+    homes = homes if homes is not None else CANONICAL_HOMES
+    max_tokens = max_tokens if max_tokens is not None else DOC_POINTER_MAX_TOKENS
+    violations = []
+    for home in homes:
+        canonical = home["canonical"]
+        canon_exists = (base / canonical).exists()
+        keywords = _topic_keywords(home["topic"])
+        matched_any = False
+        for other in home["others"]:
+            other_path = base / other
+            if not other_path.exists():
+                continue
+            text = other_path.read_text(encoding="utf-8")
+            for sec in parse_sections(text):
+                if not sec["level"] or not _matches_topic(sec["title"], keywords):
+                    continue
+                matched_any = True
+                body = "\n".join(sec["body"].splitlines()[1:])
+                tokens = int(est_tokens(_strip_code(body)))
+                if not canon_exists:
+                    violations.append({
+                        "topic": home["topic"], "kind": "missing-canonical",
+                        "file": other, "line": sec["start"],
+                        "detail": f"canonical home {canonical} for '{home['topic']}' "
+                                  "does not exist yet",
+                    })
+                elif tokens > max_tokens:
+                    violations.append({
+                        "topic": home["topic"], "kind": "over-length",
+                        "file": other, "line": sec["start"],
+                        "detail": f"'{sec['title']}' is {tokens} tok (cap {max_tokens}); "
+                                  f"trim to a pointer, full content belongs in {canonical}",
+                    })
+        if not canon_exists and not matched_any:
+            violations.append({
+                "topic": home["topic"], "kind": "missing-canonical",
+                "file": canonical, "line": 0,
+                "detail": f"canonical home for '{home['topic']}' does not exist",
+            })
+    return {"homes": len(homes), "violations": violations}
+
+
+def render_docs(a: dict) -> str:
+    L = [f"canonical-home check: {a['homes']} topic(s)"]
+    if not a["violations"]:
+        L.append("all root-doc topics point to their canonical home")
+        return "\n".join(L)
+    L.append("")
+    for v in a["violations"]:
+        L.append(f"  {v['file']}:{v['line']}  [{v['kind']}] {v['topic']} — {v['detail']}")
+    return "\n".join(L)
 
 
 def parse_skill_desc(path: Path) -> dict:
@@ -475,11 +564,23 @@ def main() -> int:
     ap.add_argument("--skills-dir", default=str(BASE / SKILLS_DIR))
     ap.add_argument("--word-cap", type=int, default=None,
                     help="per-description word cap for --skills (default SKILL_DESC_WORD_CAP)")
+    ap.add_argument("--docs", action="store_true",
+                    help="check root docs against CANONICAL_HOMES (README/DOCUMENTATION/etc.)")
+    ap.add_argument("--max-pointer-tokens", type=int, default=None,
+                    help="token cap for a non-canonical doc section (default DOC_POINTER_MAX_TOKENS)")
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true",
                     help="exit 1 if over budget or dead refs found")
     args = ap.parse_args()
+
+    if args.docs:
+        cap = args.max_pointer_tokens if args.max_pointer_tokens is not None else DOC_POINTER_MAX_TOKENS
+        a = audit_docs(BASE, max_tokens=cap)
+        print(json.dumps(a, indent=2) if args.json else render_docs(a))
+        if args.strict and a["violations"]:
+            return 1
+        return 0
 
     if args.skills:
         skills_dir = Path(args.skills_dir)

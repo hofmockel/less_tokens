@@ -63,18 +63,13 @@ python .claude/tools/claudemd_audit.py --skills   # SKILL.md descriptions: word 
 
 ## Root-doc canonical homes
 
-Root docs overlap too — same topic copied across README, DOCUMENTATION.md, CONTRIBUTING.md, CLAUDE.md, `.claude/rules/*.md`. Each topic gets one canonical home; the rest reduce to a one-line pointer. When pruning or before a release, check these and fix drift:
+Root docs overlap too — same topic copied across README, DOCUMENTATION.md, CONTRIBUTING.md, CLAUDE.md, `.claude/rules/*.md`. Each topic gets one canonical home (`CANONICAL_HOMES` in `.claude/tools/claudemd_audit.py`); the rest reduce to a one-line pointer. Gate, not eyeball:
 
-| Topic | Canonical | Others point here |
-|---|---|---|
-| Repo layout tree | DOCUMENTATION.md → Repository layout | README |
-| Install / config / usage / hook wiring | DOCUMENTATION.md | README (teaser only) |
-| Contributing | CONTRIBUTING.md | README, DOCUMENTATION.md |
-| License | README + `LICENSE` | DOCUMENTATION.md |
-| Caveman / terse-output spec | `.claude/rules/caveman.md` | CLAUDE.md, DOCUMENTATION.md |
-| Token-reduction strategy | DOCUMENTATION.md | BACKLOG.md |
+```bash
+python .claude/tools/claudemd_audit.py --docs --strict
+```
 
-A topic duplicated across two root docs is a bookkeeping bug — collapse the non-canonical copy to a pointer.
+Flags a missing canonical file, or a non-canonical section over `DOC_POINTER_MAX_TOKENS` (default 80) that should collapse to a pointer, with `file:line`. Wired into `.pre-commit-config.yaml` and `.github/workflows/tests.yml` alongside the other doc-consistency gates. Add a topic by editing `CANONICAL_HOMES`, not this file.
 
 ## Config
 

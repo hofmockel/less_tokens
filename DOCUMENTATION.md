@@ -472,13 +472,7 @@ Token estimates use 4 chars ≈ 1 token. Search savings compare chunk text retur
 
 ### Terse output mode
 
-Append the terse-output rule to your `CLAUDE.md`:
-
-```bash
-cat .claude/rules/caveman.md >> CLAUDE.md
-```
-
-Full spec, including banned filler phrases and before/after examples: [.claude/rules/caveman.md](.claude/rules/caveman.md). The installer flag is still named `--caveman` for backward compatibility.
+`--caveman` (default on) wires this into `CLAUDE.md` at install. Full spec: [.claude/rules/caveman.md](.claude/rules/caveman.md).
 
 ---
 
@@ -627,7 +621,7 @@ less_tokens/
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. In short: fork, add a [BACKLOG.md](BACKLOG.md) entry, open a PR. Check [DECISIONS.md](DECISIONS.md) first — a proposal already rejected there needs new evidence, not a repeat pitch.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
