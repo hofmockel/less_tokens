@@ -8,6 +8,7 @@ savings magnitude — this module reports native counters, not estimates.
 from __future__ import annotations
 
 import json
+import sys
 
 from agents.common.cache_health import (
     claude_cache_read_share,
@@ -212,8 +213,6 @@ def test_compute_cache_health_unavailable_outside_version_window():
 def test_compute_cache_health_claude_end_to_end(tmp_path, monkeypatch):
     from pathlib import Path
 
-    import agents.common.cache_health as ch
-
     cwd = Path("/repo")
     home = tmp_path / "home"
     transcript_dir = home / "projects" / slugify_cwd(cwd)
@@ -224,7 +223,7 @@ def test_compute_cache_health_claude_end_to_end(tmp_path, monkeypatch):
             "input_tokens": 0, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 900,
         }},
     }])
-    monkeypatch.setattr(ch, "claude_transcript_path",
+    monkeypatch.setattr(sys.modules[compute_cache_health.__module__], "claude_transcript_path",
                          lambda c, sid, claude_home=None: transcript)
 
     result = compute_cache_health(
