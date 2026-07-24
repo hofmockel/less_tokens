@@ -17,7 +17,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
 | 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
 | 15 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
 | 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
@@ -27,8 +26,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **A1 — Split shared subagent guidance from platform mechanics** *(architecture / divergent prose)* — Claude and Codex skills duplicate the output contract, prompt shape, noisy-verification pattern, and large-source digest guidance; only their agent/tool mechanics differ. Factor the shared contract into one generated source while keeping explicit platform-specific rules. Acceptance: return-shape and "do not paste" edits happen once and both installed skills retain their divergent mechanics. Note: this is a docs-dedup item about existing subagent-usage *guidance text*, distinct from SA1/SA2/SA3/SA4/SA5's runtime hook work on the `Task` tool itself.
 
 - **P5 — Code the root-document canonical-home rules** *(meta / prose-to-code)* — The claudemd skill carries a hand-maintained topic-home table and asks agents to find duplicates manually. Move the mapping into structured config consumed by `claudemd_audit.py --docs` or a dedicated gate. Acceptance: the skill points to the gate and CI/release checks report non-canonical duplicate sections with file:line references.
 
