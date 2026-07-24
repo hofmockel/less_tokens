@@ -182,7 +182,7 @@ Agent reads the README, clones the repo, and runs the installer. No manual steps
 
 ## Contributing
 
-Fork, add an entry to [BACKLOG.md](BACKLOG.md), and open a PR. Code-changing PRs should also add an `[Unreleased]` entry to `CHANGELOG.md`.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
