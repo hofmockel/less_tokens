@@ -2330,6 +2330,9 @@ def main() -> int:
         try:
             _stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
+            # Best-effort only: some streams (e.g., redirected/captured) do not
+            # support reconfigure(), or may reject reconfiguration. Keep default
+            # encoding and continue.
             pass
 
     args = build_arg_parser().parse_args()
