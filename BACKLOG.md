@@ -17,7 +17,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
 | 15 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
 | 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
 | 17 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
@@ -26,8 +25,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **P5 — Code the root-document canonical-home rules** *(meta / prose-to-code)* — The claudemd skill carries a hand-maintained topic-home table and asks agents to find duplicates manually. Move the mapping into structured config consumed by `claudemd_audit.py --docs` or a dedicated gate. Acceptance: the skill points to the gate and CI/release checks report non-canonical duplicate sections with file:line references.
 
 - **D2 — Replace fragmented hook JSON with one merge-safe example** *(documentation / installability)* — `DOCUMENTATION.md:343-397` shows a base settings object followed by detached optional matcher fragments, leaving users to infer event placement and JSON merging. Generate or publish one valid, unified configuration and explain which file the installer owns. Acceptance: the example can be copied as valid JSON and includes the default hook set in correct event order.
 

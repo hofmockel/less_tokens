@@ -76,3 +76,6 @@ jobs:
 
       - name: Check conformance matrix documentation matches evidence store
         run: python .claude/tools/conformance_matrix.py --check
+
+      - name: Check root docs point to their canonical home
+        run: python .claude/tools/claudemd_audit.py --docs --strict
