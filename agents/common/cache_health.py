@@ -120,14 +120,19 @@ def find_codex_transcript(cwd: Path, *, codex_home: Path | None = None, max_days
     if not sessions_dir.is_dir():
         return None
     day_dirs = sorted(sessions_dir.glob("*/*/*"), reverse=True)[:max_days]
-    target = str(cwd)
     for day_dir in day_dirs:
         files = sorted(day_dir.glob("rollout-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
         for f in files:
             meta = _codex_session_meta(f)
             if meta is None:
                 continue
-            if meta.get("cwd") == target and meta.get("thread_source") != "subagent":
+            raw_cwd = meta.get("cwd")
+            if not isinstance(raw_cwd, str):
+                continue
+            # Compare as Path, not raw string: a stored cwd may use '/'
+            # while the local Path renders '\' (or vice versa) on Windows,
+            # where pathlib treats both separators as equivalent.
+            if Path(raw_cwd) == cwd and meta.get("thread_source") != "subagent":
                 return f
     return None
 
