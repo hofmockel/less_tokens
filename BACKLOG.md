@@ -10,7 +10,6 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 10 | PC1 | P2 | Ready | Report prompt-cache health from native usage records | — |
 
 ## Next
 
@@ -18,8 +17,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 12 | P4 | P2 | Ready | Generate installer flag docs from parser metadata | — |
-| 13 | A1 | P2 | Ready | Generate shared subagent guidance once | — |
 | 14 | P5 | P2 | Ready | Enforce canonical homes for root documentation | — |
 | 15 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
 | 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
@@ -29,12 +26,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **PC1 — Report prompt-cache health from native usage records** *(telemetry / cost and rate-limit efficiency)* — `stats.py` reports estimated tokens saved by less_tokens strategies but does not report the host's cache-read/cache-write usage. Prompt caching is prefix-sensitive: model or tool-set changes and unstable instruction prefixes can invalidate a long session's cache, making a small configuration change dominate cost and rate-limit pressure even when raw context size is unchanged. Version research is done — see `DECISIONS.md`'s PC1 entry: Claude Code's `usage` object (`cache_creation_input_tokens`, `cache_read_input_tokens`, plus a nested `cache_creation.{ephemeral_5m,ephemeral_1h}_input_tokens` breakdown) is stable across CLI 2.1.181–2.1.215; Codex's `token_count` event (`info.total_token_usage.{cached_input_tokens,cache_write_input_tokens}`) has `cached_input_tokens` across the whole 0.142.3–0.145.0-alpha.18 range but `cache_write_input_tokens` only from 0.145.0-alpha.18 (prerelease, outside CX26's verified window) — report it `unavailable`, not zero, below that. The two platforms also define `input_tokens` differently (Claude excludes cache entirely, Codex's is a total that includes it), so cache-read share needs a separate formula per platform, not one shared one. Acceptance: parse versioned native fixtures per the DECISIONS.md formulas, report cache-read share and abrupt miss windows separately from token-savings totals, attach schema/source labels, and identify only evidence-backed correlations (for example a model/tool/config transition). Unsupported platforms/versions report `unavailable`, never zero; no cache-savings estimate is added without native counters. Open design questions to resolve before implementing: how to locate *this session's* transcript file (Claude resolves via cwd→slug directory under `~/.claude/projects/`; Codex's `~/.codex/sessions/YYYY/MM/DD/` layout isn't cwd-organized at all and needs a `cwd`-field grep across rollout files), and the abrupt-miss-window detection rule (what drop in cache-read share, over what turn window, counts as a flagged miss rather than normal variance).
-
-- **P4 — Generate installer flag docs from argparse metadata** *(prose-to-code / doc drift)* — `DOCUMENTATION.md:37-51` hand-lists optional flags while `install.py:1930-1996` is authoritative. Render an `<!-- installer-flags -->` block from parser metadata or a shared registry. Acceptance: every public flag is documented unless explicitly hidden and CI catches drift.
-
-- **A1 — Split shared subagent guidance from platform mechanics** *(architecture / divergent prose)* — Claude and Codex skills duplicate the output contract, prompt shape, noisy-verification pattern, and large-source digest guidance; only their agent/tool mechanics differ. Factor the shared contract into one generated source while keeping explicit platform-specific rules. Acceptance: return-shape and "do not paste" edits happen once and both installed skills retain their divergent mechanics. Note: this is a docs-dedup item about existing subagent-usage *guidance text*, distinct from SA1/SA2/SA3/SA4/SA5's runtime hook work on the `Task` tool itself.
 
 - **P5 — Code the root-document canonical-home rules** *(meta / prose-to-code)* — The claudemd skill carries a hand-maintained topic-home table and asks agents to find duplicates manually. Move the mapping into structured config consumed by `claudemd_audit.py --docs` or a dedicated gate. Acceptance: the skill points to the gate and CI/release checks report non-canonical duplicate sections with file:line references.
 

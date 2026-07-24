@@ -32,6 +32,12 @@ except Exception:
     STATE_DIR = CLAUDE_DIR / "state"
     CHARS_PER_TOKEN = 4
 
+sys.path.insert(0, str(BASE))
+try:
+    from agents.common.cache_health import compute_cache_health
+except Exception:
+    compute_cache_health = None  # type: ignore[assignment]
+
 LOG_FILE = STATE_DIR / "savings.jsonl"
 REPORT_FILE = STATE_DIR / "savings-report.md"
 HTML_FILE = STATE_DIR / "savings.html"
@@ -259,6 +265,21 @@ def _current_session_id(records: list[dict]) -> str | None:
     return max(real, key=lambda r: r.get("ts", 0)).get("session_id")
 
 
+def _current_session_info(records: list[dict]) -> tuple[str | None, str | None]:
+    """``(session_id, session_source)`` of the same winning record as
+    ``_current_session_id`` — cache-health discovery needs the source too, to
+    know whether ``session_id`` is a native payload id (Claude: usable
+    directly to locate the transcript) or a hash/env/local fallback (not)."""
+    real = [
+        r for r in records
+        if r.get("session_id") and r.get("session_source") not in (None, "local")
+    ]
+    if not real:
+        return None, None
+    winner = max(real, key=lambda r: r.get("ts", 0))
+    return winner.get("session_id"), winner.get("session_source")
+
+
 def _session_subset(records: list[dict], session_id: str | None) -> list[dict]:
     """Records for the current (or given) session_id.
 
@@ -470,6 +491,8 @@ def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
         "",
         _token_footer(),
         "",
+        *_cache_health_lines(_cache_health_for_session(session_records)),
+        "",
         *_methodology_lines(),
     ]
     REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -557,6 +580,36 @@ def _html_block(heading: str, records: list[dict]) -> str:
     )
 
 
+def _cache_health_html(result: dict | None) -> str:
+    """HTML mirror of ``_cache_health_lines`` — same unavailable-not-zero rule."""
+    if result is None or not result["available"]:
+        reason = "import failed" if result is None else result["reason"]
+        return (
+            "<h2>Prompt-cache health</h2>\n"
+            f'<p class="note"><code>unavailable</code> — {_html.escape(reason)}</p>\n'
+        )
+    avg = result["cache_read_share_avg"]
+    avg_str = f"{avg:.1%}" if avg is not None else "n/a"
+    misses = result["abrupt_miss_windows"]
+    miss_items = "".join(
+        f"<li>turn {m['index']}: baseline {m['baseline']:.1%} → {m['share']:.1%}</li>"
+        for m in misses
+    )
+    miss_html = f"<ul>{miss_items}</ul>" if misses else "<p>none</p>"
+    write_note = ""
+    if result["agent"] == "codex" and not result.get("cache_write_available", True):
+        write_note = ('<p class="note"><code>cache_write_input_tokens</code>: '
+                       "<code>unavailable</code> below Codex 0.145.0</p>\n")
+    return (
+        "<h2>Prompt-cache health</h2>\n"
+        f'<p>Source: native <code>{_html.escape(result["agent"])}</code> transcript '
+        f'(<code>{_html.escape(result["source"])}</code>, {result["turns"]} turns)</p>\n'
+        f"<p>Cache-read share (session average): {avg_str}</p>\n"
+        f"<p>Abrupt-miss windows:</p>\n{miss_html}\n"
+        f"{write_note}"
+    )
+
+
 def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
     from datetime import datetime
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -577,6 +630,7 @@ def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
         "savings are shown in separate panels and never added together.</p>\n"
         f"{_html_block(session_label, session_records)}\n"
         f"{_html_block(all_label, all_records)}\n"
+        f"{_cache_health_html(_cache_health_for_session(session_records))}\n"
         f"<p class=\"footer\">{_html.escape(_token_footer().strip('_'))}</p>\n"
         "</body></html>\n"
     )
@@ -591,6 +645,69 @@ def _write_html_report(session_records: list[dict], all_records: list[dict]) -> 
 def _active_agent_name() -> str:
     agent = os.environ.get("LESS_TOKENS_AGENT", "").strip().lower()
     return agent if agent in {"claude", "codex"} else "claude"
+
+
+def _cli_version(agent: str) -> str | None:
+    """Output of ``claude --version`` / ``codex --version``, or None if the
+    binary isn't on PATH or doesn't respond within the timeout."""
+    binary = "claude" if agent == "claude" else "codex"
+    try:
+        proc = subprocess.run(
+            [binary, "--version"], capture_output=True, text=True, timeout=5, check=False,
+        )
+    except Exception:
+        return None
+    return (proc.stdout or proc.stderr or "").strip() or None
+
+
+def _cache_health_for_session(session_records: list[dict]) -> dict | None:
+    """PC1: native cache-read share for the current session, or None if the
+    parser module failed to import (never raises past this point)."""
+    if compute_cache_health is None:
+        return None
+    agent = _active_agent_name()
+    session_id, session_source = _current_session_info(session_records)
+    try:
+        return compute_cache_health(
+            agent=agent,
+            cwd=Path.cwd(),
+            session_id=session_id,
+            session_source=session_source,
+            cli_version=_cli_version(agent),
+        )
+    except Exception as e:
+        return {"available": False, "agent": agent, "reason": f"internal error: {e}"}
+
+
+def _cache_health_lines(result: dict | None) -> list[str]:
+    """Markdown section for the cache-health panel. Always renders something —
+    ``unavailable`` states are reported, never silently dropped or zeroed."""
+    lines = ["## Prompt-cache health", ""]
+    if result is None:
+        lines += ["_Cache-health module unavailable (import failed)._"]
+        return lines
+    if not result["available"]:
+        lines += [f"`unavailable` — {result['reason']}"]
+        return lines
+    avg = result["cache_read_share_avg"]
+    avg_str = f"{avg:.1%}" if avg is not None else "n/a"
+    lines += [
+        f"- Source: native `{result['agent']}` transcript "
+        f"(`{result['source']}`, {result['turns']} turns)",
+        f"- Cache-read share (session average): {avg_str}",
+    ]
+    misses = result["abrupt_miss_windows"]
+    if misses:
+        lines.append(f"- Abrupt-miss windows: {len(misses)}")
+        for m in misses:
+            lines.append(
+                f"  - turn {m['index']}: baseline {m['baseline']:.1%} → {m['share']:.1%}"
+            )
+    else:
+        lines.append("- Abrupt-miss windows: none")
+    if result["agent"] == "codex" and not result.get("cache_write_available", True):
+        lines.append("- `cache_write_input_tokens`: `unavailable` below Codex 0.145.0")
+    return lines
 
 
 def _fmt_mtime(path: Path) -> str:

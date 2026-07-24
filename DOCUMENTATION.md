@@ -34,34 +34,42 @@ Re-running after `git pull` performs a conservative install pass: existing files
 
 The installer copies tools and schema into `.claude/tools/` and `.claude/schema/`, deploys hooks into `.claude/hooks/`, installs `fastembed` and `numpy`, and initializes `.claude/index.db`.
 
-**Optional flags:**
+**Optional flags:** generated from `install.py`'s argparse metadata by `.claude/tools/installer_flags_docs.py` — every public flag is listed automatically, so this table cannot drift from the CLI. Regenerate with `python .claude/tools/installer_flags_docs.py`; CI fails via `--check` if it's stale.
+
+<!-- installer-flags: begin -->
 
 | Flag | Effect |
 |---|---|
-| `--target PATH` | Install into PATH instead of the parent of the clone (testing / scratch projects) |
-| `--yes` | Bypass the suspicious-target sanity check (fires when parent is `/` or `$HOME`) |
-| `--force` | Shorthand for `--force-hooks --force-tools --force-config` |
-| `--force-hooks` / `--force-tools` / `--force-config` | Overwrite the selected generated file class when it still matches a managed source |
-| `--overwrite-modified` | Permit a selected `--force*` option to overwrite locally modified managed files |
-| `--venv PATH` | Point to a venv not in a standard location |
-| `--create-venv` | Create `.claude/.venv-tokens` when no venv is detected |
-| `--skip-deps` | Skip `pip install` (dependencies already installed) |
-| `--no-build` | Defer the default initial index build and model download |
-| `--agent claude\|codex\|both` | Agent target: Claude Code (default), Codex, or both simultaneously |
-| `--codex-savings balanced\|aggressive` | Select the Codex-only savings profile; `balanced` is the default |
-| `--caveman` | Back-compatible; also copy `.claude/rules/` for terse output style |
-| `--truncate` | Back-compatible; truncation hook is wired by default |
-| `--compact` | Back-compatible; compaction trigger is wired by default |
-| `--no-caveman` / `--no-truncate` / `--no-compact` | Opt out of default savings hooks |
-| `--dry-run` | Preview the install without writing files |
-| `--allow-merge` | Allow existing non-less_tokens files in managed tool/schema directories |
-| `--local` | For Claude, write hook wiring to `.claude/settings.local.json` instead of project-shared settings |
-| `--no-gitignore` | Do not add the managed ignore block for generated index/state artifacts |
-| `--update` | Safely refresh generated hooks and tools without changing `search_config.py` or `index.db` |
-| `--self-refresh` | Advanced dogfood mode: refresh this clone's own generated install; implies `--update` |
-| `--check` | Verify an existing installation (see the Codex validation limitation below) |
-| `--uninstall` | Remove a previous deployment |
-| `--purge-index` | With `--uninstall`, also remove `index.db` and its WAL sidecars |
+| `--target PATH` | Install into PATH instead of the parent of this less_tokens clone |
+| `--yes` | Bypass the suspicious-target sanity check (parent == / or $HOME) |
+| `--force` | Shorthand for --force-hooks --force-tools --force-config |
+| `--force-hooks` | Overwrite .claude/hooks/ files that match the source |
+| `--force-tools` | Overwrite generated tool/schema files that match the source |
+| `--force-config` | Overwrite search_config.py if it matches the source |
+| `--overwrite-modified` | Also overwrite locally-modified files (requires a --force* flag) |
+| `--venv PATH` | Path to virtualenv (auto-detected if omitted) |
+| `--skip-deps` | Skip pip install step |
+| `--create-venv` | If no venv is detected, create .claude/.venv-tokens and continue (single-pass install instead of the create-then-rerun dance) |
+| `--no-build` | Skip the default initial index build (defer the ~130 MB model download) |
+| `--caveman` | Accepted for back-compat; also appends the caveman block to CLAUDE.md |
+| `--truncate` | Accepted for back-compat; truncation hook is wired by default |
+| `--compact` | Accepted for back-compat; compaction trigger is wired by default |
+| `--no-caveman` | Opt out of the terse-output hook (wired by default) |
+| `--no-truncate` | Opt out of the tool-output truncation hook (wired by default) |
+| `--no-compact` | Opt out of the compaction trigger hook (wired by default) |
+| `--dry-run` | Show exactly what would change without writing anything |
+| `--allow-merge` | Proceed even if .claude/tools/ or .claude/schema/ already contain non-less_tokens files |
+| `--local` | Wire hooks into .claude/settings.local.json (personal / untracked) instead of the project-shared .claude/settings.json. Note: Claude Code rewrites settings.local.json when auto-adding Bash permissions, which can clobber the hooks block |
+| `--no-gitignore` | Skip the default managed .gitignore block for generated artifacts (index.db, state dirs); useful if you commit them deliberately |
+| `--update` | Safe upgrade: re-copy hook and tool files (implies --force-hooks --force-tools --overwrite-modified) but never touch .claude/tools/search_config.py or index.db. Implies --no-build; incompatible with --force-config and --force. |
+| `--self-refresh` | Advanced/dogfooding: install less_tokens into its own source directory (target_root = SOURCE), refreshing this clone's own generated .claude/ and/or .codex/ layer against its checked-in manifest. Implies --update. This is the one explicit, named way to bypass the source-is-target guard; --target still cannot resolve inside SOURCE on its own. Incompatible with --target, --uninstall, and --check. |
+| `--agent claude|codex|both` | Agent(s) to install for: claude (default), codex, or both |
+| `--codex-savings balanced|aggressive` | Codex-only savings profile; aggressive tightens Codex caps and hooks |
+| `--check` | Verify a previous install: venv, fastembed, index, hooks, settings |
+| `--uninstall` | Remove a previous less_tokens deployment from the target |
+| `--purge-index` | With --uninstall, also delete index.db and its WAL sidecars |
+
+<!-- installer-flags: end -->
 
 ---
 
