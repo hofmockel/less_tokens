@@ -17,7 +17,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 15 | D2 | P2 | Ready | Publish one merge-safe hook configuration example | — |
 | 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
 | 17 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
 | 18 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
@@ -25,8 +24,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **D2 — Replace fragmented hook JSON with one merge-safe example** *(documentation / installability)* — `DOCUMENTATION.md:343-397` shows a base settings object followed by detached optional matcher fragments, leaving users to infer event placement and JSON merging. Generate or publish one valid, unified configuration and explain which file the installer owns. Acceptance: the example can be copied as valid JSON and includes the default hook set in correct event order.
 
 - **D3 — Explain search-window and exclusion configuration** *(documentation / precision)* — The configuration table names `EXCLUDED_DIR_NAMES`, `EXCLUDED_DIR_PREFIXES`, and the 300-second search window but does not explain their behavioral differences or where to tune `WINDOW_SECONDS`. Acceptance: examples distinguish name-based from prefix-based exclusions and show how the gate window is configured.
 

@@ -493,9 +493,11 @@ Use `Read` directly only when search returns no relevant chunks,
 when you need to edit a file, or when the index is unavailable.
 ```
 
-### 2. Add hooks to `.claude/settings.local.json`
+### 2. Add hooks to `.claude/settings.json`
 
-The installer writes `.claude/bin/python` as a venv-backed launcher, so hook commands do not depend on system Python packages.
+`install.py` owns and writes this file by default — it is project-shared and typically committed. Pass `--local` to target `.claude/settings.local.json` instead (personal/untracked); note Claude Code itself can rewrite `settings.local.json` when auto-adding Bash permissions, which can clobber a hand-edited hooks block. The installer writes `.claude/bin/python` as a venv-backed launcher, so hook commands do not depend on system Python packages.
+
+The block below is one valid, mergeable `settings.json` — copy it whole. It wires the two hooks that give the core strategy (`search-first` gates a `Read` on an unsearched file, `index-refresh` re-embeds after an `Edit`/`Write`) plus the three optional savings hooks, wired by default and opt-out via `--no-caveman`/`--no-truncate`/`--no-compact`. It is a minimal manual example, not the full default set install.py wires — see the compatibility table under [Codex support](#codex-support) for the complete list:
 
 ```json
 {
@@ -510,42 +512,39 @@ The installer writes `.claude/bin/python` as a venv-backed launcher, so hook com
       {
         "matcher": "Edit|Write",
         "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/index-refresh.py"}]
+      },
+      {
+        "matcher": "Bash|Read|WebFetch|Glob",
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/truncate-output.py"}]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/compact-trigger.py"}]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"}]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"}]
       }
     ]
   }
 }
 ```
 
-**Optional — terse-output nudge hook** (fires if Claude uses verbose filler):
+Event placement, in order:
 
-```json
-{
-  "matcher": ".*",
-  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/caveman-reminder.py"}]  // Stop event
-}
-```
-
-**Optional — tool output truncation hook** (caps oversized Bash/Read/WebFetch results). Add as another `PostToolUse` entry, **before** the terse-output entry if both are present:
-
-```json
-{
-  "matcher": "Bash|Read|WebFetch",
-  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/truncate-output.py"}]
-}
-```
-
-Tune the base ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). If `AGENT_MODEL` is set to a known Claude model in `model_profiles.py`, Claude scales this ceiling at hook import time: Haiku is tighter, standard Sonnet keeps the configured default, and Opus or 1M Sonnet get more room. Codex adapters do not use `AGENT_MODEL`; they use separate defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
-
-**Optional — conversation compaction trigger** (nudges `/compact` when session transcript grows large):
-
-```json
-{
-  "matcher": ".*",
-  "hooks": [{"type": "command", "command": ".claude/bin/python .claude/hooks/compact-trigger.py"}]
-}
-```
-
-Tune the base threshold in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). Claude scales this value with `AGENT_MODEL` when the model is known, using the same model-profile scale as truncation. The hook also has built-in hysteresis: once tripped, it only re-fires after the transcript grows by another 25%.
+- **`PreToolUse` / `Read`** — `search-first.py`, the core strategy.
+- **`PostToolUse` / `Edit|Write`** — `index-refresh.py`, the core strategy. Comes first in the array because it is not optional.
+- **`PostToolUse` / `Bash|Read|WebFetch|Glob`** *(optional — caps oversized tool results)* — `truncate-output.py`. Tune the base ceiling in `.claude/tools/search_config.py` via `MAX_TOOL_OUTPUT_CHARS` (default `4000`; set `0` to disable). If `AGENT_MODEL` is set to a known Claude model in `model_profiles.py`, Claude scales this ceiling at hook import time: Haiku is tighter, standard Sonnet keeps the configured default, and Opus or 1M Sonnet get more room. Codex adapters do not use `AGENT_MODEL`; they use separate defaults from `CODEX_MAX_TOOL_OUTPUT_CHARS` and `CODEX_MAX_FILESYSTEM_READ_CHARS`, with matching `LESS_TOKENS_CODEX_*` environment overrides.
+- **`PostToolUse` / `.*`** *(optional — nudges `/compact` when the session transcript grows large)* — `compact-trigger.py`. Listed after `truncate-output` in the array: both match `Bash`/`Read`/etc., and Claude Code runs same-event hooks in array order, so output is truncated before the transcript-size check sees it. Tune the base threshold in `.claude/tools/search_config.py` via `MAX_SESSION_CHARS` (default `500_000` ≈ 125k tokens; set `0` to disable). Claude scales this value with `AGENT_MODEL` when the model is known, using the same model-profile scale as truncation. The hook also has built-in hysteresis: once tripped, it only re-fires after the transcript grows by another 25%.
+- **`Stop` and `SubagentStop`, matcher `""`** *(optional — fires if Claude uses verbose filler)* — `caveman-reminder.py`. Wired on both events because a subagent's final turn fires `SubagentStop`, not `Stop`; the same script handles either.
 
 ### 3. Optional: session-start preflight
 
