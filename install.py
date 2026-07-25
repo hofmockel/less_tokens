@@ -965,6 +965,133 @@ def build_codex_hook_entries(
     )
 
 
+# ---------------------------------------------------------------------------
+# Native git pre-push hook — continue.md freshness (CN1)
+#
+# Unlike the Claude/Codex tool hooks above, this isn't wired through a JSON
+# settings file: it's a real .git/hooks/pre-push script, git's only extension
+# point for this event. There's no per-agent JSON list to append to, so we
+# manage a single marked block inside that one file instead, composing with
+# (never clobbering) any host-owned content already there.
+# ---------------------------------------------------------------------------
+
+_PP_START = "# >>> less_tokens (continue.md freshness) >>>"
+_PP_END = "# <<< less_tokens <<<"
+_PP_SCRIPT_NAME = "pre-push-continue-freshness.py"
+
+
+def _pre_push_script_rel(agents: set[str]) -> Path:
+    """Where pre-push-continue-freshness.py actually lands for this agent
+    selection — _install_specs only copies agents/common/hooks into
+    .claude/hooks/common (claude) and/or .less_tokens/hooks (codex), never
+    to a bare top-level agents/ path, so the dispatcher must match whichever
+    of those the install actually populated. Prefers claude's copy when both
+    are installed."""
+    if "claude" in agents:
+        return Path(".claude") / "hooks" / "common" / _PP_SCRIPT_NAME
+    return Path(".less_tokens") / "hooks" / _PP_SCRIPT_NAME
+
+
+def _git_hooks_dir(target_root: Path) -> Path | None:
+    """Resolve the effective git hooks dir — respects worktrees and a
+    configured core.hooksPath, unlike assuming a bare `.git/hooks`."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(target_root), "rev-parse", "--git-path", "hooks"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode != 0:
+        return None
+    path = Path(r.stdout.strip())
+    return path if path.is_absolute() else target_root / path
+
+
+def _pre_push_block(agents: set[str], target_root: Path) -> str:
+    py_command = launcher_cmd("claude" if "claude" in agents else "codex", target_root)
+    script = (target_root / _pre_push_script_rel(agents)).resolve().as_posix()
+    return "\n".join([
+        _PP_START,
+        f"{py_command} {shlex.quote(script)}",
+        "exit $?",
+        _PP_END,
+    ]) + "\n"
+
+
+def wire_pre_push_hook(agents: set[str], target_root: Path, dry_run: bool = False) -> int:
+    """Install/upgrade the native pre-push continue.md-freshness gate.
+
+    Returns 1 if a change was (or would be) made, 0 otherwise. No-op if
+    target_root isn't a git repo. A pre-existing pre-push hook without our
+    marker is host-owned — same "present, left untouched" treatment as
+    wire_statusline, except we append our block after it (git only runs one
+    pre-push script, so composing is the only way both fire) rather than
+    skipping entirely.
+    """
+    hooks_dir = _git_hooks_dir(target_root)
+    if hooks_dir is None:
+        return 0
+    hook_path = hooks_dir / "pre-push"
+    block = _pre_push_block(agents, target_root)
+    label = "pre-push hook"
+
+    if not hook_path.exists():
+        print(f"  {'+ (would wire)' if dry_run else '+'} {label} (continue.md freshness)")
+        if not dry_run:
+            _write_text_or_degrade(hook_path, "#!/bin/sh\n" + block, chmod=0o755)
+        return 1
+
+    existing = hook_path.read_text(encoding="utf-8", errors="replace")
+    if _PP_START in existing and _PP_END in existing:
+        start = existing.index(_PP_START)
+        end = existing.index(_PP_END) + len(_PP_END)
+        if existing[start:end] == block.rstrip("\n"):
+            print(f"  + {label}: continue.md freshness already wired")
+            return 0
+        new_content = existing[:start] + block.rstrip("\n") + existing[end:]
+        print(f"  {'+ (would update)' if dry_run else '~'} {label} (continue.md freshness block)")
+        if not dry_run:
+            _write_text_or_degrade(hook_path, new_content, chmod=0o755)
+        return 1
+
+    print(f"  · {label} present (host-owned) — appending continue.md freshness block")
+    new_content = existing.rstrip("\n") + "\n\n" + block
+    if not dry_run:
+        _write_text_or_degrade(hook_path, new_content, chmod=0o755)
+    return 1
+
+
+def unwire_pre_push_hook(target_root: Path, dry_run: bool) -> int:
+    """Strip our marked block from .git/hooks/pre-push. Returns count removed.
+
+    If our block was the only content, remove the file entirely rather than
+    leaving a stub `#!/bin/sh` behind.
+    """
+    hooks_dir = _git_hooks_dir(target_root)
+    if hooks_dir is None:
+        return 0
+    hook_path = hooks_dir / "pre-push"
+    if not hook_path.exists():
+        return 0
+    existing = hook_path.read_text(encoding="utf-8", errors="replace")
+    if _PP_START not in existing or _PP_END not in existing:
+        return 0
+    start = existing.index(_PP_START)
+    end = existing.index(_PP_END) + len(_PP_END)
+    remainder = (existing[:start] + existing[end:]).strip()
+    if not remainder or remainder == "#!/bin/sh":
+        print(f"  {'would remove' if dry_run else '-'} pre-push hook (continue.md freshness)")
+        if not dry_run:
+            hook_path.unlink()
+    else:
+        new_content = existing[:start].rstrip("\n") + "\n" + existing[end:].lstrip("\n")
+        print(f"  {'would update' if dry_run else '~'} pre-push hook (removed continue.md freshness block)")
+        if not dry_run:
+            _write_text_or_degrade(hook_path, new_content, chmod=0o755)
+    return 1
+
+
 def wire_settings(
     settings_path: Path,
     entries: list[tuple[str, str, str]],
@@ -1879,6 +2006,7 @@ def do_uninstall(target_root: Path, args: argparse.Namespace) -> int:
         unwire_settings(target_root / ".claude" / "settings.json", SOURCE, dry)
     if "codex" in agents:
         unwire_codex_hooks_json(target_root / ".codex" / "hooks.json", SOURCE, dry)
+    unwire_pre_push_hook(target_root, dry)
     _remove_gitignore_block(target_root / ".gitignore", dry)
     _remove_caveman_block(target_root / "CLAUDE.md", dry)
 
@@ -2663,6 +2791,12 @@ def main() -> int:
                   "AGENTS.md + skill installed")
         fragment = SOURCE / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
         handle_agents_md(fragment, target_root, dry_run=dry, profile=codex_savings_profile(args))
+
+    # Native pre-push hook (agent-agnostic — git invokes this regardless of
+    # which coding agent, or a human, runs the push).
+    if (target_root / ".git").exists():
+        print("  → .git/hooks/pre-push")
+        changes += wire_pre_push_hook(agents, target_root, dry_run=dry)
 
     # Keep generated artifacts out of the host git repo (opt-in via
     # --gitignore; otherwise just a one-time tip).

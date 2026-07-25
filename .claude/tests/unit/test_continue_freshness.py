@@ -4,7 +4,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from agents.common.hooks.continue_freshness import check_continue_freshness
+from agents.common.hooks.continue_freshness import (
+    check_continue_freshness,
+    check_continue_freshness_at_ref,
+)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -84,3 +87,55 @@ def test_non_handoff_and_unknown_hash_fail_open(tmp_path):
 
     assert check_continue_freshness(str(other), repo=repo) == (0, "", "")
     assert check_continue_freshness(str(handoff), repo=repo) == (0, "", "")
+
+
+def test_self_referential_one_commit_gap_is_not_stale(tmp_path):
+    """A commit that updates continue.md can't embed its own not-yet-existing
+    hash — recorded HEAD trails by exactly the commit doing the update. That
+    specific 1-commit gap must not be flagged as drift."""
+    repo, first = _repo(tmp_path)
+    handoff = _handoff(repo, first)
+    _git(repo, "add", "continue.md")
+    _git(repo, "commit", "-m", "add continue.md recording the prior HEAD")
+
+    assert check_continue_freshness(str(handoff), repo=repo) == (0, "", "")
+
+
+def test_unrelated_commit_after_self_referential_gap_is_still_stale(tmp_path):
+    repo, first = _repo(tmp_path)
+    handoff = _handoff(repo, first)
+    _git(repo, "add", "continue.md")
+    _git(repo, "commit", "-m", "add continue.md recording the prior HEAD")
+    _commit(repo, "unrelated work")
+
+    code, _, stderr = check_continue_freshness(str(handoff), repo=repo)
+
+    assert code == 2
+    assert "2 commit(s) stale" in stderr
+
+
+def test_check_at_ref_reads_committed_content_not_worktree(tmp_path):
+    repo, first = _repo(tmp_path)
+    _handoff(repo, first)
+    _git(repo, "add", "continue.md")
+    _git(repo, "commit", "-m", "commit continue.md")
+    committed_ref = _git(repo, "rev-parse", "HEAD")
+    # Dirty the worktree after the commit — check_continue_freshness_at_ref
+    # must not be fooled by uncommitted edits.
+    (repo / "continue.md").write_text("garbage, no hash marker here", encoding="utf-8")
+
+    assert check_continue_freshness_at_ref(repo, committed_ref) == (0, "", "")
+
+
+def test_check_at_ref_blocks_genuinely_stale_push(tmp_path):
+    repo, first = _repo(tmp_path)
+    _handoff(repo, first)
+    _git(repo, "add", "continue.md")
+    _git(repo, "commit", "-m", "commit continue.md")
+    _commit(repo, "unrelated work, now stale")
+    tip = _git(repo, "rev-parse", "HEAD")
+
+    code, _, stderr = check_continue_freshness_at_ref(repo, tip)
+
+    assert code == 2
+    assert "2 commit(s) stale" in stderr
