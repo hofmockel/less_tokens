@@ -1,0 +1,87 @@
+{
+  "chars_per_token_used": 4.0,
+  "total_events_in_file": 3271,
+  "events_skipped_non_savings": 7,
+  "events_unknown_strategy": {},
+  "distinct_sessions": 192,
+  "ts_min": 1781757197.780451,
+  "ts_max": 1784946141.444562,
+  "strategies": {
+    "context-cache-grep": {
+      "label": "Cached grep (repeat)",
+      "basis": "measured",
+      "events": 1,
+      "kept_chars": 0,
+      "elided_chars": 0,
+      "tokens_saved_estimate": 0,
+      "cross_session_variance": null
+    },
+    "context-cache-read": {
+      "label": "Cached read (repeat)",
+      "basis": "measured",
+      "events": 527,
+      "kept_chars": 0,
+      "elided_chars": 1048978,
+      "tokens_saved_estimate": 262244,
+      "cross_session_variance": {
+        "n_sessions": 39,
+        "mean_elided_chars_per_session": 26896.9,
+        "stdev_elided_chars_per_session": 35101.2,
+        "min_elided_chars_per_session": 0,
+        "max_elided_chars_per_session": 133618
+      }
+    },
+    "search": {
+      "label": "Search (vs full file)",
+      "basis": "upper_bound",
+      "events": 632,
+      "kept_chars": 1355304,
+      "elided_chars": 57473364,
+      "tokens_saved_estimate": 14368341,
+      "cross_session_variance": {
+        "n_sessions": 2,
+        "mean_elided_chars_per_session": 28736682,
+        "stdev_elided_chars_per_session": 40639805.4,
+        "min_elided_chars_per_session": 0,
+        "max_elided_chars_per_session": 57473364
+      }
+    },
+    "search-blocked": {
+      "label": "Search-first block",
+      "basis": "upper_bound",
+      "events": 359,
+      "kept_chars": 0,
+      "elided_chars": 6206817,
+      "tokens_saved_estimate": 1551704,
+      "cross_session_variance": {
+        "n_sessions": 104,
+        "mean_elided_chars_per_session": 59680.9,
+        "stdev_elided_chars_per_session": 97852.1,
+        "min_elided_chars_per_session": 0,
+        "max_elided_chars_per_session": 448799
+      }
+    },
+    "truncation": {
+      "label": "Truncation",
+      "basis": "measured",
+      "events": 1745,
+      "kept_chars": 8778563,
+      "elided_chars": 9980493,
+      "tokens_saved_estimate": 2495123,
+      "cross_session_variance": {
+        "n_sessions": 189,
+        "mean_elided_chars_per_session": 52806.8,
+        "stdev_elided_chars_per_session": 114048.5,
+        "min_elided_chars_per_session": 222,
+        "max_elided_chars_per_session": 1344338
+      }
+    }
+  },
+  "totals": {
+    "kept_chars": 10133867,
+    "elided_chars": 74709652,
+    "tokens_saved_estimate": 18677413
+  },
+  "source_file": "savings_ever_better.jsonl",
+  "source_sha256": "fd43257cf6f88b2f06a72eef95d3bee2fcb0f20ff9bf57733b54d35dbf7e5190"
+}
