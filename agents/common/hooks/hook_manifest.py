@@ -274,8 +274,8 @@ def build_codex_hook_entries(
 
 
 CODEX_HOOK_CONTRACT_MIN = (0, 142, 3)
-CODEX_HOOK_CONTRACT_MAX = (0, 144, 6)
-CODEX_HOOK_CONTRACT_RANGE = "0.142.3–0.144.6"
+CODEX_HOOK_CONTRACT_MAX = (0, 145, 0)
+CODEX_HOOK_CONTRACT_RANGE = "0.142.3–0.145.0"
 
 
 def parse_codex_version(output: str) -> tuple[int, int, int] | None:

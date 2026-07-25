@@ -141,9 +141,9 @@ def test_codex_hooks_preserve_unrelated_valid_metadata():
 
 
 def test_codex_hook_release_window_is_explicit():
-    assert CODEX_HOOK_CONTRACT_RANGE == "0.142.3–0.144.6"
+    assert CODEX_HOOK_CONTRACT_RANGE == "0.142.3–0.145.0"
     assert parse_codex_version("codex-cli 0.142.3") == (0, 142, 3)
     assert codex_hook_contract_supports((0, 142, 3))
-    assert codex_hook_contract_supports((0, 144, 6))
+    assert codex_hook_contract_supports((0, 145, 0))
     assert not codex_hook_contract_supports((0, 142, 2))
-    assert not codex_hook_contract_supports((0, 144, 7))
+    assert not codex_hook_contract_supports((0, 145, 1))

@@ -17,9 +17,6 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
-
-- **CX32 — Extend/verify the Codex hook-contract window past 0.144.6** *(research / platform compatibility)* — `install.py`'s verified window is `codex-cli 0.142.3–0.144.6` (CX26). This machine's installed Codex is now `0.145.0` — outside that window — and `install.py --target . --agent codex --dry-run` correctly refused to wire hooks against it rather than guessing (observed while capturing `repeated_read_search:codex` for HP1, which had to replay the `0.144.6` schema directly against the hook script instead of a real install). Follow CX26's method: obtain the `0.145.0` release-tagged schema, run live headless `codex exec` probes (`PreToolUse:Bash` deny/allow plus a non-`Bash` `apply_patch` probe) to confirm the inline event structure hasn't changed, and either widen the verified window to include `0.145.0` or document a breaking schema change and bump the window forward. Acceptance: same as CX26 — release-tagged schema plus live Bash and non-Bash probes on the new endpoint; `install.py`'s version check and `DECISIONS.md` updated to reflect the new verified range.
 
 ## Blocked / evidence collection
 
