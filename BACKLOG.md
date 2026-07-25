@@ -41,12 +41,9 @@ Do not implement these yet. Satisfy the unblock condition, then move the item in
 
 | ID | Priority | Why later |
 |---|:---:|---|
-| DX1 | P3 | Process improvement; no direct runtime saving |
 | D5 | P3 | Marketing aid after core documentation is reliable |
 | DX2 | P3 | Infrastructure cost only matters if perf variance becomes a problem |
 | SA6 | P3 | Speculative — contingent on harness/`Task`-tool internals outside less_tokens' control |
-
-- **DX1 — Add same-pattern propagation to the bugfix skill** *(process)* — After a bug fix, require a codebase-wide search for the root-cause construct and create backlog items for additional hits. Acceptance: `.claude/skills/bugfix/SKILL.md` contains the explicit search-and-record step.
 
 - **D5 — Create an animated before/after demo** *(documentation / adoption)* — Show a full read versus targeted search after the troubleshooting and configuration documentation is stable.
 
