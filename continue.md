@@ -24,6 +24,8 @@ changes. `BACKLOG.md`'s **Ready now** table is empty; next work comes from **Nex
   gained a `|Bash` alternative in `hook_manifest.py` that the generated site hadn't picked up —
   now regenerated and current. Full suite: `.claude/bin/python -m pytest .claude/tests` — 1247
   passed.
+- Refreshed this handoff (`93a546b`) — no code change, just closing the 1-commit staleness gap
+  left by D6's own commit landing after the previous handoff was written.
 
 ## Open work
 
@@ -43,4 +45,4 @@ Read `BACKLOG.md`'s **Next** table. If picking up **CN1**, resolve its open desi
 (hard-block push vs. warn-only) before implementing. Otherwise, push and open the PR.
 
 ---
-_Last updated at HEAD `781f42b` on 2026-07-24._
+_Last updated at HEAD `93a546b` on 2026-07-24._
