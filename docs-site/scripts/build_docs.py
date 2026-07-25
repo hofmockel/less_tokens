@@ -242,7 +242,7 @@ SLIDE_VISUALS: dict[str, tuple[str, tuple[str, ...]]] = {
     "agent-split": ("Shared strategy logic fans out to direct Claude hooks and Codex adapters.", ("HOOK_SPECS", "Claude Hooks", "Codex Adapters", "Shared Checks")),
     "hook-manifest": ("One manifest drives wiring, parity data, and generated docs.", ("Manifest", "Settings", "Parity JSON", "Docs")),
     "telemetry": ("Local event streams become aggregate reports without publishing raw state.", ("Savings Log", "Budget Events", "Reports", "Published Aggregates")),
-    "maintenance-skills": ("Repo-maintenance skills sit beside the token-control mission.", ("Bug Hunt", "Bugfix", "Continue", "Handoff")),
+    "maintenance-skills": ("Repo-maintenance skills sit beside the token-control mission.", ("Bug Hunt", "Bugfix", "Continue")),
     "data-slide": ("Evidence labels distinguish estimates, measured logs, and dogfood notes.", ("Chars / 4", "Measured", "External Dogfood", "Qualitative")),
     "drift-prevention": ("Generated docs and tests keep the HTML layer tied to source truth.", ("Registries", "Generated Data", "Link Checks", "CI")),
     "operations": ("The operator loop is install, verify, report, troubleshoot, update.", ("Install", "Verify", "Report", "Troubleshoot", "Update")),
@@ -567,7 +567,6 @@ def noun_project_gallery(page: str, *, compact: bool = False) -> str:
         "skill-bug-hunt": "Bug hunt",
         "skill-bugfix": "Bugfix",
         "skill-continue": "Continue",
-        "skill-handoff": "Handoff",
     }
     cards = []
     for anchor, role in roles.items():
@@ -1085,7 +1084,7 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
             ["less-tokens", "Primary token-discipline workflow: search before broad reads, use symbol lookup, keep agent returns compact.", repo_link(page, ".agents/skills/less-tokens/SKILL.md")],
             ["bug-hunt", "Maintenance workflow for structured repo bug rounds, severity scoring, stop rules, and round logs.", repo_link(page, "agents/common/bug-hunt-protocol.md")],
             ["bugfix", "Focused diagnosis, patching, and verification, followed by a repository-wide search for the same root-cause construct. Applicable sibling instances ship together. This is a maintenance safeguard, not a token-saving strategy.", repo_link(page, "agents/common/bugfix-protocol.md")],
-            ["continue", "Handoff workflow for preserving current state and next actions in continue.md. A native pre-push hook rejects stale handoffs even when the current session never re-read the file.", repo_link(page, ".claude/skills/continue/SKILL.md")],
+            ["continue", "Continue workflow for preserving current state and next actions in continue.md. A native pre-push hook rejects stale continue.md files even when the current session never re-read the file.", repo_link(page, ".claude/skills/continue/SKILL.md")],
         ]
         cards = ""
         for name, text, href in skill_rows:
@@ -1097,7 +1096,6 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
             ("Bug Hunt", "https://thenounproject.com/search/icons/?q=bug%20hunt"),
             ("Bug Fix", "https://thenounproject.com/search/icons/?q=bug%20fix"),
             ("Continue", "https://thenounproject.com/search/icons/?q=continue"),
-            ("Handoff", "https://thenounproject.com/search/icons/?q=handoff"),
         ]
         icon_items = "".join(f'<li><a href="{e(href)}">{e(label)}</a></li>' for label, href in icon_links)
         extra = f"""
