@@ -766,8 +766,7 @@ def test_write_config_divisor_rewrites_only_the_line(tmp_path):
 
 # ---------------------------------------------------------------------------
 # stats.audit_liveness — classification logic only, hand-built fixtures.
-# Per stats_plan.md: tests guard the measurement pipe, never assert a real
-# savings magnitude. These records are synthetic on purpose; audit_liveness
+# Tests guard the measurement pipe, never assert a real savings magnitude. These records are synthetic on purpose; audit_liveness
 # is a pure function over whatever records it's given, and a real audit run
 # (stats.py --audit-liveness) is a manual/periodic command, never a CI gate,
 # because CI has no accumulated production telemetry to check against.

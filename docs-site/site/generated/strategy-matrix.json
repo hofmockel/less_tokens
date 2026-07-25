@@ -68,7 +68,7 @@
     "how": "Claude Stop hook and Codex terse reminder reduce filler prose",
     "name": "Terse output mode",
     "registry_key": null,
-    "savings": "30\u201360% fewer output tokens (not telemetry-backed \u2014 no baseline to diff against)",
+    "savings": "not yet measured against a versioned workload (`verbose_final_response` in the [conformance matrix](#conformance-matrix))",
     "slug": "terse-output",
     "telemetry_label": "qualitative or v2 aggregate"
   },
@@ -84,7 +84,7 @@
     "how": "PostToolUse hook caps oversized Bash/Read/WebFetch/filesystem results",
     "name": "Tool output truncation",
     "registry_key": "truncation",
-    "savings": "40\u201380% fewer tool-output tokens",
+    "savings": "Claude: 80% of chars elided in one live-captured session ([`noisy_command_output:claude`](#conformance-matrix)); Codex: adapter exists but unwired, not enforced (same workload, `configured: false`)",
     "slug": "lean-output-truncation",
     "telemetry_label": "measured or estimated"
   },
@@ -98,7 +98,7 @@
     "how": "PostToolUse hook nudges `/compact` (Claude) or a fresh/compacted session (Codex) when session transcript grows large",
     "name": "Compaction trigger",
     "registry_key": "compaction",
-    "savings": "50\u201370% fewer input tokens on long sessions",
+    "savings": "advisory only, not measured savings \u2014 Claude hook fires a nudge with no post-compaction size check; a bounded Codex probe measured 19,533\u21926,588 tokens on a synthetic thread via an experimental app-server method the installed hook can't invoke ([`long_session_compaction`](#conformance-matrix))",
     "slug": "compaction",
     "telemetry_label": "measured or estimated"
   },

@@ -162,8 +162,8 @@ def audit_liveness(records: list[dict], *, now: float | None = None, window_days
     Returns one row per _KNOWN_STRATEGIES entry: whether it has fired within
     `window_days`, how long since its last event (or never), and a verdict.
     Pure function over `records` — callers pass real `_load_all()` output for
-    a real audit, or a hand-built fixture in tests (see stats_plan.md: tests
-    cover classification logic, never assert a real savings magnitude).
+    a real audit, or a hand-built fixture in tests (tests cover classification
+    logic, never assert a real savings magnitude).
     """
     now = time.time() if now is None else now
     last_ts: dict[str, float] = {}

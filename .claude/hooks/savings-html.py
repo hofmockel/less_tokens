@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Stop hook: regenerate state/savings.html so the page is always current.
 
-Phase 4 of the stats framework rewrite (stats_plan.md). Runs after every turn,
-reads the local savings log, and rewrites the self-contained HTML report. Fully
+Runs after every turn, reads the local savings log, and rewrites the
+self-contained HTML report. Fully
 failure-safe and silent: any error (no log yet, import failure, write error)
 returns 0 so it never blocks the turn or nags the transcript.
 """

@@ -1020,7 +1020,7 @@ def wire_statusline(settings_path: Path, command: str, dry_run: bool = False) ->
     """Set the savings statusLine, but never clobber a host's existing one.
 
     Returns 1 if it wrote our statusLine, 0 if left untouched (already ours, or
-    a different statusLine the user owns). Phase 5 surfacing (stats_plan.md).
+    a different statusLine the user owns).
     """
     if settings_path.exists():
         try:
