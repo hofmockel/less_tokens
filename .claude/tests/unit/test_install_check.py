@@ -315,7 +315,7 @@ class TestDoCheckHooks:
 
 def test_codex_release_validation_fails_outside_verified_range(capsys):
     with patch("install.detect_codex_releases") as detect:
-        detect.return_value = [(Path("/tmp/codex"), (0, 144, 7))]
+        detect.return_value = [(Path("/tmp/codex"), (0, 145, 1))]
         assert not validate_codex_hook_releases()
     assert "outside the verified hook contract range" in capsys.readouterr().err
 
