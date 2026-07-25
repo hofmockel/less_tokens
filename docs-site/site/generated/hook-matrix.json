@@ -44,7 +44,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "search-first.py",
@@ -66,7 +66,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "read-guard.py",
@@ -88,7 +88,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "auto-slice.py",
@@ -110,7 +110,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "grep-first-read.py",
@@ -132,7 +132,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "read-after-edit.py",
@@ -154,7 +154,7 @@
     "codex": [
       {
         "event": "PreToolUse",
-        "matcher": "mcp__filesystem__.*"
+        "matcher": "mcp__filesystem__.*|Bash"
       }
     ],
     "codex_script": "continue-freshness.py",
@@ -317,18 +317,13 @@
       }
     ],
     "claude_script": "truncate-output.py",
-    "codex": [
-      {
-        "event": "PostToolUse",
-        "matcher": "Bash|mcp__filesystem__.*"
-      }
-    ],
-    "codex_script": "truncate-output.py",
+    "codex": [],
+    "codex_script": null,
     "name": "truncate-output",
     "optional_flag": "truncate",
     "parity": {
       "claude": "shipped",
-      "codex": "shipped",
+      "codex": "missing",
       "optional": true
     }
   },
@@ -381,8 +376,12 @@
     "claude_script": "compact-trigger.py",
     "codex": [
       {
-        "event": "PostToolUse",
-        "matcher": ".*"
+        "event": "PreCompact",
+        "matcher": "manual|auto"
+      },
+      {
+        "event": "PostCompact",
+        "matcher": "manual|auto"
       }
     ],
     "codex_script": "compact-trigger.py",
@@ -392,6 +391,52 @@
       "claude": "shipped",
       "codex": "shipped",
       "optional": true
+    }
+  },
+  {
+    "claude": [],
+    "claude_script": null,
+    "codex": [
+      {
+        "event": "SubagentStart",
+        "matcher": ""
+      }
+    ],
+    "codex_script": "subagent-guidance.py",
+    "name": "subagent-guidance",
+    "optional_flag": null,
+    "parity": {
+      "claude": "missing",
+      "codex": "shipped"
+    }
+  },
+  {
+    "claude": [],
+    "claude_script": null,
+    "codex": [
+      {
+        "event": "PreToolUse",
+        "matcher": "^Agent$"
+      },
+      {
+        "event": "PostToolUse",
+        "matcher": "^Agent$"
+      },
+      {
+        "event": "SubagentStart",
+        "matcher": ""
+      },
+      {
+        "event": "SubagentStop",
+        "matcher": ""
+      }
+    ],
+    "codex_script": "subagent-metrics.py",
+    "name": "subagent-metrics",
+    "optional_flag": null,
+    "parity": {
+      "claude": "missing",
+      "codex": "shipped"
     }
   },
   {
@@ -408,8 +453,12 @@
     "claude_script": "caveman-reminder.py",
     "codex": [
       {
-        "event": "PostToolUse",
-        "matcher": ".*"
+        "event": "Stop",
+        "matcher": ""
+      },
+      {
+        "event": "SubagentStop",
+        "matcher": ""
       }
     ],
     "codex_script": "terse-reminder.py",
@@ -435,8 +484,12 @@
     "claude_script": "savings-html.py",
     "codex": [
       {
-        "event": "PostToolUse",
-        "matcher": ".*"
+        "event": "Stop",
+        "matcher": ""
+      },
+      {
+        "event": "SubagentStop",
+        "matcher": ""
       }
     ],
     "codex_script": "savings-html.py",

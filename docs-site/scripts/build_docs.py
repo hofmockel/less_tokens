@@ -1117,7 +1117,7 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
     return layout(page, title, f"""
     <section class="page-title"><h1>{e(title)}</h1><p>{e(summary)}</p></section>
     <section>{extra}</section>
-    {source_box(page, [("Install script", "install.py"), ("Hook manifest", "agents/common/hooks/hook_manifest.py"), ("Budget package", "agents/common/budget/policy.py"), ("Documentation plan", "HTML_DOCUMENTATION_PLAN.md")])}
+    {source_box(page, [("Install script", "install.py"), ("Hook manifest", "agents/common/hooks/hook_manifest.py"), ("Budget package", "agents/common/budget/policy.py")])}
     """)
 
 

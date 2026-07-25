@@ -17,19 +17,9 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
-| 17 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
-| 18 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
 | 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
-
-
-- **D3 — Explain search-window and exclusion configuration** *(documentation / precision)* — The configuration table names `EXCLUDED_DIR_NAMES`, `EXCLUDED_DIR_PREFIXES`, and the 300-second search window but does not explain their behavioral differences or where to tune `WINDOW_SECONDS`. Acceptance: examples distinguish name-based from prefix-based exclusions and show how the gate window is configured.
-
-- **D4 — Publish reproducible token-savings benchmarks** *(evidence / documentation)* — Measure the shipped strategies on a representative real codebase, including method, workload, baseline, variance, and agent/platform limits. Acceptance: another maintainer can rerun the benchmark and reproduce the report within stated tolerance; unverified savings claims are labeled as estimates.
-
-- **D6 — Delete each root `*plan.md` once its content is fully implemented** *(hygiene / doc lifecycle)* — Root planning docs (`stats_plan.md`, `HTML_DOCUMENTATION_PLAN.md`) are working documents, not canon — once everything they describe has shipped, a stale copy left in the repo root is dead weight competing with `CHANGELOG.md`/`DOCUMENTATION.md` as a source of truth. Audit each existing `*plan.md` against current `CHANGELOG.md`/`DECISIONS.md` and the shipped code; delete (`git rm`) any plan whose described work is fully implemented, first extracting any still-open item into its own `BACKLOG.md` row so no undone work is silently lost. Apply the same check whenever a future `*plan.md` is added. Acceptance: `stats_plan.md` and `HTML_DOCUMENTATION_PLAN.md` are each either deleted with their remaining open items captured as new backlog rows, or left in place with the specific unimplemented section cited as the reason.
 
 
 - **CN1 — Enforce continue.md freshness at `git push`, not just at Read time** *(process / handoff)* — `continue_freshness.py` (`agents/common/hooks/continue_freshness.py`) only blocks a stale `continue.md` when an agent tool-reads the file (`PreToolUse:Read` in Claude/Codex); a session that never re-reads `continue.md` mid-work can commit and push without ever regenerating or being warned about a stale handoff — the doc silently drifts until the next session happens to read it. Add a native `pre-push` git hook, installed by `install.py` alongside the existing agent-tool hooks — no native git hook exists in this toolkit today, so this is a new installation surface, not an extension of `hook_manifest.py`. Reuse `check_continue_freshness`'s hash-distance logic against the pushed ref's HEAD. Acceptance: pushing with a `continue.md` more than N commits stale fails with a clear message pointing at the `/continue` skill; pushing with a fresh (or absent) `continue.md` proceeds unaffected; the hook survives reinstall/upgrade through the same `install.py` path as other hooks. Open design question to resolve before implementing: hard-block the push or only warn, and whether "update" means auto-regenerating `continue.md`'s content (needs an LLM call, not doable in a bare shell git hook) versus only gating on staleness like the existing Read-time check.

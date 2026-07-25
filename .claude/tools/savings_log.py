@@ -10,9 +10,9 @@ outside ``search_config.py`` on purpose, so the default mental model stays
 "local telemetry is on".
 
 Records store **exact characters** (the free, deterministic truth) under the
-schema documented in ``stats_plan.md``: ``basis``/``kept_chars``/``elided_chars``
-/``content_kind``/``where``/``session_id``/``session_source`` plus an optional
-``correlation_id``. Tokens are never stored — they are derived at report time.
+schema: ``basis``/``kept_chars``/``elided_chars``/``content_kind``/``where``/
+``session_id``/``session_source`` plus an optional ``correlation_id``. Tokens
+are never stored — they are derived at report time.
 """
 from __future__ import annotations
 

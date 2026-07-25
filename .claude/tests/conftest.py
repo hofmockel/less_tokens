@@ -61,7 +61,7 @@ def load_hook(hook_path: Path):
 # savings.jsonl is deliberately excluded here: test_hooks_protocol.py
 # intentionally runs real hooks (truncate-output.py etc.) against the real repo
 # without isolation, same accepted pattern as its compact-trigger-last handling,
-# and "always on" savings tracking (stats_plan.md) means that's real, correctly
+# and "always on" savings tracking means that's real, correctly
 # recorded behavior, not a leak — flagging it here would be a false positive.
 _WATCHED_TELEMETRY_LOGS = [
     REPO_ROOT / ".less_tokens" / "state" / "events.jsonl",
