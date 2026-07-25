@@ -17,15 +17,12 @@ Research items are bounded spikes: implementation is preferred, but a verified p
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 16 | D3 | P2 | Ready | Explain search-window and exclusion configuration | — |
 | 17 | D4 | P2 | Ready | Publish reproducible real-codebase savings benchmarks | — |
 | 18 | D6 | P2 | Ready | Delete each root `*plan.md` once its content is fully implemented | — |
 | 20 | CN1 | P2 | Ready | Enforce continue.md freshness at git push, not just at Read time | — |
 | 22 | CX32 | P2 | Research | Extend/verify the Codex hook-contract window past 0.144.6 (installed release has moved to 0.145.0) | — |
 
 
-
-- **D3 — Explain search-window and exclusion configuration** *(documentation / precision)* — The configuration table names `EXCLUDED_DIR_NAMES`, `EXCLUDED_DIR_PREFIXES`, and the 300-second search window but does not explain their behavioral differences or where to tune `WINDOW_SECONDS`. Acceptance: examples distinguish name-based from prefix-based exclusions and show how the gate window is configured.
 
 - **D4 — Publish reproducible token-savings benchmarks** *(evidence / documentation)* — Measure the shipped strategies on a representative real codebase, including method, workload, baseline, variance, and agent/platform limits. Acceptance: another maintainer can rerun the benchmark and reproduce the report within stated tolerance; unverified savings claims are labeled as estimates.
 

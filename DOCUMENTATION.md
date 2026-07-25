@@ -316,8 +316,9 @@ All variables:
 | `VENV_PY` | Venv python path (handles Win/macOS/Linux automatically) |
 | `INDEXED_SOURCE_DIRS` | Subdirs to index for `.py` and `.sql` files |
 | `INDEXED_ROOT_GLOBS` | Root-level patterns to index (default: `*.md`) |
-| `EXCLUDED_DIR_NAMES` | Directory names to skip (e.g. `node_modules`) |
-| `EXCLUDED_DIR_PREFIXES` | Path prefixes to skip (e.g. `legacy/`) |
+| `EXCLUDED_DIR_NAMES` | Directory *names* to skip, matched as a path segment anywhere in the relative path (e.g. `node_modules` skips `node_modules/` at any depth) |
+| `EXCLUDED_DIR_PREFIXES` | Relative-path *prefixes* to skip, matched only from the repo root (e.g. `app/.venv/` skips that exact location, not every `.venv/` elsewhere) |
+| `WINDOW_SECONDS` | Seconds after a search that `Read` on an indexed file is allowed without re-searching; the `search-first` hook blocks the `Read` once this window since the last matching search has elapsed. Raise it if agents legitimately re-open a file well after searching for it; lower it to tighten the search-before-read discipline. `CONTEXT_CACHE_GREP_TTL` mirrors this value for the grep result cache — keep them in sync unless you deliberately want the cache to outlive the gate (or vice versa) |
 | `SOURCE_TYPES` | Labels for `--source-type` CLI filtering |
 | `MAX_TOOL_OUTPUT_CHARS` | Truncation ceiling for Bash/Read/WebFetch results (set 0 to disable) |
 | `TOOL_OUTPUT_HEAD_LINES` | Bash head lines kept on truncation |
@@ -328,6 +329,8 @@ All variables:
 | `STATE_DIR` | Where the search-first state file lives (default `.claude/state/`) |
 
 `INDEXED_SOURCE_DIRS` also feeds JS/TS indexing for `.js`, `.jsx`, `.ts`, and `.tsx` files.
+
+`EXCLUDED_DIR_NAMES` vs `EXCLUDED_DIR_PREFIXES`: name-based exclusion (`_excluded()` in `.claude/tools/embeddings.py`) checks whether the excluded string appears as any path *segment* — `{"legacy"}` skips `src/legacy/x.py` and `legacy/x.py` alike. Prefix-based exclusion is a plain `str.startswith()` on the full relative path from `BASE`, so it only skips paths anchored at that exact location — `("app/.venv/",)` does not touch a `.venv/` directory anywhere else in the tree. Use a name when you want to exclude a directory wherever it occurs; use a prefix when only one specific path should be excluded.
 
 ### Budget control plane
 
