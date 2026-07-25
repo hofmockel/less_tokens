@@ -67,7 +67,9 @@ def test_presentation_renders_one_image_per_slide():
 
     assert html.count('<section class="slide"') == slide_count
     assert html.count('<figure class="slide-visual">') == slide_count
-    assert html.count('assets/slides/') == image_slide_count + 5
+    assert html.count('assets/slides/') == (
+        image_slide_count + len(build_docs.MAINTENANCE_SKILL_ROLES)
+    )
 
 
 def test_overview_uses_representative_report_instead_of_slider():
