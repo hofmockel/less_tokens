@@ -34,7 +34,13 @@ def test_wire_creates_hook_when_absent(tmp_path):
     hook = repo / ".git" / "hooks" / "pre-push"
     assert changed == 1
     assert hook.exists()
-    assert hook.stat().st_mode & 0o111  # executable
+    if sys.platform != "win32":
+        # NTFS has no POSIX execute bit, so os.chmod(0o755) is a no-op there
+        # and st_mode never reflects it — Git for Windows runs hooks via its
+        # bundled shell reading the shebang line, not the execute bit, so
+        # this isn't something wire_pre_push_hook needs to fix; only the
+        # assertion needs to be platform-aware.
+        assert hook.stat().st_mode & 0o111  # executable
     assert "less_tokens (continue.md freshness)" in hook.read_text()
     assert ".claude/hooks/common/pre-push-continue-freshness.py" in hook.read_text()
 
