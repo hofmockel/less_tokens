@@ -8,6 +8,10 @@ initial site can stay dependency-light and reproducible. Generated data is
 derived from code registries and checked-in aggregate notes, then written to
 `docs-site/site/generated/`.
 
+Documentation-owned brand artwork lives in `docs-site/assets/`. The generated
+site uses `LT_mark.svg` directly; keep logo binaries out of the repository root
+and add any future raster variants here only when a page actually uses them.
+
 As the HTML layer grows, larger authored sections can move into this directory
 as plain HTML or Markdown-like partials while preserving the same commands:
 

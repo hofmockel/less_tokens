@@ -117,6 +117,18 @@ Read(large_file.py)            search.py "validate imports"
 
 Files are chunked by structure (functions, headings, SQL statements, JS/TS declarations), embedded locally using [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5), and stored in a local SQLite database. No data leaves your machine.
 
+## Maintenance safeguards
+
+The installer also wires a native Git `pre-push` check that rejects a stale
+`continue.md` handoff before work leaves the machine. The shared bugfix workflow
+requires a repository-wide search for the same root-cause construct after each
+fix, so sibling instances are handled in the same change. Codex hook behavior is
+contract-tested through `codex-cli` 0.145.0; versions outside the verified
+window keep the documented fail-closed compatibility behavior.
+
+These safeguards protect repository continuity and correctness; they are not
+counted as token-saving strategies.
+
 ## Subagent support
 
 `less_tokens` supports delegated work without pretending every agent exposes the same controls.

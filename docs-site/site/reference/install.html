@@ -23,7 +23,8 @@ python3 less_tokens/install.py --agent both     # both</code></pre>
         <section><h2>Safe Upgrade</h2><pre><code>cd ~/myproject/less_tokens
 git pull
 python3 install.py --update --agent codex</code></pre>
-        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved.</p></section>
+        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved. Hook contracts are fixture-tested through <code>codex-cli 0.145.0</code>.</p>
+        <p>In Git repositories, installation also wires a marked native <code>pre-push</code> hook that rejects a stale <code>continue.md</code>. Existing host-owned hooks are left untouched.</p></section>
     <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DOCUMENTATION.md">DOCUMENTATION.md</a></li><li><a href="../../../README.md">README.md</a></li><li><a href="../../../install.py">install.py</a></li></ul></aside>
     
   </main>
