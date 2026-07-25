@@ -282,6 +282,12 @@ NOUN_PROJECT_ICONS: list[dict[str, str]] = json.loads(
     (NOUN_ICON_SOURCE / "attributions.json").read_text(encoding="utf-8")
 )
 NOUN_ICON_BY_ANCHOR = {icon["anchor"]: icon for icon in NOUN_PROJECT_ICONS}
+MAINTENANCE_SKILL_ROLES = {
+    "skill-less-tokens": "less-tokens",
+    "skill-bug-hunt": "Bug hunt",
+    "skill-bugfix": "Bugfix",
+    "skill-continue": "Continue",
+}
 
 STRATEGY_ICON_BY_SLUG = {
     "budget-control-plane": "budget-plane",
@@ -562,14 +568,8 @@ def noun_icon_credit(anchor: str) -> str:
 
 
 def noun_project_gallery(page: str, *, compact: bool = False) -> str:
-    roles = {
-        "skill-less-tokens": "less-tokens",
-        "skill-bug-hunt": "Bug hunt",
-        "skill-bugfix": "Bugfix",
-        "skill-continue": "Continue",
-    }
     cards = []
-    for anchor, role in roles.items():
+    for anchor, role in MAINTENANCE_SKILL_ROLES.items():
         icon = NOUN_ICON_BY_ANCHOR[anchor]
         cards.append(f"""
         <article class="np-icon">
@@ -990,7 +990,7 @@ def presentation_page(page: str) -> str:
             credit = "Representative sanitized values rendered through the shipped telemetry report UI."
         elif anchor == "maintenance-skills":
             visual = noun_project_gallery(page, compact=True)
-            credit = "Five attributed Noun Project icons map the maintenance skills."
+            credit = f"{len(MAINTENANCE_SKILL_ROLES)} attributed Noun Project icons map the maintenance skills."
         else:
             visual = f'<img src="{e(site_link(page, f"assets/slides/{anchor}.svg"))}" alt="{e(caption)}">'
             credit = noun_icon_credit(anchor)
