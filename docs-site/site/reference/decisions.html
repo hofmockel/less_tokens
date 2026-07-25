@@ -16,11 +16,12 @@
 
     <section class="page-title"><h1>Decisions</h1><p>Canonical operational detail remains in the root Markdown docs.</p></section>
     
-        <section><h2>Current Codex Hook Decisions</h2>
+        <section><h2>Recent Accepted Decisions</h2>
         <ul>
-          <li><strong>CX21 accepted:</strong> emit Codex CLI's nested matcher-group schema and migrate the rejected legacy flat representation.</li>
-          <li><strong>CX17 remains unverified:</strong> fixing configuration parsing does not prove that <code>codex exec</code> fires <code>PostToolUse</code> or that hook stdout replaces tool output.</li>
-          <li><strong>CX22 open:</strong> update install checking and the parity audit to consume the same nested representation as the writer.</li>
+          <li><strong>DOC7:</strong> keep documentation brand assets under <code>docs-site/assets/</code>, not in the repository root.</li>
+          <li><strong>DX1:</strong> every bugfix includes a repository-wide search for applicable same-pattern siblings.</li>
+          <li><strong>CN1:</strong> a native <code>pre-push</code> hook enforces <code>continue.md</code> freshness without overwriting host-owned hooks.</li>
+          <li><strong>CX32:</strong> the verified Codex hook-contract window extends through <code>codex-cli 0.145.0</code>.</li>
         </ul>
         <p>DECISIONS.md is canonical for evidence, verdict boundaries, and reopen conditions.</p></section>
     <aside class="trace"><h2>Trace It In Code</h2><ul><li><a href="../../../DECISIONS.md">DECISIONS.md</a></li><li><a href="../../../BACKLOG.md">BACKLOG.md</a></li><li><a href="../../../CHANGELOG.md">CHANGELOG.md</a></li></ul></aside>

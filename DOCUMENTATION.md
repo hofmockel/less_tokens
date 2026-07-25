@@ -296,6 +296,31 @@ A1 is the documentation-maintenance workstream alongside this runtime roadmap: g
 
 ---
 
+## Repository maintenance safeguards
+
+These controls protect the repository around the token-saving runtime:
+
+- **Fresh handoffs before push.** Installation into a Git repository wires the
+  marked `agents/common/hooks/pre-push-continue-freshness.py` native
+  `pre-push` hook. It checks tracked work against `continue.md` even when the
+  current session never re-read the handoff. An existing host-owned hook is
+  left untouched rather than overwritten.
+- **Same-pattern bug propagation.** The shared bugfix protocol fixes the
+  reproduced instance, then searches the repository for the same root-cause
+  construct. Applicable sibling instances are fixed and verified in the same
+  change; non-applicable matches are recorded as reviewed.
+- **Verified Codex hook contracts.** Captured fixtures and contract tests cover
+  `codex-cli` through 0.145.0. A newly encountered version is not silently
+  treated as compatible: widen the verified window only after schema inspection
+  and live, sanitized hook probes.
+- **Canonical brand assets.** Documentation-owned artwork lives under
+  `docs-site/assets/`. Generated HTML uses the SVG mark from that directory;
+  the repository root contains product entrypoints rather than duplicate logo
+  binaries.
+
+The first two controls are repository-maintenance aids, not token-saving
+strategies, so their activity is excluded from savings totals.
+
 ## Configuration
 
 Search and indexing are configured in `.claude/tools/search_config.py`. Budget behavior is configured separately in `.less_tokens/config/budget.json`. Codex commands under `.less_tokens/tools/` are compatibility shims that import and run the same `.claude/tools/` search code, so `.less_tokens/tools/search_config.py` is not a separate source of truth.

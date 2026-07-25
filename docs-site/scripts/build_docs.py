@@ -1084,8 +1084,8 @@ def scaffolding_page(page: str, title: str, summary: str) -> str:
         skill_rows = [
             ["less-tokens", "Primary token-discipline workflow: search before broad reads, use symbol lookup, keep agent returns compact.", repo_link(page, ".agents/skills/less-tokens/SKILL.md")],
             ["bug-hunt", "Maintenance workflow for structured repo bug rounds, severity scoring, stop rules, and round logs.", repo_link(page, "agents/common/bug-hunt-protocol.md")],
-            ["bugfix", "Optional operator workflow for focused diagnosis, patching, and verification. It is useful here, but it is not a less_tokens token-saving strategy.", ""],
-            ["continue", "Handoff workflow for preserving current state and next actions in continue.md when a fresh agent needs to resume.", repo_link(page, ".claude/skills/continue/SKILL.md")],
+            ["bugfix", "Focused diagnosis, patching, and verification, followed by a repository-wide search for the same root-cause construct. Applicable sibling instances ship together. This is a maintenance safeguard, not a token-saving strategy.", repo_link(page, "agents/common/bugfix-protocol.md")],
+            ["continue", "Handoff workflow for preserving current state and next actions in continue.md. A native pre-push hook rejects stale handoffs even when the current session never re-read the file.", repo_link(page, ".claude/skills/continue/SKILL.md")],
         ]
         cards = ""
         for name, text, href in skill_rows:
@@ -1131,7 +1131,8 @@ python3 less_tokens/install.py --agent both     # both</code></pre>
         <section><h2>Safe Upgrade</h2><pre><code>cd ~/myproject/less_tokens
 git pull
 python3 install.py --update --agent codex</code></pre>
-        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved.</p></section>""",
+        <p>Use the same agent selection as the original install. The Codex update path rewrites the rejected pre-CX21 flat hook list into the nested matcher-group schema accepted by current <code>codex-cli</code>; unrelated valid nested entries are preserved. Hook contracts are fixture-tested through <code>codex-cli 0.145.0</code>.</p>
+        <p>In Git repositories, installation also wires a marked native <code>pre-push</code> hook that rejects a stale <code>continue.md</code>. Existing host-owned hooks are left untouched.</p></section>""",
         "Configuration": """
         <section><h2>Canonical Configuration</h2>
         <p>Search/index settings live in <code>.claude/tools/search_config.py</code>. Shared budget policy lives in <code>.less_tokens/config/budget.json</code>. Codex tool files are shims, not another configuration source.</p></section>
@@ -1189,11 +1190,12 @@ python3 docs-site/scripts/check_docs.py
 .less_tokens/bin/python .less_tokens/tools/budget_report.py</code></pre></section>
         """,
         "Decisions": """
-        <section><h2>Current Codex Hook Decisions</h2>
+        <section><h2>Recent Accepted Decisions</h2>
         <ul>
-          <li><strong>CX21 accepted:</strong> emit Codex CLI's nested matcher-group schema and migrate the rejected legacy flat representation.</li>
-          <li><strong>CX17 remains unverified:</strong> fixing configuration parsing does not prove that <code>codex exec</code> fires <code>PostToolUse</code> or that hook stdout replaces tool output.</li>
-          <li><strong>CX22 open:</strong> update install checking and the parity audit to consume the same nested representation as the writer.</li>
+          <li><strong>DOC7:</strong> keep documentation brand assets under <code>docs-site/assets/</code>, not in the repository root.</li>
+          <li><strong>DX1:</strong> every bugfix includes a repository-wide search for applicable same-pattern siblings.</li>
+          <li><strong>CN1:</strong> a native <code>pre-push</code> hook enforces <code>continue.md</code> freshness without overwriting host-owned hooks.</li>
+          <li><strong>CX32:</strong> the verified Codex hook-contract window extends through <code>codex-cli 0.145.0</code>.</li>
         </ul>
         <p>DECISIONS.md is canonical for evidence, verdict boundaries, and reopen conditions.</p></section>""",
         "Reference": """
@@ -1406,15 +1408,6 @@ document.querySelectorAll("[data-copy-command]").forEach(button => {
                 ok = False
         else:
             path.write_text(text, encoding="utf-8")
-    for logo in ("LT_logo.png", "LT_logo_small.png"):
-        src = REPO / logo
-        dst = ASSETS / logo
-        if check:
-            if not dst.exists():
-                print(f"missing asset: {dst.relative_to(REPO)}", file=sys.stderr)
-                ok = False
-        else:
-            shutil.copyfile(src, dst)
     mark_src = DOCS / "assets" / "LT_mark.svg"
     mark_dst = ASSETS / "LT_mark.svg"
     if check:
