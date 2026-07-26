@@ -1,57 +1,48 @@
 # Continue: less_tokens
 
-> **Next focus:** push `feat/cn1-pre-push-continue-freshness` and open a PR for CN1 (now
-> committed). After that, CX32 is the only remaining Next-table item.
+> **Next focus:** get `main`'s 11 unpushed commits landed (branch `land/pt1-pt8-eb-strategy-review`,
+> PR pending), then pick up **PT7** — the only Ready-now backlog item.
 
 ## Current state
 
-On branch `feat/cn1-pre-push-continue-freshness`, 1 commit ahead of `origin/main` (`a92d63b` —
-[#123](https://github.com/hofmockel/less_tokens/pull/123) merged as a squash commit, superseding
-the `410eff2` this handoff previously pointed at). Working tree clean, **unpushed, no PR open**.
-That one commit is CN1:
+Local `main` is 11 commits ahead of `origin/main` (last-known upstream `24ddc02`, PR #127).
+Working tree clean. Those 11 commits are the **eb-strategy-review** cluster: `bcd88bd` (report +
+PT1-6/ESR1-5 backlog/decisions) through `9a6024f` (PT1), `a83077f` (PT2 — orphaned Codex
+`truncate-output` hook removed), `8da0409`/`3d7df55`/`b6911f8` (PT5/PT4/PT3), `03f4ec1` (PT8),
+`2689498` (PT6). Since `main` is protected/PR-only here, a branch `land/pt1-pt8-eb-strategy-review`
+was cut from this HEAD to push and PR instead of pushing `main` directly — **not yet pushed** (the
+new `pre-push` hook from CN1 blocked the first attempt because this file was 15 commits stale;
+this rewrite unblocks it).
 
-- `agents/common/hooks/continue_freshness.py` — added `check_continue_freshness_at_ref` (checks
-  continue.md as committed at an arbitrary ref, not the worktree+HEAD) and fixed a real bug:
-  `_staleness_result` now exempts the exact 1-commit gap that's structurally unavoidable right
-  after any commit that updates continue.md (it can't embed its own not-yet-existing hash) —
-  the same gap `410eff2` "closed" only by adding a sentence, not fixing the checker.
-- `agents/common/hooks/pre-push-continue-freshness.py` (new) — the native `pre-push` entry point.
-- `install.py` — `wire_pre_push_hook`/`unwire_pre_push_hook`/`_pre_push_script_rel`, wired into
-  the main install/uninstall flow. First native `.git/hooks` install surface in this toolkit
-  (distinct from the JSON-based Claude/Codex tool-hook wiring); composes with, never clobbers, a
-  pre-existing host-owned `pre-push` hook.
-- `.claude/tests/unit/test_install_prepush.py` (new, 10 cases) + 4 new cases in
-  `test_continue_freshness.py`.
-- `BACKLOG.md` — deleted the CN1 row. `CHANGELOG.md` — added the `[CN1]` `[Unreleased]` entry.
-
-Full suite: `.claude/bin/python -m pytest .claude/tests` — **1262 passed**. Verified end-to-end
-against a throwaway `git clone --local` target (both dry-run and a real install), including
-simulating stale/fresh/branch-deletion `pre-push` stdin payloads by hand.
+Full suite passing per each commit's own message (last: PT6 at 1179 unit tests).
 
 ## What happened this session
 
-- Closed the branch/PR deferral flagged twice in prior handoffs: rebased `docs/d2-hook-config-example`
-  onto `origin/main` (dropped a now-duplicate D2 commit — main already had it via a separately
-  merged PR #122 with an identical diff), then pushed and opened
-  [hofmockel/less_tokens#123](https://github.com/hofmockel/less_tokens/pull/123). The branch's
-  remote copy had already been auto-deleted after #122 merged, so this was a fresh push, not a
-  force-push over anyone else's work.
-- Implemented **CN1** per the design above (resolved both of its open design questions: hard-block
-  not warn-only; staleness-gating only, not auto-regeneration — a bare git hook can't call an LLM).
+- User asked for "next LT backlog item." Read `BACKLOG.md` fresh (not from memory) — PT1-6/PT8 all
+  already shipped on `main`; **PT7** is the sole row left in the Ready-now table.
+- Found `main` 11 commits ahead of `origin/main`, unpushed. Per repo convention (`main` is
+  PR-only), cut `land/pt1-pt8-eb-strategy-review` off current `main` HEAD to push+PR.
+- First push attempt was blocked by the `continue-freshness` pre-push hook (working as designed —
+  this file pointed at `a92d63b`, 15 commits stale). Regenerating now rather than bypassing with
+  `--no-verify`.
 
 ## Open work
 
-See [BACKLOG.md](BACKLOG.md) — **Next** table: only **CX32** remains (Research: verify Codex hook
-contract past 0.144.6). Separately: `feat/cn1-pre-push-continue-freshness` needs pushing and a PR.
+See [BACKLOG.md](BACKLOG.md) — Ready now: **PT7** (close `codex_parity_audit.py`'s orphan-wiring
+blind spot — for specs with no manifest `codex` adapter, `audit()` never checks whether
+`.codex/hooks.json` still has a stale entry for that script; needs a check + fixture regression
+test). Next table: **CX32** (research — verify Codex hook contract past 0.144.6) still open after
+that.
 
 ## Suggested skills
 
-- `/bugfix` — not applicable to CX32 (it's a research spike, not a backlog-row edit).
-- `/less-tokens` — for codebase search in this repo before reading files directly.
+- `/bugfix` — for PT7, once the branch is pushed/PR'd.
+- `/less-tokens` — codebase search before reading files directly.
 
 ## Start here
 
-Push `feat/cn1-pre-push-continue-freshness` and open a PR (same shape as #123), then move to CX32.
+Push `land/pt1-pt8-eb-strategy-review` and open a PR against `main` (same shape as prior PRs, e.g.
+#123/#127). Then start PT7 via `/bugfix`.
 
 ---
-_Last updated at HEAD `a92d63b` on 2026-07-24._
+_Last updated at HEAD `2689498` on 2026-07-25._
