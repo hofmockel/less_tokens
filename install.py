@@ -1627,7 +1627,12 @@ def _install_specs(
         specs.append((".claude/schema", ".less_tokens/schema", frozenset(), "tools"))
         specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset({"parity.json"}), "tools"))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
-            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset(), "hooks"))
+            # truncate-output.py has no codex= adapter in hook_manifest.py (CX28:
+            # Codex exposes no contract to replace/suppress a tool result) and is
+            # never wired into .codex/hooks.json — excluded so a fresh install or
+            # --self-refresh doesn't ship a script that will only ever sit unused
+            # (PT2/PT9; the file itself stays for its own direct unit tests).
+            specs.append(("agents/codex/hooks", ".codex/hooks", frozenset({"truncate-output.py"}), "hooks"))
         skill_root = (
             ".agents/skills"
             if target_root is not None and _dir_is_writable(target_root, ".agents")

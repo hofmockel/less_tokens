@@ -11,8 +11,6 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
 
-- **PT4 — Stop distributing `parity.json` to install copies** *(maintainability / simplification)* — `copy_tree` installs the same file to `.claude/hooks/common/parity.json` and `.less_tokens/hooks/parity.json` (`install.py:1611,1628`), but nothing downstream ever reads either installed copy — `hook_parity_docs.py`, `test_hook_manifest_parity.py`, and `codex_parity_audit.py` all only touch canonical `agents/common/hooks/parity.json` or compare against `.codex/`/the manifest directly. Nothing fails when the copies diverge, and they already have (PT1/PT3). Exclude `parity.json` from `copy_tree`'s install specs rather than building a diff-checker to keep two unread files in sync — cheaper and more correct than a `--check` mode. Acceptance: `parity.json` no longer appears in either installed copy after a fresh install; a test asserts the exclusion holds. See `ESR5` in `DECISIONS.md`. Full evidence: `reports/runs/2026-07-25-eb-strategy-review/report.md` finding #4.
-
 ## Next
 
 Research items are bounded spikes: implementation is preferred, but a verified platform limitation recorded in `DECISIONS.md` is also a complete outcome.

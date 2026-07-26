@@ -207,6 +207,35 @@ def test_codex_parity_audit_flags_orphaned_wiring_with_no_manifest_adapter(tmp_p
     assert any("truncate-output" in problem for problem in problems)
 
 
+@pytest.mark.parametrize("strategy", sorted(audit_mod.ACCEPTED_UNWIRED))
+def test_codex_parity_audit_does_not_block_on_accepted_stop_limitation(tmp_path, strategy):
+    """PT9: compact-trigger/terse-output/savings-html can never wire their Stop-based
+    commands in headless codex exec (DECISIONS.md CX18) — this is permanent, not a
+    regression, so it must not appear in `problems` (which gates CI), only in notes."""
+    _write_codex_install(tmp_path, drop_strategy=strategy)
+    rows, problems = audit_mod.audit(tmp_path)
+
+    by_name = {row.strategy: row for row in rows}
+    assert by_name[strategy].enforcement == "unwired"
+    assert "accepted platform limitation" in by_name[strategy].notes
+    assert not any(strategy in problem for problem in problems)
+
+
+def test_codex_parity_audit_still_blocks_accepted_strategy_on_missing_script(tmp_path):
+    """The accepted-limitation carve-out only covers the missing-command gap CX18
+    describes — a missing script for one of these three specs is still a real bug."""
+    _write_codex_install(tmp_path)
+    strategy = "terse-output"
+    script = next(spec.codex_script for spec in HOOK_SPECS if spec.name == strategy)
+    (tmp_path / ".codex" / "hooks" / script).unlink()
+
+    rows, problems = audit_mod.audit(tmp_path)
+
+    by_name = {row.strategy: row for row in rows}
+    assert by_name[strategy].enforcement == "unwired"
+    assert any(strategy in problem for problem in problems)
+
+
 def test_codex_parity_audit_json_output(tmp_path, capsys):
     _write_codex_install(tmp_path)
     rc = audit_mod.main(["--root", str(tmp_path), "--json"])
