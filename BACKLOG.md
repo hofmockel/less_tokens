@@ -10,10 +10,9 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | PT4 | P1 | Ready | Exclude `parity.json` from `copy_tree`'s install specs; add exclusion test | None |
-| 2 | PT3 | P1 | Ready | Split `parity.json`'s `shipped` into explicit source/installed states; cross-reference SA/CX tracking schemes | None (PT1 done) |
-| 3 | PT6 | P1 | Ready | Add hook-wiring assertions to `test_subagent_cap.py`/`test_subagent_fanout.py` | None (PT1 done) |
-| 4 | PT7 | P1 | Ready | Make `codex_parity_audit.py` flag orphaned `.codex/hooks.json` wiring for scripts with no manifest Codex adapter | None |
+| 1 | PT3 | P1 | Ready | Split `parity.json`'s `shipped` into explicit source/installed states; cross-reference SA/CX tracking schemes | None (PT1 done) |
+| 2 | PT6 | P1 | Ready | Add hook-wiring assertions to `test_subagent_cap.py`/`test_subagent_fanout.py` | None (PT1 done) |
+| 3 | PT7 | P1 | Ready | Make `codex_parity_audit.py` flag orphaned `.codex/hooks.json` wiring for scripts with no manifest Codex adapter | None |
 
 - **PT3 — Split `parity.json`'s `shipped` into source vs installed-active states** *(documentation / correctness)* — canonical `parity.json` marks `subagent-metrics`/`subagent-guidance` `{"codex": "shipped"}`; both are real, manifest-registered, and tested, but neither is actually installed in this repo's own `.codex/` (zero files, zero `.codex/hooks.json` entries) — the same root cause as PT1. The binary `shipped`/`missing` vocabulary conflates "code exists" with "installed and active," which is exactly what let two independent reviewers reach apparently divergent (but individually correct) conclusions during the review this item stems from. Also add one explicit cross-reference between the CX-numbered (Codex-verification) and SA-numbered (cross-platform roadmap) tracking schemes in this file/`DOCUMENTATION.md`, since a reader of the SA roadmap alone would currently and wrongly conclude Codex has zero subagent-boundary hooks. Recommended to land in the same change as PT1. Acceptance: `parity.json` schema distinguishes source vs installed state for every entry; SA/CX cross-reference added. See `ESR3` in `DECISIONS.md`. Full evidence: `reports/runs/2026-07-25-eb-strategy-review/report.md` finding #3.
 

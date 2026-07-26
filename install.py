@@ -1608,7 +1608,7 @@ def _install_specs(
     ]
     if "claude" in agents:
         specs.append((".claude/hooks", ".claude/hooks", frozenset(), "hooks"))
-        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset(), "tools"))
+        specs.append(("agents/common/hooks", ".claude/hooks/common", frozenset({"parity.json"}), "tools"))
         claude_skills_src = SOURCE / "agents" / "claude" / "skills"
         if claude_skills_src.exists():
             for skill_dir in sorted(claude_skills_src.iterdir()):
@@ -1625,7 +1625,7 @@ def _install_specs(
         specs.append((".claude/rules", ".claude/rules", frozenset(), "tools"))
     if "codex" in agents:
         specs.append((".claude/schema", ".less_tokens/schema", frozenset(), "tools"))
-        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset(), "tools"))
+        specs.append(("agents/common/hooks", ".less_tokens/hooks", frozenset({"parity.json"}), "tools"))
         if target_root is not None and _dir_is_writable(target_root, ".codex"):
             specs.append(("agents/codex/hooks", ".codex/hooks", frozenset(), "hooks"))
         skill_root = (
