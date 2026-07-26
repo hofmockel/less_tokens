@@ -42,12 +42,27 @@ def test_manifest_has_one_spec_per_hook_name():
 
 
 def test_parity_matrix_matches_manifest():
+    """PT3/ESR3: parity.json must distinguish source-registration (verifiable
+    against HOOK_SPECS, below) from installed-and-active state (checkout-specific,
+    never asserted here as a bare boolean — only the live checker that can verify
+    it, or "none"/"n/a" when no such checker exists yet)."""
     parity = json.loads((REPO / "agents" / "common" / "hooks" / "parity.json").read_text())
     manifest_names = {spec.name for spec in HOOK_SPECS}
     assert set(parity) == manifest_names
     for spec in HOOK_SPECS:
-        assert parity[spec.name]["claude"] == ("shipped" if spec.claude else "missing")
-        assert parity[spec.name]["codex"] == ("shipped" if spec.codex else "missing")
+        claude_source = "shipped" if spec.claude else "missing"
+        codex_source = "shipped" if spec.codex else "missing"
+        claude_row = parity[spec.name]["claude"]
+        codex_row = parity[spec.name]["codex"]
+        assert claude_row["source"] == claude_source
+        assert codex_row["source"] == codex_source
+        # "installed_check" names the live mechanism that verifies wiring in a
+        # given checkout, or "n/a" when no source exists to install, or "none"
+        # when source exists but no per-hook live checker has shipped yet.
+        assert claude_row["installed_check"] == ("none" if spec.claude else "n/a")
+        assert codex_row["installed_check"] == (
+            "codex_parity_audit.py" if spec.codex else "n/a"
+        )
         if spec.optional_flag:
             assert parity[spec.name].get("optional") is True
 

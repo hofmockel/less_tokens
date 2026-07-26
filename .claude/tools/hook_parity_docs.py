@@ -19,8 +19,9 @@ BEGIN = "<!-- hook-parity: begin -->"
 END = "<!-- hook-parity: end -->"
 
 
-def _status(value: str) -> str:
-    return "shipped" if value == "shipped" else "missing"
+def _status(row: dict) -> str:
+    """Source-registration state only (PT3/ESR3) — not installed-and-active state."""
+    return "shipped" if row.get("source") == "shipped" else "missing"
 
 
 def _feature_parity(claude: str, codex: str) -> str:
@@ -41,15 +42,21 @@ def _wires(wires: tuple[HookWire, ...]) -> str:
     )
 
 
-def _agent_cell(agent: str, spec: HookSpec, status: str) -> str:
-    if status != "shipped":
+def _agent_cell(agent: str, spec: HookSpec, row: dict) -> str:
+    if _status(row) != "shipped":
         return "missing"
     script = spec.claude_script if agent == "claude" else spec.codex_script
     wires = spec.claude if agent == "claude" else spec.codex
-    strength = "enforced" if agent == "claude" else "best-effort"
+    mechanism = "direct enforcement" if agent == "claude" else "best-effort adapter"
     hook_dir = ".claude/hooks" if agent == "claude" else ".codex/hooks"
     detail = _wires(wires)
-    return f"{strength}; `{hook_dir}/{script}`; {detail}"
+    check = row.get("installed_check", "none")
+    installed = (
+        f"installed state verified per-checkout by `{check}`"
+        if check not in ("none", "n/a")
+        else "installed state unverified in this checkout"
+    )
+    return f"{mechanism}; `{hook_dir}/{script}`; {detail}; {installed}"
 
 
 def render() -> str:
@@ -57,25 +64,31 @@ def render() -> str:
     lines = [
         BEGIN,
         "",
-        "Feature parity means the same strategy is shipped for both agents. "
-        "Enforcement parity is intentionally different: Claude hooks are direct "
-        "enforcement, while Codex hooks are best-effort adapters through "
-        "`.codex/hooks.json`.",
+        "Feature parity means the same strategy's source is registered for both "
+        "agents in `agents/common/hooks/hook_manifest.py`. Enforcement parity is "
+        "intentionally different: Claude hooks are direct enforcement, while "
+        "Codex hooks are best-effort adapters through `.codex/hooks.json`. "
+        "Neither is a claim about a given checkout: whether a hook is actually "
+        "installed and active there is separate, checkout-specific state — see "
+        "each cell's \"installed state\" note for the live mechanism (if any) "
+        "that verifies it (PT3/ESR3).",
         "",
         "| Strategy | Feature parity | Claude enforcement | Codex enforcement |",
         "|---|---|---|---|",
     ]
     for spec in HOOK_SPECS:
         row = parity[spec.name]
-        claude = _status(row.get("claude", "missing"))
-        codex = _status(row.get("codex", "missing"))
+        claude_row = row.get("claude", {"source": "missing"})
+        codex_row = row.get("codex", {"source": "missing"})
+        claude = _status(claude_row)
+        codex = _status(codex_row)
         feature = _feature_parity(claude, codex)
         if row.get("optional"):
             feature += "; default-on optional"
         lines.append(
             f"| `{spec.name}` | {feature} | "
-            f"{_agent_cell('claude', spec, claude)} | "
-            f"{_agent_cell('codex', spec, codex)} |"
+            f"{_agent_cell('claude', spec, claude_row)} | "
+            f"{_agent_cell('codex', spec, codex_row)} |"
         )
     lines.extend(["", END])
     return "\n".join(lines)

@@ -25,8 +25,14 @@
     "name": "budget-observer",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -51,8 +57,14 @@
     "name": "search-first",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -73,8 +85,14 @@
     "name": "read-guard",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -95,8 +113,14 @@
     "name": "auto-slice",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -117,8 +141,14 @@
     "name": "grep-first-read",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -139,8 +169,14 @@
     "name": "read-after-edit",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -161,8 +197,14 @@
     "name": "continue-freshness",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -195,8 +237,14 @@
     "name": "context-cache",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -217,8 +265,14 @@
     "name": "post-edit-diff",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -239,8 +293,14 @@
     "name": "index-refresh",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -261,8 +321,14 @@
     "name": "agent-md-budget",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -283,8 +349,14 @@
     "name": "lean-output",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -305,8 +377,14 @@
     "name": "listing-guard",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -322,8 +400,14 @@
     "name": "truncate-output",
     "optional_flag": "truncate",
     "parity": {
-      "claude": "shipped",
-      "codex": "missing",
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "n/a",
+        "source": "missing"
+      },
       "optional": true
     }
   },
@@ -340,8 +424,14 @@
     "name": "subagent-cap",
     "optional_flag": "truncate",
     "parity": {
-      "claude": "shipped",
-      "codex": "missing",
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "n/a",
+        "source": "missing"
+      },
       "optional": true
     }
   },
@@ -362,8 +452,14 @@
     "name": "subagent-fanout",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "missing"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "n/a",
+        "source": "missing"
+      }
     }
   },
   {
@@ -388,8 +484,14 @@
     "name": "compact-trigger",
     "optional_flag": "compact",
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped",
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      },
       "optional": true
     }
   },
@@ -406,8 +508,14 @@
     "name": "subagent-guidance",
     "optional_flag": null,
     "parity": {
-      "claude": "missing",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "n/a",
+        "source": "missing"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -435,8 +543,14 @@
     "name": "subagent-metrics",
     "optional_flag": null,
     "parity": {
-      "claude": "missing",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "n/a",
+        "source": "missing"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   },
   {
@@ -465,8 +579,14 @@
     "name": "terse-output",
     "optional_flag": "caveman",
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped",
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      },
       "optional": true
     }
   },
@@ -496,8 +616,14 @@
     "name": "savings-html",
     "optional_flag": null,
     "parity": {
-      "claude": "shipped",
-      "codex": "shipped"
+      "claude": {
+        "installed_check": "none",
+        "source": "shipped"
+      },
+      "codex": {
+        "installed_check": "codex_parity_audit.py",
+        "source": "shipped"
+      }
     }
   }
 ]

@@ -1022,8 +1022,8 @@ def strategy_page(page: str, slug: str, details: dict[str, Any]) -> str:
             e(hook),
             e(row["claude_script"] or ""),
             e(row["codex_script"] or ""),
-            e(row["parity"].get("claude", "unknown")),
-            e(row["parity"].get("codex", "unknown")),
+            e(row["parity"].get("claude", {}).get("source", "unknown")),
+            e(row["parity"].get("codex", {}).get("source", "unknown")),
         ])
     if not hook_rows:
         hook_rows.append(["none", "command/tool layer", "command/tool layer", "n/a", "n/a"])
