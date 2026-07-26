@@ -117,6 +117,15 @@ captured), so it has zero measured evidence here — not because it doesn't
 work, but because the workload that exercises it didn't occur in this
 sample. It's reported as absent, not assumed working.
 
+**Correction (2026-07-25, PT1):** the paragraph above understated the cause.
+`.claude/settings.json` in this repo was last regenerated 2026-07-16 09:43,
+before SA1 (`f4e7b9e`) and SA2 (`1abb6a8`) shipped, so `subagent-cap` and
+`subagent-fanout` were never wired into `PostToolUse`/`PreToolUse:Task` at
+all during this benchmark's capture window — the hook was structurally
+unable to fire, not merely unexercised by the sampled workload. Fixed via
+`install.py --agent claude --self-refresh`; see `reports/runs/2026-07-25-eb-strategy-review/report.md`
+finding #1.
+
 ## Decision
 
 **Published, no strategy flagged for rollback.** This satisfies D4's

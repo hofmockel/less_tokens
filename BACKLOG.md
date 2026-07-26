@@ -10,14 +10,11 @@ Every item has a stable ID. When shipping one, cite `[ID]` in the `CHANGELOG.md`
 
 | Order | ID | Priority | State | Outcome | Depends on |
 |---:|---|:---:|---|---|---|
-| 1 | PT1 | P0 | Ready | Run `install.py --agent claude --self-refresh` to wire SA1/SA2 into this repo's own `.claude/settings.json`; correct D4 report's zero-telemetry attribution | None |
-| 2 | PT2 | P0 | Ready | Remove orphaned `.codex/hooks/truncate-output.py` + its `.codex/hooks.json` entry; full Codex self-refresh deferred per `ESR2` | None |
-| 3 | PT5 | P0 | Ready | Gate `codex_parity_audit.py` in CI/pre-commit | PT1 (recommended same change) |
-| 4 | PT4 | P1 | Ready | Exclude `parity.json` from `copy_tree`'s install specs; add exclusion test | None |
-| 5 | PT3 | P1 | Ready | Split `parity.json`'s `shipped` into explicit source/installed states; cross-reference SA/CX tracking schemes | PT1 (recommended same change) |
-| 6 | PT6 | P1 | Ready | Add hook-wiring assertions to `test_subagent_cap.py`/`test_subagent_fanout.py` | PT1 |
-
-- **PT1 — Wire SA1/SA2 into this repo's own Claude install and correct D4's attribution** *(release / evidence)* — `.claude/settings.json` was last regenerated 2026-07-16 09:43, before SA1 (`f4e7b9e`) and SA2 (`1abb6a8`) shipped; `grep -c "subagent-fanout\|subagent-cap" .claude/settings.json` returns 0 against 46 other correctly-wired hook commands, and `.claude/state/savings.jsonl` has zero `subagent_fanout` events across 797 lines. `install.py --agent claude --self-refresh --dry-run` confirms it would wire both hooks now. `reports/runs/2026-07-24-d4-token-savings-benchmark/report.md:115` already drew a wrong conclusion from this exact hole, attributing zero subagent-cap telemetry to "no subagent-heavy sessions" rather than the hook being structurally unable to fire. Acceptance: `install.py --agent claude --self-refresh` run and committed, both hooks present in `.claude/settings.json`, and D4's report gains a correction note. See `ESR1` in `DECISIONS.md`. Full evidence: `reports/runs/2026-07-25-eb-strategy-review/report.md` finding #1.
+| 1 | PT2 | P0 | Ready | Remove orphaned `.codex/hooks/truncate-output.py` + its `.codex/hooks.json` entry; full Codex self-refresh deferred per `ESR2` | None |
+| 2 | PT5 | P0 | Ready | Gate `codex_parity_audit.py` in CI/pre-commit | None (PT1 done) |
+| 3 | PT4 | P1 | Ready | Exclude `parity.json` from `copy_tree`'s install specs; add exclusion test | None |
+| 4 | PT3 | P1 | Ready | Split `parity.json`'s `shipped` into explicit source/installed states; cross-reference SA/CX tracking schemes | None (PT1 done) |
+| 5 | PT6 | P1 | Ready | Add hook-wiring assertions to `test_subagent_cap.py`/`test_subagent_fanout.py` | None (PT1 done) |
 
 - **PT2 — Remove the orphaned Codex `truncate-output` hook** *(tool / enforcement parity)* — `.codex/hooks/truncate-output.py` (96 lines) is still installed and wired in `.codex/hooks.json` `PostToolUse`, despite canonical `parity.json`, README.md, DOCUMENTATION.md, and `DECISIONS.md`'s CX28 entry all stating it's missing/unwired — CX28's claim is currently false on disk. `install.py`'s orphan-sweep can't catch this on its own since the manifest no longer generates any Codex entry for truncate-output at all. A full automated fix via `--self-refresh` is blocked: installed `codex-cli 0.146.0-alpha.3` sits outside the verified `0.142.3`–`0.145.0` contract window. Acceptance: file and `.codex/hooks.json` entry removed by hand as an interim patch; full Codex `--self-refresh` re-run once a verified `codex-cli` version is confirmed. See `ESR2` in `DECISIONS.md`. Full evidence: `reports/runs/2026-07-25-eb-strategy-review/report.md` finding #2.
 

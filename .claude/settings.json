@@ -99,6 +99,15 @@
             "command": ".claude/bin/python .claude/hooks/listing-guard.py"
           }
         ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/subagent-fanout.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -162,6 +171,33 @@
           {
             "type": "command",
             "command": ".claude/bin/python .claude/hooks/compact-trigger.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/context-cache.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/subagent-cap.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/bin/python .claude/hooks/subagent-fanout.py"
           }
         ]
       }

@@ -11,8 +11,13 @@
   "agent-md-budget": {"claude": "shipped", "codex": "shipped"},
   "lean-output": {"claude": "shipped", "codex": "shipped"},
   "listing-guard": {"claude": "shipped", "codex": "shipped"},
-  "truncate-output": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "truncate-output": {"claude": "shipped", "codex": "missing", "optional": true},
+  "subagent-cap": {"claude": "shipped", "codex": "missing", "optional": true},
+  "subagent-fanout": {"claude": "shipped", "codex": "missing"},
   "compact-trigger": {"claude": "shipped", "codex": "shipped", "optional": true},
+  "subagent-metrics": {"claude": "missing", "codex": "shipped"},
+  "subagent-guidance": {"claude": "missing", "codex": "shipped"},
   "terse-output": {"claude": "shipped", "codex": "shipped", "optional": true},
-  "savings-html": {"claude": "shipped", "codex": "shipped"}
+  "savings-html": {"claude": "shipped", "codex": "shipped"},
+  "continue-freshness": {"claude": "shipped", "codex": "shipped"}
 }
