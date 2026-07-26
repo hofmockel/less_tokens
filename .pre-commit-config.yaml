@@ -46,6 +46,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: codex-parity-audit
+        name: Codex enforcement parity audit
+        entry: python .claude/tools/codex_parity_audit.py
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: installer-flags-docs
         name: DOCUMENTATION installer flags table matches install.py argparse
         entry: python .claude/tools/installer_flags_docs.py --check

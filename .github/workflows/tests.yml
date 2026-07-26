@@ -71,6 +71,9 @@ jobs:
       - name: Check hook parity documentation matches manifest
         run: python .claude/tools/hook_parity_docs.py --check
 
+      - name: Check Codex enforcement parity (codex_parity_audit)
+        run: python .claude/tools/codex_parity_audit.py
+
       - name: Check installer flags documentation matches install.py argparse
         run: python .claude/tools/installer_flags_docs.py --check
 
