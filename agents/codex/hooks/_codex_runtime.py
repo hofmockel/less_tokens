@@ -53,6 +53,21 @@ def bootstrap() -> Path:
     return repo
 
 
+def venv_python(repo: Path) -> Path:
+    """The installed venv-backed launcher for `repo`, or `sys.executable` if absent.
+
+    install.py's write_python_launcher() always writes both a POSIX shell
+    launcher at .less_tokens/bin/python and a Windows sibling at
+    .less_tokens/bin/python.cmd, so on Windows the extensionless path exists
+    but isn't directly executable (WinError 193) — must check the platform's
+    own suffix, not the bare path, before falling back to sys.executable.
+    """
+    launcher = repo / ".less_tokens" / "bin" / "python"
+    if sys.platform == "win32":
+        launcher = launcher.with_suffix(".cmd")
+    return launcher if launcher.exists() else Path(sys.executable)
+
+
 def _state_dir() -> Path:
     configured = os.environ.get("LESS_TOKENS_STATE_DIR")
     return Path(configured) if configured else resolve_repo() / ".less_tokens" / "state"

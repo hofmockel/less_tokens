@@ -7,7 +7,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin, print_pre_tool_result
+from _codex_runtime import bootstrap, load_json_stdin, print_pre_tool_result, venv_python
 
 
 REPO = bootstrap()
@@ -64,8 +64,7 @@ def _enabled() -> bool:
 
 
 def _python() -> Path:
-    p = REPO / ".less_tokens" / "bin" / "python"
-    return p if p.exists() else Path(sys.executable)
+    return venv_python(REPO)
 
 
 def _run_lean_ls(path: str) -> str:
