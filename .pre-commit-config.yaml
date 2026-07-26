@@ -52,6 +52,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: win-platform-audit
+        name: Windows platform-assumption audit (WIN1)
+        entry: python .claude/tools/win_platform_audit.py
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: installer-flags-docs
         name: DOCUMENTATION installer flags table matches install.py argparse
         entry: python .claude/tools/installer_flags_docs.py --check
