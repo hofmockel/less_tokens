@@ -165,3 +165,27 @@ class TestSubagentFanoutHook:
 
         assert rc == 0
         assert captured.getvalue() == ""
+
+
+class TestSubagentFanoutWiring:
+    def test_hook_wired_as_pre_and_post_tooluse_task_in_settings_json(self):
+        """PT6: without this, subagent-fanout.py can silently fall out of
+        .claude/settings.json (as it did for PT1) with every unit test above
+        still green, since they load the hook module directly rather than
+        going through the live wiring."""
+        settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+
+        def _wired(event: str) -> bool:
+            return any(
+                "subagent-fanout.py" in h.get("command", "")
+                for block in settings["hooks"].get(event, [])
+                if block.get("matcher") == "Task"
+                for h in block.get("hooks", [])
+            )
+
+        assert _wired("PreToolUse"), (
+            "subagent-fanout.py must be wired as a PreToolUse:Task hook in .claude/settings.json"
+        )
+        assert _wired("PostToolUse"), (
+            "subagent-fanout.py must be wired as a PostToolUse:Task hook in .claude/settings.json"
+        )
