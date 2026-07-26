@@ -183,6 +183,30 @@ def test_codex_parity_audit_fails_when_nested_cwd_command_cannot_run(tmp_path):
     assert any("failed from nested cwd (exit 7)" in problem for problem in problems)
 
 
+def test_codex_parity_audit_flags_orphaned_wiring_with_no_manifest_adapter(tmp_path):
+    """PT7: a HookSpec with no codex= adapter (e.g. truncate-output, CX28) must still be
+    checked against .codex/hooks.json for a stale wired entry, not silently skipped — this
+    is exactly the class of orphan PT2 found undetected (a live truncate-output.py entry
+    that audit() never flagged anywhere in its output)."""
+    _write_codex_install(tmp_path)
+    hooks_json = tmp_path / ".codex" / "hooks.json"
+    data = json.loads(hooks_json.read_text(encoding="utf-8"))
+    orphan_command = (
+        f"LESS_TOKENS_AGENT=codex {tmp_path / '.less_tokens' / 'bin' / 'python'} "
+        f"{tmp_path / '.codex' / 'hooks' / 'truncate-output.py'}"
+    )
+    data.setdefault("hooks", {}).setdefault("PreToolUse", []).append(
+        {"matcher": "Bash", "hooks": [{"type": "command", "command": orphan_command}]}
+    )
+    hooks_json.write_text(json.dumps(data), encoding="utf-8")
+
+    rows, problems = audit_mod.audit(tmp_path)
+
+    by_name = {row.strategy: row for row in rows}
+    assert "truncate-output.py" in by_name["truncate-output"].notes
+    assert any("truncate-output" in problem for problem in problems)
+
+
 def test_codex_parity_audit_json_output(tmp_path, capsys):
     _write_codex_install(tmp_path)
     rc = audit_mod.main(["--root", str(tmp_path), "--json"])

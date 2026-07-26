@@ -157,7 +157,17 @@ def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
     for spec in manifest.HOOK_SPECS:
         feature = "feature-parity" if spec.claude and spec.codex else "missing-feature-parity"
         if not spec.codex or not spec.codex_script:
-            rows.append(AuditRow(spec.name, feature, "missing", "no Codex adapter in manifest"))
+            candidate_script = spec.codex_script or spec.claude_script
+            orphaned = [
+                hook for hook in hooks
+                if candidate_script and _script_in_command(str(hook.get("command", "")), candidate_script)
+            ]
+            if orphaned:
+                note = f"no Codex adapter in manifest, but .codex/hooks.json still wires {candidate_script}"
+                problems.append(f"{spec.name}: {note}")
+                rows.append(AuditRow(spec.name, feature, "missing", note))
+            else:
+                rows.append(AuditRow(spec.name, feature, "missing", "no Codex adapter in manifest"))
             continue
 
         script_path = root / ".codex" / "hooks" / spec.codex_script
