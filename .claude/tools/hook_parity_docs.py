@@ -64,13 +64,13 @@ def render() -> str:
     lines = [
         BEGIN,
         "",
-        "Feature parity means the same strategy's source is registered for both "
-        "agents in `agents/common/hooks/hook_manifest.py`. Enforcement parity is "
-        "intentionally different: Claude hooks are direct enforcement, while "
-        "Codex hooks are best-effort adapters through `.codex/hooks.json`. "
-        "Neither is a claim about a given checkout: whether a hook is actually "
-        "installed and active there is separate, checkout-specific state — see "
-        "each cell's \"installed state\" note for the live mechanism (if any) "
+        "Feature parity means the same strategy's source is registered for both " +
+        "agents in `agents/common/hooks/hook_manifest.py`. Enforcement parity is " +
+        "intentionally different: Claude hooks are direct enforcement, while " +
+        "Codex hooks are best-effort adapters through `.codex/hooks.json`. " +
+        "Neither is a claim about a given checkout: whether a hook is actually " +
+        "installed and active there is separate, checkout-specific state — see " +
+        "each cell's \"installed state\" note for the live mechanism (if any) " +
         "that verifies it (PT3/ESR3).",
         "",
         "| Strategy | Feature parity | Claude enforcement | Codex enforcement |",
