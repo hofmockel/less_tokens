@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -28,8 +29,8 @@ def save_state(state_dir: Path, state: dict) -> None:
         path = state_file(state_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(state))
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"warning: failed to save subagent fanout state to {state_file(state_dir)}: {exc}", file=sys.stderr)
 
 
 def spawn_key(tool_input: dict) -> str:
