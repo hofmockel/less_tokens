@@ -121,3 +121,22 @@ class TestSubagentCapHook:
 
         assert rc == 0
         assert captured.getvalue() == ""
+
+
+class TestSubagentCapWiring:
+    def test_hook_wired_as_posttooluse_task_in_settings_json(self):
+        """PT6: without this, subagent-cap.py can silently fall out of
+        .claude/settings.json (as it did for PT1) with every unit test above
+        still green, since they load the hook module directly rather than
+        going through the live wiring."""
+        settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+        matches = [
+            h
+            for block in settings["hooks"].get("PostToolUse", [])
+            if block.get("matcher") == "Task"
+            for h in block.get("hooks", [])
+            if "subagent-cap.py" in h.get("command", "")
+        ]
+        assert matches, (
+            "subagent-cap.py must be wired as a PostToolUse:Task hook in .claude/settings.json"
+        )

@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _codex_runtime import bootstrap, load_json_stdin
+from _codex_runtime import bootstrap, load_json_stdin, venv_python
 
 REPO = bootstrap()
 TOOLS = REPO / ".less_tokens" / "tools"
@@ -29,8 +29,7 @@ def _detect_tool(cmd: str) -> str | None:
 
 
 def _python() -> Path:
-    p = REPO / ".less_tokens" / "bin" / "python"
-    return p if p.exists() else Path(sys.executable)
+    return venv_python(REPO)
 
 
 def main() -> int:

@@ -29,6 +29,9 @@ jobs:
       - name: Install test dependencies
         run: pip install numpy pytest pyyaml
 
+      - name: Refresh this repo's own dogfooded Codex hook install
+        run: python install.py --self-refresh --agent codex --skip-deps --create-venv --no-build
+
       - name: Run unit tests
         run: pytest .claude/tests/unit/ -v
 
@@ -59,6 +62,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Refresh this repo's own dogfooded Codex hook install
+        run: python install.py --self-refresh --agent codex --skip-deps --create-venv --no-build
+
       - name: Check README claims against the savings_log registry
         run: python .claude/tools/label_consistency_gate.py
 
@@ -70,6 +80,9 @@ jobs:
 
       - name: Check hook parity documentation matches manifest
         run: python .claude/tools/hook_parity_docs.py --check
+
+      - name: Check Codex enforcement parity (codex_parity_audit)
+        run: python .claude/tools/codex_parity_audit.py
 
       - name: Check installer flags documentation matches install.py argparse
         run: python .claude/tools/installer_flags_docs.py --check

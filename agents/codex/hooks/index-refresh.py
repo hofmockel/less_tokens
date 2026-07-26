@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 
-from _codex_runtime import bootstrap, load_json_stdin, print_result
+from _codex_runtime import bootstrap, load_json_stdin, print_result, venv_python
 
 REPO = bootstrap()
 
@@ -23,7 +23,7 @@ try:
     )
     SEARCH_BACKEND = getattr(_search_config, "SEARCH_BACKEND", "sqlite")
     config = {
-        "venv_py": REPO / ".less_tokens" / "bin" / "python",
+        "venv_py": venv_python(REPO),
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
         "dirs": INDEXED_SOURCE_DIRS,

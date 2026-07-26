@@ -133,31 +133,31 @@ Contract sources: [current Codex hooks reference](https://learn.chatgpt.com/docs
 
 <!-- hook-parity: begin -->
 
-Feature parity means the same strategy is shipped for both agents. Enforcement parity is intentionally different: Claude hooks are direct enforcement, while Codex hooks are best-effort adapters through `.codex/hooks.json`.
+Feature parity means the same strategy's source is registered for both agents in `agents/common/hooks/hook_manifest.py`. Enforcement parity is intentionally different: Claude hooks are direct enforcement, while Codex hooks are best-effort adapters through `.codex/hooks.json`. Neither is a claim about a given checkout: whether a hook is actually installed and active there is separate, checkout-specific state — see each cell's "installed state" note for the live mechanism (if any) that verifies it (PT3/ESR3).
 
 | Strategy | Feature parity | Claude enforcement | Codex enforcement |
 |---|---|---|---|
-| `budget-observer` | yes | enforced; `.claude/hooks/budget-observer.py`; PreToolUse `Read|Grep|Glob|Bash`, PostToolUse `Read|Grep|Glob|Bash|Edit|Write` | best-effort; `.codex/hooks/budget-observer.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash|mcp__filesystem__.*|apply_patch|Edit|Write` |
-| `search-first` | yes | enforced; `.claude/hooks/search-first.py`; PreToolUse `Read`, PreToolUse `Grep` | best-effort; `.codex/hooks/search-first.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `read-guard` | yes | enforced; `.claude/hooks/read-guard.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-guard.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `auto-slice` | yes | enforced; `.claude/hooks/auto-slice.py`; PreToolUse `Read` | best-effort; `.codex/hooks/auto-slice.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `grep-first-read` | yes | enforced; `.claude/hooks/grep-first-read.py`; PreToolUse `Read` | best-effort; `.codex/hooks/grep-first-read.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `read-after-edit` | yes | enforced; `.claude/hooks/read-after-edit.py`; PreToolUse `Read` | best-effort; `.codex/hooks/read-after-edit.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `continue-freshness` | yes | enforced; `.claude/hooks/continue-freshness.py`; PreToolUse `Read` | best-effort; `.codex/hooks/continue-freshness.py`; PreToolUse `mcp__filesystem__.*|Bash` |
-| `context-cache` | yes | enforced; `.claude/hooks/context-cache.py`; PreToolUse `Read|Grep`, PostToolUse `Read|Grep` | best-effort; `.codex/hooks/context-cache.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash`, PostToolUse `mcp__filesystem__.*` |
-| `post-edit-diff` | yes | enforced; `.claude/hooks/post-edit-diff.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/post-edit-diff.py`; PostToolUse `apply_patch|Edit|Write` |
-| `index-refresh` | yes | enforced; `.claude/hooks/index-refresh.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/index-refresh.py`; PostToolUse `apply_patch|Edit|Write` |
-| `agent-md-budget` | yes | enforced; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write` | best-effort; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write` |
-| `lean-output` | yes | enforced; `.claude/hooks/lean-output.py`; PostToolUse `Bash` | best-effort; `.codex/hooks/lean-output.py`; PostToolUse `Bash` |
-| `listing-guard` | yes | enforced; `.claude/hooks/listing-guard.py`; PreToolUse `Bash` | best-effort; `.codex/hooks/listing-guard.py`; PreToolUse `Bash` |
-| `truncate-output` | Claude only; default-on optional | enforced; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob` | missing |
-| `subagent-cap` | Claude only; default-on optional | enforced; `.claude/hooks/subagent-cap.py`; PostToolUse `Task` | missing |
-| `subagent-fanout` | Claude only | enforced; `.claude/hooks/subagent-fanout.py`; PreToolUse `Task`, PostToolUse `Task` | missing |
-| `compact-trigger` | yes; default-on optional | enforced; `.claude/hooks/compact-trigger.py`; PostToolUse `.*` | best-effort; `.codex/hooks/compact-trigger.py`; PreCompact `manual|auto`, PostCompact `manual|auto` |
-| `subagent-guidance` | Codex only | missing | best-effort; `.codex/hooks/subagent-guidance.py`; SubagentStart `*` |
-| `subagent-metrics` | Codex only | missing | best-effort; `.codex/hooks/subagent-metrics.py`; PreToolUse `^Agent$`, PostToolUse `^Agent$`, SubagentStart `*`, SubagentStop `*` |
-| `terse-output` | yes; default-on optional | enforced; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/terse-reminder.py`; Stop `*`, SubagentStop `*` |
-| `savings-html` | yes | enforced; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*` | best-effort; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*` |
+| `budget-observer` | yes | direct enforcement; `.claude/hooks/budget-observer.py`; PreToolUse `Read|Grep|Glob|Bash`, PostToolUse `Read|Grep|Glob|Bash|Edit|Write`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/budget-observer.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash|mcp__filesystem__.*|apply_patch|Edit|Write`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `search-first` | yes | direct enforcement; `.claude/hooks/search-first.py`; PreToolUse `Read`, PreToolUse `Grep`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/search-first.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `read-guard` | yes | direct enforcement; `.claude/hooks/read-guard.py`; PreToolUse `Read`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/read-guard.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `auto-slice` | yes | direct enforcement; `.claude/hooks/auto-slice.py`; PreToolUse `Read`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/auto-slice.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `grep-first-read` | yes | direct enforcement; `.claude/hooks/grep-first-read.py`; PreToolUse `Read`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/grep-first-read.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `read-after-edit` | yes | direct enforcement; `.claude/hooks/read-after-edit.py`; PreToolUse `Read`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/read-after-edit.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `continue-freshness` | yes | direct enforcement; `.claude/hooks/continue-freshness.py`; PreToolUse `Read`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/continue-freshness.py`; PreToolUse `mcp__filesystem__.*|Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `context-cache` | yes | direct enforcement; `.claude/hooks/context-cache.py`; PreToolUse `Read|Grep`, PostToolUse `Read|Grep`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/context-cache.py`; PreToolUse `mcp__filesystem__.*|Bash`, PostToolUse `Bash`, PostToolUse `mcp__filesystem__.*`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `post-edit-diff` | yes | direct enforcement; `.claude/hooks/post-edit-diff.py`; PostToolUse `Edit|Write`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/post-edit-diff.py`; PostToolUse `apply_patch|Edit|Write`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `index-refresh` | yes | direct enforcement; `.claude/hooks/index-refresh.py`; PostToolUse `Edit|Write`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/index-refresh.py`; PostToolUse `apply_patch|Edit|Write`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `agent-md-budget` | yes | direct enforcement; `.claude/hooks/claudemd-budget.py`; PostToolUse `Edit|Write`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/agentsmd-budget.py`; PostToolUse `Edit|Write`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `lean-output` | yes | direct enforcement; `.claude/hooks/lean-output.py`; PostToolUse `Bash`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/lean-output.py`; PostToolUse `Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `listing-guard` | yes | direct enforcement; `.claude/hooks/listing-guard.py`; PreToolUse `Bash`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/listing-guard.py`; PreToolUse `Bash`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `truncate-output` | Claude only; default-on optional | direct enforcement; `.claude/hooks/truncate-output.py`; PostToolUse `Bash|Read|WebFetch|Glob`; installed state unverified in this checkout | missing |
+| `subagent-cap` | Claude only; default-on optional | direct enforcement; `.claude/hooks/subagent-cap.py`; PostToolUse `Task`; installed state unverified in this checkout | missing |
+| `subagent-fanout` | Claude only | direct enforcement; `.claude/hooks/subagent-fanout.py`; PreToolUse `Task`, PostToolUse `Task`; installed state unverified in this checkout | missing |
+| `compact-trigger` | yes; default-on optional | direct enforcement; `.claude/hooks/compact-trigger.py`; PostToolUse `.*`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/compact-trigger.py`; PreCompact `manual|auto`, PostCompact `manual|auto`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `subagent-guidance` | Codex only | missing | best-effort adapter; `.codex/hooks/subagent-guidance.py`; SubagentStart `*`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `subagent-metrics` | Codex only | missing | best-effort adapter; `.codex/hooks/subagent-metrics.py`; PreToolUse `^Agent$`, PostToolUse `^Agent$`, SubagentStart `*`, SubagentStop `*`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `terse-output` | yes; default-on optional | direct enforcement; `.claude/hooks/caveman-reminder.py`; Stop `*`, SubagentStop `*`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/terse-reminder.py`; Stop `*`, SubagentStop `*`; installed state verified per-checkout by `codex_parity_audit.py` |
+| `savings-html` | yes | direct enforcement; `.claude/hooks/savings-html.py`; Stop `*`, SubagentStop `*`; installed state unverified in this checkout | best-effort adapter; `.codex/hooks/savings-html.py`; Stop `*`, SubagentStop `*`; installed state verified per-checkout by `codex_parity_audit.py` |
 
 <!-- hook-parity: end -->
 
@@ -241,6 +241,8 @@ Subagents can reduce parent-context noise when they absorb independent explorati
 | Subagent completion | Claude `terse-output` and `savings-html` also wire `SubagentStop`. | Best-effort tool hooks do not provide equivalent end-of-subagent enforcement. |
 
 SA1 follows the default truncation profile: `--no-truncate` disables both generic output truncation and `subagent-cap`. SA2 remains active because it only records cost. Both are Claude-only in `agents/common/hooks/parity.json`; this is a real platform boundary, not missing documentation or an implied parity promise.
+
+**SA/CX cross-reference (PT3/ESR3):** the SA-numbered roadmap below tracks Claude-only work (`subagent-cap`/`subagent-fanout`) — a reader of that roadmap alone would wrongly conclude Codex has zero subagent-boundary hooks. It does not: Codex's analogous fan-out-measurement and delegation-guidance capability ships under different hook names, `subagent-metrics` and `subagent-guidance` (the Codex column of the table above), tracked in `agents/common/hooks/parity.json` and verified live by `codex_parity_audit.py`, not by an SA number. CX-numbered entries in `DECISIONS.md` (e.g. `CX28`) cover Codex hook-contract verification generally; neither numbering scheme is a subset of the other.
 
 ### Delegation contract
 

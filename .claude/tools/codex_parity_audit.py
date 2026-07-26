@@ -22,6 +22,16 @@ class AuditRow:
     notes: str
 
 
+# Codex's `Stop` hook is schema-defined but never fires in headless `codex
+# exec` (DECISIONS.md CX18); these three adapters have no viable Stop-based
+# wiring today and their missing-command status is an accepted, indefinite
+# platform limitation, not a regression to gate CI on. Still reported as
+# "unwired" in the row output — only suppressed from the blocking `problems`
+# list, and only for the exact missing-command gap CX18 describes (a missing
+# script or stale/unreadable hooks.json for these specs is still a real bug).
+ACCEPTED_UNWIRED = {"compact-trigger", "terse-output", "savings-html"}
+
+
 def _load_hooks(path: Path, manifest: ModuleType) -> tuple[list[dict[str, Any]], str | None]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -157,7 +167,17 @@ def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
     for spec in manifest.HOOK_SPECS:
         feature = "feature-parity" if spec.claude and spec.codex else "missing-feature-parity"
         if not spec.codex or not spec.codex_script:
-            rows.append(AuditRow(spec.name, feature, "missing", "no Codex adapter in manifest"))
+            candidate_script = spec.codex_script or spec.claude_script
+            orphaned = [
+                hook for hook in hooks
+                if candidate_script and _script_in_command(str(hook.get("command", "")), candidate_script)
+            ]
+            if orphaned:
+                note = f"no Codex adapter in manifest, but .codex/hooks.json still wires {candidate_script}"
+                problems.append(f"{spec.name}: {note}")
+                rows.append(AuditRow(spec.name, feature, "missing", note))
+            else:
+                rows.append(AuditRow(spec.name, feature, "missing", "no Codex adapter in manifest"))
             continue
 
         script_path = root / ".codex" / "hooks" / spec.codex_script
@@ -196,7 +216,14 @@ def audit(root: Path) -> tuple[list[AuditRow], list[str]]:
         enforcement = "best-effort-only"
         if missing or stale or not script_path.exists() or hooks_error:
             enforcement = "unwired"
-            problems.append(f"{spec.name}: {'; '.join(notes) or 'unwired'}")
+            accepted = (
+                spec.name in ACCEPTED_UNWIRED
+                and missing and not stale and script_path.exists() and not hooks_error
+            )
+            if accepted:
+                notes.append("accepted platform limitation, see DECISIONS.md CX18")
+            else:
+                problems.append(f"{spec.name}: {'; '.join(notes) or 'unwired'}")
         rows.append(AuditRow(spec.name, feature, enforcement, "; ".join(notes) or "adapter wired; Codex hook delivery can still fail open"))
 
     if representative_command:
