@@ -33,6 +33,20 @@ the `Changelog gate` job. Verified against a from-scratch working-tree copy (no 
 runner with no Codex installed — `dev.py unit` 1184 passed, `codex_parity_audit.py` clean,
 `changelog_gate.py` clean.
 
+**Second push (`f7fb851`): a fourth bug, Windows-only.** After the first PT9 push, `Changelog
+gate` and `Label consistency gate` went green immediately, and every ubuntu/macos `Test` leg
+passed — but all three `windows-latest` `Test` legs failed with
+`OSError: [WinError 193] %1 is not a valid Win32 application`. Cause: `listing-guard.py`,
+`lean-output.py`, and `index-refresh.py` each resolved their subprocess launcher as the bare,
+extensionless `.less_tokens/bin/python` with no platform check; `write_python_launcher()` always
+writes that POSIX shell script *and* a `.less_tokens/bin/python.cmd` Windows sibling, so once the
+new self-refresh step created a real `.less_tokens/` on Windows too, the bare (non-executable)
+path existed and got handed straight to `subprocess.run`. Fixed with a shared
+`venv_python(repo)` helper in `_codex_runtime.py` (checks `sys.platform` and appends `.cmd` on
+`win32` before checking existence) used by all three hooks. `dev.py unit`: 1188 passed. Verified
+the platform branch with a `sys.platform="win32"` monkeypatch (no Windows machine available
+locally) — real confirmation is PR #128's own Windows CI legs on this second push.
+
 GitHub's CodeQL autofix bot pushed two unrelated small fixes directly to this branch
 (`0df276f`/`14772c3`, empty-except and implicit-string-concat lints) after PR #128 opened; rebased
 cleanly on top, no conflicts.
@@ -63,10 +77,11 @@ Codex hook contract past 0.144.6) is the only remaining item.
 
 ## Start here
 
-Check PR #128's CI on the latest commit (`9390ac3`) — should be green now. If it is, merge, then
-start CX32 (research spike, no `/bugfix` needed). If some job is still red, re-pull its log with
-`gh run view --log-failed` before assuming PT9 didn't work — the three gates fixed here were each
-independent root causes, not one bug.
+Check PR #128's CI on the latest commit (`f7fb851`) — should be green now, including the
+`windows-latest` `Test` legs. If it is, merge, then start CX32 (research spike, no `/bugfix`
+needed). If some job is still red, re-pull its log with `gh run view --log-failed` before
+assuming PT9 didn't work — four independent root causes were found and fixed across two pushes
+here, not one bug; check whether it's a fifth one or a flake.
 
 ---
-_Last updated at HEAD `9390ac3` on 2026-07-26._
+_Last updated at HEAD `f7fb851` on 2026-07-26._
