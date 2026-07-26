@@ -84,6 +84,9 @@ jobs:
       - name: Check Codex enforcement parity (codex_parity_audit)
         run: python .claude/tools/codex_parity_audit.py
 
+      - name: Check for unguarded Windows platform assumptions (WIN1)
+        run: python .claude/tools/win_platform_audit.py
+
       - name: Check installer flags documentation matches install.py argparse
         run: python .claude/tools/installer_flags_docs.py --check
 
