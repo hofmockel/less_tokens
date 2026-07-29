@@ -90,6 +90,10 @@ The goal is a lean document, not a transcript.
 - **No duplication** — if content exists in another artifact (README, DOCUMENTATION.md,
   BACKLOG.md, DECISIONS.md, CHANGELOG.md, commit message, PR description, issue), reference it by
   relative path or URL instead of copying it.
+- **No cross-repo bleed** — each repo gets its own `continue.md`. If this session also touched a
+  different tracked repo (e.g. while triaging a client finding, or running concurrent agents),
+  that repo's work goes in *its* `continue.md`, not this one — even a one-line pointer back is
+  better than copying its findings in here.
 - **No journey logs** — mention outcomes, not everything that was tried and failed.
 - **No sensitive data** — redact API keys, tokens, passwords, personal email addresses, phone
   numbers, and any other PII. Replace with a placeholder like `<API_KEY>` or `<USER_EMAIL>`.
