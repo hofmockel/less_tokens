@@ -242,6 +242,7 @@ def _gate_payload(
     elif script == "grep-first-read.py":
         target = tmp_path / "large.txt"
         target.write_text("\n".join(str(i) for i in range(250)), encoding="utf-8")
+        extra_env["LESS_TOKENS_REPO"] = str(tmp_path)
         if phase == "allow":
             (state_dir / "last-search.json").write_text(
                 json.dumps({str(target): [[20, 25]]}), encoding="utf-8"

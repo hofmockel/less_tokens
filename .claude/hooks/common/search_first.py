@@ -99,6 +99,12 @@ def check_search_first(
         return 0, "", ""
 
     p = Path(file_path)
+    try:
+        rel_check = p.resolve().relative_to(repo).as_posix()
+    except ValueError:
+        rel_check = str(file_path)
+    if rel_check in config.get("exempt_root_files", ()):
+        return 0, "", ""
     if not is_indexed(
         p, repo,
         excluded_prefixes=config.get("excluded_prefixes", ()),
