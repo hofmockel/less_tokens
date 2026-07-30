@@ -71,6 +71,11 @@ def check_grep_first_read(
     if not p.exists():
         return 0, "", ""
 
+    try:
+        p.resolve().relative_to(repo)
+    except ValueError:
+        return 0, "", ""  # outside this repo — its symbols/search tools don't apply
+
     window = int(config.get("window_seconds", 300))
     ranges_file = config.get("ranges_file", state_dir / "last-search.json")
     if _in_last_search(p, ranges_file=Path(ranges_file), window_seconds=window):

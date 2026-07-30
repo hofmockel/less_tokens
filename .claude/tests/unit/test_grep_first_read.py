@@ -53,6 +53,7 @@ def test_pass_at_threshold(hook, tmp_path, monkeypatch):
 
 def test_block_over_threshold(hook, tmp_path, monkeypatch):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 150)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     p = _make_file(tmp_path, 151)
     result = hook.check(str(p), offset=None)
     assert result is not None
@@ -88,6 +89,7 @@ def test_exempt_when_in_last_search(hook, tmp_path, monkeypatch):
 def test_not_exempt_when_only_basename_matches(hook, tmp_path, monkeypatch):
     # "tools/target.py" and tmp_path/target.py share a basename but are different files.
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     p = _make_file(tmp_path, 200, name="target.py")
     ranges_file = tmp_path / "last-search.json"
     ranges_file.write_text(json.dumps({"tools/target.py": [[1, 10]]}))
@@ -98,6 +100,7 @@ def test_not_exempt_when_only_basename_matches(hook, tmp_path, monkeypatch):
 
 def test_not_exempt_when_last_search_stale(hook, tmp_path, monkeypatch):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     p = _make_file(tmp_path, 200)
     ranges_file = tmp_path / "last-search.json"
     ranges_file.write_text(json.dumps({str(p): [[5, 15]]}))
@@ -125,6 +128,7 @@ def test_exempt_indexed_no_recent_search(hook, tmp_path, monkeypatch):
 def test_not_exempt_indexed_with_recent_search(hook, tmp_path, monkeypatch):
     """Indexed file after a recent search → search-first passed it; S13 evaluates size."""
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     monkeypatch.setattr(hook, "_is_indexed", lambda p: True)
     monkeypatch.setattr(hook, "_search_was_recent", lambda: True)
     ranges_file = tmp_path / "last-search.json"
@@ -134,6 +138,18 @@ def test_not_exempt_indexed_with_recent_search(hook, tmp_path, monkeypatch):
     p = _make_file(tmp_path, 200)
     result = hook.check(str(p), offset=None)
     assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# Exemption: file outside REPO (its symbols/search tools don't apply)
+# ---------------------------------------------------------------------------
+
+def test_exempt_when_outside_repo(hook, tmp_path, monkeypatch):
+    monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path / "repo")
+    (tmp_path / "repo").mkdir()
+    p = _make_file(tmp_path, 200)  # created outside REPO
+    assert hook.check(str(p), offset=None) is None
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +169,7 @@ def test_main_pass_wrong_tool(hook, monkeypatch, tmp_path):
 
 def test_main_block_large_file(hook, monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     p = _make_file(tmp_path, 200)
     ranges_file = tmp_path / "last-search.json"
     ranges_file.write_text("{}")
@@ -180,6 +197,7 @@ def test_gate_message_uses_venv_py(hook, tmp_path, monkeypatch):
     '.venv-tokens' path — so users with a custom venv see the right command."""
     custom_venv = Path("/custom/venv/bin/python")
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
+    monkeypatch.setattr(hook, "REPO", tmp_path)
     monkeypatch.setattr(hook, "VENV_PY", custom_venv)
     monkeypatch.setattr(hook, "_is_indexed", lambda p: False)
     ranges_file = tmp_path / "last-search.json"

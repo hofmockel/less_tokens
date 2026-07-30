@@ -630,7 +630,7 @@ class TestCodexGrepFirstRead:
             "tool_name": "mcp__filesystem__read_file",
             "tool_input": {"path": str(p)},
             "tool_response": "",
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir), "LESS_TOKENS_REPO": str(tmp_path)})
         assert "Grep-first" in deny_reason(code, stdout, stderr)
 
     def test_allows_sliced_large_file(self, tmp_path):
