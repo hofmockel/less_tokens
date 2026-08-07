@@ -1,4 +1,5 @@
 """Enable coverage collection in subprocesses during coverage runs."""
+
 from __future__ import annotations
 
 import os

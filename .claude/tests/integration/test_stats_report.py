@@ -9,6 +9,7 @@ CLI entrypoint, arg parser, or report aggregation fails the normal test matrix.
 State is redirected to a tmp dir via `LESS_TOKENS_STATE_DIR` so the test never
 touches the repo's real `state/`.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -22,19 +23,47 @@ STATS = TOOLS / "stats.py"
 # Mirrors the synthetic session the old CI job logged (legacy `saved_chars` shape,
 # which also exercises the legacy-tolerant loader).
 SYNTHETIC_EVENTS = [
-    {"strategy": "truncation", "tool": "Bash", "original_chars": 14200, "saved_chars": 10200},
-    {"strategy": "truncation", "tool": "Read", "original_chars": 9800, "saved_chars": 5800},
-    {"strategy": "truncation", "tool": "Bash", "original_chars": 6100, "saved_chars": 2100},
+    {
+        "strategy": "truncation",
+        "tool": "Bash",
+        "original_chars": 14200,
+        "saved_chars": 10200,
+    },
+    {
+        "strategy": "truncation",
+        "tool": "Read",
+        "original_chars": 9800,
+        "saved_chars": 5800,
+    },
+    {
+        "strategy": "truncation",
+        "tool": "Bash",
+        "original_chars": 6100,
+        "saved_chars": 2100,
+    },
     {"strategy": "search-blocked", "file": "a.py", "saved_chars": 18400},
     {"strategy": "search-blocked", "file": "b.py", "saved_chars": 4200},
-    {"strategy": "search", "query": "q1", "chunk_chars": 1400, "full_file_chars": 18400, "saved_chars": 17000},
-    {"strategy": "search", "query": "q2", "chunk_chars": 900, "full_file_chars": 4200, "saved_chars": 3300},
+    {
+        "strategy": "search",
+        "query": "q1",
+        "chunk_chars": 1400,
+        "full_file_chars": 18400,
+        "saved_chars": 17000,
+    },
+    {
+        "strategy": "search",
+        "query": "q2",
+        "chunk_chars": 900,
+        "full_file_chars": 4200,
+        "saved_chars": 3300,
+    },
     {"strategy": "compaction", "transcript_chars": 620000, "saved_chars": 0},
 ]
 
 
 def _env(state_dir: Path) -> dict:
     import os
+
     env = dict(os.environ)
     env["LESS_TOKENS_STATE_DIR"] = str(state_dir)
     env.pop("LESS_TOKENS_NO_STATS", None)  # ensure tracking is not disabled
@@ -45,6 +74,7 @@ def _seed(state_dir: Path) -> None:
     """Append the synthetic events through savings_log in a fresh interpreter,
     so it picks up LESS_TOKENS_STATE_DIR at import time."""
     import json
+
     code = (
         "import sys, json\n"
         f"sys.path.insert(0, {str(TOOLS)!r})\n"

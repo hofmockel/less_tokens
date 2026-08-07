@@ -6,6 +6,7 @@ iterdir() raises FileNotFoundError which is not caught (only PermissionError is)
 Fix: use is_dir() instead of `not is_file()` so broken symlinks are neither
 files nor dirs and are simply skipped.
 """
+
 from __future__ import annotations
 
 from tests.conftest import REPO_ROOT, load_hook

@@ -1,6 +1,7 @@
 """Portable search/embeddings configuration — the only file to edit when
 transplanting the vector-search system to a new codebase.
 """
+
 from __future__ import annotations
 
 import os
@@ -39,14 +40,19 @@ VENV_PY = _venv_python(".claude/.venv-tokens")
 
 # Directory names excluded from indexing (path segment match).
 EXCLUDED_DIR_NAMES: set[str] = {
-    ".venv", "__pycache__", "legacy", "backups", ".git", "reports", "node_modules",
-    ".claude", "parity",
+    ".venv",
+    "__pycache__",
+    "legacy",
+    "backups",
+    ".git",
+    "reports",
+    "node_modules",
+    ".claude",
+    "parity",
 }
 
 # Path prefixes excluded by hooks' is_indexed() check.
-EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
-    "app/.venv/",
-)
+EXCLUDED_DIR_PREFIXES: tuple[str, ...] = ("app/.venv/",)
 
 # Subdirectories whose *.py and *.sql files are indexed.
 # Also used by hooks to gate the search-first and auto-refresh rules.
@@ -91,14 +97,14 @@ SEARCH_BACKEND_CANDIDATE_MULTIPLIER: int = 4
 CHARS_PER_TOKEN: float = 2.4927  # calibrated 2026-07-13 vs claude-opus-4-8 (repo-sample); was 4 (prose ~4, code ~3)
 
 # --- Strategy 3: Tool Output Truncation ---
-MAX_TOOL_OUTPUT_CHARS: int = 4000   # ~1000 tokens; set 0 to disable
-TOOL_OUTPUT_HEAD_LINES: int = 50    # Bash: lines kept from output start
-TOOL_OUTPUT_TAIL_LINES: int = 20    # Bash: lines kept from output end (errors live here)
+MAX_TOOL_OUTPUT_CHARS: int = 4000  # ~1000 tokens; set 0 to disable
+TOOL_OUTPUT_HEAD_LINES: int = 50  # Bash: lines kept from output start
+TOOL_OUTPUT_TAIL_LINES: int = 20  # Bash: lines kept from output end (errors live here)
 
 # --- Strategy 3b: Subagent (Task) Return Cap — SA1 ---
 # Subagent returns carry a final recommendation, not log noise, so this ceiling
 # is looser than MAX_TOOL_OUTPUT_CHARS; set 0 to disable.
-MAX_SUBAGENT_OUTPUT_CHARS: int = 6000   # ~1500 tokens
+MAX_SUBAGENT_OUTPUT_CHARS: int = 6000  # ~1500 tokens
 
 # Codex adapters use tighter output caps; LESS_TOKENS_CODEX_* env vars override.
 CODEX_MAX_TOOL_OUTPUT_CHARS: int = 1500
@@ -108,7 +114,7 @@ CODEX_TOOL_OUTPUT_TAIL_LINES: int = 20
 CODEX_APPLY_PATCH_DIFF_CHARS: int = 1200
 
 # --- Strategy 5: Conversation Compaction Trigger ---
-MAX_SESSION_CHARS: int = 750_000    # ~301k tokens (calibrated); set 0 to disable
+MAX_SESSION_CHARS: int = 750_000  # ~301k tokens (calibrated); set 0 to disable
 
 # Claude model ID for context-aware k selection (see model_profiles.py). None → DEFAULT_K=3.
 AGENT_MODEL: str | None = None
@@ -116,7 +122,7 @@ AGENT_MODEL: str | None = None
 LESS_TOKENS_DIR: Path = BASE / ".less_tokens"
 CLAUDE_STATE_DIR: Path = CLAUDE_DIR / "state"
 CODEX_STATE_DIR: Path = LESS_TOKENS_DIR / "state"
-STATE_DIR: Path = CLAUDE_STATE_DIR   # backward-compat alias — do not remove
+STATE_DIR: Path = CLAUDE_STATE_DIR  # backward-compat alias — do not remove
 
 
 def state_dir_for(agent: str | None = None) -> Path:
@@ -134,7 +140,7 @@ def active_state_dir() -> Path:
     return state_dir_for(os.environ.get("LESS_TOKENS_AGENT"))
 
 
-_STATE_AGENT_AWARE: bool = True   # sentinel for installer merge check
+_STATE_AGENT_AWARE: bool = True  # sentinel for installer merge check
 
 # Seconds after a search that Read calls on indexed files are allowed without re-searching.
 WINDOW_SECONDS: int = 300
@@ -169,22 +175,50 @@ SEARCH_DEDUP_SIM: float = 0.97
 
 # --- Caveman output enforcement (Stop hook: caveman-reminder.py) --- Set False to disable.
 CAVEMAN_ENFORCE: bool = True
-MAX_RESPONSE_WORDS: int = 600   # prose-word ceiling per turn; 0 disables the word check
+MAX_RESPONSE_WORDS: int = 600  # prose-word ceiling per turn; 0 disables the word check
 
 # --- Noise-file read guard (read-guard.py) --- Sliced reads always pass. Empty to disable.
 READ_DENY_GLOBS: tuple[str, ...] = (
-    "*.lock", "*-lock.json", "*-lock.yaml", "package-lock.json", "yarn.lock",
-    "poetry.lock", "Pipfile.lock", "Cargo.lock", "pnpm-lock.yaml", "composer.lock",
+    "*.lock",
+    "*-lock.json",
+    "*-lock.yaml",
+    "package-lock.json",
+    "yarn.lock",
+    "poetry.lock",
+    "Pipfile.lock",
+    "Cargo.lock",
+    "pnpm-lock.yaml",
+    "composer.lock",
     "go.sum",
-    "*.min.js", "*.min.css", "*.map",
+    "*.min.js",
+    "*.min.css",
+    "*.map",
     "*.ipynb",
-    "*.pdf", "*.zip", "*.tar", "*.gz", "*.tgz", "*.whl", "*.so", "*.dll",
-    "*.bin", "*.pyc", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.ico",
+    "*.pdf",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "*.tgz",
+    "*.whl",
+    "*.so",
+    "*.dll",
+    "*.bin",
+    "*.pyc",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.ico",
 )
 # Data files allowed up to this many lines; over it guard suggests head/wc. Set 0 to disable.
 READ_DENY_DATA_MAX_LINES: int = 1000
 READ_DENY_DATA_EXTS: tuple[str, ...] = (
-    ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".parquet",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".jsonl",
+    ".ndjson",
+    ".parquet",
 )
 
 # --- S13: Grep-first Read gate (grep-first-read.py) --- Block unsliced reads over this line count. Set 0 to disable.

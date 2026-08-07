@@ -18,6 +18,7 @@ Settings searched (merged in order, later wins):
 
 Ignore file: .claude/.toolignore (one server name per line, # = comment)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,9 +34,9 @@ from typing import Any
 # Config
 # ---------------------------------------------------------------------------
 
-CHARS_PER_TOKEN: int = 4          # rough estimate; overridden by search_config.py
-_PROBE_TIMEOUT: float = 8.0       # seconds per server probe
-HEAVY_THRESHOLD: int = 1000       # tokens — flag as heavy above this
+CHARS_PER_TOKEN: int = 4  # rough estimate; overridden by search_config.py
+_PROBE_TIMEOUT: float = 8.0  # seconds per server probe
+HEAVY_THRESHOLD: int = 1000  # tokens — flag as heavy above this
 
 _BASE = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_BASE / ".claude" / "tools"))
@@ -54,6 +55,7 @@ _DEFAULT_SETTINGS_PATHS: list[Path] = [
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
+
 
 def load_mcp_servers(paths: list[Path]) -> dict[str, Any]:
     """Merge mcpServers from all settings files (later files win)."""
@@ -84,9 +86,11 @@ def load_toolignore(base: Path) -> set[str]:
                 ignored.add(line)
     return ignored
 
+
 # ---------------------------------------------------------------------------
 # MCP probe (JSON-RPC over stdio)
 # ---------------------------------------------------------------------------
+
 
 def _send(proc: subprocess.Popen, msg: dict) -> None:  # type: ignore[type-arg]
     assert proc.stdin is not None
@@ -141,14 +145,19 @@ def probe_server(name: str, config: dict, timeout: float) -> list[dict] | None: 
         return None
 
     try:
-        _send(proc, {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "toolcost", "version": "1.0"},
+        _send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "toolcost", "version": "1.0"},
+                },
             },
-        })
+        )
         init_resp = _recv(proc, timeout)
         if init_resp is None or "error" in (init_resp or {}):
             return None
@@ -169,9 +178,11 @@ def probe_server(name: str, config: dict, timeout: float) -> list[dict] | None: 
             except Exception:
                 pass
 
+
 # ---------------------------------------------------------------------------
 # Token estimation
 # ---------------------------------------------------------------------------
+
 
 def est_tokens(obj: Any) -> int:
     return int(len(json.dumps(obj)) / max(1, CHARS_PER_TOKEN))
@@ -180,44 +191,58 @@ def est_tokens(obj: Any) -> int:
 def server_tokens(tools: list[dict]) -> int:  # type: ignore[type-arg]
     return sum(est_tokens(t) for t in tools)
 
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
+
 
 def _bar(frac: float, width: int = 20) -> str:
     filled = round(frac * width)
     return "█" * filled + "░" * (width - filled)
 
 
-def render_table(rows: list[dict], ignored: set[str], total: int, any_probed: bool) -> str:  # type: ignore[type-arg]
+def render_table(
+    rows: list[dict], ignored: set[str], total: int, any_probed: bool
+) -> str:  # type: ignore[type-arg]
     lines: list[str] = []
     lines.append(f"\n{'server':<32} {'tools':>6}  {'tokens':>10}  {'share':>6}  bar")
     lines.append("-" * 76)
 
     for r in sorted(rows, key=lambda x: (-x["tokens"], x["name"])):
-        tag = " [ignored]" if r["name"] in ignored else (
-            " ★" if r["tokens"] >= HEAVY_THRESHOLD else ""
+        tag = (
+            " [ignored]"
+            if r["name"] in ignored
+            else (" ★" if r["tokens"] >= HEAVY_THRESHOLD else "")
         )
         frac = r["tokens"] / max(1, total)
         bar = _bar(frac)
         tc = str(r["tool_count"]) if r["tool_count"] >= 0 else "?"
         share = f"{frac * 100:.1f}%"
-        lines.append(f"{r['name']:<32} {tc:>6}  {r['tokens']:>10,}  {share:>6}  {bar}{tag}")
+        lines.append(
+            f"{r['name']:<32} {tc:>6}  {r['tokens']:>10,}  {share:>6}  {bar}{tag}"
+        )
 
     lines.append("-" * 76)
     active_tok = sum(r["tokens"] for r in rows if r["name"] not in ignored)
     ignored_tok = sum(r["tokens"] for r in rows if r["name"] in ignored)
     lines.append(f"{'TOTAL (active)':<32} {'':>6}  {active_tok:>10,}")
     if ignored:
-        lines.append(f"{'  .toolignore savings':<32} {'':>6}  {ignored_tok:>10,}  ← excluded")
+        lines.append(
+            f"{'  .toolignore savings':<32} {'':>6}  {ignored_tok:>10,}  ← excluded"
+        )
 
     lines.append(f"\n  Fixed cost per turn: ~{active_tok:,} tokens")
     if not any_probed:
         lines.append("  (estimates only — run without --no-probe for exact counts)")
 
-    heavy = [r for r in rows if r["tokens"] >= HEAVY_THRESHOLD and r["name"] not in ignored]
+    heavy = [
+        r for r in rows if r["tokens"] >= HEAVY_THRESHOLD and r["name"] not in ignored
+    ]
     if heavy:
-        lines.append(f"\n  ★ Heavy (≥{HEAVY_THRESHOLD:,} tok) — candidates for .claude/.toolignore:")
+        lines.append(
+            f"\n  ★ Heavy (≥{HEAVY_THRESHOLD:,} tok) — candidates for .claude/.toolignore:"
+        )
         for r in sorted(heavy, key=lambda x: -x["tokens"]):
             lines.append(f"    {r['name']}")
     elif not any_probed:
@@ -225,19 +250,33 @@ def render_table(rows: list[dict], ignored: set[str], total: int, any_probed: bo
 
     return "\n".join(lines)
 
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Audit MCP server token cost")
-    ap.add_argument("--no-probe", action="store_true",
-                    help="Don't start servers; estimate from config size only")
+    ap.add_argument(
+        "--no-probe",
+        action="store_true",
+        help="Don't start servers; estimate from config size only",
+    )
     ap.add_argument("--json", action="store_true", help="JSON output")
-    ap.add_argument("--settings", metavar="PATH", action="append", default=[],
-                    help="Settings file(s) to read (overrides defaults)")
-    ap.add_argument("--timeout", type=float, default=_PROBE_TIMEOUT,
-                    help=f"Probe timeout per server in seconds (default {_PROBE_TIMEOUT})")
+    ap.add_argument(
+        "--settings",
+        metavar="PATH",
+        action="append",
+        default=[],
+        help="Settings file(s) to read (overrides defaults)",
+    )
+    ap.add_argument(
+        "--timeout",
+        type=float,
+        default=_PROBE_TIMEOUT,
+        help=f"Probe timeout per server in seconds (default {_PROBE_TIMEOUT})",
+    )
     args = ap.parse_args()
 
     timeout = args.timeout
@@ -248,8 +287,11 @@ def main() -> int:
     ignored = load_toolignore(_BASE)
 
     if not servers:
-        print("No mcpServers found in:", ", ".join(str(p) for p in settings_paths),
-              file=sys.stderr)
+        print(
+            "No mcpServers found in:",
+            ", ".join(str(p) for p in settings_paths),
+            file=sys.stderr,
+        )
         return 1
 
     rows: list[dict] = []  # type: ignore[type-arg]
@@ -274,25 +316,32 @@ def main() -> int:
         else:
             tokens = est_tokens(config) * 3
 
-        rows.append({
-            "name": name,
-            "tokens": tokens,
-            "tool_count": tool_count,
-            "probed": probed,
-            "ignored": name in ignored,
-            "config_type": "command" if "command" in config else "url",
-            "error": error,
-        })
+        rows.append(
+            {
+                "name": name,
+                "tokens": tokens,
+                "tool_count": tool_count,
+                "probed": probed,
+                "ignored": name in ignored,
+                "config_type": "command" if "command" in config else "url",
+                "error": error,
+            }
+        )
 
     total = sum(r["tokens"] for r in rows)
 
     if args.json:
-        print(json.dumps({
-            "servers": rows,
-            "total_tokens": total,
-            "active_tokens": sum(r["tokens"] for r in rows if not r["ignored"]),
-            "ignored": sorted(ignored),
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "servers": rows,
+                    "total_tokens": total,
+                    "active_tokens": sum(r["tokens"] for r in rows if not r["ignored"]),
+                    "ignored": sorted(ignored),
+                },
+                indent=2,
+            )
+        )
         return 0
 
     print(render_table(rows, ignored, total, any_probed))

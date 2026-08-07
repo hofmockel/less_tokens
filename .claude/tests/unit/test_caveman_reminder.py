@@ -1,4 +1,5 @@
 """Unit tests for the caveman-reminder Stop hook."""
+
 from __future__ import annotations
 
 import json
@@ -20,18 +21,29 @@ def _transcript(tmp_path, *turns) -> str:
     p = tmp_path / "t.jsonl"
     lines = []
     for role, text in turns:
-        lines.append(json.dumps({
-            "type": role,
-            "message": {"role": role, "content": [{"type": "text", "text": text}]},
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "type": role,
+                    "message": {
+                        "role": role,
+                        "content": [{"type": "text", "text": text}],
+                    },
+                }
+            )
+        )
     p.write_text("\n".join(lines), encoding="utf-8")
     return str(p)
 
 
 def test_last_assistant_text_picks_last_assistant(hook, tmp_path):
-    t = _transcript(tmp_path, ("user", "hi"),
-                    ("assistant", "first"), ("user", "more"),
-                    ("assistant", "second"))
+    t = _transcript(
+        tmp_path,
+        ("user", "hi"),
+        ("assistant", "first"),
+        ("user", "more"),
+        ("assistant", "second"),
+    )
     assert hook.last_assistant_text(t) == "second"
 
 
@@ -72,7 +84,10 @@ def test_unclosed_fence_not_counted_as_prose(hook):
 
 def test_quoted_filler_not_flagged(hook):
     """Banned phrases inside prose quotation marks must not trigger filler detection."""
-    assert hook.analyze("The rule bans phrases like \"I'd be happy to\" and 'certainly'.") == []
+    assert (
+        hook.analyze("The rule bans phrases like \"I'd be happy to\" and 'certainly'.")
+        == []
+    )
 
 
 def test_unquoted_filler_still_flagged(hook):

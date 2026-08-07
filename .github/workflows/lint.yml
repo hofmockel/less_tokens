@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Ruff check + format on .claude/ (the tree shipped into host projects).
+  # Downstream installers (e.g. poetic) run default-config ruff, so keeping
+  # .claude/ clean here prevents follow-up lint-fix commits after reinstall.
+  # Ruff version pinned to match downstream (see docs/DEVELOPMENT if updated).
+  # ---------------------------------------------------------------------------
+  ruff:
+    name: "Ruff / .claude"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff==0.15.15
+
+      - name: Ruff check
+        run: ruff check .claude/
+
+      - name: Ruff format check
+        run: ruff format --check .claude/

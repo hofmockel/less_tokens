@@ -1,4 +1,5 @@
 """Shared post-edit diff and edit-record logic."""
+
 from __future__ import annotations
 
 import difflib
@@ -22,13 +23,15 @@ def diff_edit(old: str, new: str, label: str) -> list[str]:
         old_lines[-1] += "\n"
     if new_lines and not new_lines[-1].endswith("\n"):
         new_lines[-1] += "\n"
-    return list(difflib.unified_diff(
-        old_lines,
-        new_lines,
-        fromfile=f"a/{label}",
-        tofile=f"b/{label}",
-        n=_CONTEXT,
-    ))
+    return list(
+        difflib.unified_diff(
+            old_lines,
+            new_lines,
+            fromfile=f"a/{label}",
+            tofile=f"b/{label}",
+            n=_CONTEXT,
+        )
+    )
 
 
 def diff_write(file_path: str, *, repo: Path | None = None) -> list[str]:
@@ -45,9 +48,11 @@ def diff_write(file_path: str, *, repo: Path | None = None) -> list[str]:
             return result.stdout.splitlines(keepends=True)
         if p.exists():
             lines = p.read_text(errors="replace").splitlines(keepends=True)
-            return ["--- /dev/null\n", f"+++ b/{p.name}\n", f"@@ -0,0 +1,{len(lines)} @@\n"] + [
-                f"+{line}" for line in lines
-            ]
+            return [
+                "--- /dev/null\n",
+                f"+++ b/{p.name}\n",
+                f"@@ -0,0 +1,{len(lines)} @@\n",
+            ] + [f"+{line}" for line in lines]
     except Exception:
         pass
     try:
@@ -100,7 +105,9 @@ def _diff_file_from_line(line: str) -> str | None:
     return None
 
 
-def compact_hunk_summary(diff_lines: list[str], touched_files: tuple[Path, ...], repo: Path) -> str:
+def compact_hunk_summary(
+    diff_lines: list[str], touched_files: tuple[Path, ...], repo: Path
+) -> str:
     """Summarize touched files and hunk sizes before any full apply_patch diff."""
     touched = [_display_path(path, repo) for path in touched_files]
     stats: dict[str, dict[str, int]] = {}
@@ -130,7 +137,9 @@ def compact_hunk_summary(diff_lines: list[str], touched_files: tuple[Path, ...],
         lines.extend(["", "compact hunk summary:"])
         for path in sorted(stats):
             s = stats[path]
-            lines.append(f"- {path}: {s['hunks']} hunk(s), +{s['added']} -{s['removed']}")
+            lines.append(
+                f"- {path}: {s['hunks']} hunk(s), +{s['added']} -{s['removed']}"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -140,7 +149,11 @@ def apply_patch_diff_text(
     repo: Path,
     max_chars: int,
 ) -> str:
-    diff_lines = _diff_touched_files(repo, payload.touched_files) if payload.touched_files else diff_repo(repo, ".")
+    diff_lines = (
+        _diff_touched_files(repo, payload.touched_files)
+        if payload.touched_files
+        else diff_repo(repo, ".")
+    )
     summary = compact_hunk_summary(diff_lines, payload.touched_files, repo)
     full = "".join(diff_lines)
     if not full:
@@ -158,7 +171,10 @@ def apply_patch_diff_text(
 def cap(diff_lines: list[str], max_lines: int) -> str:
     if max_lines <= 0 or len(diff_lines) <= max_lines:
         return "".join(diff_lines)
-    return "".join(diff_lines[:max_lines]) + f"\n... +{len(diff_lines) - max_lines} more diff lines (truncated) ...\n"
+    return (
+        "".join(diff_lines[:max_lines])
+        + f"\n... +{len(diff_lines) - max_lines} more diff lines (truncated) ...\n"
+    )
 
 
 def record_edit(state_dir: Path, file_path: str) -> None:
@@ -211,7 +227,9 @@ def check_post_edit_diff(
     elif file_path:
         diff_lines = diff_write(file_path, repo=repo)
     elif payload.tool_name == "apply_patch":
-        diff_text = apply_patch_diff_text(payload, repo=repo, max_chars=apply_patch_max_chars)
+        diff_text = apply_patch_diff_text(
+            payload, repo=repo, max_chars=apply_patch_max_chars
+        )
 
     if file_path:
         record_edit(state_dir, file_path)
@@ -221,10 +239,18 @@ def check_post_edit_diff(
     if not diff_lines and not diff_text:
         return 0, "", ""
 
-    context = hook_context(label, diff_text or cap(diff_lines, max_diff_lines), message.format(label=label))
-    return 0, json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PostToolUse",
-            "additionalContext": context,
-        }
-    }), ""
+    context = hook_context(
+        label, diff_text or cap(diff_lines, max_diff_lines), message.format(label=label)
+    )
+    return (
+        0,
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    "additionalContext": context,
+                }
+            }
+        ),
+        "",
+    )

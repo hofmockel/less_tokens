@@ -4,6 +4,7 @@ The installer deploys tools/ and schema/ into .claude/tools/ and .claude/schema/
 so listing them in the default would cause healthy installs to report coverage
 gaps. The default is () so the installer's auto-discover step fills it per host.
 """
+
 from __future__ import annotations
 
 import sys

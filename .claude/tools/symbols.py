@@ -10,6 +10,7 @@ Usage:
   python .claude/tools/symbols.py <name> --json
   python .claude/tools/symbols.py refresh [--full]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,6 +36,7 @@ from db import connect_index  # noqa: E402
 
 try:
     import search_config as _cfg  # noqa: E402
+
     EXCLUDED_NAMES = set(_cfg.EXCLUDED_DIR_NAMES)
     EXCLUDED_PREFIXES = tuple(_cfg.EXCLUDED_DIR_PREFIXES)
     INDEXED_SOURCE_DIRS = tuple(_cfg.INDEXED_SOURCE_DIRS)
@@ -91,22 +93,36 @@ def extract_py_symbols(path: Path) -> list[tuple[str, str, int, int]]:
     out: list[tuple[str, str, int, int]] = []
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            out.append((node.name, "func", node.lineno,
-                        getattr(node, "end_lineno", node.lineno)))
+            out.append(
+                (
+                    node.name,
+                    "func",
+                    node.lineno,
+                    getattr(node, "end_lineno", node.lineno),
+                )
+            )
         elif isinstance(node, ast.ClassDef):
-            out.append((node.name, "class", node.lineno,
-                        getattr(node, "end_lineno", node.lineno)))
+            out.append(
+                (
+                    node.name,
+                    "class",
+                    node.lineno,
+                    getattr(node, "end_lineno", node.lineno),
+                )
+            )
         elif isinstance(node, ast.Assign):
             names: list[str] = []
             for t in node.targets:
                 names.extend(_upper_names(t))
             for n in names:
-                out.append((n, "const", node.lineno,
-                            getattr(node, "end_lineno", node.lineno)))
+                out.append(
+                    (n, "const", node.lineno, getattr(node, "end_lineno", node.lineno))
+                )
         elif isinstance(node, ast.AnnAssign):
             for n in _upper_names(node.target):
-                out.append((n, "const", node.lineno,
-                            getattr(node, "end_lineno", node.lineno)))
+                out.append(
+                    (n, "const", node.lineno, getattr(node, "end_lineno", node.lineno))
+                )
     return out
 
 
@@ -213,10 +229,7 @@ def refresh(full: bool = False) -> int:
             marker_mtime = _MARKER.stat().st_mtime
         except OSError:
             marker_mtime = 0.0
-        files = [
-            f for f in _iter_symbol_files()
-            if _get_mtime(f) > marker_mtime
-        ]
+        files = [f for f in _iter_symbol_files() if _get_mtime(f) > marker_mtime]
 
     rows: list[tuple[str, str, str, int, int]] = []
     for f in files:
@@ -232,7 +245,9 @@ def refresh(full: bool = False) -> int:
             rels = [f.relative_to(BASE).as_posix() for f in files]
             if rels:
                 placeholders = ",".join("?" * len(rels))
-                c.execute(f"DELETE FROM symbols WHERE source_path IN ({placeholders})", rels)
+                c.execute(
+                    f"DELETE FROM symbols WHERE source_path IN ({placeholders})", rels
+                )
         c.executemany(
             "INSERT OR IGNORE INTO symbols "
             "(name, kind, source_path, start_line, end_line) VALUES (?,?,?,?,?)",
@@ -316,13 +331,17 @@ def main() -> int:
         print(json.dumps(hits, indent=2))
         return 0
     if not hits:
-        print(f"no symbol '{args.name}'. Try search.py for fuzzy matches.",
-              file=sys.stderr)
+        print(
+            f"no symbol '{args.name}'. Try search.py for fuzzy matches.",
+            file=sys.stderr,
+        )
         return 1
     for h in hits:
-        print(f"{h['source_path']}:{h['start_line']}-{h['end_line']}  "
-              f"({h['kind']} {h['name']})  "
-              f"-> Read(offset={h['start_line']}, limit={h['end_line']-h['start_line']+1})")
+        print(
+            f"{h['source_path']}:{h['start_line']}-{h['end_line']}  "
+            f"({h['kind']} {h['name']})  "
+            f"-> Read(offset={h['start_line']}, limit={h['end_line'] - h['start_line'] + 1})"
+        )
     return 0
 
 

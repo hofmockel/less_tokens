@@ -1,4 +1,5 @@
 """Unit tests for all chunker functions in tools/embeddings.py."""
+
 from __future__ import annotations
 
 from tools.embeddings import chunk_changelog, chunk_markdown, chunk_python, chunk_sql
@@ -7,6 +8,7 @@ from tools.embeddings import chunk_changelog, chunk_markdown, chunk_python, chun
 # ---------------------------------------------------------------------------
 # chunk_python
 # ---------------------------------------------------------------------------
+
 
 class TestChunkPython:
     def test_top_level_functions(self, sample_py):
@@ -65,6 +67,7 @@ class TestChunkPython:
 # ---------------------------------------------------------------------------
 # chunk_markdown
 # ---------------------------------------------------------------------------
+
 
 class TestChunkMarkdown:
     def test_h1_h2_h3_headings(self, sample_md):
@@ -154,6 +157,7 @@ class TestChunkMarkdown:
 # chunk_sql
 # ---------------------------------------------------------------------------
 
+
 class TestChunkSql:
     def test_create_table_names(self, sample_sql):
         chunks = chunk_sql(sample_sql)
@@ -179,7 +183,9 @@ class TestChunkSql:
 
     def test_empty_statements_skipped(self, tmp_path):
         sql = tmp_path / "test.sql"
-        sql.write_text("CREATE TABLE foo (id INTEGER);\n\n\nCREATE TABLE bar (id INTEGER);\n")
+        sql.write_text(
+            "CREATE TABLE foo (id INTEGER);\n\n\nCREATE TABLE bar (id INTEGER);\n"
+        )
         chunks = chunk_sql(sql)
         keys = [k for k, _ in chunks]
         assert "foo" in keys
@@ -196,6 +202,7 @@ class TestChunkSql:
 # ---------------------------------------------------------------------------
 # chunk_changelog
 # ---------------------------------------------------------------------------
+
 
 class TestChunkChangelog:
     def test_keep_a_changelog_format_splits_on_version_headers(self, sample_changelog):

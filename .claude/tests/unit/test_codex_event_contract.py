@@ -1,4 +1,5 @@
 """Codex hook event-contract tests for installed hooks.json matchers."""
+
 from __future__ import annotations
 
 import json
@@ -27,12 +28,14 @@ LIVE_FIXTURES = REPO / ".claude" / "tests" / "fixtures" / "codex-hooks"
 def _env(state_dir: Path) -> dict[str, str]:
     return {
         **os.environ,
-        "PYTHONPATH": os.pathsep.join((
-            str(REPO / ".claude" / "tests"),
-            str(REPO / ".claude" / "tools"),
-            str(REPO / "agents" / "common" / "hooks"),
-            os.environ.get("PYTHONPATH", ""),
-        )),
+        "PYTHONPATH": os.pathsep.join(
+            (
+                str(REPO / ".claude" / "tests"),
+                str(REPO / ".claude" / "tools"),
+                str(REPO / "agents" / "common" / "hooks"),
+                os.environ.get("PYTHONPATH", ""),
+            )
+        ),
         "LESS_TOKENS_REPO": str(REPO),
         "LESS_TOKENS_AGENT": "codex",
         "LESS_TOKENS_STATE_DIR": str(state_dir),
@@ -69,7 +72,11 @@ GATE_HOOKS = {
 NATIVE_DECISION_HOOKS = set(GATE_HOOKS) - {"read-after-edit.py"}
 
 BASE_SCENARIOS = {
-    MCP_TOKEN: ("filesystem-read-legacy", "filesystem-read-current", "filesystem-search"),
+    MCP_TOKEN: (
+        "filesystem-read-legacy",
+        "filesystem-read-current",
+        "filesystem-search",
+    ),
     "Bash": ("bash",),
     "apply_patch": ("apply-patch",),
     "Edit": ("edit",),
@@ -331,7 +338,9 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
                 if token in {"Edit", "Write"}:
                     assert tool_name == "apply_patch"
                 else:
-                    assert re.fullmatch(token, tool_name), f"{tool_name!r} does not match {token!r}"
+                    assert re.fullmatch(token, tool_name), (
+                        f"{tool_name!r} does not match {token!r}"
+                    )
                 seen_tools.add(tool_name)
 
     assert {
@@ -346,7 +355,10 @@ def test_every_codex_matcher_has_representative_payload(tmp_path):
 @pytest.mark.parametrize("release", ["0.142.3", "0.144.5", "0.144.6"])
 @pytest.mark.parametrize(
     "fixture_name,tool_name",
-    [("pre-tool-use-bash.json", "Bash"), ("pre-tool-use-apply-patch.json", "apply_patch")],
+    [
+        ("pre-tool-use-bash.json", "Bash"),
+        ("pre-tool-use-apply-patch.json", "apply_patch"),
+    ],
 )
 def test_release_labeled_live_pre_tool_use_fixture(release, fixture_name, tool_name):
     payload = json.loads(
@@ -470,7 +482,9 @@ def test_current_cli_live_fixtures_are_sanitized():
     )
 
 
-def test_schema_drift_telemetry_preserves_payload_and_omits_values(tmp_path, monkeypatch):
+def test_schema_drift_telemetry_preserves_payload_and_omits_values(
+    tmp_path, monkeypatch
+):
     payload = {
         "hook_event_name": "FutureToolEvent",
         "tool_name": "future_tool",
@@ -482,9 +496,7 @@ def test_schema_drift_telemetry_preserves_payload_and_omits_values(tmp_path, mon
     mapped = _codex_runtime.load_json_stdin(lambda raw: {**raw, "mapped": True})
 
     assert mapped == {**payload, "mapped": True}
-    telemetry = (tmp_path / "codex-hook-schema-drift.jsonl").read_text(
-        encoding="utf-8"
-    )
+    telemetry = (tmp_path / "codex-hook-schema-drift.jsonl").read_text(encoding="utf-8")
     assert "unknown-hook-event" in telemetry
     assert "FutureToolEvent" in telemetry
     assert "future_tool" in telemetry
@@ -496,7 +508,9 @@ def test_schema_drift_telemetry_preserves_payload_and_omits_values(tmp_path, mon
     CONTRACT_CASES,
     ids=[_case_id(case) for case in CONTRACT_CASES],
 )
-def test_codex_hook_entry_has_semantic_outcome(event, matcher, script, token, scenario, tmp_path):
+def test_codex_hook_entry_has_semantic_outcome(
+    event, matcher, script, token, scenario, tmp_path
+):
     state_dir = tmp_path / "state"
     base_scenario = scenario.removesuffix("-error")
     if base_scenario in BASE_SCENARIOS[token]:
@@ -508,7 +522,9 @@ def test_codex_hook_entry_has_semantic_outcome(event, matcher, script, token, sc
         payload, extra_env = _gate_payload(script, token, scenario, tmp_path, state_dir)
     result = subprocess.run(
         [sys.executable, str(CODEX_HOOKS / script)],
-        input=json.dumps({**payload, "hook_event_name": event, "session_id": "contract-session"}),
+        input=json.dumps(
+            {**payload, "hook_event_name": event, "session_id": "contract-session"}
+        ),
         capture_output=True,
         text=True,
         env={**_env(state_dir), **extra_env},
@@ -556,7 +572,9 @@ def test_codex_unknown_mcp_tool_fails_open(tmp_path):
 
 
 def test_codex_native_lifecycle_wiring_replaces_post_tool_use_approximations():
-    entries = {(event, matcher, _script(command)) for event, matcher, command in _entries()}
+    entries = {
+        (event, matcher, _script(command)) for event, matcher, command in _entries()
+    }
     expected = {
         ("PreCompact", "manual|auto", "compact-trigger.py"),
         ("PostCompact", "manual|auto", "compact-trigger.py"),
@@ -568,7 +586,8 @@ def test_codex_native_lifecycle_wiring_replaces_post_tool_use_approximations():
     }
     assert expected <= entries
     approximated = {
-        script for event, _, script in entries
+        script
+        for event, _, script in entries
         if event == "PostToolUse"
         and script in {"compact-trigger.py", "terse-reminder.py", "savings-html.py"}
     }

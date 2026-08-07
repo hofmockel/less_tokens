@@ -9,6 +9,7 @@ though every other source dir was readable. The fix wraps each per-source
 enumeration in `try/except OSError`, logs a warning, and continues so the
 readable sources are still indexed.
 """
+
 from __future__ import annotations
 
 import sys

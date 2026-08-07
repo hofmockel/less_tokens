@@ -4,6 +4,7 @@ Both read-guard.py and read-after-edit.py used `inp.get("offset")` which is
 falsy for 0, incorrectly blocking Read(offset=0, limit=N) as if it were an
 unsliced whole-file read.
 """
+
 from __future__ import annotations
 
 import io
@@ -15,7 +16,9 @@ import pytest
 
 from tests.conftest import load_hook
 
-HOOK_READ_GUARD = Path(__file__).resolve().parent.parent.parent / "hooks" / "read-guard.py"
+HOOK_READ_GUARD = (
+    Path(__file__).resolve().parent.parent.parent / "hooks" / "read-guard.py"
+)
 HOOK_READ_AFTER_EDIT = (
     Path(__file__).resolve().parent.parent.parent / "hooks" / "read-after-edit.py"
 )

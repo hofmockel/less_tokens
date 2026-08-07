@@ -6,6 +6,7 @@
 3. _maybe_suggest_recursive_globs() nudges when subdir markdown
    dominates and no root .py is present.
 """
+
 from __future__ import annotations
 
 import io

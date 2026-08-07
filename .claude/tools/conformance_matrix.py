@@ -8,6 +8,7 @@ rather than a fork of it: the schema here is workload x agent x release with
 four evidence booleans plus a basis label, not hook_parity_docs.py's binary
 hook x agent shipped/missing shape.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,11 +56,11 @@ def render() -> str:
     lines = [
         BEGIN,
         "",
-        "Every cell below is either a live-captured, agent+release-tagged workload " +
-        "measurement or an explicit `not_yet_measured` gap — never a guessed number. " +
-        "`code_present`/`configured`/`event_fired`/`action_enforced` are reported " +
-        "separately so shipped-but-unwired and wired-but-unenforced are never " +
-        "conflated with fully proven. See each fixture for method and caveats.",
+        "Every cell below is either a live-captured, agent+release-tagged workload "
+        + "measurement or an explicit `not_yet_measured` gap — never a guessed number. "
+        + "`code_present`/`configured`/`event_fired`/`action_enforced` are reported "
+        + "separately so shipped-but-unwired and wired-but-unenforced are never "
+        + "conflated with fully proven. See each fixture for method and caveats.",
         "",
         "| Workload:agent:release | Code present | Configured | Event fired | Action enforced | Basis | Fixture |",
         "|---|---|---|---|---|---|---|",
@@ -69,7 +70,9 @@ def render() -> str:
             key = f"{workload.slug}:{agent}:{release}"
             entry = matrix.get(key)
             if entry is None:
-                lines.append(f"| `{key}` | — | — | — | — | missing from matrix.json | — |")
+                lines.append(
+                    f"| `{key}` | — | — | — | — | missing from matrix.json | — |"
+                )
                 continue
             lines.append(_row(workload.slug, agent, release, entry))
     lines.extend(["", END])

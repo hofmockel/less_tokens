@@ -4,6 +4,7 @@ Without `--create-venv`, a missing venv aborts the install with an
 instruction to run `python3 -m venv .venv` and re-invoke — a two-step
 dance. The new flag does the venv creation inline inside .claude/.
 """
+
 from __future__ import annotations
 
 import subprocess

@@ -4,6 +4,7 @@ When CHUNK_INCLUDE_MODULE_CONTEXT=True and the module docstring contains blank
 lines, _ctx() produces comment lines like '# ' instead of plain '#', adding
 trailing whitespace to the embedded header.
 """
+
 from __future__ import annotations
 
 import sys

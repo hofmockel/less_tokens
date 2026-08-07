@@ -1,4 +1,5 @@
 """Tests for caveman CLAUDE.md append/remove in install.py."""
+
 from __future__ import annotations
 
 import sys
@@ -17,6 +18,7 @@ from install import (
 # ---------------------------------------------------------------------------
 # _caveman_in_claude_md
 # ---------------------------------------------------------------------------
+
 
 class TestCavemanInClaudeMd:
     def test_returns_false_when_file_missing(self, tmp_path):
@@ -38,6 +40,7 @@ class TestCavemanInClaudeMd:
 # ---------------------------------------------------------------------------
 # handle_caveman_claude_md
 # ---------------------------------------------------------------------------
+
 
 class TestHandleCavemanClaudeMd:
     def test_creates_claude_md_with_header_when_absent(self, tmp_path):
@@ -67,7 +70,9 @@ class TestHandleCavemanClaudeMd:
         assert text.count(_CM_START) == 1
 
     def test_idempotent_with_legacy_caveman_mode(self, tmp_path):
-        (tmp_path / "CLAUDE.md").write_text("## Output Style — Caveman Mode\n", encoding="utf-8")
+        (tmp_path / "CLAUDE.md").write_text(
+            "## Output Style — Caveman Mode\n", encoding="utf-8"
+        )
         result = handle_caveman_claude_md(tmp_path, dry_run=False)
         assert result == 0
 
@@ -93,6 +98,7 @@ class TestHandleCavemanClaudeMd:
 
     def test_missing_caveman_src_is_noop(self, tmp_path, monkeypatch):
         import install
+
         monkeypatch.setattr(install, "SOURCE", tmp_path / "nosrc")
         result = handle_caveman_claude_md(tmp_path, dry_run=False)
         assert result == 0
@@ -109,6 +115,7 @@ class TestHandleCavemanClaudeMd:
 # ---------------------------------------------------------------------------
 # _remove_caveman_block
 # ---------------------------------------------------------------------------
+
 
 class TestRemoveCavemanBlock:
     def test_noop_when_file_missing(self, tmp_path):

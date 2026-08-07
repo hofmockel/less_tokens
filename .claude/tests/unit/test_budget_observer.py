@@ -5,7 +5,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks")
+)
 
 from budget_observer import budget_hook_outcome, observe_budget_payload  # noqa: E402
 from agents.common.budget import load_events  # noqa: E402

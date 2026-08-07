@@ -6,6 +6,7 @@ source set it covered. `--verbose` adds indexed-file count, index age
 (from the newest chunk's updated_at), and coverage vs expected sources.
 Plain `stats` output is unchanged.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -45,7 +46,8 @@ def index_db(tmp_path, monkeypatch):
     conn.close()
     monkeypatch.setattr(_DB, "INDEX_DB", dbp)
     monkeypatch.setattr(
-        embeddings, "expected_source_paths",
+        embeddings,
+        "expected_source_paths",
         lambda: {"tools/a.py", "README.md", "schema/x.sql"},
     )
     return dbp

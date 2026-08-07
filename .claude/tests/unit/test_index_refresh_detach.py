@@ -10,6 +10,7 @@ Windows passes `creationflags=DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP`
 instead. These tests pin both kwarg shapes and assert `check_index_refresh`
 forwards the platform-correct kwargs into `Popen`.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -62,10 +63,12 @@ class TestMainForwardsDetach:
         state_dir = tmp_path / ".claude" / "state"
         state_dir.mkdir(parents=True)
 
-        payload = normalize_claude({
-            "tool_name": "Write",
-            "tool_input": {"file_path": str(tools_dir / "x.py")},
-        })
+        payload = normalize_claude(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(tools_dir / "x.py")},
+            }
+        )
         config = {
             "venv_py": Path(sys.executable),
             "tool_prefix": ".claude/tools",
@@ -77,12 +80,16 @@ class TestMainForwardsDetach:
         assert code == 0
         return captured
 
-    def test_windows_main_passes_creationflags(self, index_refresh, monkeypatch, tmp_path):
+    def test_windows_main_passes_creationflags(
+        self, index_refresh, monkeypatch, tmp_path
+    ):
         captured = self._drive(index_refresh, monkeypatch, "win32", tmp_path)
         assert "start_new_session" not in captured["kwargs"]
         assert captured["kwargs"]["creationflags"] & _DETACHED == _DETACHED
 
-    def test_posix_main_passes_start_new_session(self, index_refresh, monkeypatch, tmp_path):
+    def test_posix_main_passes_start_new_session(
+        self, index_refresh, monkeypatch, tmp_path
+    ):
         captured = self._drive(index_refresh, monkeypatch, "linux", tmp_path)
         assert captured["kwargs"].get("start_new_session") is True
         assert "creationflags" not in captured["kwargs"]

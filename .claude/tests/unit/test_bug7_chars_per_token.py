@@ -4,6 +4,7 @@ search.py warned about large result sets using `// 4` hardcoded, making the
 chars-per-token ratio invisible and non-configurable.  The fix moves it to
 `search_config.CHARS_PER_TOKEN` so users can tune it alongside other config.
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,7 +22,9 @@ def test_chars_per_token_constant_exists():
         "search_config.CHARS_PER_TOKEN missing — add it so the token heuristic "
         "is configurable (Bug 7)"
     )
-    assert isinstance(search_config.CHARS_PER_TOKEN, (int, float))  # calibration allows a non-integer divisor
+    assert isinstance(
+        search_config.CHARS_PER_TOKEN, (int, float)
+    )  # calibration allows a non-integer divisor
     assert search_config.CHARS_PER_TOKEN > 0
 
 

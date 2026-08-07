@@ -11,6 +11,7 @@ Returns a tree-like listing without noise: skips .git, __pycache__, node_modules
 venvs; respects root .gitignore patterns; collapses fat dirs to "N items" counts.
 Designed to replace bare `ls -R` / `find . -type f` / `tree` in Bash tool calls.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,12 +20,28 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 # Directories always skipped regardless of .gitignore
-_SKIP_DIR_NAMES: frozenset[str] = frozenset({
-    ".git", "__pycache__", "node_modules", ".venv", "venv", ".env",
-    "dist", "build", ".next", ".nuxt", "coverage", ".tox",
-    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".hypothesis",
-    "eggs", ".eggs",
-})
+_SKIP_DIR_NAMES: frozenset[str] = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        "node_modules",
+        ".venv",
+        "venv",
+        ".env",
+        "dist",
+        "build",
+        ".next",
+        ".nuxt",
+        "coverage",
+        ".tox",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".hypothesis",
+        "eggs",
+        ".eggs",
+    }
+)
 
 # Glob patterns for noisy dir names (e.g. "*.egg-info")
 _SKIP_DIR_GLOBS: tuple[str, ...] = ("*.egg-info", "*.dist-info")
@@ -132,12 +149,21 @@ def main() -> int:
         description="Depth-limited, .gitignore-aware directory lister"
     )
     parser.add_argument("path", nargs="?", default=".")
-    parser.add_argument("--depth", type=int, default=2,
-                        help="Max recursion depth (default: 2)")
-    parser.add_argument("--max-per-dir", type=int, default=10,
-                        help="Max files shown per dir before count collapse (default: 10)")
-    parser.add_argument("--max-total", type=int, default=200,
-                        help="Cap total output lines (default: 200; 0=unlimited)")
+    parser.add_argument(
+        "--depth", type=int, default=2, help="Max recursion depth (default: 2)"
+    )
+    parser.add_argument(
+        "--max-per-dir",
+        type=int,
+        default=10,
+        help="Max files shown per dir before count collapse (default: 10)",
+    )
+    parser.add_argument(
+        "--max-total",
+        type=int,
+        default=200,
+        help="Cap total output lines (default: 200; 0=unlimited)",
+    )
     args = parser.parse_args()
     print(lean_ls(args.path, args.depth, args.max_per_dir, args.max_total))
     return 0

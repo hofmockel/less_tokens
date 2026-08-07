@@ -21,9 +21,12 @@ def test_claude_chain_splits_fixed_vs_on_demand(tmp_path):
 
     rules = base / ".claude" / "rules"
     rules.mkdir(parents=True)
-    (rules / "unscoped.md").write_text("# Always\nGlobal convention.\n", encoding="utf-8")
+    (rules / "unscoped.md").write_text(
+        "# Always\nGlobal convention.\n", encoding="utf-8"
+    )
     (rules / "scoped.md").write_text(
-        '---\nglobs: "src/**/*.ts"\n---\n# TS rules\nUse strict types.\n', encoding="utf-8"
+        '---\nglobs: "src/**/*.ts"\n---\n# TS rules\nUse strict types.\n',
+        encoding="utf-8",
     )
 
     home = _home(tmp_path)
@@ -76,8 +79,9 @@ def test_claude_chain_nested_rules_dir_is_on_demand(tmp_path):
     (base / "CLAUDE.md").write_text("# root\n", encoding="utf-8")
     nested_rules = base / "pkg" / ".claude" / "rules"
     nested_rules.mkdir(parents=True)
-    (nested_rules / "pkg.md").write_text("# Pkg rule\nAlways applies within pkg.\n",
-                                          encoding="utf-8")
+    (nested_rules / "pkg.md").write_text(
+        "# Pkg rule\nAlways applies within pkg.\n", encoding="utf-8"
+    )
 
     home = _home(tmp_path)
     with patch.object(Path, "home", return_value=home):
@@ -94,8 +98,9 @@ def test_memory_summary_flags_over_limit(tmp_path):
     with patch.object(Path, "home", return_value=home):
         mem_dir = m._memory_dir_for(base)
         mem_dir.mkdir(parents=True)
-        (mem_dir / "MEMORY.md").write_text("\n".join(f"- entry {i}" for i in range(250)),
-                                            encoding="utf-8")
+        (mem_dir / "MEMORY.md").write_text(
+            "\n".join(f"- entry {i}" for i in range(250)), encoding="utf-8"
+        )
         (mem_dir / "topic.md").write_text("detail\n", encoding="utf-8")
 
         summary = m._memory_summary(base)

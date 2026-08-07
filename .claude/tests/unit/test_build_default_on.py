@@ -5,6 +5,7 @@ returned empty until the user ran the build manually. Making build
 default-on completes the install in one pass; --no-build is the escape
 hatch for users who want to defer the model download.
 """
+
 from __future__ import annotations
 
 import sys

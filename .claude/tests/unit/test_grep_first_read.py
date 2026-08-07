@@ -1,4 +1,5 @@
 """Unit tests for the grep-first-read hook (S13)."""
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ def hook():
 # ---------------------------------------------------------------------------
 # check() — the pure logic function
 # ---------------------------------------------------------------------------
+
 
 def _make_file(tmp_path: Path, n_lines: int, name: str = "big.py") -> Path:
     p = tmp_path / name
@@ -76,6 +78,7 @@ def test_pass_nonexistent_file(hook, tmp_path, monkeypatch):
 # Exemption: in last-search.json (auto-slice handles it)
 # ---------------------------------------------------------------------------
 
+
 def test_exempt_when_in_last_search(hook, tmp_path, monkeypatch):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
     p = _make_file(tmp_path, 200)
@@ -116,6 +119,7 @@ def test_not_exempt_when_last_search_stale(hook, tmp_path, monkeypatch):
 # Exemption: indexed + no recent search (search-first handles it)
 # ---------------------------------------------------------------------------
 
+
 def test_exempt_indexed_no_recent_search(hook, tmp_path, monkeypatch):
     """Indexed file with no recent search → search-first gates it; S13 stays silent."""
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
@@ -144,6 +148,7 @@ def test_not_exempt_indexed_with_recent_search(hook, tmp_path, monkeypatch):
 # Exemption: file outside REPO (its symbols/search tools don't apply)
 # ---------------------------------------------------------------------------
 
+
 def test_exempt_when_outside_repo(hook, tmp_path, monkeypatch):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
     monkeypatch.setattr(hook, "REPO", tmp_path / "repo")
@@ -156,8 +161,10 @@ def test_exempt_when_outside_repo(hook, tmp_path, monkeypatch):
 # main() — JSON payload path
 # ---------------------------------------------------------------------------
 
+
 def _run_main(hook, payload: dict, monkeypatch) -> int:
     import io
+
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
     return hook.main()
 
@@ -176,7 +183,9 @@ def test_main_block_large_file(hook, monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(hook, "RANGES_FILE", ranges_file)
     monkeypatch.setattr(hook, "WINDOW_SECONDS", 300)
     monkeypatch.setattr(hook, "_is_indexed", lambda path: False)
-    code = _run_main(hook, {"tool_name": "Read", "tool_input": {"file_path": str(p)}}, monkeypatch)
+    code = _run_main(
+        hook, {"tool_name": "Read", "tool_input": {"file_path": str(p)}}, monkeypatch
+    )
     assert code == 2
     assert "S13" in capsys.readouterr().err
 
@@ -184,13 +193,18 @@ def test_main_block_large_file(hook, monkeypatch, tmp_path, capsys):
 def test_main_pass_with_offset(hook, monkeypatch, tmp_path):
     monkeypatch.setattr(hook, "GREP_FIRST_LINE_THRESHOLD", 10)
     p = _make_file(tmp_path, 200)
-    code = _run_main(hook, {"tool_name": "Read", "tool_input": {"file_path": str(p), "offset": 50}}, monkeypatch)
+    code = _run_main(
+        hook,
+        {"tool_name": "Read", "tool_input": {"file_path": str(p), "offset": 50}},
+        monkeypatch,
+    )
     assert code == 0
 
 
 # ---------------------------------------------------------------------------
 # Gate message must use VENV_PY from search_config, not a hardcoded path
 # ---------------------------------------------------------------------------
+
 
 def test_gate_message_uses_venv_py(hook, tmp_path, monkeypatch):
     """check() must embed str(VENV_PY) in the hint — not a hardcoded

@@ -5,6 +5,7 @@ compares that hash against the repo's current HEAD so a stale handoff can't
 be silently trusted by a fresh agent that reads it directly (bypassing the
 /continue skill's own Phase 1 staleness check).
 """
+
 from __future__ import annotations
 
 import re
@@ -27,7 +28,9 @@ def _touches_continue_md(repo: Path, ref: str) -> bool:
     return "continue.md" in out.splitlines()
 
 
-def _staleness_result(repo: Path, recorded: str, ref: str) -> tuple[int, str, str] | None:
+def _staleness_result(
+    repo: Path, recorded: str, ref: str
+) -> tuple[int, str, str] | None:
     """Common tail: compare `recorded` against `ref`, or None if not stale/unknown."""
     if _git(repo, "cat-file", "-e", recorded)[0] != 0:
         return None
@@ -51,7 +54,11 @@ def _staleness_result(repo: Path, recorded: str, ref: str) -> tuple[int, str, st
     _, log_out, _ = _git(repo, "log", "--oneline", f"{recorded}..{ref}")
     lines = log_out.strip().splitlines()
     preview = "\n".join(lines[:PREVIEW_LINES])
-    more = f"\n  … and {len(lines) - PREVIEW_LINES} more" if len(lines) > PREVIEW_LINES else ""
+    more = (
+        f"\n  … and {len(lines) - PREVIEW_LINES} more"
+        if len(lines) > PREVIEW_LINES
+        else ""
+    )
     msg = (
         f"continue.md is {count} commit(s) stale (recorded HEAD {recorded[:7]}).\n"
         f"Run: git log --oneline {recorded[:7]}..{ref}\n{preview}{more}\n"
@@ -89,7 +96,8 @@ def check_continue_freshness_at_ref(
     """
     proc = subprocess.run(
         ["git", "-C", str(repo), "show", f"{ref}:{rel_path}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if proc.returncode != 0:
         return 0, "", ""

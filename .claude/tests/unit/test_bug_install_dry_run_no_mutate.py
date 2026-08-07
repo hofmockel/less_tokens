@@ -5,6 +5,7 @@ mutated the hooks list in memory. A second wire_settings call against the same
 settings dict in the same process saw the hook as already wired and skipped it,
 even though nothing was actually written to disk.
 """
+
 from __future__ import annotations
 
 import sys

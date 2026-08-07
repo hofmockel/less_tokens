@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: block verify re-Read of recently edited files."""
+
 from __future__ import annotations
 
 import json
@@ -42,7 +43,10 @@ except Exception:
     from read_after_edit import check_read_after_edit  # type: ignore[no-redef]
 
 try:
-    from search_config import LAST_EDIT_WINDOW_SECONDS, active_state_dir as _active_state_dir  # noqa: E402
+    from search_config import (
+        LAST_EDIT_WINDOW_SECONDS,
+        active_state_dir as _active_state_dir,
+    )  # noqa: E402
 except Exception:
     LAST_EDIT_WINDOW_SECONDS = 120
 

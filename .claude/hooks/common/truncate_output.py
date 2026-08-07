@@ -1,4 +1,5 @@
 """Shared tool-output truncation logic — agent-neutral."""
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,11 @@ def truncate_chars(text: str, ceiling: int) -> str:
     head_chars = int(ceiling * 0.6)
     tail_chars = ceiling - head_chars
     omitted = len(text) - head_chars - tail_chars
-    return text[:head_chars] + f"\n[... {omitted:,} chars omitted ...]\n" + text[-tail_chars:]
+    return (
+        text[:head_chars]
+        + f"\n[... {omitted:,} chars omitted ...]\n"
+        + text[-tail_chars:]
+    )
 
 
 def truncate_bash(text: str, head: int, tail: int, ceiling: int) -> str:
@@ -52,14 +57,32 @@ def truncate_glob(text: str, max_results: int) -> str:
 # read_file to read_text_file (confirmed live against v2026.7.10); accept
 # both so an older pinned server version doesn't silently no-op this hook.
 _TARGETED_TOOLS = {
-    "Bash", "Read", "WebFetch", "Glob",
-    "mcp__filesystem__read_file", "mcp__filesystem__read_text_file",
+    "Bash",
+    "Read",
+    "WebFetch",
+    "Glob",
+    "mcp__filesystem__read_file",
+    "mcp__filesystem__read_text_file",
 }
 
 _SUBAGENT_KEY_MARKERS = (
-    "verdict:", "pass:", "fail:", "failed:", "blocker:", "blockers:",
-    "recommendation:", "recommend:", "summary:", "confirmed:", "dissent:",
-    "extend:", "risk:", "acceptance:", "result:", "outcome:", "status:",
+    "verdict:",
+    "pass:",
+    "fail:",
+    "failed:",
+    "blocker:",
+    "blockers:",
+    "recommendation:",
+    "recommend:",
+    "summary:",
+    "confirmed:",
+    "dissent:",
+    "extend:",
+    "risk:",
+    "acceptance:",
+    "result:",
+    "outcome:",
+    "status:",
 )
 
 
@@ -81,11 +104,16 @@ def truncate_subagent(text: str, ceiling: int) -> str:
     digest = "\n".join(_extract_key_lines(text))
     if digest and len(digest) <= ceiling:
         omitted = len(text) - len(digest)
-        return digest + f"\n[... {omitted:,} chars of subagent output omitted; key fields kept ...]"
+        return (
+            digest
+            + f"\n[... {omitted:,} chars of subagent output omitted; key fields kept ...]"
+        )
     return truncate_chars(text, ceiling)
 
 
-def check_truncate_subagent(payload: HookPayload, *, max_chars: int) -> tuple[int, str, str]:
+def check_truncate_subagent(
+    payload: HookPayload, *, max_chars: int
+) -> tuple[int, str, str]:
     """Return (exit_code, stdout, stderr) for a PostToolUse:Task hook."""
     if payload.tool_name != "Task":
         return 0, "", ""
@@ -100,7 +128,11 @@ def check_truncate_subagent(payload: HookPayload, *, max_chars: int) -> tuple[in
     truncated = truncate_subagent(text, max_chars)
     omitted = len(text) - len(truncated)
     if omitted > 0:
-        return 2, truncated, f"[subagent-cap — {omitted:,} chars omitted ({len(text):,} total)]"
+        return (
+            2,
+            truncated,
+            f"[subagent-cap — {omitted:,} chars omitted ({len(text):,} total)]",
+        )
     return 0, "", ""
 
 
@@ -138,5 +170,9 @@ def check_truncate_output(
 
     omitted = len(text) - len(truncated)
     if omitted > 0:
-        return 2, truncated, f"[truncated — {omitted:,} chars omitted ({len(text):,} total)]"
+        return (
+            2,
+            truncated,
+            f"[truncated — {omitted:,} chars omitted ({len(text):,} total)]",
+        )
     return 0, "", ""

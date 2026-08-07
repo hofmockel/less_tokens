@@ -8,6 +8,7 @@ Usage:
     .claude/.venv-tokens/bin/python .claude/tools/dev.py all
     .claude/.venv-tokens/bin/python .claude/tools/dev.py single <nodeid>
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,7 +33,9 @@ def main() -> int:
     sub.add_parser("integration", help="Run integration tests")
     sub.add_parser("all", help="Run unit + integration tests")
     single = sub.add_parser("single", help="Run one test by nodeid")
-    single.add_argument("nodeid", help="e.g. .claude/tests/unit/test_chunkers.py::test_name")
+    single.add_argument(
+        "nodeid", help="e.g. .claude/tests/unit/test_chunkers.py::test_name"
+    )
 
     ns = parser.parse_args()
 

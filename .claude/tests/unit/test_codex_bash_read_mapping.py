@@ -6,6 +6,7 @@ Unit-level coverage of `_parse_bash_read`/`map_bash_read` in
 opt-in `mcp__filesystem__` matcher. See `.claude/tests/unit/test_codex_hooks.py`
 for the end-to-end subprocess wiring proof.
 """
+
 from __future__ import annotations
 
 import sys
@@ -13,7 +14,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "agents" / "codex" / "hooks"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent.parent.parent / "agents" / "codex" / "hooks")
+)
 
 from _codex_runtime import _parse_bash_read, map_bash_read  # noqa: E402
 
@@ -37,7 +40,9 @@ class TestParseBashRead:
             ),
         ],
     )
-    def test_recognizes_single_file_read_shapes(self, command, expected_path, expected_offset):
+    def test_recognizes_single_file_read_shapes(
+        self, command, expected_path, expected_offset
+    ):
         assert _parse_bash_read(command) == (expected_path, expected_offset)
 
     def test_windows_path_backslashes_survive_shlex_posix_mode(self):
@@ -85,7 +90,10 @@ class TestMapBashRead:
         assert mapped["tool_input"] == {"file_path": "src/app.py"}
 
     def test_rewrites_bash_sed_to_synthetic_read_with_offset(self):
-        raw = {"tool_name": "Bash", "tool_input": {"command": "sed -n '5,9p' src/app.py"}}
+        raw = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "sed -n '5,9p' src/app.py"},
+        }
         mapped = map_bash_read(raw)
         assert mapped["tool_name"] == "Read"
         assert mapped["tool_input"] == {"file_path": "src/app.py", "offset": 5}
@@ -95,7 +103,10 @@ class TestMapBashRead:
         assert map_bash_read(dict(raw)) == raw
 
     def test_leaves_non_bash_tools_untouched(self):
-        raw = {"tool_name": "mcp__filesystem__read_text_file", "tool_input": {"path": "a.py"}}
+        raw = {
+            "tool_name": "mcp__filesystem__read_text_file",
+            "tool_input": {"path": "a.py"},
+        }
         assert map_bash_read(dict(raw)) == raw
 
     def test_missing_command_fails_open(self):

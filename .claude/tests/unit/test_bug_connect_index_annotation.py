@@ -1,4 +1,5 @@
 """Regression test: connect_index() return annotation should be _ClosingConn, not sqlite3.Connection."""
+
 from __future__ import annotations
 
 import typing

@@ -1,4 +1,5 @@
 """Unit tests for tools/strategy_table_docs.py — README strategy table renderer."""
+
 from __future__ import annotations
 
 import importlib.util

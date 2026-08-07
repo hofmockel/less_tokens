@@ -8,6 +8,7 @@ chunk because ON CONFLICT DO UPDATE overwrote it.
 The fix deduplicates source_key values in chunk_python using the same suffix
 strategy that chunk_markdown already uses.
 """
+
 from __future__ import annotations
 
 import sys

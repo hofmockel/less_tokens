@@ -1,4 +1,5 @@
 """Unit tests for the read-guard PreToolUse hook."""
+
 from __future__ import annotations
 
 from pathlib import Path

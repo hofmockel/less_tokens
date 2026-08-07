@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stop hook: enforce terse output on Claude's actual response."""
+
 from __future__ import annotations
 
 import json
@@ -35,9 +36,12 @@ sys.path[:0] = [
 ]
 
 try:
-    from agents.common.hooks.response_budget import VERBOSE_PATTERNS, analyze as _analyze, last_assistant_text  # type: ignore[import]
+    from agents.common.hooks.response_budget import (
+        analyze as _analyze,
+        last_assistant_text,
+    )  # type: ignore[import]
 except Exception:
-    from response_budget import VERBOSE_PATTERNS, analyze as _analyze, last_assistant_text  # type: ignore[no-redef]
+    from response_budget import analyze as _analyze, last_assistant_text  # type: ignore[no-redef]
 
 try:
     from search_config import CAVEMAN_ENFORCE, MAX_RESPONSE_WORDS  # noqa: E402
@@ -62,7 +66,8 @@ def main() -> int:
     problems = analyze(last_assistant_text(payload.get("transcript_path", "")))
     if problems:
         print(
-            "Caveman mode: revise last response — " + "; ".join(problems)
+            "Caveman mode: revise last response — "
+            + "; ".join(problems)
             + ". Cut filler and padding; short sentences; stop when done.",
             file=sys.stderr,
         )

@@ -10,6 +10,7 @@ Usage:
   python .claude/tools/eval_sessions.py --json
   python .claude/tools/eval_sessions.py --report .claude/state/session-eval.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -70,7 +71,11 @@ def _read(rel: str) -> str:
 
 
 def _all_fixture_chars() -> int:
-    return sum(len(p.read_text(encoding="utf-8", errors="replace")) for p in FIXTURE.rglob("*") if p.is_file())
+    return sum(
+        len(p.read_text(encoding="utf-8", errors="replace"))
+        for p in FIXTURE.rglob("*")
+        if p.is_file()
+    )
 
 
 def _targeted_chars(task: EvalTask, radius: int = 2) -> int:
@@ -98,24 +103,29 @@ def run_eval() -> dict:
         targeted = _targeted_chars(task)
         baseline_total += baseline_per_task
         targeted_total += targeted
-        rows.append({
-            "task": task.name,
-            "description": task.description,
-            "baseline_chars": baseline_per_task,
-            "less_tokens_chars": targeted,
-            "saved_chars": max(0, baseline_per_task - targeted),
-            "reduction_pct": round((1 - targeted / baseline_per_task) * 100, 1)
-            if baseline_per_task else 0.0,
-        })
+        rows.append(
+            {
+                "task": task.name,
+                "description": task.description,
+                "baseline_chars": baseline_per_task,
+                "less_tokens_chars": targeted,
+                "saved_chars": max(0, baseline_per_task - targeted),
+                "reduction_pct": round((1 - targeted / baseline_per_task) * 100, 1)
+                if baseline_per_task
+                else 0.0,
+            }
+        )
     return {
         "tasks": rows,
         "totals": {
             "baseline_chars": baseline_total,
             "less_tokens_chars": targeted_total,
             "saved_chars": max(0, baseline_total - targeted_total),
-            "approx_tokens_saved": max(0, baseline_total - targeted_total) // CHARS_PER_TOKEN,
+            "approx_tokens_saved": max(0, baseline_total - targeted_total)
+            // CHARS_PER_TOKEN,
             "reduction_pct": round((1 - targeted_total / baseline_total) * 100, 1)
-            if baseline_total else 0.0,
+            if baseline_total
+            else 0.0,
         },
     }
 
@@ -135,14 +145,16 @@ def markdown_report(result: dict) -> str:
             f"{row['less_tokens_chars']:,} | {row['reduction_pct']}% |"
         )
     totals = result["totals"]
-    lines.extend([
-        "",
-        f"Total baseline chars: {totals['baseline_chars']:,}",
-        f"Total less_tokens chars: {totals['less_tokens_chars']:,}",
-        f"Approx tokens saved: {totals['approx_tokens_saved']:,}",
-        f"Reduction: {totals['reduction_pct']}%",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            f"Total baseline chars: {totals['baseline_chars']:,}",
+            f"Total less_tokens chars: {totals['less_tokens_chars']:,}",
+            f"Approx tokens saved: {totals['approx_tokens_saved']:,}",
+            f"Reduction: {totals['reduction_pct']}%",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 

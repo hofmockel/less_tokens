@@ -1,4 +1,5 @@
 """Shared auto-slice logic for reads after search results."""
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,9 @@ except ImportError:
     from payload import HookPayload  # type: ignore[no-redef]
 
 
-def ranges_for(file_path: str, *, ranges_file: Path, window_seconds: int) -> list[list[int]]:
+def ranges_for(
+    file_path: str, *, ranges_file: Path, window_seconds: int
+) -> list[list[int]]:
     """Matched line ranges for file_path from a recent search."""
     try:
         if (time.time() - ranges_file.stat().st_mtime) > window_seconds:
@@ -43,13 +46,19 @@ def check_auto_slice(
     fp = inp.get("file_path", "")
     if not fp:
         return 0, "", ""
-    spans = ranges_for(fp, ranges_file=state_dir / "last-search.json", window_seconds=window_seconds)
+    spans = ranges_for(
+        fp, ranges_file=state_dir / "last-search.json", window_seconds=window_seconds
+    )
     if not spans:
         return 0, "", ""
 
     start, end = spans[0]
     limit = max(1, end - start + 1)
-    extra = f" (plus {len(spans) - 1} more matched range(s) in this file)" if len(spans) > 1 else ""
+    extra = (
+        f" (plus {len(spans) - 1} more matched range(s) in this file)"
+        if len(spans) > 1
+        else ""
+    )
     msg = (
         f"Auto-slice: your last search matched {Path(fp).name} at lines "
         f"{start}-{end}{extra}. Read only that slice:\n"

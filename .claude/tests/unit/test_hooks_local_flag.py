@@ -6,6 +6,7 @@ By default, install.py writes the project-shared `.claude/settings.json`
 default target is a pre-existing non-empty `settings.json`, print a
 one-line notice that a committed file is being modified.
 """
+
 from __future__ import annotations
 
 import sys

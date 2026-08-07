@@ -4,6 +4,7 @@ Each test installs into a tmp_path scratch directory, verifying a specific
 install path (fresh / no-force / force / force+overwrite / config-merge / check).
 tmp_path is passed as target_root directly into the helpers.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 SOURCE = REPO
@@ -21,7 +21,6 @@ from install import (
     _diff_summary,
     copy_tree,
     handle_search_config,
-    merge_search_config,
     patch_venv_py,
     wire_settings,
 )
@@ -30,6 +29,7 @@ from install import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_fake_venv(root: Path) -> Path:
     """Create a minimal fake venv structure so detect_venv() finds it."""
@@ -44,7 +44,7 @@ def make_fake_venv(root: Path) -> Path:
         # Copy the current interpreter.
         shutil.copy2(sys.executable, py)
     else:
-        py.write_text("#!/bin/sh\nexec python3 \"$@\"\n")
+        py.write_text('#!/bin/sh\nexec python3 "$@"\n')
         py.chmod(0o755)
     return venv
 
@@ -53,10 +53,18 @@ def make_fake_venv(root: Path) -> Path:
 # copy_tree
 # ---------------------------------------------------------------------------
 
+
 class TestCopyTree:
     def test_fresh_install_copies_files(self, tmp_path):
         dst = tmp_path / "tools"
-        copied = copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=False, overwrite_modified=False, label="tools")
+        copied = copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=False,
+            overwrite_modified=False,
+            label="tools",
+        )
         assert copied > 0
         assert (dst / "search_config.py").exists()
         assert (dst / "embeddings.py").exists()
@@ -68,7 +76,14 @@ class TestCopyTree:
         sentinel = dst / "search_config.py"
         sentinel.write_text("# my custom config\n")
 
-        copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=False, overwrite_modified=False, label="tools")
+        copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=False,
+            overwrite_modified=False,
+            label="tools",
+        )
         assert sentinel.read_text() == "# my custom config\n"
 
     def test_force_skips_identical_files(self, tmp_path):
@@ -78,7 +93,14 @@ class TestCopyTree:
         dst_config = dst / "search_config.py"
         shutil.copy2(src_config, dst_config)
 
-        copied = copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=True, overwrite_modified=False, label="tools")
+        copied = copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=True,
+            overwrite_modified=False,
+            label="tools",
+        )
         # Identical files don't count as copied
         assert dst_config.read_text() == src_config.read_text()
 
@@ -88,7 +110,14 @@ class TestCopyTree:
         custom = dst / "search_config.py"
         custom.write_text("# heavily customised\n")
 
-        copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=True, overwrite_modified=False, label="tools")
+        copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=True,
+            overwrite_modified=False,
+            label="tools",
+        )
         assert custom.read_text() == "# heavily customised\n"
 
     def test_force_plus_overwrite_modified_replaces_changed(self, tmp_path):
@@ -97,14 +126,28 @@ class TestCopyTree:
         custom = dst / "db.py"
         custom.write_text("# old version\n")
 
-        copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=True, overwrite_modified=True, label="tools",
-                  exclude=frozenset({"search_config.py"}))
+        copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=True,
+            overwrite_modified=True,
+            label="tools",
+            exclude=frozenset({"search_config.py"}),
+        )
         assert custom.read_text() != "# old version\n"
         assert "old version" not in custom.read_text()
 
     def test_excludes_pyc_files(self, tmp_path):
         dst = tmp_path / "tools"
-        copy_tree(SOURCE / ".claude" / "tools", dst, tmp_path, force=False, overwrite_modified=False, label="tools")
+        copy_tree(
+            SOURCE / ".claude" / "tools",
+            dst,
+            tmp_path,
+            force=False,
+            overwrite_modified=False,
+            label="tools",
+        )
         pyc_files = list(dst.rglob("*.pyc"))
         assert pyc_files == []
 
@@ -113,11 +156,17 @@ class TestCopyTree:
 # handle_search_config
 # ---------------------------------------------------------------------------
 
+
 class TestHandleSearchConfig:
     def test_copies_when_dst_missing(self, tmp_path):
         dst = tmp_path / "tools" / "search_config.py"
-        handle_search_config(SOURCE / ".claude" / "tools" / "search_config.py", dst, tmp_path,
-                             force_config=False, overwrite_modified=False)
+        handle_search_config(
+            SOURCE / ".claude" / "tools" / "search_config.py",
+            dst,
+            tmp_path,
+            force_config=False,
+            overwrite_modified=False,
+        )
         assert dst.exists()
 
     def test_merges_missing_variable(self, tmp_path):
@@ -126,8 +175,13 @@ class TestHandleSearchConfig:
         dst = dst_dir / "search_config.py"
         dst.write_text("VENV_PY = None\n")
 
-        handle_search_config(SOURCE / ".claude" / "tools" / "search_config.py", dst, tmp_path,
-                             force_config=False, overwrite_modified=False)
+        handle_search_config(
+            SOURCE / ".claude" / "tools" / "search_config.py",
+            dst,
+            tmp_path,
+            force_config=False,
+            overwrite_modified=False,
+        )
         text = dst.read_text()
         assert "VENV_PY" in text
         # Should have gained new variables from source
@@ -139,8 +193,13 @@ class TestHandleSearchConfig:
         dst = dst_dir / "search_config.py"
         dst.write_text("# old config\n")
 
-        handle_search_config(SOURCE / ".claude" / "tools" / "search_config.py", dst, tmp_path,
-                             force_config=True, overwrite_modified=True)
+        handle_search_config(
+            SOURCE / ".claude" / "tools" / "search_config.py",
+            dst,
+            tmp_path,
+            force_config=True,
+            overwrite_modified=True,
+        )
         assert "# old config" not in dst.read_text()
         assert "VENV_PY" in dst.read_text()
 
@@ -148,6 +207,7 @@ class TestHandleSearchConfig:
 # ---------------------------------------------------------------------------
 # patch_venv_py
 # ---------------------------------------------------------------------------
+
 
 class TestPatchVenvPy:
     SRC = SOURCE / ".claude" / "tools" / "search_config.py"
@@ -223,6 +283,7 @@ class TestPatchVenvPy:
 # wire_settings (integration: full round-trip including file I/O)
 # ---------------------------------------------------------------------------
 
+
 class TestWireSettingsIntegration:
     def test_fresh_install_wires_core_hooks(self, tmp_path):
         settings = tmp_path / ".claude" / "settings.local.json"
@@ -262,6 +323,7 @@ class TestWireSettingsIntegration:
 # _diff_summary
 # ---------------------------------------------------------------------------
 
+
 class TestDiffSummary:
     def test_added_lines(self):
         summary = _diff_summary("a\nb\nc\n", "a\nb\n")
@@ -281,13 +343,21 @@ class TestDiffSummary:
 # --update flag (safe re-copy: hooks + tools, never search_config.py / index.db)
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateFlag:
     def _fresh_install(self, tmp_path: Path) -> Path:
         """Run a fresh install into tmp_path and return target_root."""
         make_fake_venv(tmp_path)
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(tmp_path), "--yes", "--skip-deps", "--no-build"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(tmp_path),
+                "--yes",
+                "--skip-deps",
+                "--no-build",
+            ],
             cwd=str(tmp_path),
         )
         assert rc == 0
@@ -300,8 +370,15 @@ class TestUpdateFlag:
         hook.write_text("# locally modified — should be overwritten by --update\n")
 
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(target),
+                "--yes",
+                "--skip-deps",
+                "--update",
+            ],
             cwd=str(target),
         )
         assert rc == 0
@@ -314,8 +391,15 @@ class TestUpdateFlag:
         cfg.write_text(custom)
 
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(target),
+                "--yes",
+                "--skip-deps",
+                "--update",
+            ],
             cwd=str(target),
         )
         assert rc == 0
@@ -328,8 +412,15 @@ class TestUpdateFlag:
         db.write_bytes(b"FAKE_DB_SENTINEL_CONTENT")
 
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(target), "--yes", "--skip-deps", "--update"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(target),
+                "--yes",
+                "--skip-deps",
+                "--update",
+            ],
             cwd=str(target),
         )
         assert rc == 0
@@ -338,9 +429,16 @@ class TestUpdateFlag:
     def test_update_rejects_force_config(self, tmp_path):
         target = self._fresh_install(tmp_path)
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(target), "--yes", "--skip-deps",
-             "--update", "--force-config"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(target),
+                "--yes",
+                "--skip-deps",
+                "--update",
+                "--force-config",
+            ],
             cwd=str(target),
         )
         assert rc != 0
@@ -348,9 +446,16 @@ class TestUpdateFlag:
     def test_update_rejects_build(self, tmp_path):
         target = self._fresh_install(tmp_path)
         rc = subprocess.call(
-            [sys.executable, str(SOURCE / "install.py"),
-             "--target", str(target), "--yes", "--skip-deps",
-             "--update", "--build"],
+            [
+                sys.executable,
+                str(SOURCE / "install.py"),
+                "--target",
+                str(target),
+                "--yes",
+                "--skip-deps",
+                "--update",
+                "--build",
+            ],
             cwd=str(target),
         )
         assert rc != 0

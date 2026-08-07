@@ -5,6 +5,7 @@ running a real refresh (model download, db writes). `refresh --dry-run`
 reports add/update/unchanged/delete counts, loads no model, and leaves
 index.db byte-identical.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -23,7 +24,8 @@ _DB = sys.modules[embeddings.connect_index.__module__]
 @pytest.fixture()
 def fake_sources(monkeypatch):
     monkeypatch.setattr(
-        embeddings, "enumerate_sources",
+        embeddings,
+        "enumerate_sources",
         lambda: (
             [
                 ("code", "tools/x.py", "f", "new-body"),
@@ -46,9 +48,9 @@ def _seed(dbp: Path) -> None:
         "INSERT INTO documents (source_path, source_key, content_hash) "
         "VALUES (?, ?, ?)",
         [
-            ("tools/x.py", "g", "OLD_HASH"),          # update (hash differs)
+            ("tools/x.py", "g", "OLD_HASH"),  # update (hash differs)
             ("tools/y.py", "h", embeddings._sha256("same-body")),  # unchanged
-            ("tools/gone.py", "z", "h"),              # delete (not enumerated)
+            ("tools/gone.py", "z", "h"),  # delete (not enumerated)
         ],
     )
     conn.commit()

@@ -1,4 +1,5 @@
 """Codex-specific search.py output-budget defaults."""
+
 from __future__ import annotations
 
 import sys
@@ -16,19 +17,23 @@ def stubbed_main(monkeypatch, tmp_path):
     captured = {}
 
     def fake_search(query, *, k, source_type=None, min_score=None):
-        captured.update({
-            "query": query,
-            "k": k,
-            "source_type": source_type,
-            "min_score": min_score,
-        })
-        return [{
-            "score": 0.9,
-            "source_type": "code",
-            "source_path": "src/app.py",
-            "source_key": "demo",
-            "text": "x" * 800,
-        }]
+        captured.update(
+            {
+                "query": query,
+                "k": k,
+                "source_type": source_type,
+                "min_score": min_score,
+            }
+        )
+        return [
+            {
+                "score": 0.9,
+                "source_type": "code",
+                "source_path": "src/app.py",
+                "source_key": "demo",
+                "text": "x" * 800,
+            }
+        ]
 
     monkeypatch.setattr(search, "_source_type_choices", lambda: None)
     monkeypatch.setattr(search, "_index_is_stale", lambda: False)
@@ -40,7 +45,9 @@ def stubbed_main(monkeypatch, tmp_path):
     return captured
 
 
-def test_codex_env_uses_tighter_default_k_and_snippet_chars(stubbed_main, monkeypatch, capsys):
+def test_codex_env_uses_tighter_default_k_and_snippet_chars(
+    stubbed_main, monkeypatch, capsys
+):
     monkeypatch.setenv("LESS_TOKENS_AGENT", "codex")
     monkeypatch.setattr(sys, "argv", ["search.py", "query"])
 
@@ -52,7 +59,9 @@ def test_codex_env_uses_tighter_default_k_and_snippet_chars(stubbed_main, monkey
     assert "x" * (search.CODEX_DEFAULT_SNIPPET_CHARS + 1) not in out
 
 
-def test_claude_env_keeps_existing_default_k_and_snippet_chars(stubbed_main, monkeypatch, capsys):
+def test_claude_env_keeps_existing_default_k_and_snippet_chars(
+    stubbed_main, monkeypatch, capsys
+):
     monkeypatch.setenv("LESS_TOKENS_AGENT", "claude")
     monkeypatch.setattr(sys, "argv", ["search.py", "query"])
 
@@ -66,7 +75,9 @@ def test_claude_env_keeps_existing_default_k_and_snippet_chars(stubbed_main, mon
 
 def test_explicit_limits_override_codex_defaults(stubbed_main, monkeypatch, capsys):
     monkeypatch.setenv("LESS_TOKENS_AGENT", "codex")
-    monkeypatch.setattr(sys, "argv", ["search.py", "query", "-k", "5", "--snippet-chars", "50"])
+    monkeypatch.setattr(
+        sys, "argv", ["search.py", "query", "-k", "5", "--snippet-chars", "50"]
+    )
 
     assert search.main() == 0
 

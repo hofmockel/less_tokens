@@ -1,4 +1,5 @@
 """Unit tests for the context-cache PreToolUse hook (G2)."""
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,7 @@ def hook():
 # Read cache — allow on first call
 # ---------------------------------------------------------------------------
 
+
 def test_read_first_call_allowed(hook, tmp_path):
     p = tmp_path / "foo.py"
     p.write_text("x = 1")
@@ -30,6 +32,7 @@ def test_read_first_call_allowed(hook, tmp_path):
 # ---------------------------------------------------------------------------
 # Read cache — block on repeat with unchanged mtime
 # ---------------------------------------------------------------------------
+
 
 def test_read_repeat_blocked(hook, tmp_path):
     p = tmp_path / "bar.py"
@@ -47,6 +50,7 @@ def test_read_repeat_blocked(hook, tmp_path):
 # Read cache — allow after file changes (mtime differs)
 # ---------------------------------------------------------------------------
 
+
 def test_read_allowed_after_file_change(hook, tmp_path):
     p = tmp_path / "changed.py"
     p.write_text("x = 1")
@@ -62,6 +66,7 @@ def test_read_allowed_after_file_change(hook, tmp_path):
 # Read cache — mtime-preserving write that changes content must not be served
 # as "unchanged" (BACKLOG.md: context-cache trusts mtime as proof of unchanged)
 # ---------------------------------------------------------------------------
+
 
 def test_read_same_mtime_different_size_not_blocked(hook, tmp_path):
     p = tmp_path / "resized.py"
@@ -81,6 +86,7 @@ def test_read_same_mtime_different_size_not_blocked(hook, tmp_path):
 # Read cache — different offset = different key, allowed
 # ---------------------------------------------------------------------------
 
+
 def test_read_different_offset_allowed(hook, tmp_path):
     p = tmp_path / "sliced.py"
     p.write_text("\n".join(f"line{i}" for i in range(50)))
@@ -94,6 +100,7 @@ def test_read_different_offset_allowed(hook, tmp_path):
 # Read cache — missing file passes through (let Read surface the error)
 # ---------------------------------------------------------------------------
 
+
 def test_read_missing_file_passes(hook, tmp_path):
     state = {"session": "", "call": 1, "reads": {}, "greps": {}}
     assert hook.check_read(state, str(tmp_path / "ghost.py"), None, None) is None
@@ -102,6 +109,7 @@ def test_read_missing_file_passes(hook, tmp_path):
 # ---------------------------------------------------------------------------
 # Grep cache — allow on first call
 # ---------------------------------------------------------------------------
+
 
 def test_grep_first_call_allowed(hook):
     state = {"session": "", "call": 1, "reads": {}, "greps": {}}
@@ -112,6 +120,7 @@ def test_grep_first_call_allowed(hook):
 # ---------------------------------------------------------------------------
 # Grep cache — block on repeat within TTL
 # ---------------------------------------------------------------------------
+
 
 def test_grep_repeat_blocked(hook):
     state = {"session": "", "call": 3, "reads": {}, "greps": {}}
@@ -127,6 +136,7 @@ def test_grep_repeat_blocked(hook):
 # Grep cache — allow after TTL expires
 # ---------------------------------------------------------------------------
 
+
 def test_grep_expired_allowed(hook):
     state = {"session": "", "call": 3, "reads": {}, "greps": {}}
     inp = {"pattern": "import sys", "path": "", "glob": "", "type": ""}
@@ -140,6 +150,7 @@ def test_grep_expired_allowed(hook):
 # Grep cache — different pattern = different key, allowed
 # ---------------------------------------------------------------------------
 
+
 def test_grep_different_pattern_allowed(hook):
     state = {"session": "", "call": 2, "reads": {}, "greps": {}}
     inp1 = {"pattern": "class Foo", "path": "", "glob": "", "type": ""}
@@ -151,6 +162,7 @@ def test_grep_different_pattern_allowed(hook):
 # ---------------------------------------------------------------------------
 # Session boundary clears cache
 # ---------------------------------------------------------------------------
+
 
 def test_new_session_clears_cache(hook, tmp_path):
     p = tmp_path / "persistent.py"
@@ -169,29 +181,48 @@ def test_new_session_clears_cache(hook, tmp_path):
 # Blocked repeat read emits a full-schema measured savings record
 # ---------------------------------------------------------------------------
 
+
 def test_blocked_read_emits_measured_savings_schema(hook, tmp_path):
     p = tmp_path / "cached.py"
     p.write_text("z = 3" * 50)
     captured = []
-    base = {"tool_name": "Read", "tool_input": {"file_path": str(p)},
-            "transcript_path": "t1"}
+    base = {
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(p)},
+        "transcript_path": "t1",
+    }
 
     # First call is allowed (PreToolUse, no prior record); the read then
     # actually executes and PostToolUse records it as served.
     code, _, _ = hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        log=captured.append,
+        session=("sess-1", "payload"),
+    )
     assert code == 0 and captured == []
     code, _, _ = hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, event_name="PostToolUse",
-        log=captured.append, session=("sess-1", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        event_name="PostToolUse",
+        log=captured.append,
+        session=("sess-1", "payload"),
+    )
     assert code == 0 and captured == []
 
     # Repeat PreToolUse call is blocked and must log the new schema.
     code, _, msg = hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, log=captured.append, session=("sess-1", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        log=captured.append,
+        session=("sess-1", "payload"),
+    )
     assert code == 2 and "already in context" in msg
     assert len(captured) == 1
     rec = captured[0]
@@ -213,18 +244,36 @@ def test_blocked_partial_read_credits_only_the_slice(hook, tmp_path):
     assert slice_chars < p.stat().st_size
 
     captured = []
-    base = {"tool_name": "Read",
-            "tool_input": {"file_path": str(p), "offset": 10, "limit": 10},
-            "transcript_path": "t1"}
+    base = {
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(p), "offset": 10, "limit": 10},
+        "transcript_path": "t1",
+    }
     hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, log=captured.append, session=("s", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        log=captured.append,
+        session=("s", "payload"),
+    )
     hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, event_name="PostToolUse", log=captured.append, session=("s", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        event_name="PostToolUse",
+        log=captured.append,
+        session=("s", "payload"),
+    )
     hook.check_context_cache(
-        hook.normalize_claude(base), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, log=captured.append, session=("s", "payload"))
+        hook.normalize_claude(base),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        log=captured.append,
+        session=("s", "payload"),
+    )
     assert len(captured) == 1
     assert captured[0]["elided_chars"] == slice_chars
 
@@ -238,6 +287,7 @@ def test_blocked_read_chars_full_file_is_exact(hook, tmp_path):
 # ---------------------------------------------------------------------------
 # Bash cache — Codex-only wiring, shared logic
 # ---------------------------------------------------------------------------
+
 
 def test_bash_repeat_blocks_with_measured_savings(hook, tmp_path):
     captured = []
@@ -254,15 +304,27 @@ def test_bash_repeat_blocks_with_measured_savings(hook, tmp_path):
     }
 
     code, _, _ = hook.check_context_cache(
-        hook.normalize_claude(post), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PostToolUse",
-        log=captured.append, session=("sess-1", "payload"))
+        hook.normalize_claude(post),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PostToolUse",
+        log=captured.append,
+        session=("sess-1", "payload"),
+    )
     assert code == 0 and captured == []
 
     code, _, msg = hook.check_context_cache(
-        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PreToolUse",
-        log=captured.append, session=("sess-1", "payload"))
+        hook.normalize_claude(pre),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PreToolUse",
+        log=captured.append,
+        session=("sess-1", "payload"),
+    )
     assert code == 2
     assert "Bash `git status --short` already ran" in msg
     assert captured[0]["strategy"] == "context-cache-bash"
@@ -283,11 +345,21 @@ def test_bash_non_cacheable_command_is_not_blocked(hook, tmp_path):
         "transcript_path": "t1",
     }
     hook.check_context_cache(
-        hook.normalize_claude(post), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PostToolUse")
+        hook.normalize_claude(post),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PostToolUse",
+    )
     code, _, msg = hook.check_context_cache(
-        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+        hook.normalize_claude(pre),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PreToolUse",
+    )
     assert code == 0
     assert msg == ""
 
@@ -296,6 +368,7 @@ def test_bash_non_cacheable_command_is_not_blocked(hook, tmp_path):
 # Near-miss instrumentation (Strategy 3 Phase 0) — additive only, no behavior
 # change, never read by any hook.
 # ---------------------------------------------------------------------------
+
 
 def test_near_miss_signature_is_first_token():
     hook = load_hook(HOOK)
@@ -313,6 +386,7 @@ def test_record_near_miss_appends_jsonl_without_reading_it_back(tmp_path):
     lines = log.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 2
     import json as _json
+
     first = _json.loads(lines[0])
     assert first["kind"] == "bash" and first["signature"] == "pytest" and "ts" in first
 
@@ -331,12 +405,18 @@ def test_bash_miss_records_near_miss_by_signature(tmp_path):
         "transcript_path": "t1",
     }
     code, _, msg = hook.check_context_cache(
-        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+        hook.normalize_claude(pre),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PreToolUse",
+    )
     assert code == 0 and msg == ""
     log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(log) == 1
     import json as _json
+
     assert _json.loads(log[0])["signature"] == "pytest"
 
 
@@ -348,12 +428,18 @@ def test_grep_miss_records_near_miss_by_pattern(tmp_path):
         "transcript_path": "t1",
     }
     code, _, msg = hook.check_context_cache(
-        hook.normalize_claude(pre), state_dir=tmp_path, enabled=True,
-        grep_ttl=300, bash_ttl=120, event_name="PreToolUse")
+        hook.normalize_claude(pre),
+        state_dir=tmp_path,
+        enabled=True,
+        grep_ttl=300,
+        bash_ttl=120,
+        event_name="PreToolUse",
+    )
     assert code == 0 and msg == ""
     log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(log) == 1
     import json as _json
+
     entry = _json.loads(log[0])
     assert entry["kind"] == "grep" and entry["signature"] == "def check_bash"
 
@@ -361,6 +447,7 @@ def test_grep_miss_records_near_miss_by_pattern(tmp_path):
 # ---------------------------------------------------------------------------
 # None transcript_path must not share state across sessions
 # ---------------------------------------------------------------------------
+
 
 def test_none_transcript_path_does_not_share_state(hook, tmp_path):
     """_get_state(None) must return a fresh state even when a prior None
@@ -387,9 +474,14 @@ def test_none_transcript_path_does_not_share_state(hook, tmp_path):
 # (BACKLOG.md: "context-cache hook counts hook-denied Reads as 'in context'")
 # ---------------------------------------------------------------------------
 
+
 def test_denied_read_is_not_recorded_as_served(hook, tmp_path):
     import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks"))
+
+    sys.path.insert(
+        0,
+        str(Path(__file__).parent.parent.parent.parent / "agents" / "common" / "hooks"),
+    )
     from search_first import check_search_first  # noqa: E402
 
     f = tmp_path / "indexed.md"
@@ -397,17 +489,26 @@ def test_denied_read_is_not_recorded_as_served(hook, tmp_path):
     repo = tmp_path
     state_dir = tmp_path / "state"
     config = {
-        "excluded_prefixes": (), "excluded_names": None, "dirs": (),
-        "root_globs": ("*.md",), "window_seconds": 300,
+        "excluded_prefixes": (),
+        "excluded_names": None,
+        "dirs": (),
+        "root_globs": ("*.md",),
+        "window_seconds": 300,
     }
 
-    payload = hook.normalize_claude({
-        "tool_name": "Read", "tool_input": {"file_path": str(f)}, "transcript_path": "t1",
-    })
+    payload = hook.normalize_claude(
+        {
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(f)},
+            "transcript_path": "t1",
+        }
+    )
 
     # Call 1: search-first denies (never searched yet), so the Read never runs
     # and PostToolUse never fires for it.
-    sf_code, _, _ = check_search_first(payload, repo=repo, state_dir=state_dir, config=config)
+    sf_code, _, _ = check_search_first(
+        payload, repo=repo, state_dir=state_dir, config=config
+    )
     assert sf_code == 2
 
     # context-cache's PreToolUse pass on the same denied call must not record it.
@@ -417,8 +518,12 @@ def test_denied_read_is_not_recorded_as_served(hook, tmp_path):
     # context-cache must allow it too — it was never actually served.
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "last-search").touch()
-    sf_code_2, _, _ = check_search_first(payload, repo=repo, state_dir=state_dir, config=config)
+    sf_code_2, _, _ = check_search_first(
+        payload, repo=repo, state_dir=state_dir, config=config
+    )
     assert sf_code_2 == 0
 
-    cc_code, _, _ = hook.check_context_cache(payload, state_dir=state_dir, enabled=True, grep_ttl=300)
+    cc_code, _, _ = hook.check_context_cache(
+        payload, state_dir=state_dir, enabled=True, grep_ttl=300
+    )
     assert cc_code == 0, "context-cache must not treat a denied read as served"

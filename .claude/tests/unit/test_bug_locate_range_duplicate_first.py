@@ -7,6 +7,7 @@ the correct one.
 Fix: save the fallback but continue the loop; return the first fallback only
 after exhausting all candidates.
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,16 +22,20 @@ def test_duplicate_first_line_returns_correct_occurrence():
     """_locate_range must find the occurrence whose last line also matches."""
     # File with two occurrences of the same first line; only the second has
     # the right last line.
-    file_text = "\n".join([
-        "def foo():",       # line 1  — first occurrence, wrong last line
-        "    return 1",     # line 2
-        "def foo():",       # line 3  — second occurrence, correct last line
-        "    return 42",    # line 4
-    ])
-    chunk_text = "\n".join([
-        "def foo():",
-        "    return 42",
-    ])
+    file_text = "\n".join(
+        [
+            "def foo():",  # line 1  — first occurrence, wrong last line
+            "    return 1",  # line 2
+            "def foo():",  # line 3  — second occurrence, correct last line
+            "    return 42",  # line 4
+        ]
+    )
+    chunk_text = "\n".join(
+        [
+            "def foo():",
+            "    return 42",
+        ]
+    )
 
     result = _locate_range(file_text, chunk_text)
 
@@ -42,17 +47,21 @@ def test_duplicate_first_line_returns_correct_occurrence():
 
 def test_no_matching_last_line_returns_first_fallback():
     """When no occurrence has a matching last line, return the first occurrence."""
-    file_text = "\n".join([
-        "def foo():",   # line 1
-        "    pass",     # line 2
-        "def foo():",   # line 3
-        "    pass",     # line 4
-    ])
+    file_text = "\n".join(
+        [
+            "def foo():",  # line 1
+            "    pass",  # line 2
+            "def foo():",  # line 3
+            "    pass",  # line 4
+        ]
+    )
     # Chunk whose last line doesn't appear at the expected offset in either occurrence
-    chunk_text = "\n".join([
-        "def foo():",
-        "    return 99",  # doesn't exist in file
-    ])
+    chunk_text = "\n".join(
+        [
+            "def foo():",
+            "    return 99",  # doesn't exist in file
+        ]
+    )
 
     result = _locate_range(file_text, chunk_text)
 

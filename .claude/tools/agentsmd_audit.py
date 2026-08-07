@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Audit AGENTS.md with the same budget/ref checks as claudemd_audit.py."""
+
 from __future__ import annotations
 
 import sys

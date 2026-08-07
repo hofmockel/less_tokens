@@ -5,6 +5,7 @@ after editing source (the auto-refresh hook can lag or fail). search.py now
 compares the newest indexed source-file mtime against index.db's mtime and
 prints a one-line warning to stderr (never stdout/JSON) before results.
 """
+
 from __future__ import annotations
 
 import sqlite3

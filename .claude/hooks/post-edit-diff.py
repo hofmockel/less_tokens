@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PostToolUse hook: emit compact diff after Edit/Write; record path."""
+
 from __future__ import annotations
 
 import json
@@ -36,10 +37,22 @@ sys.path[:0] = [
 
 try:
     from agents.common.hooks.payload import normalize_claude  # type: ignore[import]
-    from agents.common.hooks.post_edit_diff import cap as _cap_common, check_post_edit_diff, diff_edit, diff_write, record_edit
+    from agents.common.hooks.post_edit_diff import (
+        cap as _cap_common,
+        check_post_edit_diff,
+        diff_edit,
+        diff_write,
+        record_edit,
+    )
 except Exception:
     from payload import normalize_claude  # type: ignore[no-redef]
-    from post_edit_diff import cap as _cap_common, check_post_edit_diff, diff_edit, diff_write, record_edit  # type: ignore[no-redef]
+    from post_edit_diff import (
+        cap as _cap_common,
+        check_post_edit_diff,
+        diff_edit,
+        diff_write,
+        record_edit,
+    )  # type: ignore[no-redef]
 
 try:
     from search_config import MAX_DIFF_LINES, active_state_dir as _active_state_dir  # noqa: E402

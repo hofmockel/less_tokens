@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """CLI noise-file guard for checking before a whole-file read."""
+
 from __future__ import annotations
 
 import argparse
@@ -66,7 +67,9 @@ def check(path: Path) -> str | None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Check whether a file is noisy to read whole")
+    ap = argparse.ArgumentParser(
+        description="Check whether a file is noisy to read whole"
+    )
     ap.add_argument("path", type=Path)
     args = ap.parse_args()
 

@@ -1,11 +1,14 @@
 """Regression test: load_toolignore() must strip inline # comments from server names."""
+
 from __future__ import annotations
 
 import importlib
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / ".claude" / "tools"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent.parent.parent.parent / ".claude" / "tools")
+)
 mcp_prune_mod = importlib.import_module("mcp-prune")
 
 

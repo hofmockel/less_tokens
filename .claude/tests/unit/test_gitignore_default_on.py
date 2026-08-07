@@ -4,6 +4,7 @@ Generated artifacts (index.db, .claude/state/) silently pollute the host
 git repo otherwise. Default-on with --no-gitignore opt-out keeps a fresh
 install's `git status` clean without forcing the user to remember a flag.
 """
+
 from __future__ import annotations
 
 import sys

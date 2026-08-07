@@ -6,6 +6,7 @@ query vector from model B and stored vectors from model A produces garbage
 scores.  search() must filter to only rows whose embedding_model matches the
 currently-configured model.
 """
+
 from __future__ import annotations
 
 import sqlite3

@@ -4,6 +4,7 @@ Malformed JSONL records in the savings log were skipped without any indication,
 making it hard to diagnose a corrupted log.  The fix emits a WARN to stderr for
 each skipped line so users can investigate the corruption.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -17,6 +18,7 @@ sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
 def _import_stats():
     import stats
+
     return importlib.reload(stats)
 
 
@@ -25,7 +27,7 @@ def test_malformed_record_emits_warn(tmp_path, capsys):
     stats = _import_stats()
     log = tmp_path / "savings.jsonl"
     log.write_text(
-        'not-json-at-all\n'
+        "not-json-at-all\n"
         '{"strategy": "truncation", "saved_chars": 100, "ts": 9999999999}\n'
     )
     with patch("stats.LOG_FILE", log):

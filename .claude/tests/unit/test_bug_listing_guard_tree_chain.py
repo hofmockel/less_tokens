@@ -4,6 +4,7 @@
 start of the string. The ls guard correctly uses re.search. The fix is to
 replace re.match with re.search for the tree check.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -24,17 +25,13 @@ is_bare_listing = _mod.is_bare_listing
 def test_tree_after_chain_is_intercepted():
     """`echo foo && tree` should be intercepted (tree present, no -L)."""
     intercepted, _ = is_bare_listing("echo foo && tree")
-    assert intercepted, (
-        "listing-guard missed tree in chained command (re.match bug)"
-    )
+    assert intercepted, "listing-guard missed tree in chained command (re.match bug)"
 
 
 def test_tree_with_semicolon_chain_is_intercepted():
     """`cd /tmp; tree` should be intercepted."""
     intercepted, _ = is_bare_listing("cd /tmp; tree")
-    assert intercepted, (
-        "listing-guard missed tree in semicolon-chained command"
-    )
+    assert intercepted, "listing-guard missed tree in semicolon-chained command"
 
 
 def test_plain_tree_still_intercepted():

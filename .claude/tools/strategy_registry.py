@@ -10,6 +10,7 @@ claim, or None if the strategy is real but categorically unmeasured (no
 savings.jsonl category by design — the ``savings`` text must then carry an
 honesty marker such as "not telemetry-backed").
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

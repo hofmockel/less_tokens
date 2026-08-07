@@ -19,7 +19,11 @@ from agents.common.budget import (  # noqa: E402
     select_candidates,
 )
 from agents.common.budget.compaction import should_compact  # noqa: E402
-from agents.common.budget.advice import advice_for_mode, enforcement_decision, format_advice, outcome_for_mode  # noqa: E402
+from agents.common.budget.advice import (
+    advice_for_mode,
+    enforcement_decision,
+    outcome_for_mode,
+)  # noqa: E402
 from agents.common.budget.decisions import BudgetDecision  # noqa: E402
 from agents.common.budget.signals import build_budget_signals, grep_cache_key  # noqa: E402
 from agents.common.budget.config import default_budget_config_text  # noqa: E402
@@ -66,21 +70,25 @@ def test_codex_budget_overrides_are_deep_merged_by_default(tmp_path):
     assert codex.hard_caps["full_file_read"] == 2000
     assert codex.hard_caps["single_tool_output"] == 1500
     assert codex.hard_caps["directory_listing"] == 600
-    assert codex.category_limit("session_summary") == base.category_limit("session_summary")
+    assert codex.category_limit("session_summary") == base.category_limit(
+        "session_summary"
+    )
 
 
 def test_project_codex_budget_override_preserves_other_codex_caps(tmp_path):
     cfg_dir = tmp_path / ".less_tokens" / "config"
     cfg_dir.mkdir(parents=True)
     (cfg_dir / "budget.json").write_text(
-        json.dumps({
-            "agent_overrides": {
-                "codex": {
-                    "categories": {"tool_output": 1750},
-                    "hard_caps": {"directory_listing": 500},
+        json.dumps(
+            {
+                "agent_overrides": {
+                    "codex": {
+                        "categories": {"tool_output": 1750},
+                        "hard_caps": {"directory_listing": 500},
+                    }
                 }
             }
-        }),
+        ),
         encoding="utf-8",
     )
 
@@ -99,19 +107,21 @@ def test_project_claude_budget_override_preserves_codex_caps(tmp_path):
     cfg_dir = tmp_path / ".less_tokens" / "config"
     cfg_dir.mkdir(parents=True)
     (cfg_dir / "budget.json").write_text(
-        json.dumps({
-            "agent_overrides": {
-                "claude": {
-                    "categories": {"retrieved_context": 6000, "tool_output": 2000},
-                    "hard_caps": {
-                        "full_file_read": 2000,
-                        "single_tool_output": 1500,
-                        "directory_listing": 600,
+        json.dumps(
+            {
+                "agent_overrides": {
+                    "claude": {
+                        "categories": {"retrieved_context": 6000, "tool_output": 2000},
+                        "hard_caps": {
+                            "full_file_read": 2000,
+                            "single_tool_output": 1500,
+                            "directory_listing": 600,
+                        },
                     },
-                },
-                "codex": {},
+                    "codex": {},
+                }
             }
-        }),
+        ),
         encoding="utf-8",
     )
 
@@ -133,8 +143,20 @@ def test_project_claude_budget_override_preserves_codex_caps(tmp_path):
 
 def test_score_explicit_path_beats_unmentioned_path():
     candidates = [
-        ContextCandidate(candidate_id="file:a.py", category="retrieved_context", candidate_type="file", path="a.py", text="x"),
-        ContextCandidate(candidate_id="file:b.py", category="retrieved_context", candidate_type="file", path="b.py", text="x"),
+        ContextCandidate(
+            candidate_id="file:a.py",
+            category="retrieved_context",
+            candidate_type="file",
+            path="a.py",
+            text="x",
+        ),
+        ContextCandidate(
+            candidate_id="file:b.py",
+            category="retrieved_context",
+            candidate_type="file",
+            path="b.py",
+            text="x",
+        ),
     ]
     scored = score_candidates(candidates, query="please inspect a.py")
     scores = {c.path: c.relevance_score for c in scored}
@@ -167,7 +189,9 @@ def test_evaluate_budget_input_writes_v2_event(tmp_path):
     }
     (tmp_path / "README.md").write_text("# hello\n", encoding="utf-8")
     budget_input = normalize_budget_input(payload, agent="claude")
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
     events = load_events(tmp_path)
     assert decisions
     assert events[0]["version"] == 2
@@ -243,15 +267,18 @@ def test_event_append_writes_when_lock_fails(tmp_path, monkeypatch):
         raise OSError("lock unavailable")
 
     monkeypatch.setattr(budget_events.os, "lockf", fail_lock, raising=False)
-    append_event(tmp_path, event_from_decision(
-        decision,
-        agent="claude",
-        session_id="s1",
-        run_id="r1",
-        phase="pre_read",
-        tool_name="Read",
-        mode="observe",
-    ))
+    append_event(
+        tmp_path,
+        event_from_decision(
+            decision,
+            agent="claude",
+            session_id="s1",
+            run_id="r1",
+            phase="pre_read",
+            tool_name="Read",
+            mode="observe",
+        ),
+    )
 
     events = load_events(tmp_path)
     assert len(events) == 1
@@ -275,7 +302,9 @@ def test_budget_engine_failure_logs_event_and_fails_open(tmp_path, monkeypatch):
         raise RuntimeError("score exploded")
 
     monkeypatch.setattr(budget_policy, "score_candidates", fail_score)
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
 
     assert decisions == []
     events = load_events(tmp_path)
@@ -288,7 +317,9 @@ def test_budget_engine_failure_logs_event_and_fails_open(tmp_path, monkeypatch):
 def test_search_range_boosts_file_and_produces_exact_replacement(tmp_path):
     state = tmp_path / ".less_tokens" / "state"
     state.mkdir(parents=True)
-    (state / "last-search.json").write_text(json.dumps({"agents/common/budget/gate.py": [[12, 20]]}), encoding="utf-8")
+    (state / "last-search.json").write_text(
+        json.dumps({"agents/common/budget/gate.py": [[12, 20]]}), encoding="utf-8"
+    )
     cfg = load_budget_config(tmp_path)
     candidate = ContextCandidate(
         candidate_id="file:agents/common/budget/gate.py",
@@ -315,7 +346,9 @@ def test_failing_test_path_gets_high_relevance(tmp_path):
     }
     budget_input = normalize_budget_input(payload, agent="codex")
     signals = build_budget_signals(tmp_path, query="pytest", text=output)
-    scored = score_candidates(budget_input.candidates, query=budget_input.query, signals=signals)
+    scored = score_candidates(
+        budget_input.candidates, query=budget_input.query, signals=signals
+    )
     by_path = {candidate.path: candidate for candidate in scored if candidate.path}
     assert by_path["tests/test_budget_core.py"].relevance_score >= 0.35
     assert "failure output" in by_path["tests/test_budget_core.py"].reason
@@ -325,7 +358,9 @@ def test_recent_edit_path_increases_relevance(tmp_path):
     edited = tmp_path / "app.py"
     state = tmp_path / ".less_tokens" / "state"
     state.mkdir(parents=True)
-    (state / "last-edit.json").write_text(json.dumps({str(edited.resolve()): __import__("time").time()}), encoding="utf-8")
+    (state / "last-edit.json").write_text(
+        json.dumps({str(edited.resolve()): __import__("time").time()}), encoding="utf-8"
+    )
     candidate = ContextCandidate(
         candidate_id=f"file:{edited}",
         category="retrieved_context",
@@ -334,7 +369,9 @@ def test_recent_edit_path_increases_relevance(tmp_path):
         text="def changed(): pass",
     )
     signals = build_budget_signals(tmp_path, query="verify recent edit")
-    scored = score_candidates([candidate], query="verify recent edit", signals=signals)[0]
+    scored = score_candidates([candidate], query="verify recent edit", signals=signals)[
+        0
+    ]
     assert scored.relevance_score > 0
     assert "recent path" in scored.reason
 
@@ -417,30 +454,51 @@ def test_budget_doctor_smoke(tmp_path):
     state_dir = tmp_path / ".less_tokens" / "state"
     cfg_dir.mkdir(parents=True)
     state_dir.mkdir(parents=True)
-    (cfg_dir / "budget.json").write_text(json.dumps({"mode": "advise"}), encoding="utf-8")
-    (state_dir / "events.jsonl").write_text(json.dumps({
-        "version": 2,
-        "decision": "replace",
-        "category": "retrieved_context",
-        "budget_used_after": 1000,
-        "budget_limit": 2000,
-    }) + "\n", encoding="utf-8")
+    (cfg_dir / "budget.json").write_text(
+        json.dumps({"mode": "advise"}), encoding="utf-8"
+    )
+    (state_dir / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "decision": "replace",
+                "category": "retrieved_context",
+                "budget_used_after": 1000,
+                "budget_limit": 2000,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     with (state_dir / "events.jsonl").open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({
-            "version": 2,
-            "phase": "compaction",
-            "decision": "summarize",
-            "category": "session_summary",
-            "budget_used_after": 120,
-            "budget_limit": 3000,
-        }) + "\n")
-    tool = Path(__file__).parent.parent.parent.parent / ".less_tokens" / "tools" / "budget_doctor.py"
+        fh.write(
+            json.dumps(
+                {
+                    "version": 2,
+                    "phase": "compaction",
+                    "decision": "summarize",
+                    "category": "session_summary",
+                    "budget_used_after": 120,
+                    "budget_limit": 3000,
+                }
+            )
+            + "\n"
+        )
+    tool = (
+        Path(__file__).parent.parent.parent.parent
+        / ".less_tokens"
+        / "tools"
+        / "budget_doctor.py"
+    )
     result = subprocess.run(
         [sys.executable, str(tool), "--limit", "5"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)},
+        env={
+            **os.environ,
+            "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent),
+        },
         timeout=10,
     )
     assert result.returncode == 0
@@ -456,18 +514,30 @@ def test_repeated_read_blocks_in_enforce_mode(tmp_path):
     state = tmp_path / ".less_tokens" / "state"
     state.mkdir(parents=True)
     key = f"{target}::None::None"
-    (state / "context-cache.json").write_text(json.dumps({
-        "reads": {key: {"ts": __import__("time").time()}},
-        "greps": {},
-    }), encoding="utf-8")
+    (state / "context-cache.json").write_text(
+        json.dumps(
+            {
+                "reads": {key: {"ts": __import__("time").time()}},
+                "greps": {},
+            }
+        ),
+        encoding="utf-8",
+    )
     (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
-    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Read",
-        "tool_input": {"file_path": str(target)},
-    }, agent="claude")
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(
+        json.dumps({"mode": "enforce"}), encoding="utf-8"
+    )
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(target)},
+        },
+        agent="claude",
+    )
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
     assert decisions[0].action == "block"
     assert "repeated unchanged read" in decisions[0].reason
 
@@ -475,31 +545,52 @@ def test_repeated_read_blocks_in_enforce_mode(tmp_path):
 def test_repeated_search_blocks_in_enforce_mode(tmp_path):
     state = tmp_path / ".less_tokens" / "state"
     state.mkdir(parents=True)
-    (state / "context-cache.json").write_text(json.dumps({
-        "reads": {},
-        "greps": {grep_cache_key(pattern="needle"): {"ts": __import__("time").time()}},
-    }), encoding="utf-8")
+    (state / "context-cache.json").write_text(
+        json.dumps(
+            {
+                "reads": {},
+                "greps": {
+                    grep_cache_key(pattern="needle"): {"ts": __import__("time").time()}
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
-    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Grep",
-        "tool_input": {"pattern": "needle"},
-    }, agent="claude")
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(
+        json.dumps({"mode": "enforce"}), encoding="utf-8"
+    )
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Grep",
+            "tool_input": {"pattern": "needle"},
+        },
+        agent="claude",
+    )
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
     assert decisions[0].action == "block"
     assert "repeated search" in decisions[0].reason
 
 
 def test_broad_directory_listing_blocks_in_enforce_mode(tmp_path):
     (tmp_path / ".less_tokens" / "config").mkdir(parents=True)
-    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(json.dumps({"mode": "enforce"}), encoding="utf-8")
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Bash",
-        "tool_input": {"command": "find ."},
-    }, agent="codex")
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    (tmp_path / ".less_tokens" / "config" / "budget.json").write_text(
+        json.dumps({"mode": "enforce"}), encoding="utf-8"
+    )
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "find ."},
+        },
+        agent="codex",
+    )
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
     assert decisions[0].action == "block"
     assert "directory listing" in decisions[0].reason
     assert "narrower glob" in (decisions[0].replacement or "")
@@ -562,7 +653,9 @@ def test_category_modes_advise_unscored_context_without_global_mode_change(tmp_p
     assert decision.category == "unscored_context"
     assert "unscored context" in decision.reason
 
-    outcome = outcome_for_mode(decisions, mode=cfg.mode, category_modes=cfg.category_modes)
+    outcome = outcome_for_mode(
+        decisions, mode=cfg.mode, category_modes=cfg.category_modes
+    )
     assert outcome.exit_code == 0
     assert outcome.message and outcome.message.startswith("less_tokens budget: defer")
 
@@ -589,16 +682,26 @@ def test_tool_output_summary_preserves_failure_signal():
 
 def test_oversized_tool_output_replacement_contains_summary(tmp_path):
     cfg = load_budget_config(tmp_path)
-    raw = "\n".join(f"noise line {i}" for i in range(1200)) + "\nFAILED tests/test_x.py::test_y - AssertionError\nE   assert 1 == 2\n"
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PostToolUse",
-        "tool_name": "Bash",
-        "tool_input": {"command": "pytest"},
-        "tool_response": raw,
-    }, agent="claude")
+    raw = (
+        "\n".join(f"noise line {i}" for i in range(1200))
+        + "\nFAILED tests/test_x.py::test_y - AssertionError\nE   assert 1 == 2\n"
+    )
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest"},
+            "tool_response": raw,
+        },
+        agent="claude",
+    )
     scored = score_candidates(budget_input.candidates, query=budget_input.query)
     decisions = select_candidates(scored, cfg)
-    tool_decision = next(decision for decision in decisions if decision.candidate_id == "tool_output:Bash")
+    tool_decision = next(
+        decision
+        for decision in decisions
+        if decision.candidate_id == "tool_output:Bash"
+    )
     assert tool_decision.action == "replace"
     assert tool_decision.estimated_tokens_after < tool_decision.estimated_tokens_before
     assert tool_decision.replacement and "$ pytest" in tool_decision.replacement
@@ -633,16 +736,25 @@ def test_compaction_snapshot_fits_session_summary_budget(tmp_path):
 def test_policy_refreshes_compaction_snapshot_on_pressure(tmp_path):
     target = tmp_path / "big.py"
     target.write_text("x" * 20000, encoding="utf-8")
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Read",
-        "tool_input": {"file_path": str(target)},
-        "session_id": "s1",
-        "run_id": "r1",
-    }, agent="claude")
-    decisions = evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(target)},
+            "session_id": "s1",
+            "run_id": "r1",
+        },
+        agent="claude",
+    )
+    decisions = evaluate_budget_input(
+        tmp_path, budget_input, load_budget_config(tmp_path)
+    )
     assert should_compact(decisions)
-    session = json.loads((tmp_path / ".less_tokens" / "state" / "claude-session.json").read_text(encoding="utf-8"))
+    session = json.loads(
+        (tmp_path / ".less_tokens" / "state" / "claude-session.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert str(target) in session["active_files"]
     assert session["compact_summary"]["budget_limit"] == 3000
     events = load_events(tmp_path)
@@ -655,16 +767,23 @@ def test_policy_refreshes_compaction_snapshot_on_pressure(tmp_path):
 def test_policy_updates_shared_project_state(tmp_path):
     target = tmp_path / "big.py"
     target.write_text("x" * 20000, encoding="utf-8")
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PreToolUse",
-        "tool_name": "Read",
-        "tool_input": {"file_path": str(target)},
-        "session_id": "s1",
-        "run_id": "r1",
-    }, agent="claude")
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(target)},
+            "session_id": "s1",
+            "run_id": "r1",
+        },
+        agent="claude",
+    )
     evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
 
-    shared = json.loads((tmp_path / ".less_tokens" / "state" / "shared-project-state.json").read_text(encoding="utf-8"))
+    shared = json.loads(
+        (tmp_path / ".less_tokens" / "state" / "shared-project-state.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert shared["agents"] == ["claude"]
     assert str(target) in shared["active_files"]
     assert any("file:" in note for note in shared["decisions_made"])
@@ -672,18 +791,23 @@ def test_policy_updates_shared_project_state(tmp_path):
 
 def test_tool_output_summary_uses_summary_strategy(tmp_path):
     raw = "\n".join(f"noise line {i}" for i in range(1200)) + "\n250 passed in 3.21s\n"
-    budget_input = normalize_budget_input({
-        "hook_event_name": "PostToolUse",
-        "tool_name": "Bash",
-        "tool_input": {"command": "pytest"},
-        "tool_response": raw,
-        "session_id": "s1",
-        "run_id": "r1",
-    }, agent="claude")
+    budget_input = normalize_budget_input(
+        {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest"},
+            "tool_response": raw,
+            "session_id": "s1",
+            "run_id": "r1",
+        },
+        agent="claude",
+    )
     evaluate_budget_input(tmp_path, budget_input, load_budget_config(tmp_path))
     events = load_events(tmp_path)
 
-    summary_events = [event for event in events if event["strategy"] == "dynamic_output_summary"]
+    summary_events = [
+        event for event in events if event["strategy"] == "dynamic_output_summary"
+    ]
     assert summary_events
     assert summary_events[0]["estimated_tokens_saved"] > 0
 
@@ -691,38 +815,56 @@ def test_tool_output_summary_uses_summary_strategy(tmp_path):
 def test_budget_report_includes_risk_and_compactions(tmp_path):
     state_dir = tmp_path / ".less_tokens" / "state"
     state_dir.mkdir(parents=True)
-    (state_dir / "events.jsonl").write_text("\n".join([
-        json.dumps({
-            "version": 2,
-            "agent": "claude",
-            "decision": "block",
-            "strategy": "relevance_gate",
-            "category": "retrieved_context",
-            "estimated_tokens_saved": 100,
-            "budget_used_after": 0,
-            "budget_limit": 1000,
-            "reason": "low relevance",
-        }),
-        json.dumps({
-            "version": 2,
-            "agent": "claude",
-            "phase": "compaction",
-            "decision": "summarize",
-            "strategy": "pressure_compaction",
-            "category": "session_summary",
-            "estimated_tokens_saved": 50,
-            "budget_used_after": 100,
-            "budget_limit": 3000,
-            "reason": "pressure",
-        }),
-    ]) + "\n", encoding="utf-8")
-    tool = Path(__file__).parent.parent.parent.parent / ".less_tokens" / "tools" / "budget_report.py"
+    (state_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "version": 2,
+                        "agent": "claude",
+                        "decision": "block",
+                        "strategy": "relevance_gate",
+                        "category": "retrieved_context",
+                        "estimated_tokens_saved": 100,
+                        "budget_used_after": 0,
+                        "budget_limit": 1000,
+                        "reason": "low relevance",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "version": 2,
+                        "agent": "claude",
+                        "phase": "compaction",
+                        "decision": "summarize",
+                        "strategy": "pressure_compaction",
+                        "category": "session_summary",
+                        "estimated_tokens_saved": 50,
+                        "budget_used_after": 100,
+                        "budget_limit": 3000,
+                        "reason": "pressure",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tool = (
+        Path(__file__).parent.parent.parent.parent
+        / ".less_tokens"
+        / "tools"
+        / "budget_report.py"
+    )
     result = subprocess.run(
         [sys.executable, str(tool), "--limit", "5"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent)},
+        env={
+            **os.environ,
+            "PYTHONPATH": str(Path(__file__).parent.parent.parent.parent),
+        },
         timeout=10,
     )
     assert result.returncode == 0

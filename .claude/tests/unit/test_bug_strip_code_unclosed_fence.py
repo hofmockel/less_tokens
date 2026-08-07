@@ -1,4 +1,5 @@
 """Regression test: _strip_code must remove unclosed code fences from prose."""
+
 from __future__ import annotations
 
 import sys
@@ -12,7 +13,9 @@ def test_unclosed_fence_stripped():
     """Unclosed ``` fence: content must not appear in stripped output."""
     body = "Some prose.\n```python\ndef foo(): pass\n# no closing fence"
     result = audit_mod._strip_code(body)
-    assert "def foo" not in result, f"Unclosed fence content leaked into prose: {result!r}"
+    assert "def foo" not in result, (
+        f"Unclosed fence content leaked into prose: {result!r}"
+    )
     assert "no closing fence" not in result
 
 

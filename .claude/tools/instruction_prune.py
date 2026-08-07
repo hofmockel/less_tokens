@@ -13,6 +13,7 @@ Usage:
   python .claude/tools/instruction_prune.py --agent claude --apply --verify-recall
   python .claude/tools/instruction_prune.py --agent codex --apply --no-pointer
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,11 +63,17 @@ def _sections_with_verdicts(path: Path) -> list[dict]:
     for s in sections:
         s["_tokens"] = cma.est_tokens(s["body"])
         verb = cma.scan_verbosity(s["body"])
-        out.append({
-            "title": s["title"], "level": s["level"],
-            "start": s["start"], "end": s["end"], "body": s["body"],
-            "tokens": s["_tokens"], "verdict": cma.verdict(s, dup, verb),
-        })
+        out.append(
+            {
+                "title": s["title"],
+                "level": s["level"],
+                "start": s["start"],
+                "end": s["end"],
+                "body": s["body"],
+                "tokens": s["_tokens"],
+                "verdict": cma.verdict(s, dup, verb),
+            }
+        )
     return out
 
 
@@ -74,7 +81,8 @@ def plan_moves(path: Path) -> list[dict]:
     """Sections eligible to move: level >= 1 (never the preamble) and a
     CUT->doc/REVIEW verdict."""
     return [
-        s for s in _sections_with_verdicts(path)
+        s
+        for s in _sections_with_verdicts(path)
         if s["level"] >= 1 and s["verdict"].startswith(MOVABLE_PREFIXES)
     ]
 
@@ -83,8 +91,9 @@ def _pointer_line(title: str, overflow_doc: str) -> str:
     return f"_Moved to {overflow_doc} → {title}._"
 
 
-def apply_moves(path: Path, overflow_path: Path, moves: list[dict],
-                 leave_pointer: bool) -> None:
+def apply_moves(
+    path: Path, overflow_path: Path, moves: list[dict], leave_pointer: bool
+) -> None:
     """Mutate path and overflow_path in place. moves must be the exact list
     from plan_moves(path) -- caller recomputes it fresh so the plan shown is
     always the plan applied.
@@ -96,15 +105,19 @@ def apply_moves(path: Path, overflow_path: Path, moves: list[dict],
     """
     lines = path.read_text(encoding="utf-8").splitlines()
     ordered = sorted(moves, key=lambda s: s["start"])
-    bodies_in_order = ["\n".join(lines[s["start"] - 1:s["end"]]) for s in ordered]
+    bodies_in_order = ["\n".join(lines[s["start"] - 1 : s["end"]]) for s in ordered]
 
     for s in sorted(moves, key=lambda s: s["start"], reverse=True):
-        replacement = [_pointer_line(s["title"], overflow_path.name)] if leave_pointer else []
-        lines[s["start"] - 1:s["end"]] = replacement
+        replacement = (
+            [_pointer_line(s["title"], overflow_path.name)] if leave_pointer else []
+        )
+        lines[s["start"] - 1 : s["end"]] = replacement
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     marker = f"## Moved from {path.name}"
-    overflow_text = overflow_path.read_text(encoding="utf-8") if overflow_path.exists() else ""
+    overflow_text = (
+        overflow_path.read_text(encoding="utf-8") if overflow_path.exists() else ""
+    )
     new_overflow = overflow_text.rstrip("\n")
     if marker not in overflow_text:
         new_overflow += ("\n\n" if new_overflow else "") + marker
@@ -142,17 +155,20 @@ def verify_recall(titles: list[str], overflow_doc_name: str) -> list[dict]:
     return results
 
 
-def _print_plan(agent: str, path: Path, overflow_doc: str, moves: list[dict],
-                 audit_result: dict) -> None:
+def _print_plan(
+    agent: str, path: Path, overflow_doc: str, moves: list[dict], audit_result: dict
+) -> None:
     print(f"[{agent}] {path.name} -> {overflow_doc}")
     if not moves:
         print("  no CUT→doc / REVIEW sections to move")
     for s in moves:
-        print(f"  MOVE  L{s['start']}-{s['end']}  {s['tokens']}tok  "
-              f"\"{s['title']}\"  [{s['verdict']}]")
+        print(
+            f"  MOVE  L{s['start']}-{s['end']}  {s['tokens']}tok  "
+            f'"{s["title"]}"  [{s["verdict"]}]'
+        )
     trims = [s for s in audit_result["sections"] if s["verdict"] == "TRIM"]
     for s in trims:
-        print(f"  TRIM (manual)  L{s['lines']}  \"{s['title']}\"")
+        print(f'  TRIM (manual)  L{s["lines"]}  "{s["title"]}"')
     for r in audit_result["dead_refs"]:
         print(f"  FIX-REF (manual)  L{r['line']}  {r['ref']}  -- {r['reason']}")
 
@@ -160,16 +176,26 @@ def _print_plan(agent: str, path: Path, overflow_doc: str, moves: list[dict],
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--agent", required=True, choices=sorted(AGENT_PROFILES))
-    ap.add_argument("--apply", action="store_true",
-                     help="perform the moves shown by the dry run")
-    ap.add_argument("--verify-recall", action="store_true",
-                     help="after --apply, confirm moved topics are searchable")
-    ap.add_argument("--no-pointer", action="store_true",
-                     help="don't leave a one-line pointer at the moved section's old spot")
+    ap.add_argument(
+        "--apply", action="store_true", help="perform the moves shown by the dry run"
+    )
+    ap.add_argument(
+        "--verify-recall",
+        action="store_true",
+        help="after --apply, confirm moved topics are searchable",
+    )
+    ap.add_argument(
+        "--no-pointer",
+        action="store_true",
+        help="don't leave a one-line pointer at the moved section's old spot",
+    )
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--overflow-doc", default=None)
-    ap.add_argument("--path", default=None,
-                     help="override the default CLAUDE.md/AGENTS.md location (advanced/testing)")
+    ap.add_argument(
+        "--path",
+        default=None,
+        help="override the default CLAUDE.md/AGENTS.md location (advanced/testing)",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -178,7 +204,9 @@ def main(argv: list[str] | None = None) -> int:
     budget = args.budget if args.budget is not None else profile["budget"]
     overflow_doc = args.overflow_doc or profile["overflow_doc"]
     overflow_path = path.parent / overflow_doc if args.path else BASE / overflow_doc
-    display_path = str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path)
+    display_path = (
+        str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path)
+    )
 
     if not path.exists():
         print(f"not found: {path}", file=sys.stderr)
@@ -189,15 +217,27 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.apply:
         if args.json:
-            print(json.dumps({
-                "agent": args.agent, "path": display_path,
-                "overflow_doc": overflow_doc,
-                "moves": [{"title": s["title"], "lines": f"{s['start']}-{s['end']}",
-                           "tokens": s["tokens"], "verdict": s["verdict"]}
-                          for s in moves],
-                "over_budget": audit_before["over_budget"],
-                "dead_refs": audit_before["dead_refs"],
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "agent": args.agent,
+                        "path": display_path,
+                        "overflow_doc": overflow_doc,
+                        "moves": [
+                            {
+                                "title": s["title"],
+                                "lines": f"{s['start']}-{s['end']}",
+                                "tokens": s["tokens"],
+                                "verdict": s["verdict"],
+                            }
+                            for s in moves
+                        ],
+                        "over_budget": audit_before["over_budget"],
+                        "dead_refs": audit_before["dead_refs"],
+                    },
+                    indent=2,
+                )
+            )
         else:
             _print_plan(args.agent, path, overflow_doc, moves, audit_before)
         return 0
@@ -205,8 +245,10 @@ def main(argv: list[str] | None = None) -> int:
     apply_moves(path, overflow_path, moves, leave_pointer=not args.no_pointer)
     audit_after = cma.audit(path, budget)
     print(f"applied {len(moves)} move(s) -> {overflow_doc}")
-    print(f"re-audit: over_budget={audit_after['over_budget']} "
-          f"dead_refs={len(audit_after['dead_refs'])}")
+    print(
+        f"re-audit: over_budget={audit_after['over_budget']} "
+        f"dead_refs={len(audit_after['dead_refs'])}"
+    )
 
     exit_code = 0
     if args.verify_recall:
@@ -214,19 +256,23 @@ def main(argv: list[str] | None = None) -> int:
             results = verify_recall([s["title"] for s in moves], overflow_doc)
         except ModuleNotFoundError as e:
             venv_python = BASE / ".claude" / ".venv-tokens" / "bin" / "python"
-            print(f"--verify-recall needs '{e.name}', not importable under this interpreter.\n"
-                  f"Run this tool with {venv_python} instead of a plain python3.",
-                  file=sys.stderr)
+            print(
+                f"--verify-recall needs '{e.name}', not importable under this interpreter.\n"
+                f"Run this tool with {venv_python} instead of a plain python3.",
+                file=sys.stderr,
+            )
             return 2
         for r in results:
             status = "PASS" if r["passed"] else "FAIL"
-            print(f"  verify-recall {status}  \"{r['title']}\"")
+            print(f'  verify-recall {status}  "{r["title"]}"')
             if not r["passed"]:
                 exit_code = 1
         if exit_code:
-            print("verify-recall FAILed for at least one topic -- "
-                  "restore that section manually, this tool will not auto-restore it.",
-                  file=sys.stderr)
+            print(
+                "verify-recall FAILed for at least one topic -- "
+                "restore that section manually, this tool will not auto-restore it.",
+                file=sys.stderr,
+            )
     return exit_code
 
 

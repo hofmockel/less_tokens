@@ -1,4 +1,5 @@
 """Contract checks for the bounded live Codex app-server compaction probe."""
+
 from __future__ import annotations
 
 import json
@@ -7,8 +8,13 @@ from pathlib import Path
 
 REPO = Path(__file__).parent.parent.parent.parent
 FIXTURE = (
-    REPO / ".claude" / "tests" / "fixtures" / "codex-app-server" /
-    "0.144.6" / "thread-compact-start.json"
+    REPO
+    / ".claude"
+    / "tests"
+    / "fixtures"
+    / "codex-app-server"
+    / "0.144.6"
+    / "thread-compact-start.json"
 )
 
 

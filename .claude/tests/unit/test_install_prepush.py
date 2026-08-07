@@ -1,4 +1,5 @@
 """Tests for the native pre-push continue.md-freshness hook (CN1)."""
+
 from __future__ import annotations
 
 import subprocess
@@ -21,11 +22,15 @@ def _git_repo(tmp_path: Path) -> Path:
 
 
 def test_script_rel_prefers_claude_when_both(tmp_path):
-    assert _pre_push_script_rel({"claude", "codex"}) == Path(".claude/hooks/common/pre-push-continue-freshness.py")
+    assert _pre_push_script_rel({"claude", "codex"}) == Path(
+        ".claude/hooks/common/pre-push-continue-freshness.py"
+    )
 
 
 def test_script_rel_codex_only(tmp_path):
-    assert _pre_push_script_rel({"codex"}) == Path(".less_tokens/hooks/pre-push-continue-freshness.py")
+    assert _pre_push_script_rel({"codex"}) == Path(
+        ".less_tokens/hooks/pre-push-continue-freshness.py"
+    )
 
 
 def test_wire_creates_hook_when_absent(tmp_path):
@@ -68,7 +73,9 @@ def test_wire_composes_with_host_owned_hook(tmp_path):
     assert changed == 1
     assert "host-owned-check" in text
     assert "less_tokens (continue.md freshness)" in text
-    assert text.index("host-owned-check") < text.index("less_tokens (continue.md freshness)")
+    assert text.index("host-owned-check") < text.index(
+        "less_tokens (continue.md freshness)"
+    )
 
 
 def test_wire_updates_in_place_on_reinstall_with_changed_target(tmp_path):

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Claude hook: record v2 budget telemetry without changing tool outcomes."""
+
 from __future__ import annotations
 
 import json

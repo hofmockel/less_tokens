@@ -6,6 +6,7 @@ a wider funnel" implies Opus should consistently use the larger k.
 
 Additionally, claude-opus-4-8 (the current flagship Opus) was missing entirely.
 """
+
 from __future__ import annotations
 
 import sys
@@ -32,9 +33,7 @@ def test_opus_k_exceeds_sonnet_k():
     """Opus recommended_k must be >= Sonnet's, reflecting its larger context budget."""
     opus_k = MODEL_PROFILES["claude-opus-4-7"]["recommended_k"]
     sonnet_k = MODEL_PROFILES["claude-sonnet-4-5"]["recommended_k"]
-    assert opus_k >= sonnet_k, (
-        f"Opus k={opus_k} should be >= Sonnet k={sonnet_k}"
-    )
+    assert opus_k >= sonnet_k, f"Opus k={opus_k} should be >= Sonnet k={sonnet_k}"
 
 
 def test_opus_4_8_in_profiles():

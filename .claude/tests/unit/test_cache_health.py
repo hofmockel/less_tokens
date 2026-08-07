@@ -5,6 +5,7 @@ path + fallback, Codex cwd-grep + subagent-skip), native usage parsing for
 both platforms, and the abrupt-miss-window heuristic. No test asserts a
 savings magnitude — this module reports native counters, not estimates.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,14 +52,24 @@ def test_codex_version_windows():
 
 def test_slugify_cwd_matches_observed_convention():
     from pathlib import Path
+
     assert slugify_cwd(Path("/Users/michael/Documents/GitHub/ever_better")) == (
         "-Users-michael-Documents-GitHub-ever-better"
     )
 
 
 def test_claude_transcript_path_is_deterministic(tmp_path):
-    p = claude_transcript_path(tmp_path / "repo", "sess-123", claude_home=tmp_path / "home")
-    assert p == tmp_path / "home" / "projects" / slugify_cwd(tmp_path / "repo") / "sess-123.jsonl"
+    p = claude_transcript_path(
+        tmp_path / "repo", "sess-123", claude_home=tmp_path / "home"
+    )
+    assert (
+        p
+        == tmp_path
+        / "home"
+        / "projects"
+        / slugify_cwd(tmp_path / "repo")
+        / "sess-123.jsonl"
+    )
 
 
 def test_find_claude_transcript_fallback_picks_newest(tmp_path):
@@ -79,7 +90,12 @@ def test_find_claude_transcript_fallback_picks_newest(tmp_path):
 
 
 def test_find_claude_transcript_fallback_missing_dir(tmp_path):
-    assert find_claude_transcript_fallback(tmp_path / "nope", claude_home=tmp_path / "home") is None
+    assert (
+        find_claude_transcript_fallback(
+            tmp_path / "nope", claude_home=tmp_path / "home"
+        )
+        is None
+    )
 
 
 def _write_jsonl(path, records):
@@ -92,30 +108,47 @@ def test_find_codex_transcript_matches_cwd_and_skips_subagents(tmp_path):
     day.mkdir(parents=True)
 
     subagent = day / "rollout-2026-07-20T10-00-00-aaa.jsonl"
-    _write_jsonl(subagent, [{
-        "type": "session_meta",
-        "payload": {"cwd": "/repo", "thread_source": "subagent"},
-    }])
+    _write_jsonl(
+        subagent,
+        [
+            {
+                "type": "session_meta",
+                "payload": {"cwd": "/repo", "thread_source": "subagent"},
+            }
+        ],
+    )
 
     other_cwd = day / "rollout-2026-07-20T11-00-00-bbb.jsonl"
-    _write_jsonl(other_cwd, [{
-        "type": "session_meta",
-        "payload": {"cwd": "/other-repo"},
-    }])
+    _write_jsonl(
+        other_cwd,
+        [
+            {
+                "type": "session_meta",
+                "payload": {"cwd": "/other-repo"},
+            }
+        ],
+    )
 
     match = day / "rollout-2026-07-20T12-00-00-ccc.jsonl"
-    _write_jsonl(match, [{
-        "type": "session_meta",
-        "payload": {"cwd": "/repo"},
-    }])
+    _write_jsonl(
+        match,
+        [
+            {
+                "type": "session_meta",
+                "payload": {"cwd": "/repo"},
+            }
+        ],
+    )
 
     from pathlib import Path
+
     found = find_codex_transcript(Path("/repo"), codex_home=home)
     assert found == match
 
 
 def test_find_codex_transcript_no_match(tmp_path):
     from pathlib import Path
+
     home = tmp_path / "codex_home"
     (home / "sessions").mkdir(parents=True)
     assert find_codex_transcript(Path("/nowhere"), codex_home=home) is None
@@ -123,18 +156,23 @@ def test_find_codex_transcript_no_match(tmp_path):
 
 def test_parse_claude_cache_usage(tmp_path):
     transcript = tmp_path / "t.jsonl"
-    _write_jsonl(transcript, [
-        {"type": "queue-operation"},  # no usage — skipped
-        {
-            "timestamp": "2026-07-20T00:00:00Z",
-            "message": {"usage": {
-                "input_tokens": 2,
-                "cache_creation_input_tokens": 100,
-                "cache_read_input_tokens": 900,
-            }},
-        },
-        {"message": {"usage": {"input_tokens": 5}}},  # missing fields — skipped
-    ])
+    _write_jsonl(
+        transcript,
+        [
+            {"type": "queue-operation"},  # no usage — skipped
+            {
+                "timestamp": "2026-07-20T00:00:00Z",
+                "message": {
+                    "usage": {
+                        "input_tokens": 2,
+                        "cache_creation_input_tokens": 100,
+                        "cache_read_input_tokens": 900,
+                    }
+                },
+            },
+            {"message": {"usage": {"input_tokens": 5}}},  # missing fields — skipped
+        ],
+    )
     turns = parse_claude_cache_usage(transcript)
     assert len(turns) == 1
     assert turns[0]["cache_read_input_tokens"] == 900
@@ -146,19 +184,24 @@ def test_parse_claude_cache_usage_missing_file(tmp_path):
 
 def test_parse_codex_cache_usage(tmp_path):
     transcript = tmp_path / "r.jsonl"
-    _write_jsonl(transcript, [
-        {"payload": {"type": "session_meta"}},
-        {
-            "timestamp": "2026-07-20T00:00:00Z",
-            "payload": {
-                "type": "token_count",
-                "info": {"total_token_usage": {
-                    "input_tokens": 1000,
-                    "cached_input_tokens": 800,
-                }},
+    _write_jsonl(
+        transcript,
+        [
+            {"payload": {"type": "session_meta"}},
+            {
+                "timestamp": "2026-07-20T00:00:00Z",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "total_token_usage": {
+                            "input_tokens": 1000,
+                            "cached_input_tokens": 800,
+                        }
+                    },
+                },
             },
-        },
-    ])
+        ],
+    )
     turns = parse_codex_cache_usage(transcript)
     assert len(turns) == 1
     assert turns[0]["cached_input_tokens"] == 800
@@ -166,16 +209,33 @@ def test_parse_codex_cache_usage(tmp_path):
 
 
 def test_claude_cache_read_share():
-    assert claude_cache_read_share({
-        "input_tokens": 0, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 900,
-    }) == 0.9
-    assert claude_cache_read_share({
-        "input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
-    }) is None
+    assert (
+        claude_cache_read_share(
+            {
+                "input_tokens": 0,
+                "cache_creation_input_tokens": 100,
+                "cache_read_input_tokens": 900,
+            }
+        )
+        == 0.9
+    )
+    assert (
+        claude_cache_read_share(
+            {
+                "input_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            }
+        )
+        is None
+    )
 
 
 def test_codex_cache_read_share():
-    assert codex_cache_read_share({"input_tokens": 1000, "cached_input_tokens": 800}) == 0.8
+    assert (
+        codex_cache_read_share({"input_tokens": 1000, "cached_input_tokens": 800})
+        == 0.8
+    )
     assert codex_cache_read_share({"input_tokens": 0, "cached_input_tokens": 0}) is None
 
 
@@ -201,13 +261,19 @@ def test_detect_abrupt_miss_windows_ignores_low_baseline():
 
 def test_compute_cache_health_unavailable_outside_version_window():
     from pathlib import Path
+
     result = compute_cache_health(
-        agent="claude", cwd=Path("/repo"), session_id="s1",
-        session_source="payload", cli_version="1.0.0",
+        agent="claude",
+        cwd=Path("/repo"),
+        session_id="s1",
+        session_source="payload",
+        cli_version="1.0.0",
     )
-    assert result == {"available": False, "agent": "claude", "reason": (
-        "cli_version '1.0.0' outside verified window 2.1.181-2.1.215"
-    )}
+    assert result == {
+        "available": False,
+        "agent": "claude",
+        "reason": ("cli_version '1.0.0' outside verified window 2.1.181-2.1.215"),
+    }
 
 
 def test_compute_cache_health_claude_end_to_end(tmp_path, monkeypatch):
@@ -218,17 +284,32 @@ def test_compute_cache_health_claude_end_to_end(tmp_path, monkeypatch):
     transcript_dir = home / "projects" / slugify_cwd(cwd)
     transcript_dir.mkdir(parents=True)
     transcript = transcript_dir / "sess-1.jsonl"
-    _write_jsonl(transcript, [{
-        "message": {"usage": {
-            "input_tokens": 0, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 900,
-        }},
-    }])
-    monkeypatch.setattr(sys.modules[compute_cache_health.__module__], "claude_transcript_path",
-                         lambda c, sid, claude_home=None: transcript)
+    _write_jsonl(
+        transcript,
+        [
+            {
+                "message": {
+                    "usage": {
+                        "input_tokens": 0,
+                        "cache_creation_input_tokens": 100,
+                        "cache_read_input_tokens": 900,
+                    }
+                },
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        sys.modules[compute_cache_health.__module__],
+        "claude_transcript_path",
+        lambda c, sid, claude_home=None: transcript,
+    )
 
     result = compute_cache_health(
-        agent="claude", cwd=cwd, session_id="sess-1",
-        session_source="payload", cli_version="2.1.200",
+        agent="claude",
+        cwd=cwd,
+        session_id="sess-1",
+        session_source="payload",
+        cli_version="2.1.200",
     )
     assert result["available"] is True
     assert result["cache_read_share_avg"] == 0.9
@@ -237,8 +318,12 @@ def test_compute_cache_health_claude_end_to_end(tmp_path, monkeypatch):
 
 def test_compute_cache_health_codex_unsupported_agent():
     from pathlib import Path
+
     result = compute_cache_health(
-        agent="mystery", cwd=Path("/repo"), session_id=None,
-        session_source=None, cli_version=None,
+        agent="mystery",
+        cwd=Path("/repo"),
+        session_id=None,
+        session_source=None,
+        cli_version=None,
     )
     assert result["available"] is False

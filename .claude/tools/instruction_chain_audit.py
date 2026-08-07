@@ -18,6 +18,7 @@ Usage:
   python .claude/tools/instruction_chain_audit.py --agent claude [--cwd PATH] [--json]
   python .claude/tools/instruction_chain_audit.py --agent codex [--cwd PATH] [--json]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -127,16 +128,25 @@ def _collect_rules(rules_dir: Path, base: Path, nested: bool = False) -> list[di
             continue
         text = _read(path)
         scope = _rule_scope(path)
-        rel = path.relative_to(base).as_posix() if path.is_relative_to(base) else str(path)
+        rel = (
+            path.relative_to(base).as_posix()
+            if path.is_relative_to(base)
+            else str(path)
+        )
         tokens = est_tokens(text)
         fixed = (not scope["scoped"]) and not nested
         flag_candidate = fixed and _looks_non_global(text)
-        out.append({
-            "path": rel, "tokens": tokens, "fixed": fixed,
-            "scoped": scope["scoped"], "pattern": scope["pattern"],
-            "reliability_flag": scope["reliability_flag"],
-            "path_scope_candidate": flag_candidate,
-        })
+        out.append(
+            {
+                "path": rel,
+                "tokens": tokens,
+                "fixed": fixed,
+                "scoped": scope["scoped"],
+                "pattern": scope["pattern"],
+                "reliability_flag": scope["reliability_flag"],
+                "path_scope_candidate": flag_candidate,
+            }
+        )
     return out
 
 
@@ -192,14 +202,16 @@ def claude_chain(cwd: Path, base: Path) -> dict:
     policy = _CLAUDE_MANAGED_POLICY.get(sys.platform.rstrip("0123456789"))
     if policy and policy.exists():
         text = _read(policy)
-        fixed.append({"path": str(policy), "kind": "managed-policy",
-                      "tokens": est_tokens(text)})
+        fixed.append(
+            {"path": str(policy), "kind": "managed-policy", "tokens": est_tokens(text)}
+        )
 
     user_claude = Path.home() / ".claude" / "CLAUDE.md"
     if user_claude.exists():
         text = _read(user_claude)
-        fixed.append({"path": "~/.claude/CLAUDE.md", "kind": "user",
-                      "tokens": est_tokens(text)})
+        fixed.append(
+            {"path": "~/.claude/CLAUDE.md", "kind": "user", "tokens": est_tokens(text)}
+        )
 
     user_rules_dir = Path.home() / ".claude" / "rules"
     for r in _collect_rules(user_rules_dir, user_rules_dir):
@@ -209,8 +221,10 @@ def claude_chain(cwd: Path, base: Path) -> dict:
         if r["reliability_flag"]:
             flags.append(f"{r['path']}: {PATHS_RELIABILITY_NOTE}")
         if r["path_scope_candidate"]:
-            flags.append(f"{r['path']}: unscoped but reads path-specific — "
-                          "consider scoping with globs:")
+            flags.append(
+                f"{r['path']}: unscoped but reads path-specific — "
+                "consider scoping with globs:"
+            )
 
     ancestors = [cwd, *[p for p in cwd.parents if base in (p, *p.parents) or p == base]]
     # de-dup while keeping cwd-nearest last (root-first load order)
@@ -223,40 +237,58 @@ def claude_chain(cwd: Path, base: Path) -> dict:
         chain_dirs.insert(0, base)
 
     for d in chain_dirs:
-        for name, kind in (("CLAUDE.md", "project"), (".claude/CLAUDE.md", "project"),
-                            ("CLAUDE.local.md", "local")):
+        for name, kind in (
+            ("CLAUDE.md", "project"),
+            (".claude/CLAUDE.md", "project"),
+            ("CLAUDE.local.md", "local"),
+        ):
             p = d / name
             if p.exists():
                 text = _read(p)
-                rel = p.relative_to(base).as_posix() if p.is_relative_to(base) else str(p)
+                rel = (
+                    p.relative_to(base).as_posix() if p.is_relative_to(base) else str(p)
+                )
                 fixed.append({"path": rel, "kind": kind, "tokens": est_tokens(text)})
 
         rules_dir = d / ".claude" / "rules"
-        is_top_level = (d == base)
+        is_top_level = d == base
         for r in _collect_rules(rules_dir, base, nested=not is_top_level):
             r["kind"] = "rule" if is_top_level else "nested-rule"
             (fixed if r["fixed"] else on_demand).append(r)
             if r["reliability_flag"]:
                 flags.append(f"{r['path']}: {PATHS_RELIABILITY_NOTE}")
             if r["path_scope_candidate"]:
-                flags.append(f"{r['path']}: unscoped but reads path-specific — "
-                              "consider scoping with globs:")
+                flags.append(
+                    f"{r['path']}: unscoped but reads path-specific — "
+                    "consider scoping with globs:"
+                )
 
     mem = _memory_summary(base)
     if mem["found"]:
-        fixed.append({"path": mem["path"], "kind": "auto-memory",
-                      "tokens": mem["loaded_tokens"]})
+        fixed.append(
+            {"path": mem["path"], "kind": "auto-memory", "tokens": mem["loaded_tokens"]}
+        )
         if mem["over_limit"]:
-            flags.append(f"{mem['path']}: over the 200-line/25KB read limit — "
-                          "content past the limit is silently dropped on load")
+            flags.append(
+                f"{mem['path']}: over the 200-line/25KB read limit — "
+                "content past the limit is silently dropped on load"
+            )
         if mem["topic_files"]:
-            on_demand.append({"path": f"{mem['path']} (+{mem['topic_files']} topic files)",
-                              "kind": "auto-memory-topics", "tokens": 0,
-                              "fixed": False})
+            on_demand.append(
+                {
+                    "path": f"{mem['path']} (+{mem['topic_files']} topic files)",
+                    "kind": "auto-memory-topics",
+                    "tokens": 0,
+                    "fixed": False,
+                }
+            )
 
     return {
-        "agent": "claude", "cwd": str(cwd), "base": str(base),
-        "fixed": fixed, "on_demand": on_demand,
+        "agent": "claude",
+        "cwd": str(cwd),
+        "base": str(base),
+        "fixed": fixed,
+        "on_demand": on_demand,
         "fixed_tokens": sum(f["tokens"] for f in fixed),
         "on_demand_tokens": sum(f["tokens"] for f in on_demand),
         "flags": flags,
@@ -266,16 +298,24 @@ def claude_chain(cwd: Path, base: Path) -> dict:
 def _codex_config(base: Path) -> dict:
     cfg_path = Path.home() / ".codex" / "config.toml"
     if not cfg_path.exists() or tomllib is None:
-        return {"project_doc_max_bytes": CODEX_DEFAULT_MAX_BYTES,
-                "project_doc_fallback_filenames": []}
+        return {
+            "project_doc_max_bytes": CODEX_DEFAULT_MAX_BYTES,
+            "project_doc_fallback_filenames": [],
+        }
     try:
         data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
     except Exception:
-        return {"project_doc_max_bytes": CODEX_DEFAULT_MAX_BYTES,
-                "project_doc_fallback_filenames": []}
+        return {
+            "project_doc_max_bytes": CODEX_DEFAULT_MAX_BYTES,
+            "project_doc_fallback_filenames": [],
+        }
     return {
-        "project_doc_max_bytes": data.get("project_doc_max_bytes", CODEX_DEFAULT_MAX_BYTES),
-        "project_doc_fallback_filenames": data.get("project_doc_fallback_filenames", []),
+        "project_doc_max_bytes": data.get(
+            "project_doc_max_bytes", CODEX_DEFAULT_MAX_BYTES
+        ),
+        "project_doc_fallback_filenames": data.get(
+            "project_doc_fallback_filenames", []
+        ),
     }
 
 
@@ -307,7 +347,9 @@ def codex_chain(cwd: Path, base: Path) -> dict:
         for name in candidates:
             p = d / name
             if p.exists() and _read(p).strip():
-                rel = p.relative_to(base).as_posix() if p.is_relative_to(base) else str(p)
+                rel = (
+                    p.relative_to(base).as_posix() if p.is_relative_to(base) else str(p)
+                )
                 entries.append((rel, p))
                 break  # at most one file per directory
 
@@ -325,15 +367,23 @@ def codex_chain(cwd: Path, base: Path) -> dict:
         included.append({"path": rel, "bytes": size, "tokens": est_tokens(_read(p))})
 
     return {
-        "agent": "codex", "cwd": str(cwd), "base": str(base),
+        "agent": "codex",
+        "cwd": str(cwd),
+        "base": str(base),
         "project_doc_max_bytes": max_bytes,
-        "included": included, "skipped_over_limit": skipped,
+        "included": included,
+        "skipped_over_limit": skipped,
         "included_tokens": sum(e["tokens"] for e in included),
         "included_bytes": cumulative,
-        "flags": (["over project_doc_max_bytes: "
-                    f"{len(skipped)} file(s) never loaded — "
-                    "raise project_doc_max_bytes or trim the chain"]
-                   if skipped else []),
+        "flags": (
+            [
+                "over project_doc_max_bytes: "
+                f"{len(skipped)} file(s) never loaded — "
+                "raise project_doc_max_bytes or trim the chain"
+            ]
+            if skipped
+            else []
+        ),
     }
 
 
@@ -358,8 +408,11 @@ def render_claude(a: dict) -> str:
 
 
 def render_codex(a: dict) -> str:
-    lines = [f"Codex instruction chain — cwd={a['cwd']} "
-             f"(project_doc_max_bytes={a['project_doc_max_bytes']})", ""]
+    lines = [
+        f"Codex instruction chain — cwd={a['cwd']} "
+        f"(project_doc_max_bytes={a['project_doc_max_bytes']})",
+        "",
+    ]
     lines.append("INCLUDED (root-to-cwd concatenation order):")
     for f in a["included"]:
         lines.append(f"  {f['tokens']:>5} tok  {f['bytes']:>6}B  {f['path']}")
@@ -378,7 +431,9 @@ def render_codex(a: dict) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Audit the full launch-time instruction chain")
+    ap = argparse.ArgumentParser(
+        description="Audit the full launch-time instruction chain"
+    )
     ap.add_argument("--agent", choices=["claude", "codex"], required=True)
     ap.add_argument("--cwd", default=".", help="launch working directory to model")
     ap.add_argument("--json", action="store_true")

@@ -1,10 +1,10 @@
 """Unit tests for merge_search_config and handle_search_config in install.py."""
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from install import _top_level_assignments, merge_search_config

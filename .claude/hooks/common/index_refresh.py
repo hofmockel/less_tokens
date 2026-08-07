@@ -1,4 +1,5 @@
 """Shared index-refresh logic — agent-neutral."""
+
 from __future__ import annotations
 
 import subprocess
@@ -70,7 +71,8 @@ def check_index_refresh(
         if not file_path:
             return 0, "", ""
         if not is_indexed(
-            Path(file_path), repo,
+            Path(file_path),
+            repo,
             excluded_prefixes=config.get("excluded_prefixes", ()),
             excluded_names=config.get("excluded_names"),
             indexed_dirs=config.get("dirs", ()),

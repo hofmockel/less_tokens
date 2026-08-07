@@ -4,6 +4,7 @@ Prevents the silent dimension mismatch that occurs when a user edits
 EMBEDDING_MODEL by hand but forgets to bump EMBEDDING_DIM and re-run
 `refresh --full` (scores quietly become wrong against an existing index).
 """
+
 from __future__ import annotations
 
 import importlib
@@ -17,22 +18,21 @@ sys.path.insert(0, str(REPO / ".claude" / "tools"))
 def _setup_fake_config(tmp_path, monkeypatch):
     """Create a search_config.py-like file in a tmp dir + put it on sys.path."""
     cfg = tmp_path / "search_config.py"
-    cfg.write_text(
-        'EMBEDDING_MODEL: str = "old/model"\n'
-        "EMBEDDING_DIM: int = 384\n"
-    )
+    cfg.write_text('EMBEDDING_MODEL: str = "old/model"\nEMBEDDING_DIM: int = 384\n')
     return cfg
 
 
 def test_switch_model_rewrites_config_and_triggers_full_refresh(tmp_path, monkeypatch):
     cfg = _setup_fake_config(tmp_path, monkeypatch)
     import embeddings
+
     importlib.reload(embeddings)
 
     monkeypatch.setattr(embeddings, "_config_path", lambda: cfg)
     refresh_calls: list[dict] = []
     monkeypatch.setattr(
-        embeddings, "refresh",
+        embeddings,
+        "refresh",
         lambda **kw: refresh_calls.append(kw) or 0,
     )
 
@@ -48,6 +48,7 @@ def test_switch_model_rewrites_config_and_triggers_full_refresh(tmp_path, monkey
 def test_switch_model_rejects_unchanged_model(tmp_path, monkeypatch):
     cfg = _setup_fake_config(tmp_path, monkeypatch)
     import embeddings
+
     importlib.reload(embeddings)
     monkeypatch.setattr(embeddings, "_config_path", lambda: cfg)
     monkeypatch.setattr(embeddings, "refresh", lambda **kw: 0)
@@ -67,6 +68,7 @@ def test_switch_model_preserves_surrounding_lines(tmp_path, monkeypatch):
         "OTHER_VAR = 42\n"
     )
     import embeddings
+
     importlib.reload(embeddings)
     monkeypatch.setattr(embeddings, "_config_path", lambda: cfg)
     monkeypatch.setattr(embeddings, "refresh", lambda **kw: 0)

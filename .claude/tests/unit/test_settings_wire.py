@@ -1,11 +1,11 @@
 """Unit tests for wire_settings in install.py."""
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from install import wire_settings
@@ -14,7 +14,9 @@ from install import wire_settings
 class TestWireSettings:
     def test_creates_file_and_returns_added(self, tmp_path):
         settings = tmp_path / ".claude" / "settings.local.json"
-        added, present = wire_settings(settings, [("PreToolUse", "Read", "python hook.py")])
+        added, present = wire_settings(
+            settings, [("PreToolUse", "Read", "python hook.py")]
+        )
         assert added == 1
         assert present == 0
         assert settings.exists()

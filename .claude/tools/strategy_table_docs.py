@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Render README.md's strategy table from strategy_registry.STRATEGIES."""
+
 from __future__ import annotations
 
 import argparse

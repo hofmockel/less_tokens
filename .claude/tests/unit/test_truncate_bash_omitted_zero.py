@@ -6,6 +6,7 @@ trailing newline — instead of the assembled head+tail result. This caused
 a 1-char drift in the char-based tail window and unconditionally invoked
 truncate_chars even when the text fit within ceiling.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: block whole-file Reads of large files."""
+
 from __future__ import annotations
 
 import json
@@ -37,11 +38,17 @@ sys.path[:0] = [
 try:
     from agents.common.hooks.grep_first_read import check_grep_first_read  # type: ignore[import]
     from agents.common.hooks.payload import normalize_claude
-    from agents.common.hooks.search_first import is_indexed as _common_is_indexed, search_was_recent as _common_recent
+    from agents.common.hooks.search_first import (
+        is_indexed as _common_is_indexed,
+        search_was_recent as _common_recent,
+    )
 except Exception:
     from grep_first_read import check_grep_first_read  # type: ignore[no-redef]
     from payload import normalize_claude  # type: ignore[no-redef]
-    from search_first import is_indexed as _common_is_indexed, search_was_recent as _common_recent  # type: ignore[no-redef]
+    from search_first import (
+        is_indexed as _common_is_indexed,
+        search_was_recent as _common_recent,
+    )  # type: ignore[no-redef]
 
 try:
     from search_config import (  # noqa: E402
@@ -66,6 +73,7 @@ except Exception:
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
 
+
 RANGES_FILE = active_state_dir() / "last-search.json"
 
 
@@ -85,7 +93,9 @@ def _search_was_recent() -> bool:
 
 
 def check(file_path: str, offset: object) -> str | None:
-    payload = normalize_claude({"tool_name": "Read", "tool_input": {"file_path": file_path, "offset": offset}})
+    payload = normalize_claude(
+        {"tool_name": "Read", "tool_input": {"file_path": file_path, "offset": offset}}
+    )
     config = {
         "excluded_prefixes": EXCLUDED_DIR_PREFIXES,
         "excluded_names": EXCLUDED_DIR_NAMES,
@@ -100,8 +110,14 @@ def check(file_path: str, offset: object) -> str | None:
         "is_indexed": _is_indexed,
         "search_was_recent": _search_was_recent,
     }
-    code, _, stderr = check_grep_first_read(payload, repo=REPO, state_dir=active_state_dir(), config=config)
-    return stderr.replace("Grep-first gate:", "Grep-first gate (S13):") if code == 2 else None
+    code, _, stderr = check_grep_first_read(
+        payload, repo=REPO, state_dir=active_state_dir(), config=config
+    )
+    return (
+        stderr.replace("Grep-first gate:", "Grep-first gate (S13):")
+        if code == 2
+        else None
+    )
 
 
 def main() -> int:

@@ -5,6 +5,7 @@ returned weak results. Every run now appends one best-effort JSON line
 (timestamp, query, top score, result count) to .claude/state/
 search-history.log — it must never break the search it records.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,12 +34,23 @@ def _run(argv, monkeypatch):
 
 def test_appends_record_with_score_and_count(state, monkeypatch):
     monkeypatch.setattr(
-        search, "search",
+        search,
+        "search",
         lambda *a, **k: [
-            {"score": 0.8123456, "source_type": "code", "source_path": "p.py",
-             "source_key": "k", "text": "t"},
-            {"score": 0.4, "source_type": "code", "source_path": "q.py",
-             "source_key": "k", "text": "t"},
+            {
+                "score": 0.8123456,
+                "source_type": "code",
+                "source_path": "p.py",
+                "source_key": "k",
+                "text": "t",
+            },
+            {
+                "score": 0.4,
+                "source_type": "code",
+                "source_path": "q.py",
+                "source_key": "k",
+                "text": "t",
+            },
         ],
     )
     _run(["my query", "--json"], monkeypatch)

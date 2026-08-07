@@ -3,6 +3,7 @@
 Hardcoded `rel.endswith((".md", ".py", ".sql"))` at index-refresh.py:90 ignores
 INDEXED_ROOT_GLOBS, triggering spurious re-embeds for non-indexed root files.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

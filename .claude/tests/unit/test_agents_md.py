@@ -1,10 +1,10 @@
 """Tests for handle_agents_md() — idempotent AGENTS.md fragment management."""
+
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
@@ -47,10 +47,7 @@ class TestHandleAgentsMd:
 
     def test_updates_stale_block_in_place(self, tmp_path):
         agents_md = tmp_path / "AGENTS.md"
-        agents_md.write_text(
-            "# Rules\n\n"
-            f"{_BEGIN}\nSTALE CONTENT HERE\n{_END}\n"
-        )
+        agents_md.write_text(f"# Rules\n\n{_BEGIN}\nSTALE CONTENT HERE\n{_END}\n")
         handle_agents_md(FRAGMENT, tmp_path)
         content = agents_md.read_text()
         assert "STALE CONTENT HERE" not in content

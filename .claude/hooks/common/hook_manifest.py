@@ -1,4 +1,5 @@
 """Single source of truth for less_tokens hook wiring."""
+
 from __future__ import annotations
 
 import re
@@ -225,13 +226,17 @@ def _optional_enabled(agent: str, optional_flag: str, args: object) -> bool:
     return bool(getattr(args, optional_flag, False))
 
 
-def hook_entries(agent: str, py_command: str, args: object) -> list[tuple[str, str, str]]:
+def hook_entries(
+    agent: str, py_command: str, args: object
+) -> list[tuple[str, str, str]]:
     if agent not in {"claude", "codex"}:
         raise ValueError(f"unsupported hook agent: {agent}")
 
     entries: list[tuple[str, str, str]] = []
     for spec in HOOK_SPECS:
-        if spec.optional_flag and not _optional_enabled(agent, spec.optional_flag, args):
+        if spec.optional_flag and not _optional_enabled(
+            agent, spec.optional_flag, args
+        ):
             continue
         script = spec.claude_script if agent == "claude" else spec.codex_script
         wires = spec.claude if agent == "claude" else spec.codex
@@ -254,12 +259,14 @@ def build_codex_hook_entries(
     effective_args = args
     if savings_profile == "aggressive":
         env = f"{env} LESS_TOKENS_CODEX_SAVINGS=aggressive"
-        effective_args = SimpleNamespace(**{
-            **vars(args),
-            "no_truncate": False,
-            "no_compact": False,
-            "no_caveman": False,
-        })
+        effective_args = SimpleNamespace(
+            **{
+                **vars(args),
+                "no_truncate": False,
+                "no_compact": False,
+                "no_caveman": False,
+            }
+        )
 
     prefix = f"{env} {shlex.quote(py_command)}"
     entries = hook_entries("codex", prefix, effective_args)
@@ -298,10 +305,10 @@ def _flat_codex_handler(event: str, group: dict, handler: dict) -> dict:
         "matcher": group.get("matcher"),
         "command": handler.get("command"),
     }
-    group_extra = {k: v for k, v in group.items() if k not in {"event", "matcher", "hooks"}}
-    handler_extra = {
-        k: v for k, v in handler.items() if k not in {"type", "command"}
+    group_extra = {
+        k: v for k, v in group.items() if k not in {"event", "matcher", "hooks"}
     }
+    handler_extra = {k: v for k, v in handler.items() if k not in {"type", "command"}}
     if group_extra:
         flat["_group_extra"] = group_extra
     if handler.get("type") != "command" or handler_extra:
@@ -319,7 +326,9 @@ def _flatten_codex_group(event: object, group: object) -> list[dict] | None:
     for handler in handlers:
         if not isinstance(handler, dict) or not isinstance(handler.get("type"), str):
             return None
-        if handler.get("type") == "command" and not isinstance(handler.get("command"), str):
+        if handler.get("type") == "command" and not isinstance(
+            handler.get("command"), str
+        ):
             return None
         flat.append(_flat_codex_handler(event, group, handler))
     return flat
@@ -329,7 +338,9 @@ def codex_hooks_schema(raw_hooks: object) -> str:
     """Classify the supported current/legacy hook representations."""
     if isinstance(raw_hooks, dict):
         return "event-keyed"
-    if isinstance(raw_hooks, list) and all(isinstance(group, list) for group in raw_hooks):
+    if isinstance(raw_hooks, list) and all(
+        isinstance(group, list) for group in raw_hooks
+    ):
         return "legacy-nested"
     return "malformed"
 

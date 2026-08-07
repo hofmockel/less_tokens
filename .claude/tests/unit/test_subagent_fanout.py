@@ -1,5 +1,6 @@
 """SA2: PreToolUse+PostToolUse:Task hook pairs a spawned subagent's prompt
 size with its return size into one subagent_fanout event per spawn."""
+
 from __future__ import annotations
 
 import io
@@ -14,7 +15,11 @@ HOOK = REPO_ROOT / ".claude" / "hooks" / "subagent-fanout.py"
 class TestSpawnKey:
     def test_stable_for_identical_input(self):
         mod = load_hook(HOOK)
-        inp = {"subagent_type": "qa", "prompt": "check the diff", "description": "review"}
+        inp = {
+            "subagent_type": "qa",
+            "prompt": "check the diff",
+            "description": "review",
+        }
         assert mod.spawn_key(inp) == mod.spawn_key(dict(inp))
 
     def test_differs_for_different_input(self):
@@ -35,7 +40,12 @@ class TestPendingQueue:
         state = {"pending": []}
         mod.record_spawn(state, key="k1", subagent_type="qa", prompt_chars=42, ts=1.0)
         entry = mod.pop_spawn(state, "k1")
-        assert entry == {"key": "k1", "subagent_type": "qa", "prompt_chars": 42, "ts": 1.0}
+        assert entry == {
+            "key": "k1",
+            "subagent_type": "qa",
+            "prompt_chars": 42,
+            "ts": 1.0,
+        }
         assert state["pending"] == []
 
     def test_pop_is_fifo_for_duplicate_keys(self):
@@ -64,8 +74,11 @@ class TestHandlePrePost:
     def test_post_without_matching_pre_still_emits_a_record(self, tmp_path):
         mod = load_hook(HOOK)
         record = mod.handle_post_return(
-            tmp_path, {"subagent_type": "tect"}, 500,
-            session_id="s1", session_source="payload",
+            tmp_path,
+            {"subagent_type": "tect"},
+            500,
+            session_id="s1",
+            session_source="payload",
         )
         assert record == {
             "event": "subagent_fanout",
@@ -81,7 +94,11 @@ class TestHandlePrePost:
         tool_input = {"subagent_type": "qa", "prompt": "check it"}
         mod.handle_pre_spawn(tmp_path, tool_input, now=1.0)
         record = mod.handle_post_return(
-            tmp_path, tool_input, 900, session_id="s1", session_source="payload",
+            tmp_path,
+            tool_input,
+            900,
+            session_id="s1",
+            session_source="payload",
         )
         assert record["prompt_chars"] == len(json.dumps(tool_input, default=str))
         assert record["return_chars"] == 900
@@ -92,8 +109,12 @@ class TestHandlePrePost:
         tool_input = {"subagent_type": "qa", "prompt": "same prompt"}
         mod.handle_pre_spawn(tmp_path, tool_input, now=1.0)
         mod.handle_pre_spawn(tmp_path, tool_input, now=2.0)
-        first = mod.handle_post_return(tmp_path, tool_input, 100, session_id="s", session_source="payload")
-        second = mod.handle_post_return(tmp_path, tool_input, 200, session_id="s", session_source="payload")
+        first = mod.handle_post_return(
+            tmp_path, tool_input, 100, session_id="s", session_source="payload"
+        )
+        second = mod.handle_post_return(
+            tmp_path, tool_input, 200, session_id="s", session_source="payload"
+        )
         assert first["return_chars"] == 100
         assert second["return_chars"] == 200
 
@@ -105,21 +126,25 @@ class TestSubagentFanoutHook:
         logged: list[dict] = []
         monkeypatch.setattr(mod, "_log_savings", logged.append)
 
-        pre_payload = json.dumps({
-            "hook_event_name": "PreToolUse",
-            "tool_name": "Task",
-            "tool_input": {"subagent_type": "qa", "prompt": "hello"},
-        })
+        pre_payload = json.dumps(
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Task",
+                "tool_input": {"subagent_type": "qa", "prompt": "hello"},
+            }
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO(pre_payload))
         assert mod.main() == 0
         assert logged == []
 
-        post_payload = json.dumps({
-            "hook_event_name": "PostToolUse",
-            "tool_name": "Task",
-            "tool_input": {"subagent_type": "qa", "prompt": "hello"},
-            "tool_result": "the subagent's final answer",
-        })
+        post_payload = json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Task",
+                "tool_input": {"subagent_type": "qa", "prompt": "hello"},
+                "tool_result": "the subagent's final answer",
+            }
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO(post_payload))
         assert mod.main() == 0
 
@@ -136,12 +161,14 @@ class TestSubagentFanoutHook:
         logged: list[dict] = []
         monkeypatch.setattr(mod, "_log_savings", logged.append)
 
-        payload = json.dumps({
-            "hook_event_name": "PostToolUse",
-            "tool_name": "Bash",
-            "tool_input": {},
-            "tool_result": "x" * 500,
-        })
+        payload = json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_result": "x" * 500,
+            }
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
         assert mod.main() == 0
         assert logged == []
@@ -151,12 +178,14 @@ class TestSubagentFanoutHook:
         monkeypatch.setattr(mod, "_active_state_dir", lambda: tmp_path)
         monkeypatch.setattr(mod, "_log_savings", lambda _r: None)
 
-        payload = json.dumps({
-            "hook_event_name": "PostToolUse",
-            "tool_name": "Task",
-            "tool_input": {"subagent_type": "qa"},
-            "tool_result": "short",
-        })
+        payload = json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Task",
+                "tool_input": {"subagent_type": "qa"},
+                "tool_result": "short",
+            }
+        )
         monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
         captured = io.StringIO()
         monkeypatch.setattr(sys, "stdout", captured)

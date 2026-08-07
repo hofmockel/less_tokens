@@ -1,4 +1,5 @@
 """Unit tests for post-edit-diff.py and read-after-edit.py hooks."""
+
 from __future__ import annotations
 
 import json
@@ -27,6 +28,7 @@ def rae():
 # ---------------------------------------------------------------------------
 # post-edit-diff: _diff_edit
 # ---------------------------------------------------------------------------
+
 
 class TestDiffEdit:
     def test_basic_change(self, ped):
@@ -58,6 +60,7 @@ class TestDiffEdit:
 # post-edit-diff: _cap
 # ---------------------------------------------------------------------------
 
+
 class TestCap:
     def test_no_cap_when_zero(self, ped):
         lines = ["line\n"] * 200
@@ -81,6 +84,7 @@ class TestCap:
 # post-edit-diff: _record_edit + main
 # ---------------------------------------------------------------------------
 
+
 class TestRecordEdit:
     def test_record_writes_path(self, ped, tmp_path, monkeypatch):
         monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
@@ -102,6 +106,7 @@ class TestPedMain:
     def _run(self, ped, payload: dict, capsys) -> int:
         import io
         import sys as _sys
+
         old_stdin = _sys.stdin
         _sys.stdin = io.StringIO(json.dumps(payload))
         try:
@@ -139,7 +144,11 @@ class TestPedMain:
         monkeypatch.setattr(ped, "_active_state_dir", lambda: tmp_path)
         payload = {
             "tool_name": "Edit",
-            "tool_input": {"file_path": "/tmp/f.py", "old_string": "", "new_string": ""},
+            "tool_input": {
+                "file_path": "/tmp/f.py",
+                "old_string": "",
+                "new_string": "",
+            },
         }
         rc = self._run(ped, payload, capsys)
         assert rc == 0
@@ -150,10 +159,12 @@ class TestPedMain:
 # read-after-edit: main
 # ---------------------------------------------------------------------------
 
+
 class TestRaeMain:
     def _run(self, rae, payload: dict) -> tuple[int, str]:
         import io
         import sys as _sys
+
         old_stdin, old_stderr = _sys.stdin, _sys.stderr
         _sys.stdin = io.StringIO(json.dumps(payload))
         err_buf = io.StringIO()
@@ -176,10 +187,13 @@ class TestRaeMain:
         real_file.touch()
         abs_path = str(real_file.resolve())
         self._write_edits(rae, tmp_path, monkeypatch, {abs_path: time.time()})
-        rc, err = self._run(rae, {
-            "tool_name": "Read",
-            "tool_input": {"file_path": str(real_file)},
-        })
+        rc, err = self._run(
+            rae,
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(real_file)},
+            },
+        )
         assert rc == 2
         assert "diff already in context" in err
 
@@ -187,39 +201,54 @@ class TestRaeMain:
         old_ts = time.time() - 300  # 5 min ago
         self._write_edits(rae, tmp_path, monkeypatch, {"/abs/foo.py": old_ts})
         import unittest.mock as mock
+
         with mock.patch("pathlib.Path.resolve", return_value=Path("/abs/foo.py")):
-            rc, _ = self._run(rae, {
-                "tool_name": "Read",
-                "tool_input": {"file_path": "foo.py"},
-            })
+            rc, _ = self._run(
+                rae,
+                {
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": "foo.py"},
+                },
+            )
         assert rc == 0
 
     def test_offset_always_allows(self, rae, tmp_path, monkeypatch):
         self._write_edits(rae, tmp_path, monkeypatch, {"/abs/foo.py": time.time()})
         import unittest.mock as mock
+
         with mock.patch("pathlib.Path.resolve", return_value=Path("/abs/foo.py")):
-            rc, _ = self._run(rae, {
-                "tool_name": "Read",
-                "tool_input": {"file_path": "foo.py", "offset": 10},
-            })
+            rc, _ = self._run(
+                rae,
+                {
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": "foo.py", "offset": 10},
+                },
+            )
         assert rc == 0
 
     def test_different_file_allows(self, rae, tmp_path, monkeypatch):
         self._write_edits(rae, tmp_path, monkeypatch, {"/abs/bar.py": time.time()})
         import unittest.mock as mock
+
         with mock.patch("pathlib.Path.resolve", return_value=Path("/abs/foo.py")):
-            rc, _ = self._run(rae, {
-                "tool_name": "Read",
-                "tool_input": {"file_path": "foo.py"},
-            })
+            rc, _ = self._run(
+                rae,
+                {
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": "foo.py"},
+                },
+            )
         assert rc == 0
 
     def test_no_state_file_allows(self, rae, tmp_path, monkeypatch):
         monkeypatch.setattr(rae, "_active_state_dir", lambda: tmp_path / "no_state")
-        rc, _ = self._run(rae, {
-            "tool_name": "Read",
-            "tool_input": {"file_path": "anything.py"},
-        })
+        rc, _ = self._run(
+            rae,
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": "anything.py"},
+            },
+        )
         assert rc == 0
 
     def test_non_read_tool_noop(self, rae, tmp_path, monkeypatch):
@@ -231,6 +260,7 @@ class TestRaeMain:
 # ---------------------------------------------------------------------------
 # post-edit-diff: _diff_write uses file's repo, not less_tokens REPO
 # ---------------------------------------------------------------------------
+
 
 class TestDiffWriteHostRepo:
     """Regression: _diff_write must run git diff in the file's own repo."""
@@ -244,18 +274,26 @@ class TestDiffWriteHostRepo:
         subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
-            check=True, capture_output=True, cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            cwd=tmp_path,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test"],
-            check=True, capture_output=True, cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            cwd=tmp_path,
         )
         target = tmp_path / "target.py"
         target.write_text("original = 1\n")
-        subprocess.run(["git", "add", "target.py"], check=True, capture_output=True, cwd=tmp_path)
+        subprocess.run(
+            ["git", "add", "target.py"], check=True, capture_output=True, cwd=tmp_path
+        )
         subprocess.run(
             ["git", "commit", "-m", "init"],
-            check=True, capture_output=True, cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            cwd=tmp_path,
         )
 
         # Modify without committing (working-tree change)

@@ -1,4 +1,5 @@
 """Tests for Phase 5 statusline wiring in install.py (merge-safe)."""
+
 from __future__ import annotations
 
 import json
@@ -48,7 +49,14 @@ def test_wire_statusline_never_clobbers_host(tmp_path):
 def test_unwire_removes_our_statusline_only(tmp_path):
     settings = tmp_path / "settings.json"
     settings.write_text(
-        json.dumps({"statusLine": {"type": "command", "command": "x .claude/tools/stats.py --oneliner"}}),
+        json.dumps(
+            {
+                "statusLine": {
+                    "type": "command",
+                    "command": "x .claude/tools/stats.py --oneliner",
+                }
+            }
+        ),
         encoding="utf-8",
     )
     unwire_settings(settings, Path(__file__).parent.parent.parent.parent, dry_run=False)

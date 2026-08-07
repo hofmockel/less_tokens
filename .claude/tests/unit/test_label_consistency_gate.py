@@ -4,6 +4,7 @@ Pure function tests only: find_unbacked_claims takes README text + a registry
 set and returns problems. No real README/registry content is asserted here
 except the smoke test that the shipped README currently passes clean.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -36,7 +37,9 @@ def test_row_with_magnitude_and_registry_entry_passes():
 
 
 def test_row_with_magnitude_and_no_registry_entry_but_marker_passes():
-    text = _row("Terse output mode", "30-60% fewer output tokens (not telemetry-backed)")
+    text = _row(
+        "Terse output mode", "30-60% fewer output tokens (not telemetry-backed)"
+    )
     assert gate.find_unbacked_claims(text, KNOWN) == []
 
 

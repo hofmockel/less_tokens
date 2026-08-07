@@ -21,6 +21,7 @@ row there once and both the doc and this gate stay in sync. An unmapped row
 (one present in README.md's text but absent from the registry) fails loudly
 rather than silently passing.
 """
+
 from __future__ import annotations
 
 import re
@@ -29,9 +30,16 @@ from pathlib import Path
 
 README = "README.md"
 
-STRATEGY_ROW = re.compile(r"^\|\s*\*\*(?P<name>[^*]+)\*\*\s*\|[^|]*\|(?P<savings>[^|]*)\|", re.MULTILINE)
+STRATEGY_ROW = re.compile(
+    r"^\|\s*\*\*(?P<name>[^*]+)\*\*\s*\|[^|]*\|(?P<savings>[^|]*)\|", re.MULTILINE
+)
 MAGNITUDE = re.compile(r"\d+(?:\s*[\-–]\s*\d+)?\s*%|\d+\s*×")
-UNVERIFIED_MARKERS = ("not telemetry-backed", "not measured", "asserted only", "no telemetry")
+UNVERIFIED_MARKERS = (
+    "not telemetry-backed",
+    "not measured",
+    "asserted only",
+    "no telemetry",
+)
 
 _tools_dir = Path(__file__).resolve().parent
 if str(_tools_dir) not in sys.path:
@@ -76,11 +84,17 @@ def _known_strategies() -> set[str]:
         sys.path.insert(0, str(tools_dir))
     try:
         from savings_log import _KNOWN_STRATEGIES
+
         return set(_KNOWN_STRATEGIES)
     except Exception:
         return {
-            "truncation", "compaction", "context-cache-read",
-            "context-cache-grep", "context-cache-bash", "search-blocked", "search",
+            "truncation",
+            "compaction",
+            "context-cache-read",
+            "context-cache-grep",
+            "context-cache-bash",
+            "search-blocked",
+            "search",
         }
 
 
@@ -94,7 +108,9 @@ def main(argv: list[str]) -> int:
         for p in problems:
             print(f"label-consistency-gate: {p}", file=sys.stderr)
         return 1
-    print("label-consistency-gate: ok (every magnitude claim is registry-backed or marked unverified)")
+    print(
+        "label-consistency-gate: ok (every magnitude claim is registry-backed or marked unverified)"
+    )
     return 0
 
 

@@ -4,6 +4,7 @@ Hooks are run as subprocesses (matching real Claude Code behaviour).
 search-first.py and index-refresh.py load search_config at import time, so
 PYTHONPATH is set to include tools/ to satisfy the import without a venv.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 HOOKS = REPO / ".claude" / "hooks"
@@ -20,7 +20,9 @@ HOOKS = REPO / ".claude" / "hooks"
 _ENV = {**os.environ, "PYTHONPATH": str(REPO / ".claude" / "tools")}
 
 
-def run_hook(hook_name: str, payload: dict, extra_env: dict | None = None) -> tuple[int, str, str]:
+def run_hook(
+    hook_name: str, payload: dict, extra_env: dict | None = None
+) -> tuple[int, str, str]:
     result = subprocess.run(
         [sys.executable, str(HOOKS / hook_name)],
         input=json.dumps(payload),
@@ -35,12 +37,16 @@ def run_hook(hook_name: str, payload: dict, extra_env: dict | None = None) -> tu
 # truncate-output.py
 # ---------------------------------------------------------------------------
 
+
 class TestTruncateOutput:
     def test_passes_when_under_limit(self):
-        code, _, _ = run_hook("truncate-output.py", {
-            "tool_name": "Bash",
-            "tool_result": "x" * 100,
-        })
+        code, _, _ = run_hook(
+            "truncate-output.py",
+            {
+                "tool_name": "Bash",
+                "tool_result": "x" * 100,
+            },
+        )
         assert code == 0
 
     def test_blocks_when_over_limit(self):
@@ -48,10 +54,13 @@ class TestTruncateOutput:
         # never replaces the delivered output. Actually reducing what Claude
         # sees requires hookSpecificOutput.updatedToolOutput on exit 0 (see
         # code.claude.com/docs/en/hooks.md#posttooluse-decision-control).
-        code, stdout, _ = run_hook("truncate-output.py", {
-            "tool_name": "Bash",
-            "tool_result": "x" * 10_000,
-        })
+        code, stdout, _ = run_hook(
+            "truncate-output.py",
+            {
+                "tool_name": "Bash",
+                "tool_result": "x" * 10_000,
+            },
+        )
         assert code == 0
         out = json.loads(stdout)["hookSpecificOutput"]
         assert "omitted" in out["additionalContext"]
@@ -59,10 +68,13 @@ class TestTruncateOutput:
     def test_bash_keeps_head_and_tail(self):
         # Each line ~110 chars; 200 lines = ~22 000 chars, well above the 4 000 ceiling
         lines = [f"line {i:04d}: " + "x" * 100 for i in range(200)]
-        code, stdout, _ = run_hook("truncate-output.py", {
-            "tool_name": "Bash",
-            "tool_result": "\n".join(lines),
-        })
+        code, stdout, _ = run_hook(
+            "truncate-output.py",
+            {
+                "tool_name": "Bash",
+                "tool_result": "\n".join(lines),
+            },
+        )
         assert code == 0
         out = json.loads(stdout)["hookSpecificOutput"]
         assert "line 0000" in out["updatedToolOutput"]
@@ -71,19 +83,25 @@ class TestTruncateOutput:
 
     def test_read_uses_char_split(self):
         large = "A" * 3000 + "B" * 3000
-        code, stdout, _ = run_hook("truncate-output.py", {
-            "tool_name": "Read",
-            "tool_result": large,
-        })
+        code, stdout, _ = run_hook(
+            "truncate-output.py",
+            {
+                "tool_name": "Read",
+                "tool_result": large,
+            },
+        )
         assert code == 0
         out = json.loads(stdout)["hookSpecificOutput"]
         assert "omitted" in out["additionalContext"]
 
     def test_ignored_for_unknown_tool(self):
-        code, _, _ = run_hook("truncate-output.py", {
-            "tool_name": "WebSearch",
-            "tool_result": "x" * 10_000,
-        })
+        code, _, _ = run_hook(
+            "truncate-output.py",
+            {
+                "tool_name": "WebSearch",
+                "tool_result": "x" * 10_000,
+            },
+        )
         assert code == 0
 
     def test_malformed_json_exits_zero(self):
@@ -105,6 +123,7 @@ class TestTruncateOutput:
 # compact-trigger.py
 # ---------------------------------------------------------------------------
 
+
 class TestCompactTrigger:
     """Every case redirects LESS_TOKENS_STATE_DIR to tmp_path — compact-trigger.py
     also appends a session_size sample to near_misses.jsonl on every invocation
@@ -116,35 +135,50 @@ class TestCompactTrigger:
         transcript = tmp_path / "t.jsonl"
         transcript.write_text("x" * 1000)
         state_dir = tmp_path / "state"
-        code, _, _ = run_hook("compact-trigger.py", {
-            "tool_name": "Bash",
-            "transcript_path": str(transcript),
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code, _, _ = run_hook(
+            "compact-trigger.py",
+            {
+                "tool_name": "Bash",
+                "transcript_path": str(transcript),
+            },
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
         assert code == 0
 
     def test_fires_when_over_limit(self, tmp_path):
         transcript = tmp_path / "t.jsonl"
         transcript.write_text("x" * 800_000)
         state_dir = tmp_path / "state"
-        code, _, stderr = run_hook("compact-trigger.py", {
-            "tool_name": "Bash",
-            "transcript_path": str(transcript),
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code, _, stderr = run_hook(
+            "compact-trigger.py",
+            {
+                "tool_name": "Bash",
+                "transcript_path": str(transcript),
+            },
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
         assert code == 2
         assert "compact" in stderr.lower()
 
     def test_no_transcript_path_passes(self, tmp_path):
         state_dir = tmp_path / "state"
-        code, _, _ = run_hook("compact-trigger.py", {"tool_name": "Bash"},
-                               extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code, _, _ = run_hook(
+            "compact-trigger.py",
+            {"tool_name": "Bash"},
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
         assert code == 0
 
     def test_nonexistent_transcript_passes(self, tmp_path):
         state_dir = tmp_path / "state"
-        code, _, _ = run_hook("compact-trigger.py", {
-            "tool_name": "Bash",
-            "transcript_path": str(tmp_path / "nonexistent.jsonl"),
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code, _, _ = run_hook(
+            "compact-trigger.py",
+            {
+                "tool_name": "Bash",
+                "transcript_path": str(tmp_path / "nonexistent.jsonl"),
+            },
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
         assert code == 0
 
     def test_malformed_json_exits_zero(self, tmp_path):
@@ -164,10 +198,14 @@ class TestCompactTrigger:
         state_dir = tmp_path / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
         (state_dir / "compact-trigger-last").write_text("800000")
-        code, _, _ = run_hook("compact-trigger.py", {
-            "tool_name": "Bash",
-            "transcript_path": str(transcript),
-        }, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+        code, _, _ = run_hook(
+            "compact-trigger.py",
+            {
+                "tool_name": "Bash",
+                "transcript_path": str(transcript),
+            },
+            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
+        )
         # Within hysteresis window — should not re-fire
         assert code == 0
 
@@ -176,19 +214,26 @@ class TestCompactTrigger:
 # search-first.py
 # ---------------------------------------------------------------------------
 
+
 class TestSearchFirst:
     def test_non_read_tool_passes(self):
-        code, _, _ = run_hook("search-first.py", {
-            "tool_name": "Bash",
-            "tool_input": {"command": "ls"},
-        })
+        code, _, _ = run_hook(
+            "search-first.py",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+            },
+        )
         assert code == 0
 
     def test_outside_repo_file_passes(self):
-        code, _, _ = run_hook("search-first.py", {
-            "tool_name": "Read",
-            "tool_input": {"file_path": "/tmp/unrelated.py"},
-        })
+        code, _, _ = run_hook(
+            "search-first.py",
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": "/tmp/unrelated.py"},
+            },
+        )
         assert code == 0
 
     def test_malformed_json_exits_zero(self):
@@ -202,10 +247,13 @@ class TestSearchFirst:
         assert result.returncode == 0
 
     def test_missing_file_path_passes(self):
-        code, _, _ = run_hook("search-first.py", {
-            "tool_name": "Read",
-            "tool_input": {},
-        })
+        code, _, _ = run_hook(
+            "search-first.py",
+            {
+                "tool_name": "Read",
+                "tool_input": {},
+            },
+        )
         assert code == 0
 
 
@@ -213,19 +261,26 @@ class TestSearchFirst:
 # index-refresh.py
 # ---------------------------------------------------------------------------
 
+
 class TestIndexRefresh:
     def test_non_edit_write_tool_passes(self):
-        code, _, _ = run_hook("index-refresh.py", {
-            "tool_name": "Bash",
-            "tool_input": {"command": "ls"},
-        })
+        code, _, _ = run_hook(
+            "index-refresh.py",
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+            },
+        )
         assert code == 0
 
     def test_outside_repo_file_passes(self):
-        code, _, _ = run_hook("index-refresh.py", {
-            "tool_name": "Edit",
-            "tool_input": {"file_path": "/tmp/unrelated.py"},
-        })
+        code, _, _ = run_hook(
+            "index-refresh.py",
+            {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "/tmp/unrelated.py"},
+            },
+        )
         assert code == 0
 
     def test_malformed_json_exits_zero(self):
@@ -239,8 +294,11 @@ class TestIndexRefresh:
         assert result.returncode == 0
 
     def test_missing_file_path_passes(self):
-        code, _, _ = run_hook("index-refresh.py", {
-            "tool_name": "Edit",
-            "tool_input": {},
-        })
+        code, _, _ = run_hook(
+            "index-refresh.py",
+            {
+                "tool_name": "Edit",
+                "tool_input": {},
+            },
+        )
         assert code == 0

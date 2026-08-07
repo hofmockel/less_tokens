@@ -8,6 +8,7 @@ Usage:
   python tools/stats.py --all        # show all-time totals
   python tools/stats.py --calibrate  # ground the token divisor in Claude's tokenizer
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from search_config import CHARS_PER_TOKEN, active_state_dir
+
     STATE_DIR = active_state_dir()
 except Exception:
     STATE_DIR = CLAUDE_DIR / "state"
@@ -116,13 +118,13 @@ except Exception:
     # Legacy fallback so stats.py still works if savings_log can't be imported
     # (e.g. isolated test import order). Mirrors the registry as of this write.
     _KNOWN_STRATEGIES = {
-        "truncation":          ("Truncation", "measured"),
-        "compaction":          ("Compaction", "measured"),
-        "context-cache-read":  ("Cached read (repeat)", "measured"),
-        "context-cache-grep":  ("Cached grep (repeat)", "measured"),
-        "context-cache-bash":  ("Cached bash (repeat)", "measured"),
-        "search-blocked":      ("Search-first block", "upper_bound"),
-        "search":              ("Search (vs full file)", "upper_bound"),
+        "truncation": ("Truncation", "measured"),
+        "compaction": ("Compaction", "measured"),
+        "context-cache-read": ("Cached read (repeat)", "measured"),
+        "context-cache-grep": ("Cached grep (repeat)", "measured"),
+        "context-cache-bash": ("Cached bash (repeat)", "measured"),
+        "search-blocked": ("Search-first block", "upper_bound"),
+        "search": ("Search (vs full file)", "upper_bound"),
     }
 
 _STRATEGY_LABELS = {k: v[0] for k, v in _KNOWN_STRATEGIES.items()}
@@ -130,8 +132,12 @@ _STRATEGY_LABELS = {k: v[0] for k, v in _KNOWN_STRATEGIES.items()}
 # Measured vs upper-bound is the report's central honesty axis. Measured rows were
 # actually removed before reaching the model; upper-bound rows are counterfactual
 # avoided cost. The two are rendered in separate panels and never cross-summed.
-_MEASURED_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "measured")
-_UPPER_BOUND_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "upper_bound")
+_MEASURED_STRATEGIES = tuple(
+    k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "measured"
+)
+_UPPER_BOUND_STRATEGIES = tuple(
+    k for k, v in _KNOWN_STRATEGIES.items() if v[1] == "upper_bound"
+)
 
 # Expected firing frequency per strategy — a human judgment recorded once per
 # strategy, not inferred at runtime. This is what lets --audit-liveness tell a
@@ -144,19 +150,24 @@ _UPPER_BOUND_STRATEGIES = tuple(k for k, v in _KNOWN_STRATEGIES.items() if v[1] 
 #                      as informational, never as a problem.
 #   "experimental"  — newly added, no expectation recorded yet.
 _FREQUENCY_CLASS: dict[str, str] = {
-    "truncation":          "frequent",
-    "compaction":          "rare-but-real",
-    "context-cache-read":  "frequent",
-    "context-cache-grep":  "frequent",
-    "context-cache-bash":  "frequent",
-    "search-blocked":      "frequent",
-    "search":              "frequent",
+    "truncation": "frequent",
+    "compaction": "rare-but-real",
+    "context-cache-read": "frequent",
+    "context-cache-grep": "frequent",
+    "context-cache-bash": "frequent",
+    "search-blocked": "frequent",
+    "search": "frequent",
 }
 
 DEFAULT_LIVENESS_WINDOW_DAYS = 90
 
 
-def audit_liveness(records: list[dict], *, now: float | None = None, window_days: int = DEFAULT_LIVENESS_WINDOW_DAYS) -> list[dict]:
+def audit_liveness(
+    records: list[dict],
+    *,
+    now: float | None = None,
+    window_days: int = DEFAULT_LIVENESS_WINDOW_DAYS,
+) -> list[dict]:
     """Per-strategy liveness classification against real telemetry.
 
     Returns one row per _KNOWN_STRATEGIES entry: whether it has fired within
@@ -181,18 +192,26 @@ def audit_liveness(records: list[dict], *, now: float | None = None, window_days
         ts = last_ts.get(strategy)
         days_since = None if ts is None else (now - ts) / 86400
         if ts is None:
-            verdict = "dead lever, investigate the gate" if freq_class == "frequent" else "no events yet, informational"
+            verdict = (
+                "dead lever, investigate the gate"
+                if freq_class == "frequent"
+                else "no events yet, informational"
+            )
         elif freq_class == "frequent" and days_since > window_days:
             verdict = "dead lever, investigate the gate"
         else:
-            verdict = "rare by design, informational" if freq_class != "frequent" else "live"
-        rows.append({
-            "strategy": strategy,
-            "label": label,
-            "frequency_class": freq_class,
-            "days_since_last_event": days_since,
-            "verdict": verdict,
-        })
+            verdict = (
+                "rare by design, informational" if freq_class != "frequent" else "live"
+            )
+        rows.append(
+            {
+                "strategy": strategy,
+                "label": label,
+                "frequency_class": freq_class,
+                "days_since_last_event": days_since,
+                "verdict": verdict,
+            }
+        )
     return rows
 
 
@@ -203,7 +222,9 @@ def _run_audit_liveness(window_days: int = DEFAULT_LIVENESS_WINDOW_DAYS) -> int:
     for row in rows:
         days = row["days_since_last_event"]
         last = "never" if days is None else f"{days:.1f}d ago"
-        print(f"{row['label']:<24} {row['frequency_class']:<14} {last:<16} {row['verdict']}")
+        print(
+            f"{row['label']:<24} {row['frequency_class']:<14} {last:<16} {row['verdict']}"
+        )
     return 0
 
 
@@ -225,7 +246,9 @@ def _normalize_record(r: dict) -> dict:
         elided = r.get("elided_chars", r.get("saved_chars", 0))
         r["elided_chars"] = elided
         r.setdefault("kept_chars", 0)
-        r["basis"] = "measured" if r.get("strategy") in _MEASURED_STRATEGIES else "upper_bound"
+        r["basis"] = (
+            "measured" if r.get("strategy") in _MEASURED_STRATEGIES else "upper_bound"
+        )
         r["content_kind"] = "legacy"
     r["saved_chars"] = r.get("elided_chars", r.get("saved_chars", 0))
     return r
@@ -243,7 +266,9 @@ def _load_all() -> list[dict]:
         try:
             r = json.loads(line)
         except Exception as e:
-            print(f"  WARN: skipping malformed record in {LOG_FILE}: {e}", file=sys.stderr)
+            print(
+                f"  WARN: skipping malformed record in {LOG_FILE}: {e}", file=sys.stderr
+            )
             continue
         out.append(_normalize_record(r))
     return out
@@ -257,7 +282,8 @@ def _current_session_id(records: list[dict]) -> str | None:
     ``session_id`` at all). When none exists we fall back to the wall-clock window.
     """
     real = [
-        r for r in records
+        r
+        for r in records
         if r.get("session_id") and r.get("session_source") not in (None, "local")
     ]
     if not real:
@@ -271,7 +297,8 @@ def _current_session_info(records: list[dict]) -> tuple[str | None, str | None]:
     know whether ``session_id`` is a native payload id (Claude: usable
     directly to locate the transcript) or a hash/env/local fallback (not)."""
     real = [
-        r for r in records
+        r
+        for r in records
         if r.get("session_id") and r.get("session_source") not in (None, "local")
     ]
     if not real:
@@ -312,8 +339,9 @@ def _summarize(records: list[dict]) -> dict:
     return data
 
 
-def _panel_lines(title: str, records: list[dict], strategies: tuple[str, ...],
-                 *, prefix: str = "") -> list[str]:
+def _panel_lines(
+    title: str, records: list[dict], strategies: tuple[str, ...], *, prefix: str = ""
+) -> list[str]:
     """One basis-homogeneous table: only ``strategies``, with its own total.
 
     ``prefix`` (e.g. "≤") marks upper-bound magnitudes as optimistic. The total
@@ -334,7 +362,7 @@ def _panel_lines(title: str, records: list[dict], strategies: tuple[str, ...],
             f"| {lbl:<22} | {d['events']:>6} | {sc_str:>12} | {tok_str:>14} |"
         )
     total_tokens = _to_tokens(total_chars)
-    sep = f"|{'-'*24}|{'-'*8}|{'-'*14}|{'-'*16}|"
+    sep = f"|{'-' * 24}|{'-' * 8}|{'-' * 14}|{'-' * 16}|"
     return [
         f"### {title}",
         "",
@@ -362,7 +390,11 @@ def _fanout_summary(records: list[dict]) -> dict:
         spawns += 1
         prompt_chars += r.get("prompt_chars", 0)
         return_chars += r.get("return_chars", 0)
-    return {"spawns": spawns, "prompt_chars": prompt_chars, "return_chars": return_chars}
+    return {
+        "spawns": spawns,
+        "prompt_chars": prompt_chars,
+        "return_chars": return_chars,
+    }
 
 
 def _fanout_line(records: list[dict]) -> str:
@@ -390,12 +422,15 @@ def _build_table_lines(heading: str, records: list[dict]) -> list[str]:
         "",
         *_panel_lines(
             "Measured — removed before reaching the model",
-            records, _MEASURED_STRATEGIES,
+            records,
+            _MEASURED_STRATEGIES,
         ),
         "",
         *_panel_lines(
             "Upper bound — avoided cost, optimistic (≤)",
-            records, _UPPER_BOUND_STRATEGIES, prefix="≤",
+            records,
+            _UPPER_BOUND_STRATEGIES,
+            prefix="≤",
         ),
         "",
         "_Upper-bound rows assume you would otherwise have read the whole file and "
@@ -452,7 +487,7 @@ def _methodology_lines() -> list[str]:
         "as if you would have read every one of them whole.",
         "",
         "Caveats: tokens are an estimate, not a count — chars ÷ "
-        f"{_cpt_str()}, {cal_phrase}. \"Session\" groups by the "
+        f'{_cpt_str()}, {cal_phrase}. "Session" groups by the '
         "resolved `session_id`; only when no real session is known does it fall back "
         f"to the last {SESSION_HOURS}h of wall-clock time (a legacy view). File sizes "
         "use byte counts, which equal char counts only for ASCII. Net of these, "
@@ -471,6 +506,7 @@ def _session_label(records: list[dict]) -> str:
 
 def _write_report(session_records: list[dict], all_records: list[dict]) -> Path:
     from datetime import datetime
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     session_label = _session_label(session_records)
     all_label = f"All-time ({len(all_records)} events)"
@@ -531,8 +567,9 @@ caption { display: none; }
 """.strip()
 
 
-def _html_panel(title: str, records: list[dict], strategies: tuple[str, ...],
-                *, prefix: str = "") -> str:
+def _html_panel(
+    title: str, records: list[dict], strategies: tuple[str, ...], *, prefix: str = ""
+) -> str:
     """One basis-homogeneous HTML table. Mirrors :func:`_panel_lines`."""
     data = _summarize(records)
     total_chars = 0
@@ -566,12 +603,19 @@ def _html_block(heading: str, records: list[dict]) -> str:
     return (
         f"<h2>{_html.escape(heading)}</h2>\n"
         '<div class="measured">'
-        + _html_panel("Measured — removed before reaching the model",
-                      records, _MEASURED_STRATEGIES)
+        + _html_panel(
+            "Measured — removed before reaching the model",
+            records,
+            _MEASURED_STRATEGIES,
+        )
         + "</div>\n"
         '<div class="upper">'
-        + _html_panel("Upper bound — avoided cost, optimistic (≤)",
-                      records, _UPPER_BOUND_STRATEGIES, prefix="≤")
+        + _html_panel(
+            "Upper bound — avoided cost, optimistic (≤)",
+            records,
+            _UPPER_BOUND_STRATEGIES,
+            prefix="≤",
+        )
         + "</div>\n"
         '<p class="note">Upper-bound rows assume you would otherwise have read the '
         "whole file and do not subtract the search you ran instead. They are not "
@@ -598,12 +642,14 @@ def _cache_health_html(result: dict | None) -> str:
     miss_html = f"<ul>{miss_items}</ul>" if misses else "<p>none</p>"
     write_note = ""
     if result["agent"] == "codex" and not result.get("cache_write_available", True):
-        write_note = ('<p class="note"><code>cache_write_input_tokens</code>: '
-                       "<code>unavailable</code> below Codex 0.145.0</p>\n")
+        write_note = (
+            '<p class="note"><code>cache_write_input_tokens</code>: '
+            "<code>unavailable</code> below Codex 0.145.0</p>\n"
+        )
     return (
         "<h2>Prompt-cache health</h2>\n"
-        f'<p>Source: native <code>{_html.escape(result["agent"])}</code> transcript '
-        f'(<code>{_html.escape(result["source"])}</code>, {result["turns"]} turns)</p>\n'
+        f"<p>Source: native <code>{_html.escape(result['agent'])}</code> transcript "
+        f"(<code>{_html.escape(result['source'])}</code>, {result['turns']} turns)</p>\n"
         f"<p>Cache-read share (session average): {avg_str}</p>\n"
         f"<p>Abrupt-miss windows:</p>\n{miss_html}\n"
         f"{write_note}"
@@ -612,18 +658,19 @@ def _cache_health_html(result: dict | None) -> str:
 
 def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
     from datetime import datetime
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     session_label = _session_label(session_records)
     all_label = f"All-time ({len(all_records)} events)"
     return (
-        "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "<title>Token Savings Report</title>\n"
         f"<style>{_HTML_STYLE}</style>\n</head>\n<body>\n"
         "<h1>Token Savings Report</h1>\n"
-        f"<p class=\"gen\">Generated: {_html.escape(now)} · "
-        f"<span class=\"badge\">{_html.escape(_calibration_badge())}</span></p>\n"
-        "<p class=\"intro\">Counts tokens <em>not</em> sent to the model because a hook "
+        f'<p class="gen">Generated: {_html.escape(now)} · '
+        f'<span class="badge">{_html.escape(_calibration_badge())}</span></p>\n'
+        '<p class="intro">Counts tokens <em>not</em> sent to the model because a hook '
         "or tool intervened. Tracking is always on and <strong>local-only</strong>: each "
         "event appends one line to <code>state/savings.jsonl</code> (never transmitted). "
         "Disable with <code>LESS_TOKENS_NO_STATS=1</code>. Measured and upper-bound "
@@ -631,7 +678,7 @@ def _render_html(session_records: list[dict], all_records: list[dict]) -> str:
         f"{_html_block(session_label, session_records)}\n"
         f"{_html_block(all_label, all_records)}\n"
         f"{_cache_health_html(_cache_health_for_session(session_records))}\n"
-        f"<p class=\"footer\">{_html.escape(_token_footer().strip('_'))}</p>\n"
+        f'<p class="footer">{_html.escape(_token_footer().strip("_"))}</p>\n'
         "</body></html>\n"
     )
 
@@ -653,7 +700,11 @@ def _cli_version(agent: str) -> str | None:
     binary = "claude" if agent == "claude" else "codex"
     try:
         proc = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True, timeout=5, check=False,
+            [binary, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
     except Exception:
         return None
@@ -844,6 +895,7 @@ def _run_doctor_html() -> int:
 # the same log and report measured strategies only — upper-bound counterfactuals
 # are never folded into the headline number, to stay honest.
 
+
 def _fmt_tokens(tok: int) -> str:
     if tok >= 10_000:
         return f"{tok / 1000:.0f}k"
@@ -934,8 +986,9 @@ def _count_tokens_via_api(texts: list[str], model: str) -> int:
     return total
 
 
-def _write_config_divisor(cpt: float, *, model: str, basis: str, date: str,
-                          cfg_path: Path | None = None) -> None:
+def _write_config_divisor(
+    cpt: float, *, model: str, basis: str, date: str, cfg_path: Path | None = None
+) -> None:
     """Rewrite the ``CHARS_PER_TOKEN`` line in search_config.py with a dated note.
 
     Tolerant single-line regex replace; the rest of the file is untouched.
@@ -962,8 +1015,11 @@ def _run_calibrate(model: str) -> int:
     try:
         total_tokens = _count_tokens_via_api(texts, model)
     except ImportError:
-        print("Calibration needs the Anthropic SDK: pip install anthropic "
-              "(and set ANTHROPIC_API_KEY).", file=sys.stderr)
+        print(
+            "Calibration needs the Anthropic SDK: pip install anthropic "
+            "(and set ANTHROPIC_API_KEY).",
+            file=sys.stderr,
+        )
         return 1
     except Exception as e:  # auth / network / API — opt-in, so surface and stop
         print(f"Calibration failed: {e}", file=sys.stderr)
@@ -992,7 +1048,9 @@ def _run_calibrate(model: str) -> int:
     try:
         _write_config_divisor(cpt, model=model, basis=basis, date=date)
     except Exception as e:
-        print(f"Calibrated, but could not update search_config.py: {e}", file=sys.stderr)
+        print(
+            f"Calibrated, but could not update search_config.py: {e}", file=sys.stderr
+        )
         return 1
     print(
         f"Calibrated chars÷{cpt:.4f} vs {model} ({basis}: {sum(counts.values())} "
@@ -1011,26 +1069,51 @@ def main() -> int:
         except (AttributeError, ValueError):
             pass
 
-    ap = argparse.ArgumentParser(description="Token savings tracker (always on, local-only)")
+    ap = argparse.ArgumentParser(
+        description="Token savings tracker (always on, local-only)"
+    )
     ap.add_argument("--report", action="store_true", help="Write savings-report.md")
     ap.add_argument("--html", action="store_true", help="Write savings.html")
-    ap.add_argument("--doctor-html", action="store_true",
-                    help="Diagnose savings.html state, log counts, paths, and hook refresh")
-    ap.add_argument("--oneliner", action="store_true",
-                    help="Print one measured savings line (for statusline) and exit")
-    ap.add_argument("--calibrate", action="store_true",
-                    help="Calibrate the token divisor against Claude's tokenizer "
-                         "(opt-in; needs anthropic + ANTHROPIC_API_KEY)")
-    ap.add_argument("--model", default=CALIBRATION_MODEL,
-                    help="Model for --calibrate count_tokens (default: %(default)s)")
-    ap.add_argument("--all", dest="all_time", action="store_true",
-                    help="Show all-time totals instead of session")
-    ap.add_argument("--audit-liveness", action="store_true",
-                    help="Periodic health check: flag strategies that are wired but haven't "
-                         "fired in real telemetry recently (manual/periodic, not a CI gate — "
-                         "liveness is a property of production telemetry, not a fresh checkout)")
-    ap.add_argument("--liveness-window-days", type=int, default=DEFAULT_LIVENESS_WINDOW_DAYS,
-                    help="Window for --audit-liveness (default: %(default)s days)")
+    ap.add_argument(
+        "--doctor-html",
+        action="store_true",
+        help="Diagnose savings.html state, log counts, paths, and hook refresh",
+    )
+    ap.add_argument(
+        "--oneliner",
+        action="store_true",
+        help="Print one measured savings line (for statusline) and exit",
+    )
+    ap.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="Calibrate the token divisor against Claude's tokenizer "
+        "(opt-in; needs anthropic + ANTHROPIC_API_KEY)",
+    )
+    ap.add_argument(
+        "--model",
+        default=CALIBRATION_MODEL,
+        help="Model for --calibrate count_tokens (default: %(default)s)",
+    )
+    ap.add_argument(
+        "--all",
+        dest="all_time",
+        action="store_true",
+        help="Show all-time totals instead of session",
+    )
+    ap.add_argument(
+        "--audit-liveness",
+        action="store_true",
+        help="Periodic health check: flag strategies that are wired but haven't "
+        "fired in real telemetry recently (manual/periodic, not a CI gate — "
+        "liveness is a property of production telemetry, not a fresh checkout)",
+    )
+    ap.add_argument(
+        "--liveness-window-days",
+        type=int,
+        default=DEFAULT_LIVENESS_WINDOW_DAYS,
+        help="Window for --audit-liveness (default: %(default)s days)",
+    )
     args = ap.parse_args()
 
     if args.calibrate:

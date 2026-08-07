@@ -7,6 +7,7 @@ Usage (stdin → stdout):
     python parse.py git     < output.txt
     python parse.py eslint  < output.txt
 """
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,5 @@
 """Shared recursive-listing guard logic."""
+
 from __future__ import annotations
 
 import re
@@ -8,7 +9,7 @@ from pathlib import Path
 
 
 def _extract_path_after(cmd: str, keyword: str) -> str:
-    rest = cmd[cmd.index(keyword) + len(keyword):].strip()
+    rest = cmd[cmd.index(keyword) + len(keyword) :].strip()
     for tok in rest.split():
         if not tok.startswith("-"):
             return tok

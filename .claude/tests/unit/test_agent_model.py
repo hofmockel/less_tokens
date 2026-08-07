@@ -4,6 +4,7 @@ Unset AGENT_MODEL keeps current behavior (DEFAULT_K = 3). Set to a
 known model id, the search CLI picks up the model's recommended k
 without the user passing -k.
 """
+
 from __future__ import annotations
 
 import sys
@@ -17,6 +18,7 @@ from tests.conftest import REPO_ROOT, load_hook  # noqa: E402
 
 def test_profile_returns_none_when_unset():
     from model_profiles import profile
+
     assert profile(None) is None
     assert profile("") is None
     assert profile("not-a-real-model") is None
@@ -24,6 +26,7 @@ def test_profile_returns_none_when_unset():
 
 def test_profile_has_known_claude_ids():
     from model_profiles import MODEL_PROFILES, profile
+
     # At least one Sonnet and one Opus should be present.
     assert any("sonnet" in k for k in MODEL_PROFILES)
     assert any("opus" in k for k in MODEL_PROFILES)
@@ -35,6 +38,7 @@ def test_profile_has_known_claude_ids():
 
 def test_search_config_exposes_agent_model_none_by_default():
     import search_config
+
     assert hasattr(search_config, "AGENT_MODEL")
     assert search_config.AGENT_MODEL is None
 
@@ -42,6 +46,7 @@ def test_search_config_exposes_agent_model_none_by_default():
 def test_search_cli_uses_profile_k_when_unset(monkeypatch, tmp_path):
     import search as search_mod
     import search_config
+
     captured: dict = {}
 
     def fake_search(query, k, source_type=None, min_score=None):
@@ -64,10 +69,14 @@ def test_search_cli_uses_profile_k_when_unset(monkeypatch, tmp_path):
 def test_search_cli_explicit_k_overrides_profile(monkeypatch, tmp_path):
     import search as search_mod
     import search_config
+
     captured: dict = {}
     monkeypatch.setattr(
-        search_mod, "search",
-        lambda query, k, source_type=None, min_score=None: captured.update({"k": k}) or [],
+        search_mod,
+        "search",
+        lambda query, k, source_type=None, min_score=None: (
+            captured.update({"k": k}) or []
+        ),
     )
     monkeypatch.delenv("LESS_TOKENS_AGENT", raising=False)
     monkeypatch.setattr(search_config, "AGENT_MODEL", "claude-opus-4-7")

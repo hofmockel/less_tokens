@@ -6,6 +6,7 @@ the top-k to scores >= X (and the `search()` function takes a `min_score`
 kwarg). This test crafts a tiny index with known dot-product scores and
 asserts the threshold both filters results and is wired through argparse.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -82,8 +83,6 @@ def test_argparse_accepts_min_score(index_db, tmp_path, monkeypatch):
         return real(*a, **k)
 
     monkeypatch.setattr(search, "search", spy)
-    monkeypatch.setattr(
-        sys, "argv", ["search.py", "q", "--min-score", "0.5", "--json"]
-    )
+    monkeypatch.setattr(sys, "argv", ["search.py", "q", "--min-score", "0.5", "--json"])
     assert search.main() == 0
     assert captured["min_score"] == 0.5

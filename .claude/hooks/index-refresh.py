@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PostToolUse hook: re-embed indexed files after Edit/Write."""
+
 from __future__ import annotations
 
 import json
@@ -53,6 +54,7 @@ try:
         INDEXED_SOURCE_DIRS as INDEXED_DIRS,
         VENV_PY,
     )
+
     SEARCH_BACKEND = getattr(_search_config, "SEARCH_BACKEND", "sqlite")
 except Exception:
     EXCLUDED_DIR_NAMES: set = set()

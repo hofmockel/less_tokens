@@ -6,6 +6,7 @@ nudge when the file is over CLAUDE_MD_TOKEN_BUDGET or contains stale
 `path:line` references. Disabled when budget is 0.
 install.py wires this into the host settings file.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,7 +79,9 @@ def main() -> int:
         )
     if a["dead_refs"]:
         refs = ", ".join(f"L{r['line']}:{r['ref']}" for r in a["dead_refs"][:5])
-        problems.append(f"stale refs in CLAUDE.md: {refs} — fix or drop (prefer symbol names over line numbers).")
+        problems.append(
+            f"stale refs in CLAUDE.md: {refs} — fix or drop (prefer symbol names over line numbers)."
+        )
     if problems:
         print(" ".join(problems), file=sys.stderr)
         return 2
