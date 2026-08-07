@@ -5,6 +5,7 @@ identities, basis classification, session-id fallback order, the always-on
 write path, and the legacy-tolerant loader. No fixture asserts that a made-up
 input "saves" a made-up amount.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -28,6 +29,7 @@ _ENABLED = {"LESS_TOKENS_NO_STATS": "0"}
 # ---------------------------------------------------------------------------
 # savings_log.append — always on, local-only, env opt-out
 # ---------------------------------------------------------------------------
+
 
 def test_append_noop_when_opted_out(tmp_path):
     log = tmp_path / "savings.jsonl"
@@ -85,6 +87,7 @@ def test_append_respects_existing_timestamp(tmp_path):
 # savings_log.resolve_session — fallback order
 # ---------------------------------------------------------------------------
 
+
 def test_resolve_session_prefers_payload_field():
     with patch.dict(os.environ, {"LESS_TOKENS_SESSION_ID": "envval"}):
         sid, src = savings_log.resolve_session(
@@ -119,9 +122,11 @@ def test_resolve_session_last_resort_local():
 # stats._normalize_record — basis classification + legacy mapping
 # ---------------------------------------------------------------------------
 
+
 def _import_stats():
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tools"))
     import stats
+
     return importlib.reload(stats)
 
 
@@ -172,6 +177,7 @@ def test_strategy_labels_derive_from_savings_log_registry():
     and exactly one basis bucket; every label/bucket key must be a registered key."""
     stats = _import_stats()
     import savings_log
+
     registered = set(savings_log._KNOWN_STRATEGIES)
 
     # No gaps: every registered key has a label.
@@ -193,7 +199,9 @@ def test_strategy_labels_derive_from_savings_log_registry():
     )
     for key, (_label, basis) in savings_log._KNOWN_STRATEGIES.items():
         bucket = measured if basis == "measured" else upper_bound
-        assert key in bucket, f"{key} declared basis={basis} but missing from that bucket"
+        assert key in bucket, (
+            f"{key} declared basis={basis} but missing from that bucket"
+        )
 
 
 def test_summarize_counts_context_cache():
@@ -213,8 +221,11 @@ def test_summarize_counts_context_cache():
 def test_normalize_preserves_new_schema_record():
     stats = _import_stats()
     rec = {
-        "strategy": "truncation", "basis": "measured",
-        "kept_chars": 5, "elided_chars": 20, "content_kind": "tool_output",
+        "strategy": "truncation",
+        "basis": "measured",
+        "kept_chars": 5,
+        "elided_chars": 20,
+        "content_kind": "tool_output",
     }
     r = stats._normalize_record(rec)
     assert r["basis"] == "measured"
@@ -227,14 +238,19 @@ def test_elided_is_original_minus_kept_identity():
     original = "x" * 4000
     kept = "x" * 137
     elided = max(0, len(original) - len(kept))
-    rec = {"strategy": "truncation", "basis": "measured",
-           "kept_chars": len(kept), "elided_chars": elided}
+    rec = {
+        "strategy": "truncation",
+        "basis": "measured",
+        "kept_chars": len(kept),
+        "elided_chars": elided,
+    }
     assert rec["elided_chars"] == len(original) - len(kept)
 
 
 # ---------------------------------------------------------------------------
 # stats._summarize
 # ---------------------------------------------------------------------------
+
 
 def test_summarize_empty():
     stats = _import_stats()
@@ -264,6 +280,7 @@ def test_summarize_aggregates():
 # stats._build_table_lines
 # ---------------------------------------------------------------------------
 
+
 def test_build_table_lines_returns_list_of_strings():
     stats = _import_stats()
     lines = stats._build_table_lines("Test heading", [])
@@ -286,9 +303,14 @@ def test_build_table_lines_shows_savings():
 # stats._fanout_summary / _fanout_line — SA2 subagent fan-out telemetry
 # ---------------------------------------------------------------------------
 
+
 def test_fanout_summary_empty():
     stats = _import_stats()
-    assert stats._fanout_summary([]) == {"spawns": 0, "prompt_chars": 0, "return_chars": 0}
+    assert stats._fanout_summary([]) == {
+        "spawns": 0,
+        "prompt_chars": 0,
+        "return_chars": 0,
+    }
 
 
 def test_fanout_summary_ignores_strategy_records():
@@ -333,12 +355,13 @@ def test_build_table_lines_includes_fanout_line():
 # stats._load_records — legacy-tolerant loader
 # ---------------------------------------------------------------------------
 
+
 def test_load_records_session_filter(tmp_path):
     stats = _import_stats()
     log = tmp_path / "savings.jsonl"
     now = time.time()
     old = {"strategy": "truncation", "saved_chars": 100, "ts": now - 86400}  # 24h ago
-    recent = {"strategy": "search", "saved_chars": 200, "ts": now - 60}       # 1m ago
+    recent = {"strategy": "search", "saved_chars": 200, "ts": now - 60}  # 1m ago
     log.write_text(json.dumps(old) + "\n" + json.dumps(recent) + "\n")
 
     with patch("stats.LOG_FILE", log):
@@ -372,6 +395,7 @@ def test_load_records_skips_malformed_lines(tmp_path):
 # stats._write_report
 # ---------------------------------------------------------------------------
 
+
 def test_write_report_creates_file(tmp_path):
     stats = _import_stats()
     report = tmp_path / "savings-report.md"
@@ -394,17 +418,36 @@ def test_write_report_creates_file(tmp_path):
 # Phase 3 — session_id grouping (real session, wall-clock only as legacy)
 # ---------------------------------------------------------------------------
 
+
 def test_load_records_groups_by_current_session(tmp_path):
     stats = _import_stats()
     log = tmp_path / "savings.jsonl"
     now = time.time()
     rows = [
-        {"strategy": "truncation", "basis": "measured", "elided_chars": 100,
-         "session_id": "old-sess", "session_source": "payload", "ts": now - 7200},
-        {"strategy": "truncation", "basis": "measured", "elided_chars": 200,
-         "session_id": "cur-sess", "session_source": "payload", "ts": now - 60},
-        {"strategy": "search", "basis": "upper_bound", "elided_chars": 300,
-         "session_id": "cur-sess", "session_source": "payload", "ts": now - 30},
+        {
+            "strategy": "truncation",
+            "basis": "measured",
+            "elided_chars": 100,
+            "session_id": "old-sess",
+            "session_source": "payload",
+            "ts": now - 7200,
+        },
+        {
+            "strategy": "truncation",
+            "basis": "measured",
+            "elided_chars": 200,
+            "session_id": "cur-sess",
+            "session_source": "payload",
+            "ts": now - 60,
+        },
+        {
+            "strategy": "search",
+            "basis": "upper_bound",
+            "elided_chars": 300,
+            "session_id": "cur-sess",
+            "session_source": "payload",
+            "ts": now - 30,
+        },
     ]
     log.write_text("".join(json.dumps(r) + "\n" for r in rows))
     with patch("stats.LOG_FILE", log):
@@ -421,10 +464,22 @@ def test_load_records_explicit_session_id(tmp_path):
     log = tmp_path / "savings.jsonl"
     now = time.time()
     rows = [
-        {"strategy": "truncation", "basis": "measured", "elided_chars": 1,
-         "session_id": "a", "session_source": "payload", "ts": now},
-        {"strategy": "truncation", "basis": "measured", "elided_chars": 1,
-         "session_id": "b", "session_source": "payload", "ts": now},
+        {
+            "strategy": "truncation",
+            "basis": "measured",
+            "elided_chars": 1,
+            "session_id": "a",
+            "session_source": "payload",
+            "ts": now,
+        },
+        {
+            "strategy": "truncation",
+            "basis": "measured",
+            "elided_chars": 1,
+            "session_id": "b",
+            "session_source": "payload",
+            "ts": now,
+        },
     ]
     log.write_text("".join(json.dumps(r) + "\n" for r in rows))
     with patch("stats.LOG_FILE", log):
@@ -449,6 +504,7 @@ def test_load_records_legacy_falls_back_to_wall_clock(tmp_path):
 # ---------------------------------------------------------------------------
 # Phase 3 — measured vs upper-bound never cross-summed
 # ---------------------------------------------------------------------------
+
 
 def test_report_separates_measured_and_upper_bound(tmp_path):
     stats = _import_stats()
@@ -475,9 +531,7 @@ def test_panel_lines_sums_only_its_strategies(tmp_path):
         {"strategy": "compaction", "basis": "measured", "elided_chars": 600},
         {"strategy": "search", "basis": "upper_bound", "elided_chars": 5000},
     ]
-    measured = "\n".join(
-        stats._panel_lines("m", records, stats._MEASURED_STRATEGIES)
-    )
+    measured = "\n".join(stats._panel_lines("m", records, stats._MEASURED_STRATEGIES))
     upper = "\n".join(
         stats._panel_lines("u", records, stats._UPPER_BOUND_STRATEGIES, prefix="≤")
     )
@@ -501,6 +555,7 @@ def test_token_footer_is_uncalibrated(tmp_path):
 # ---------------------------------------------------------------------------
 # Phase 4 — self-contained HTML page
 # ---------------------------------------------------------------------------
+
 
 def test_write_html_creates_file(tmp_path):
     stats = _import_stats()
@@ -544,10 +599,16 @@ def test_html_separates_measured_and_upper_bound(tmp_path):
 def test_html_escapes_session_id(tmp_path):
     """A session_id is rendered as text, never as live markup."""
     stats = _import_stats()
-    records = [{
-        "strategy": "truncation", "basis": "measured", "elided_chars": 10,
-        "session_id": "<img src=x>", "session_source": "payload", "ts": time.time(),
-    }]
+    records = [
+        {
+            "strategy": "truncation",
+            "basis": "measured",
+            "elided_chars": 10,
+            "session_id": "<img src=x>",
+            "session_source": "payload",
+            "ts": time.time(),
+        }
+    ]
     html = stats._render_html(records, records)
     assert "<img src=x>" not in html
     assert "&lt;img" in html
@@ -560,25 +621,31 @@ def test_doctor_html_reports_paths_counts_and_hook_checks(tmp_path):
     log = state / "savings.jsonl"
     html = state / "savings.html"
     log.write_text(
-        "\n".join([
-            json.dumps({
-                "strategy": "truncation",
-                "basis": "measured",
-                "elided_chars": 400,
-                "ts": 100.0,
-                "session_id": "s1",
-                "session_source": "payload",
-            }),
-            json.dumps({
-                "strategy": "search",
-                "basis": "upper_bound",
-                "elided_chars": 900,
-                "ts": 200.0,
-                "session_id": "s1",
-                "session_source": "payload",
-            }),
-            "{not-json",
-        ]),
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "strategy": "truncation",
+                        "basis": "measured",
+                        "elided_chars": 400,
+                        "ts": 100.0,
+                        "session_id": "s1",
+                        "session_source": "payload",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "strategy": "search",
+                        "basis": "upper_bound",
+                        "elided_chars": 900,
+                        "ts": 200.0,
+                        "session_id": "s1",
+                        "session_source": "payload",
+                    }
+                ),
+                "{not-json",
+            ]
+        ),
         encoding="utf-8",
     )
     html.write_text("<html></html>", encoding="utf-8")
@@ -589,13 +656,19 @@ def test_doctor_html_reports_paths_counts_and_hook_checks(tmp_path):
         patch("stats.LOG_FILE", log),
         patch("stats.HTML_FILE", html),
         patch.dict(os.environ, {"LESS_TOKENS_AGENT": "codex"}),
-        patch("stats._run_html_hook_check", return_value={
-            "ok": True, "returncode": 0, "stdout": "", "stderr": "",
-        }) as run_hook,
+        patch(
+            "stats._run_html_hook_check",
+            return_value={
+                "ok": True,
+                "returncode": 0,
+                "stdout": "",
+                "stderr": "",
+            },
+        ) as run_hook,
     ):
         lines = stats._doctor_html_lines()
 
-    assert f"agent: codex" in lines
+    assert "agent: codex" in lines
     assert f"state dir: {state}" in lines
     assert f"log path: {log}" in lines
     assert "log events: 2" in lines
@@ -617,9 +690,15 @@ def test_doctor_html_reports_missing_files(tmp_path):
         patch("stats.STATE_DIR", tmp_path / "state"),
         patch("stats.LOG_FILE", tmp_path / "state" / "savings.jsonl"),
         patch("stats.HTML_FILE", tmp_path / "state" / "savings.html"),
-        patch("stats._run_html_hook_check", return_value={
-            "ok": False, "returncode": 1, "stdout": "", "stderr": "boom",
-        }),
+        patch(
+            "stats._run_html_hook_check",
+            return_value={
+                "ok": False,
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "boom",
+            },
+        ),
     ):
         text = "\n".join(stats._doctor_html_lines())
 
@@ -630,6 +709,7 @@ def test_doctor_html_reports_missing_files(tmp_path):
 
 
 # --- Phase 5 surfacing helpers ---------------------------------------------
+
 
 def test_fmt_tokens_scales():
     stats = _import_stats()
@@ -678,6 +758,7 @@ def test_savings_link_is_file_uri():
 # footer/badge.
 # ---------------------------------------------------------------------------
 
+
 def test_chars_per_token_identity():
     stats = _import_stats()
     # the whole point: divisor = chars / tokens, deterministic, no fixtures
@@ -707,10 +788,16 @@ def test_token_footer_uncalibrated_by_default(tmp_path):
 def test_token_footer_reflects_calibration(tmp_path):
     stats = _import_stats()
     cal = tmp_path / "calibration.json"
-    cal.write_text(json.dumps({
-        "chars_per_token": 3.7, "calibrated_at": "2026-06-25",
-        "basis": "repo-sample", "model": "claude-opus-4-8",
-    }))
+    cal.write_text(
+        json.dumps(
+            {
+                "chars_per_token": 3.7,
+                "calibrated_at": "2026-06-25",
+                "basis": "repo-sample",
+                "model": "claude-opus-4-8",
+            }
+        )
+    )
     with patch("stats.CALIBRATION_FILE", cal):
         footer = stats._token_footer()
         badge = stats._calibration_badge()
@@ -753,8 +840,13 @@ def test_write_config_divisor_rewrites_only_the_line(tmp_path):
         "CHARS_PER_TOKEN: int = 4\n"
         "Y = 2\n"
     )
-    stats._write_config_divisor(3.7, model="claude-opus-4-8", basis="repo-sample",
-                                date="2026-06-25", cfg_path=cfg)
+    stats._write_config_divisor(
+        3.7,
+        model="claude-opus-4-8",
+        basis="repo-sample",
+        date="2026-06-25",
+        cfg_path=cfg,
+    )
     out = cfg.read_text()
     assert "CHARS_PER_TOKEN: float = 3.7000" in out
     assert "calibrated 2026-06-25 vs claude-opus-4-8 (repo-sample)" in out
@@ -772,12 +864,16 @@ def test_write_config_divisor_rewrites_only_the_line(tmp_path):
 # because CI has no accumulated production telemetry to check against.
 # ---------------------------------------------------------------------------
 
+
 def test_liveness_flags_frequent_strategy_with_zero_events_as_dead():
     stats = _import_stats()
     rows = stats.audit_liveness([], now=1_000_000.0)
     by_strategy = {r["strategy"]: r for r in rows}
     assert by_strategy["context-cache-bash"]["days_since_last_event"] is None
-    assert by_strategy["context-cache-bash"]["verdict"] == "dead lever, investigate the gate"
+    assert (
+        by_strategy["context-cache-bash"]["verdict"]
+        == "dead lever, investigate the gate"
+    )
 
 
 def test_liveness_rare_but_real_strategy_never_flagged_dead_regardless_of_age():

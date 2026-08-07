@@ -1,4 +1,5 @@
 """Normalized hook payload dataclass for Claude and Codex agents."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ def normalize_claude(payload: dict) -> HookPayload:
     raw_output = payload.get("tool_result") or payload.get("tool_response") or ""
     if not isinstance(raw_output, str):
         import json
+
         raw_output = json.dumps(raw_output)
 
     fp = tool_input.get("file_path")
@@ -75,6 +77,7 @@ def normalize_codex(payload: dict) -> HookPayload:
     raw_output = payload.get("tool_response") or payload.get("tool_result") or ""
     if not isinstance(raw_output, str):
         import json
+
         raw_output = json.dumps(raw_output)
 
     tool_name = payload.get("tool_name", "")

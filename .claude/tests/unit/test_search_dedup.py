@@ -5,6 +5,7 @@ budget on near-duplicate text from one file while a distinct file drops off
 the list. search() now keeps the best-scoring chunk per source_path and
 pulls the next distinct file in to fill k.
 """
+
 from __future__ import annotations
 
 import sqlite3

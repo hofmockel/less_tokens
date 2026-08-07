@@ -1,4 +1,5 @@
 """Installer does not create or maintain a second semantic index."""
+
 from __future__ import annotations
 
 import sys

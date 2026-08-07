@@ -1,4 +1,5 @@
 """Regression test: _extract_block must include all lines of multi-line assignments."""
+
 from __future__ import annotations
 
 import sys

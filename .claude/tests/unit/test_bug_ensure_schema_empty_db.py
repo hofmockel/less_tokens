@@ -8,6 +8,7 @@ because the table is absent.
 Fix: ensure_current_schema() must call init() when _current_version() == 0
 (no schema present), not just when the file is absent.
 """
+
 from __future__ import annotations
 
 import importlib

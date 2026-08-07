@@ -5,6 +5,7 @@ often forcing a follow-up Read. With CHUNK_INCLUDE_MODULE_CONTEXT on,
 each top-level def/class chunk is prefixed with the module docstring (as
 a comment). Default off — zero change to existing indexes until opted in.
 """
+
 from __future__ import annotations
 
 import sys

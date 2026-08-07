@@ -15,6 +15,7 @@ deferred (not performed, marker not stamped) when enumeration was
 incomplete, so it composes with the unreadable-dir handling rather than
 deleting rows it cannot re-embed.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -55,8 +56,16 @@ def _seed(dbp, sp, sk, text, embedding: bytes) -> None:
             "INSERT INTO documents (source_type, source_path, source_key, "
             "text, content_hash, embedding, embedding_model, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("code", sp, sk, text, embeddings._sha256(text), embedding,
-             embeddings.MODEL, "2026-01-01T00:00:00+00:00"),
+            (
+                "code",
+                sp,
+                sk,
+                text,
+                embeddings._sha256(text),
+                embedding,
+                embeddings.MODEL,
+                "2026-01-01T00:00:00+00:00",
+            ),
         )
         c.commit()
     finally:
@@ -67,8 +76,7 @@ def _embedding_of(dbp, sp, sk):
     c = sqlite3.connect(dbp)
     try:
         row = c.execute(
-            "SELECT embedding FROM documents "
-            "WHERE source_path=? AND source_key=?",
+            "SELECT embedding FROM documents WHERE source_path=? AND source_key=?",
             (sp, sk),
         ).fetchone()
         return row[0] if row else None
@@ -79,10 +87,13 @@ def _embedding_of(dbp, sp, sk):
 def _row_exists(dbp, sp, sk) -> bool:
     c = sqlite3.connect(dbp)
     try:
-        return c.execute(
-            "SELECT 1 FROM documents WHERE source_path=? AND source_key=?",
-            (sp, sk),
-        ).fetchone() is not None
+        return (
+            c.execute(
+                "SELECT 1 FROM documents WHERE source_path=? AND source_key=?",
+                (sp, sk),
+            ).fetchone()
+            is not None
+        )
     finally:
         c.close()
 
@@ -99,7 +110,8 @@ def _no_model(monkeypatch, vec=None):
     monkeypatch.setattr(embeddings, "_get_model", lambda: None)
     out = np.ones(embeddings.DIM, dtype=np.float32) if vec is None else vec
     monkeypatch.setattr(
-        embeddings, "embed",
+        embeddings,
+        "embed",
         lambda texts, *a, **k: np.stack([out] * len(texts)),
     )
 
@@ -128,15 +140,17 @@ def test_pre_pin_index_forces_reembed(temp_index, monkeypatch):
     new_vec = np.full(embeddings.DIM, 0.5, dtype=np.float32)
     _no_model(monkeypatch, vec=new_vec)
     monkeypatch.setattr(
-        embeddings, "enumerate_sources",
+        embeddings,
+        "enumerate_sources",
         lambda: ([("code", "good/ok.py", "f", text)], False),
     )
 
     assert embeddings.refresh() == 0
 
     stored = _embedding_of(temp_index, "good/ok.py", "f")
-    assert stored == embeddings.pack_vector(new_vec), \
+    assert stored == embeddings.pack_vector(new_vec), (
         "stale-layout blob must be re-embedded, not skipped on content match"
+    )
     assert _user_version(temp_index) == embeddings.VEC_FORMAT
 
 
@@ -146,21 +160,21 @@ def test_marked_index_skips_forced_reembed(temp_index, monkeypatch):
     """
     _set_user_version(temp_index, embeddings.VEC_FORMAT)
     text = "def f():\n    return 1\n"
-    current_blob = embeddings.pack_vector(
-        np.zeros(embeddings.DIM, dtype=np.float32)
-    )
+    current_blob = embeddings.pack_vector(np.zeros(embeddings.DIM, dtype=np.float32))
     _seed(temp_index, "good/ok.py", "f", text, current_blob)
 
     _no_model(monkeypatch)  # embed would return ones (differs from zeros)
     monkeypatch.setattr(
-        embeddings, "enumerate_sources",
+        embeddings,
+        "enumerate_sources",
         lambda: ([("code", "good/ok.py", "f", text)], False),
     )
 
     assert embeddings.refresh() == 0
 
-    assert _embedding_of(temp_index, "good/ok.py", "f") == current_blob, \
+    assert _embedding_of(temp_index, "good/ok.py", "f") == current_blob, (
         "unchanged row in a marked index must not be re-embedded"
+    )
     assert _user_version(temp_index) == embeddings.VEC_FORMAT
 
 
@@ -196,7 +210,9 @@ def test_stale_format_incomplete_defers(temp_index, unreadable_source_tree):
 
     assert embeddings.refresh() == 0
 
-    assert _row_exists(temp_index, "bad/old.py", "old_fn"), \
+    assert _row_exists(temp_index, "bad/old.py", "old_fn"), (
         "stale row must not be wiped when it cannot be re-embedded"
-    assert _user_version(temp_index) == 0, \
+    )
+    assert _user_version(temp_index) == 0, (
         "marker must not be stamped on an incomplete run (rebuild deferred)"
+    )

@@ -4,6 +4,7 @@ Pairs a spawned subagent's prompt size (captured at ``PreToolUse:Task``) with
 its return size (captured at ``PostToolUse:Task``) into one event per spawn,
 so SA3/SA4/SA5's benefit claims can be measured instead of guessed.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +31,10 @@ def save_state(state_dir: Path, state: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(state))
     except Exception as exc:
-        print(f"warning: failed to save subagent fanout state to {state_file(state_dir)}: {exc}", file=sys.stderr)
+        print(
+            f"warning: failed to save subagent fanout state to {state_file(state_dir)}: {exc}",
+            file=sys.stderr,
+        )
 
 
 def spawn_key(tool_input: dict) -> str:
@@ -49,14 +53,17 @@ def subagent_type_of(tool_input: dict) -> str:
     return value if isinstance(value, str) and value.strip() else "unknown"
 
 
-def record_spawn(state: dict, *, key: str, subagent_type: str, prompt_chars: int,
-                  ts: float) -> None:
-    state.setdefault("pending", []).append({
-        "key": key,
-        "subagent_type": subagent_type,
-        "prompt_chars": prompt_chars,
-        "ts": ts,
-    })
+def record_spawn(
+    state: dict, *, key: str, subagent_type: str, prompt_chars: int, ts: float
+) -> None:
+    state.setdefault("pending", []).append(
+        {
+            "key": key,
+            "subagent_type": subagent_type,
+            "prompt_chars": prompt_chars,
+            "ts": ts,
+        }
+    )
 
 
 def pop_spawn(state: dict, key: str) -> dict | None:
@@ -68,8 +75,14 @@ def pop_spawn(state: dict, key: str) -> dict | None:
     return None
 
 
-def build_fanout_record(*, subagent_type: str, prompt_chars: int, return_chars: int,
-                         session_id: str, session_source: str) -> dict:
+def build_fanout_record(
+    *,
+    subagent_type: str,
+    prompt_chars: int,
+    return_chars: int,
+    session_id: str,
+    session_source: str,
+) -> dict:
     return {
         "event": "subagent_fanout",
         "subagent_type": subagent_type,
@@ -80,7 +93,9 @@ def build_fanout_record(*, subagent_type: str, prompt_chars: int, return_chars: 
     }
 
 
-def handle_pre_spawn(state_dir: Path, tool_input: dict, *, now: float | None = None) -> None:
+def handle_pre_spawn(
+    state_dir: Path, tool_input: dict, *, now: float | None = None
+) -> None:
     state = load_state(state_dir)
     record_spawn(
         state,
@@ -92,8 +107,14 @@ def handle_pre_spawn(state_dir: Path, tool_input: dict, *, now: float | None = N
     save_state(state_dir, state)
 
 
-def handle_post_return(state_dir: Path, tool_input: dict, return_chars: int, *,
-                        session_id: str, session_source: str) -> dict:
+def handle_post_return(
+    state_dir: Path,
+    tool_input: dict,
+    return_chars: int,
+    *,
+    session_id: str,
+    session_source: str,
+) -> dict:
     """Pop the matching spawn (if any) and build one combined fan-out record.
 
     An unmatched Post (no observed Pre — e.g. the hook was installed

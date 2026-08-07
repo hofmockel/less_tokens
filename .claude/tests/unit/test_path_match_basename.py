@@ -1,4 +1,5 @@
 """Regression test: path matching must not conflate files that share only a basename."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,6 @@ import sys
 import time
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 HOOKS = REPO / ".claude" / "hooks"
@@ -16,6 +16,7 @@ sys.path.insert(0, str(HOOKS))
 # ---------------------------------------------------------------------------
 # auto-slice helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_ranges(ranges_file: Path, key: str, spans: list) -> None:
     ranges_file.write_text(json.dumps({key: spans}), encoding="utf-8")
@@ -57,6 +58,7 @@ def _has_recent_hit(ranges_file: Path, p: Path, window: int = 300) -> bool:
 # Tests for auto-slice path match
 # ---------------------------------------------------------------------------
 
+
 def test_exact_path_matches(tmp_path):
     rf = tmp_path / "ranges.json"
     _write_ranges(rf, "src/utils/foo.py", [[1, 10]])
@@ -80,6 +82,7 @@ def test_suffix_match_works(tmp_path):
 # ---------------------------------------------------------------------------
 # Tests for grep-first-read path match
 # ---------------------------------------------------------------------------
+
 
 def test_grep_first_exact_match(tmp_path):
     rf = tmp_path / "ranges.json"

@@ -6,6 +6,7 @@ additive-only telemetry (agents/common/hooks/context_cache.py's
 record_near_miss precedent): it must never block a search or change its
 results, only append to state/near_misses.jsonl on an exact repeat.
 """
+
 from __future__ import annotations
 
 import json

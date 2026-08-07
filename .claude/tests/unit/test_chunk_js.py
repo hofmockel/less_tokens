@@ -1,4 +1,5 @@
 """Unit tests for chunk_js in tools/embeddings.py."""
+
 from __future__ import annotations
 
 from tools.embeddings import chunk_js
@@ -7,6 +8,7 @@ from tools.embeddings import chunk_js
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def write(tmp_path, name, src):
     p = tmp_path / name
@@ -17,6 +19,7 @@ def write(tmp_path, name, src):
 # ---------------------------------------------------------------------------
 # basic declarations
 # ---------------------------------------------------------------------------
+
 
 class TestChunkJsBasic:
     def test_named_function(self, tmp_path):
@@ -35,7 +38,9 @@ class TestChunkJsBasic:
         assert "Animal" in keys
 
     def test_async_function(self, tmp_path):
-        f = write(tmp_path, "a.ts", "async function fetchData() {\n  return await api();\n}\n")
+        f = write(
+            tmp_path, "a.ts", "async function fetchData() {\n  return await api();\n}\n"
+        )
         keys = [k for k, _ in chunk_js(f)]
         assert "fetchData" in keys
 
@@ -76,6 +81,7 @@ class TestChunkJsBasic:
 # body content
 # ---------------------------------------------------------------------------
 
+
 class TestChunkJsBody:
     def test_body_contains_source(self, tmp_path):
         src = "function add(a, b) {\n  return a + b;\n}\n"
@@ -96,10 +102,7 @@ class TestChunkJsBody:
         assert "baz" in keys
 
     def test_each_chunk_body_is_scoped(self, tmp_path):
-        src = (
-            "function foo() { return 1; }\n"
-            "function bar() { return 2; }\n"
-        )
+        src = "function foo() { return 1; }\nfunction bar() { return 2; }\n"
         f = write(tmp_path, "a.js", src)
         chunks = dict(chunk_js(f))
         assert "return 1" in chunks["foo"]
@@ -110,6 +113,7 @@ class TestChunkJsBody:
 # ---------------------------------------------------------------------------
 # edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestChunkJsEdgeCases:
     def test_empty_file(self, tmp_path):
@@ -129,10 +133,7 @@ class TestChunkJsEdgeCases:
         assert "console.log" in chunks[0][1]
 
     def test_duplicate_names_are_deduped(self, tmp_path):
-        src = (
-            "function handle() { return 1; }\n"
-            "function handle() { return 2; }\n"
-        )
+        src = "function handle() { return 1; }\nfunction handle() { return 2; }\n"
         f = write(tmp_path, "a.js", src)
         keys = [k for k, _ in chunk_js(f)]
         assert len(keys) == len(set(keys)), "duplicate keys produced"

@@ -1,4 +1,5 @@
 """Shared hook adapter helpers for Claude and Codex wrappers."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,9 @@ import sys
 from pathlib import Path
 
 
-def resolve_repo(*, markers: tuple[str, ...] = (".git", "CLAUDE.md", "AGENTS.md"), max_up: int = 8) -> Path:
+def resolve_repo(
+    *, markers: tuple[str, ...] = (".git", "CLAUDE.md", "AGENTS.md"), max_up: int = 8
+) -> Path:
     if os.environ.get("LESS_TOKENS_REPO"):
         return Path(os.environ["LESS_TOKENS_REPO"]).resolve()
 

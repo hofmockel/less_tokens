@@ -9,6 +9,7 @@ bug (`start_new_session=True` with no platform branch). Both must have failed
 before their respective fixes and must not recur — this audit is what would
 have caught them pre-merge.
 """
+
 from __future__ import annotations
 
 import ast
@@ -26,9 +27,9 @@ spec.loader.exec_module(audit_mod)  # type: ignore[union-attr]
 
 def _violations(source: str, filename: str = "fixture.py") -> list[str]:
     tree = ast.parse(source, filename=filename)
-    return audit_mod.check_bare_launcher_exists(tree, filename) + audit_mod.check_posix_only_subprocess_kwargs(
+    return audit_mod.check_bare_launcher_exists(
         tree, filename
-    )
+    ) + audit_mod.check_posix_only_subprocess_kwargs(tree, filename)
 
 
 def test_flags_pt9_bare_launcher_winerror_193_shape():

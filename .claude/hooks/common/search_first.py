@@ -1,4 +1,5 @@
 """Shared search-first gate logic — agent-neutral."""
+
 from __future__ import annotations
 
 import fnmatch
@@ -56,9 +57,11 @@ def search_was_recent(state_dir: Path, window_seconds: int) -> bool:
 def _symbol_exists(name: str, repo: Path) -> bool:
     try:
         import sys
+
         sys.path.insert(0, str(repo / ".less_tokens" / "tools"))
         sys.path.insert(0, str(repo / ".claude" / "tools"))
         from symbols import has_symbol  # type: ignore[import]
+
         return has_symbol(name)
     except Exception:
         return False
@@ -87,8 +90,19 @@ def check_search_first(
                 f"Grep is fine if you want usages."
             )
             import json
-            return 0, json.dumps({"hookSpecificOutput": {
-                "hookEventName": "PreToolUse", "additionalContext": ctx}}), ""
+
+            return (
+                0,
+                json.dumps(
+                    {
+                        "hookSpecificOutput": {
+                            "hookEventName": "PreToolUse",
+                            "additionalContext": ctx,
+                        }
+                    }
+                ),
+                "",
+            )
         return 0, "", ""
 
     if tool != "Read":
@@ -106,7 +120,8 @@ def check_search_first(
     if rel_check in config.get("exempt_root_files", ()):
         return 0, "", ""
     if not is_indexed(
-        p, repo,
+        p,
+        repo,
         excluded_prefixes=config.get("excluded_prefixes", ()),
         excluded_names=config.get("excluded_names"),
         indexed_dirs=config.get("dirs", ()),
@@ -125,6 +140,6 @@ def check_search_first(
 
     msg = (
         f"Search-first rule: {rel} is indexed.\n"
-        f"  {venv_py} {tool_prefix}/search.py \"<your query>\""
+        f'  {venv_py} {tool_prefix}/search.py "<your query>"'
     )
     return 2, "", msg

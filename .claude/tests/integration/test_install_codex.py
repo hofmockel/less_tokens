@@ -1,4 +1,5 @@
 """Integration tests for --agent codex install mode."""
+
 from __future__ import annotations
 
 import json
@@ -40,6 +41,7 @@ FRAGMENT = REPO / "agents" / "codex" / "instructions" / "AGENTS.md.fragment"
 # Directory structure
 # ---------------------------------------------------------------------------
 
+
 class TestCodexInstallDirStructure:
     def test_less_tokens_tools_shims_created(self, tmp_path):
         changed = write_codex_tool_shims(
@@ -60,7 +62,9 @@ class TestCodexInstallDirStructure:
             REPO / ".claude" / "schema",
             tmp_path / ".less_tokens" / "schema",
             tmp_path,
-            force=True, overwrite_modified=True, label=".less_tokens/schema/",
+            force=True,
+            overwrite_modified=True,
+            label=".less_tokens/schema/",
         )
         assert (tmp_path / ".less_tokens" / "schema").is_dir()
 
@@ -69,7 +73,9 @@ class TestCodexInstallDirStructure:
             REPO / "agents" / "common" / "hooks",
             tmp_path / ".less_tokens" / "hooks",
             tmp_path,
-            force=True, overwrite_modified=True, label=".less_tokens/hooks/",
+            force=True,
+            overwrite_modified=True,
+            label=".less_tokens/hooks/",
         )
         assert (tmp_path / ".less_tokens" / "hooks" / "payload.py").exists()
         assert (tmp_path / ".less_tokens" / "hooks" / "search_first.py").exists()
@@ -89,7 +95,9 @@ class TestCodexInstallDirStructure:
 
     def test_codex_python_launcher_dry_run_writes_nothing(self, tmp_path):
         venv_py = tmp_path / ".venv" / "bin" / "python"
-        changed = write_python_launcher(tmp_path, launcher_rel("codex"), venv_py, dry_run=True)
+        changed = write_python_launcher(
+            tmp_path, launcher_rel("codex"), venv_py, dry_run=True
+        )
 
         assert changed == 2
         assert not (tmp_path / ".less_tokens" / "bin" / "python").exists()
@@ -101,8 +109,12 @@ class TestCodexInstallDirStructure:
         assert ".claude/hooks" not in dest_dirs
 
     def test_search_config_shim_written_to_less_tokens(self, tmp_path):
-        write_codex_tool_shims(REPO / ".claude" / "tools", tmp_path, force=True, overwrite_modified=True)
-        config_text = (tmp_path / ".less_tokens" / "tools" / "search_config.py").read_text()
+        write_codex_tool_shims(
+            REPO / ".claude" / "tools", tmp_path, force=True, overwrite_modified=True
+        )
+        config_text = (
+            tmp_path / ".less_tokens" / "tools" / "search_config.py"
+        ).read_text()
         assert "Codex compatibility shim" in config_text
         assert 'LESS_TOKENS_AGENT", "codex"' in config_text
 
@@ -111,10 +123,14 @@ class TestCodexInstallDirStructure:
             REPO / ".claude" / "tools" / "search_config.py",
             tmp_path / ".claude" / "tools" / "search_config.py",
             tmp_path,
-            False, False,
+            False,
+            False,
         )
         assert not (tmp_path / ".less_tokens" / "tools" / "search_config.py").exists()
-        assert "_STATE_AGENT_AWARE" in (tmp_path / ".claude" / "tools" / "search_config.py").read_text()
+        assert (
+            "_STATE_AGENT_AWARE"
+            in (tmp_path / ".claude" / "tools" / "search_config.py").read_text()
+        )
 
     def test_generated_tool_shim_imports_and_executes_real_tool(self, tmp_path):
         real_tools = tmp_path / ".claude" / "tools"
@@ -126,7 +142,9 @@ class TestCodexInstallDirStructure:
             "    print(VALUE)\n"
         )
 
-        write_codex_tool_shims(real_tools, tmp_path, force=True, overwrite_modified=True)
+        write_codex_tool_shims(
+            real_tools, tmp_path, force=True, overwrite_modified=True
+        )
         shim = tmp_path / ".less_tokens" / "tools" / "demo.py"
 
         spec = importlib.util.spec_from_file_location("_demo_shim", shim)
@@ -135,7 +153,9 @@ class TestCodexInstallDirStructure:
         spec.loader.exec_module(mod)
         assert mod.VALUE == "codex"
 
-        result = subprocess.run([sys.executable, str(shim)], capture_output=True, text=True)
+        result = subprocess.run(
+            [sys.executable, str(shim)], capture_output=True, text=True
+        )
         assert result.returncode == 0
         assert result.stdout.strip() == "codex"
 
@@ -144,14 +164,19 @@ class TestCodexInstallDirStructure:
 # Writability probe
 # ---------------------------------------------------------------------------
 
+
 class TestCodexWritabilityProbe:
-    @pytest.mark.skipif(sys.platform == "win32", reason="chmod has no effect on Windows")
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="chmod has no effect on Windows"
+    )
     def test_non_writable_codex_dir_excluded_from_specs(self, tmp_path):
         codex_dir = tmp_path / ".codex"
         codex_dir.mkdir()
         codex_dir.chmod(0o555)
         try:
-            specs = _install_specs(caveman=False, agents={"codex"}, target_root=tmp_path)
+            specs = _install_specs(
+                caveman=False, agents={"codex"}, target_root=tmp_path
+            )
             dest_dirs = [s[1] for s in specs]
             assert not any(".codex/hooks" in d for d in dest_dirs)
             # skill goes somewhere — .agents/ or .less_tokens/ depending on writability
@@ -171,7 +196,9 @@ class TestCodexWritabilityProbe:
             REPO / "agents" / "codex" / "hooks",
             tmp_path / ".codex" / "hooks",
             tmp_path,
-            force=True, overwrite_modified=True, label=".codex/hooks/",
+            force=True,
+            overwrite_modified=True,
+            label=".codex/hooks/",
         )
         assert changed > 0
         assert (tmp_path / ".codex" / "hooks" / "_codex_runtime.py").exists()
@@ -189,6 +216,7 @@ class TestCodexWritabilityProbe:
 # Hook entry construction
 # ---------------------------------------------------------------------------
 
+
 class TestBuildCodexHookEntries:
     def test_core_entries_use_absolute_codex_launcher_and_agent_env(self, tmp_path):
         entries = build_codex_hook_entries(
@@ -197,10 +225,21 @@ class TestBuildCodexHookEntries:
             Namespace(truncate=False, compact=False, caveman=False),
         )
         commands = [cmd for _, _, cmd in entries]
-        launcher = (tmp_path / ".less_tokens" / "bin" / ("python.cmd" if sys.platform == "win32" else "python")).resolve().as_posix()
+        launcher = (
+            (
+                tmp_path
+                / ".less_tokens"
+                / "bin"
+                / ("python.cmd" if sys.platform == "win32" else "python")
+            )
+            .resolve()
+            .as_posix()
+        )
         hooks_dir = str((tmp_path / ".codex" / "hooks").resolve())
         assert len(entries) == sum(len(spec.codex) for spec in HOOK_SPECS)
-        assert all(cmd.startswith(f"LESS_TOKENS_AGENT=codex {launcher}") for cmd in commands)
+        assert all(
+            cmd.startswith(f"LESS_TOKENS_AGENT=codex {launcher}") for cmd in commands
+        )
         assert all(hooks_dir in cmd for cmd in commands)
         assert all(" .less_tokens/bin/python" not in cmd for cmd in commands)
         assert all(" .codex/hooks/" not in cmd for cmd in commands)
@@ -287,7 +326,9 @@ class TestBuildCodexHookEntries:
         assert any("compact-trigger.py" in cmd for cmd in commands)
         assert any("terse-reminder.py" in cmd for cmd in commands)
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="Codex hook env prefix is POSIX shell syntax")
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Codex hook env prefix is POSIX shell syntax"
+    )
     def test_generated_hook_command_runs_from_nested_cwd(self, tmp_path):
         entries = build_codex_hook_entries(
             tmp_path / ".venv" / "bin" / "python",
@@ -298,12 +339,16 @@ class TestBuildCodexHookEntries:
 
         launcher = tmp_path / ".less_tokens" / "bin" / "python"
         launcher.parent.mkdir(parents=True)
-        launcher.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n", encoding="utf-8")
+        launcher.write_text(
+            f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n', encoding="utf-8"
+        )
         launcher.chmod(0o755)
 
         hook = tmp_path / ".codex" / "hooks" / "savings-html.py"
         hook.parent.mkdir(parents=True)
-        hook.write_text("import os\nprint(os.environ.get('LESS_TOKENS_AGENT'))\n", encoding="utf-8")
+        hook.write_text(
+            "import os\nprint(os.environ.get('LESS_TOKENS_AGENT'))\n", encoding="utf-8"
+        )
 
         nested = tmp_path / "subdir"
         nested.mkdir()
@@ -324,6 +369,7 @@ class TestBuildCodexHookEntries:
 # ---------------------------------------------------------------------------
 # AGENTS.md creation
 # ---------------------------------------------------------------------------
+
 
 class TestCodexAgentsMd:
     def test_agents_md_created(self, tmp_path):
@@ -348,7 +394,9 @@ class TestCodexAgentsMd:
 
     def test_agents_md_updates_existing_managed_block(self, tmp_path):
         agents_md = tmp_path / "AGENTS.md"
-        agents_md.write_text("Intro\n\n<!-- less_tokens: begin -->\nold\n<!-- less_tokens: end -->\n")
+        agents_md.write_text(
+            "Intro\n\n<!-- less_tokens: begin -->\nold\n<!-- less_tokens: end -->\n"
+        )
         handle_agents_md(FRAGMENT, tmp_path)
         content = agents_md.read_text()
         assert "Intro" in content
@@ -370,6 +418,7 @@ class TestCodexAgentsMd:
 # Codex savings profile
 # ---------------------------------------------------------------------------
 
+
 class TestCodexSavingsProfile:
     def test_balanced_profile_writes_current_codex_budget_override(self, tmp_path):
         config_dir = tmp_path / ".less_tokens" / "config"
@@ -390,13 +439,15 @@ class TestCodexSavingsProfile:
         config_dir = tmp_path / ".less_tokens" / "config"
         config_dir.mkdir(parents=True)
         (config_dir / "budget.json").write_text(
-            json.dumps({
-                "mode": "advise",
-                "agent_overrides": {
-                    "claude": {"hard_caps": {"single_tool_output": 1111}},
-                    "codex": CODEX_BALANCED_BUDGET_OVERRIDE,
-                },
-            }),
+            json.dumps(
+                {
+                    "mode": "advise",
+                    "agent_overrides": {
+                        "claude": {"hard_caps": {"single_tool_output": 1111}},
+                        "codex": CODEX_BALANCED_BUDGET_OVERRIDE,
+                    },
+                }
+            ),
             encoding="utf-8",
         )
 
@@ -405,14 +456,18 @@ class TestCodexSavingsProfile:
         data = json.loads((config_dir / "budget.json").read_text(encoding="utf-8"))
         assert changed == 1
         assert data["mode"] == "advise"
-        assert data["agent_overrides"]["claude"] == {"hard_caps": {"single_tool_output": 1111}}
+        assert data["agent_overrides"]["claude"] == {
+            "hard_caps": {"single_tool_output": 1111}
+        }
         assert data["agent_overrides"]["codex"] == CODEX_AGGRESSIVE_BUDGET_OVERRIDE
 
     def test_profile_write_is_idempotent(self, tmp_path):
         config_dir = tmp_path / ".less_tokens" / "config"
         config_dir.mkdir(parents=True)
         (config_dir / "budget.json").write_text(
-            json.dumps({"agent_overrides": {"codex": CODEX_AGGRESSIVE_BUDGET_OVERRIDE}}),
+            json.dumps(
+                {"agent_overrides": {"codex": CODEX_AGGRESSIVE_BUDGET_OVERRIDE}}
+            ),
             encoding="utf-8",
         )
 
@@ -422,6 +477,7 @@ class TestCodexSavingsProfile:
 # ---------------------------------------------------------------------------
 # wire_codex_hooks_json / unwire_codex_hooks_json
 # ---------------------------------------------------------------------------
+
 
 class TestWireCodexHooksJson:
     def test_malformed_hooks_json_fails_loud(self, tmp_path):
@@ -437,9 +493,19 @@ class TestWireCodexHooksJson:
     def test_pre_cx21_flat_shape_fails_loud(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
         hooks_json.parent.mkdir(parents=True)
-        hooks_json.write_text(json.dumps({
-            "hooks": [{"event": "PostToolUse", "matcher": "Edit", "command": "python index-refresh.py"}]
-        }))
+        hooks_json.write_text(
+            json.dumps(
+                {
+                    "hooks": [
+                        {
+                            "event": "PostToolUse",
+                            "matcher": "Edit",
+                            "command": "python index-refresh.py",
+                        }
+                    ]
+                }
+            )
+        )
         with pytest.raises(ValueError, match="unsupported schema"):
             wire_codex_hooks_json(
                 hooks_json,
@@ -449,21 +515,40 @@ class TestWireCodexHooksJson:
     def test_retired_nested_shape_is_migrated(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
         hooks_json.parent.mkdir(parents=True)
-        hooks_json.write_text(json.dumps({"hooks": [[{
-            "event": "PostToolUse",
-            "matcher": "Edit",
-            "hooks": [{"type": "command", "command": "python index-refresh.py"}],
-        }]]}))
+        hooks_json.write_text(
+            json.dumps(
+                {
+                    "hooks": [
+                        [
+                            {
+                                "event": "PostToolUse",
+                                "matcher": "Edit",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "python index-refresh.py",
+                                    }
+                                ],
+                            }
+                        ]
+                    ]
+                }
+            )
+        )
         added, present = wire_codex_hooks_json(
             hooks_json,
             [("PostToolUse", "Edit", "python index-refresh.py")],
         )
         assert (added, present) == (1, 1)
         assert json.loads(hooks_json.read_text())["hooks"] == {
-            "PostToolUse": [{
-                "matcher": "Edit",
-                "hooks": [{"type": "command", "command": "python index-refresh.py"}],
-            }]
+            "PostToolUse": [
+                {
+                    "matcher": "Edit",
+                    "hooks": [
+                        {"type": "command", "command": "python index-refresh.py"}
+                    ],
+                }
+            ]
         }
 
     def test_creates_hooks_json_with_correct_structure(self, tmp_path):
@@ -476,7 +561,9 @@ class TestWireCodexHooksJson:
         assert "hooks" in data
         group = data["hooks"]["PostToolUse"][0]
         assert group["matcher"] == "Edit|Write"
-        assert group["hooks"] == [{"type": "command", "command": "python index-refresh.py"}]
+        assert group["hooks"] == [
+            {"type": "command", "command": "python index-refresh.py"}
+        ]
 
     def test_idempotent_second_wire(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
@@ -488,8 +575,9 @@ class TestWireCodexHooksJson:
 
     def test_dry_run_does_not_write_file(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
-        wire_codex_hooks_json(hooks_json,
-                              [("PostToolUse", "Edit", "python x.py")], dry_run=True)
+        wire_codex_hooks_json(
+            hooks_json, [("PostToolUse", "Edit", "python x.py")], dry_run=True
+        )
         assert not hooks_json.exists()
 
     def test_unwire_removes_codex_hook_entries(self, tmp_path):
@@ -506,17 +594,22 @@ class TestWireCodexHooksJson:
         cmd = f"python {REPO}/agents/codex/hooks/index-refresh.py"
         wire_codex_hooks_json(hooks_json, [("PostToolUse", "Edit", cmd)])
         data = json.loads(hooks_json.read_text())
-        data["hooks"]["PostToolUse"].append({
-            "matcher": "Write",
-            "hooks": [{"type": "command", "command": "python user_hook.py"}],
-        })
+        data["hooks"]["PostToolUse"].append(
+            {
+                "matcher": "Write",
+                "hooks": [{"type": "command", "command": "python user_hook.py"}],
+            }
+        )
         hooks_json.write_text(json.dumps(data))
 
         removed = unwire_codex_hooks_json(hooks_json, REPO, dry_run=False)
         assert removed == 1
         data = json.loads(hooks_json.read_text())
         assert len(data["hooks"]["PostToolUse"]) == 1
-        assert data["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == "python user_hook.py"
+        assert (
+            data["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
+            == "python user_hook.py"
+        )
 
     def test_unwire_missing_hooks_json_returns_zero(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
@@ -540,31 +633,47 @@ class TestWireCodexHooksJson:
         hooks_json = tmp_path / ".codex" / "hooks.json"
         hooks_json.parent.mkdir(parents=True)
         managed = f"python {REPO}/agents/codex/hooks/index-refresh.py"
-        hooks_json.write_text(json.dumps({"hooks": [[
-            {
-                "event": "PostToolUse",
-                "matcher": "Edit",
-                "hooks": [{"type": "command", "command": managed}],
-            },
-            {
-                "event": "PostToolUse",
-                "matcher": "Write",
-                "hooks": [{"type": "command", "command": "python user_hook.py"}],
-            },
-        ]]}))
+        hooks_json.write_text(
+            json.dumps(
+                {
+                    "hooks": [
+                        [
+                            {
+                                "event": "PostToolUse",
+                                "matcher": "Edit",
+                                "hooks": [{"type": "command", "command": managed}],
+                            },
+                            {
+                                "event": "PostToolUse",
+                                "matcher": "Write",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "python user_hook.py",
+                                    }
+                                ],
+                            },
+                        ]
+                    ]
+                }
+            )
+        )
         assert unwire_codex_hooks_json(hooks_json, REPO, dry_run=False) == 1
         data = json.loads(hooks_json.read_text())
         assert data["hooks"] == {
-            "PostToolUse": [{
-                "matcher": "Write",
-                "hooks": [{"type": "command", "command": "python user_hook.py"}],
-            }]
+            "PostToolUse": [
+                {
+                    "matcher": "Write",
+                    "hooks": [{"type": "command", "command": "python user_hook.py"}],
+                }
+            ]
         }
 
 
 # ---------------------------------------------------------------------------
 # Collision detection
 # ---------------------------------------------------------------------------
+
 
 class TestCodexForeignFiles:
     def test_foreign_files_ignores_hidden_tool_dirs(self, tmp_path):

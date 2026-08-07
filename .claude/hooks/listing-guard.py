@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: intercept bare directory-listing Bash commands."""
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,11 @@ sys.path[:0] = [
 ]
 
 try:
-    from agents.common.hooks.listing_guard import check_listing_guard, is_bare_listing, run_lean_ls  # type: ignore[import]
+    from agents.common.hooks.listing_guard import (
+        check_listing_guard,
+        is_bare_listing,
+        run_lean_ls,
+    )  # type: ignore[import]
 except Exception:
     from listing_guard import check_listing_guard, is_bare_listing, run_lean_ls  # type: ignore[no-redef]
 
@@ -45,6 +50,7 @@ LEAN_LS = REPO / ".claude" / "tools" / "lean-ls.py"
 def _load_enabled() -> bool:
     try:
         from search_config import LISTING_GUARD_ENABLED  # noqa: PLC0415
+
         return bool(LISTING_GUARD_ENABLED)
     except Exception:
         return True

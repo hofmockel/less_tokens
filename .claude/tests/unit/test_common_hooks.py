@@ -1,4 +1,5 @@
 """Tests for agents/common/hooks/ — HookPayload, normalizers, and gate functions."""
+
 from __future__ import annotations
 
 import os
@@ -7,19 +8,27 @@ import sys
 import time
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / ".claude" / "tools"))
 
-from agents.common.hooks.payload import HookPayload, extract_apply_patch_paths, normalize_claude, normalize_codex
+from agents.common.hooks.payload import (
+    HookPayload,
+    extract_apply_patch_paths,
+    normalize_claude,
+    normalize_codex,
+)
 import agents.common.hooks.search_first as search_first_mod
 from agents.common.hooks.index_refresh import check_index_refresh
 from agents.common.hooks.listing_guard import is_bare_listing
 import agents.common.hooks.post_edit_diff as post_edit_diff_mod
 from agents.common.hooks.post_edit_diff import check_post_edit_diff
-from agents.common.hooks.search_first import check_search_first, is_indexed, search_was_recent
+from agents.common.hooks.search_first import (
+    check_search_first,
+    is_indexed,
+    search_was_recent,
+)
 from agents.common.hooks.truncate_output import check_truncate_output
 from agents.common.hooks.compact_trigger import check_compact_trigger
 
@@ -28,24 +37,40 @@ from agents.common.hooks.compact_trigger import check_compact_trigger
 # normalize_claude
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeClaude:
     def test_reads_tool_result(self):
-        p = normalize_claude({"tool_name": "Bash", "tool_input": {}, "tool_result": "out"})
+        p = normalize_claude(
+            {"tool_name": "Bash", "tool_input": {}, "tool_result": "out"}
+        )
         assert p.agent == "claude"
         assert p.tool_output == "out"
 
     def test_falls_back_to_tool_response(self):
-        p = normalize_claude({"tool_name": "Read", "tool_input": {}, "tool_response": "content"})
+        p = normalize_claude(
+            {"tool_name": "Read", "tool_input": {}, "tool_response": "content"}
+        )
         assert p.tool_output == "content"
 
     def test_tool_result_preferred_over_tool_response(self):
-        p = normalize_claude({"tool_name": "Bash", "tool_input": {},
-                               "tool_result": "result", "tool_response": "response"})
+        p = normalize_claude(
+            {
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_result": "result",
+                "tool_response": "response",
+            }
+        )
         assert p.tool_output == "result"
 
     def test_extracts_touched_files(self):
-        p = normalize_claude({"tool_name": "Edit",
-                               "tool_input": {"file_path": "/a/b.py"}, "tool_result": ""})
+        p = normalize_claude(
+            {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "/a/b.py"},
+                "tool_result": "",
+            }
+        )
         assert p.touched_files == (Path("/a/b.py"),)
 
     def test_no_touched_files_without_file_path(self):
@@ -53,8 +78,14 @@ class TestNormalizeClaude:
         assert p.touched_files == ()
 
     def test_transcript_path_parsed(self):
-        p = normalize_claude({"tool_name": "Bash", "tool_input": {}, "tool_result": "",
-                               "transcript_path": "/tmp/t.json"})
+        p = normalize_claude(
+            {
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_result": "",
+                "transcript_path": "/tmp/t.json",
+            }
+        )
         assert p.transcript_path == Path("/tmp/t.json")
 
     def test_none_transcript_path(self):
@@ -62,8 +93,9 @@ class TestNormalizeClaude:
         assert p.transcript_path is None
 
     def test_non_string_output_serialized(self):
-        p = normalize_claude({"tool_name": "Bash", "tool_input": {},
-                               "tool_result": {"key": "val"}})
+        p = normalize_claude(
+            {"tool_name": "Bash", "tool_input": {}, "tool_result": {"key": "val"}}
+        )
         assert '"key"' in p.tool_output
 
 
@@ -71,22 +103,35 @@ class TestNormalizeClaude:
 # normalize_codex
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeCodex:
     def test_reads_tool_response_first(self):
-        p = normalize_codex({"tool_name": "Bash", "tool_input": {},
-                              "tool_response": "resp", "tool_result": "res"})
+        p = normalize_codex(
+            {
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_response": "resp",
+                "tool_result": "res",
+            }
+        )
         assert p.tool_output == "resp"
 
     def test_falls_back_to_tool_result(self):
-        p = normalize_codex({"tool_name": "Bash", "tool_input": {}, "tool_result": "result"})
+        p = normalize_codex(
+            {"tool_name": "Bash", "tool_input": {}, "tool_result": "result"}
+        )
         assert p.tool_output == "result"
 
     def test_apply_patch_extracts_touched_files(self):
-        p = normalize_codex({"tool_name": "apply_patch",
-                              "tool_input": {
-                                  "patch": "*** Begin Patch\n*** Update File: a/b.py\n@@\n x\n*** End Patch\n"
-                              },
-                              "tool_response": ""})
+        p = normalize_codex(
+            {
+                "tool_name": "apply_patch",
+                "tool_input": {
+                    "patch": "*** Begin Patch\n*** Update File: a/b.py\n@@\n x\n*** End Patch\n"
+                },
+                "tool_response": "",
+            }
+        )
         assert p.touched_files == (Path("a/b.py"),)
 
     def test_extract_apply_patch_paths_handles_add_delete_move(self):
@@ -107,23 +152,32 @@ class TestNormalizeCodex:
         )
 
     def test_edit_extracts_touched_files(self):
-        p = normalize_codex({"tool_name": "Edit",
-                              "tool_input": {"file_path": "/a/b.py"}, "tool_response": ""})
+        p = normalize_codex(
+            {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "/a/b.py"},
+                "tool_response": "",
+            }
+        )
         assert p.touched_files == (Path("/a/b.py"),)
 
     def test_agent_field_is_codex(self):
-        p = normalize_codex({"tool_name": "Bash", "tool_input": {}, "tool_response": ""})
+        p = normalize_codex(
+            {"tool_name": "Bash", "tool_input": {}, "tool_response": ""}
+        )
         assert p.agent == "codex"
 
     def test_non_string_output_serialized(self):
-        p = normalize_codex({"tool_name": "Bash", "tool_input": {},
-                              "tool_response": {"key": "val"}})
+        p = normalize_codex(
+            {"tool_name": "Bash", "tool_input": {}, "tool_response": {"key": "val"}}
+        )
         assert '"key"' in p.tool_output
 
 
 # ---------------------------------------------------------------------------
 # post-edit-diff
 # ---------------------------------------------------------------------------
+
 
 class TestPostEditDiff:
     def _apply_patch_payload(self) -> HookPayload:
@@ -136,7 +190,9 @@ class TestPostEditDiff:
             touched_files=(Path("src/app.py"),),
         )
 
-    def test_apply_patch_context_starts_with_touched_files_and_summary(self, tmp_path, monkeypatch):
+    def test_apply_patch_context_starts_with_touched_files_and_summary(
+        self, tmp_path, monkeypatch
+    ):
         diff = [
             "diff --git a/src/app.py b/src/app.py\n",
             "--- a/src/app.py\n",
@@ -145,7 +201,9 @@ class TestPostEditDiff:
             "-old\n",
             "+new\n",
         ]
-        monkeypatch.setattr(post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff)
+        monkeypatch.setattr(
+            post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff
+        )
 
         code, stdout, stderr = check_post_edit_diff(
             self._apply_patch_payload(),
@@ -176,7 +234,9 @@ class TestPostEditDiff:
             "-old\n",
             "+" + ("x" * 200) + "\n",
         ]
-        monkeypatch.setattr(post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff)
+        monkeypatch.setattr(
+            post_edit_diff_mod, "diff_repo", lambda repo, pathspec=".": diff
+        )
 
         _, stdout, _ = check_post_edit_diff(
             self._apply_patch_payload(),
@@ -226,6 +286,7 @@ class TestPostEditDiff:
 # ---------------------------------------------------------------------------
 # is_indexed
 # ---------------------------------------------------------------------------
+
 
 class TestIsIndexed:
     def test_root_md_is_indexed(self, tmp_path):
@@ -281,6 +342,7 @@ class TestIsIndexed:
 # search_was_recent
 # ---------------------------------------------------------------------------
 
+
 class TestSearchWasRecent:
     def test_returns_false_when_no_file(self, tmp_path):
         assert not search_was_recent(tmp_path, 300)
@@ -305,9 +367,16 @@ class TestSearchWasRecent:
 # check_search_first
 # ---------------------------------------------------------------------------
 
+
 def _search_payload(tool: str, tool_input: dict | None = None) -> HookPayload:
-    return HookPayload(agent="claude", tool_name=tool, tool_input=tool_input or {},
-                       tool_output="", transcript_path=None, touched_files=())
+    return HookPayload(
+        agent="claude",
+        tool_name=tool,
+        tool_input=tool_input or {},
+        tool_output="",
+        transcript_path=None,
+        touched_files=(),
+    )
 
 
 class TestCheckSearchFirst:
@@ -369,6 +438,7 @@ class TestCheckSearchFirst:
 # ---------------------------------------------------------------------------
 # check_index_refresh
 # ---------------------------------------------------------------------------
+
 
 class TestCheckIndexRefresh:
     def test_passes_unrelated_tool(self, tmp_path):
@@ -439,7 +509,9 @@ class TestCheckIndexRefresh:
             def __init__(self, args, **kwargs):
                 calls.append((args, kwargs))
 
-        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        monkeypatch.setattr(
+            "agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen
+        )
         venv_py = tmp_path / ".venv" / "bin" / "python"
         venv_py.parent.mkdir(parents=True)
         venv_py.write_text("")
@@ -468,7 +540,9 @@ class TestCheckIndexRefresh:
             def __init__(self, args, **kwargs):
                 calls.append(args)
 
-        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        monkeypatch.setattr(
+            "agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen
+        )
         venv_py = tmp_path / ".venv" / "bin" / "python"
         venv_py.parent.mkdir(parents=True)
         venv_py.write_text("")
@@ -485,14 +559,18 @@ class TestCheckIndexRefresh:
 
         assert calls == [[str(venv_py), str(tools / "embeddings.py"), "refresh"]]
 
-    def test_apply_patch_skips_when_parsed_paths_are_unindexed(self, tmp_path, monkeypatch):
+    def test_apply_patch_skips_when_parsed_paths_are_unindexed(
+        self, tmp_path, monkeypatch
+    ):
         calls = []
 
         class DummyPopen:
             def __init__(self, args, **kwargs):
                 calls.append(args)
 
-        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        monkeypatch.setattr(
+            "agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen
+        )
         venv_py = tmp_path / ".venv" / "bin" / "python"
         venv_py.parent.mkdir(parents=True)
         venv_py.write_text("")
@@ -523,7 +601,9 @@ class TestCheckIndexRefresh:
             def __init__(self, args, **kwargs):
                 calls.append(args)
 
-        monkeypatch.setattr("agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen)
+        monkeypatch.setattr(
+            "agents.common.hooks.index_refresh.subprocess.Popen", DummyPopen
+        )
         venv_py = tmp_path / ".venv" / "bin" / "python"
         venv_py.parent.mkdir(parents=True)
         venv_py.write_text("")
@@ -552,49 +632,80 @@ class TestCheckIndexRefresh:
 # check_truncate_output
 # ---------------------------------------------------------------------------
 
+
 def _payload(tool: str, output: str) -> HookPayload:
-    return HookPayload(agent="claude", tool_name=tool, tool_input={},
-                       tool_output=output, transcript_path=None, touched_files=())
+    return HookPayload(
+        agent="claude",
+        tool_name=tool,
+        tool_input={},
+        tool_output=output,
+        transcript_path=None,
+        touched_files=(),
+    )
 
 
 class TestCheckTruncateOutput:
     def test_passes_small_bash(self):
         code, _, _ = check_truncate_output(
             _payload("Bash", "x" * 100),
-            max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
+            max_chars=4000,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=100,
+        )
         assert code == 0
 
     def test_truncates_large_bash(self):
         code, stdout, _ = check_truncate_output(
             _payload("Bash", "x" * 10_000),
-            max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
+            max_chars=4000,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=100,
+        )
         assert code == 2
         assert "omitted" in stdout
 
     def test_passes_unrelated_tool(self):
         code, _, _ = check_truncate_output(
             _payload("Edit", "x" * 10_000),
-            max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
+            max_chars=4000,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=100,
+        )
         assert code == 0
 
     def test_disabled_when_max_chars_zero(self):
         code, _, _ = check_truncate_output(
             _payload("Bash", "x" * 10_000),
-            max_chars=0, head_lines=50, tail_lines=20, max_glob_results=100)
+            max_chars=0,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=100,
+        )
         assert code == 0
 
     def test_glob_line_cap(self):
         lines = "\n".join(f"file{i}.py" for i in range(200))
         code, stdout, _ = check_truncate_output(
             _payload("Glob", lines),
-            max_chars=0, head_lines=50, tail_lines=20, max_glob_results=10)
+            max_chars=0,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=10,
+        )
         assert code == 2
         assert "more file" in stdout
 
     def test_read_truncated_by_char_ceiling(self):
         code, stdout, _ = check_truncate_output(
             _payload("Read", "x" * 10_000),
-            max_chars=4000, head_lines=50, tail_lines=20, max_glob_results=100)
+            max_chars=4000,
+            head_lines=50,
+            tail_lines=20,
+            max_glob_results=100,
+        )
         assert code == 2
         assert len(stdout) <= 5000
 
@@ -602,6 +713,7 @@ class TestCheckTruncateOutput:
 # ---------------------------------------------------------------------------
 # listing_guard
 # ---------------------------------------------------------------------------
+
 
 class TestListingGuard:
     def test_broad_git_diff_is_not_shared_claude_listing_rule(self):
@@ -613,30 +725,40 @@ class TestListingGuard:
 # check_compact_trigger
 # ---------------------------------------------------------------------------
 
+
 def _compact_payload(transcript_path=None) -> HookPayload:
-    return HookPayload(agent="claude", tool_name="Bash", tool_input={},
-                       tool_output="", transcript_path=transcript_path, touched_files=())
+    return HookPayload(
+        agent="claude",
+        tool_name="Bash",
+        tool_input={},
+        tool_output="",
+        transcript_path=transcript_path,
+        touched_files=(),
+    )
 
 
 class TestCheckCompactTrigger:
     def test_passes_when_disabled(self, tmp_path):
         code, _, _ = check_compact_trigger(
-            _compact_payload(), state_dir=tmp_path,
-            max_session_chars=0, message="msg")
+            _compact_payload(), state_dir=tmp_path, max_session_chars=0, message="msg"
+        )
         assert code == 0
 
     def test_passes_when_no_transcript(self, tmp_path):
         code, _, _ = check_compact_trigger(
-            _compact_payload(), state_dir=tmp_path,
-            max_session_chars=100, message="msg")
+            _compact_payload(), state_dir=tmp_path, max_session_chars=100, message="msg"
+        )
         assert code == 0
 
     def test_fires_when_transcript_exceeds_threshold(self, tmp_path):
         transcript = tmp_path / "session.json"
         transcript.write_text("x" * 1000)
         code, _, stderr = check_compact_trigger(
-            _compact_payload(transcript), state_dir=tmp_path,
-            max_session_chars=100, message="Session is {size:,} chars.")
+            _compact_payload(transcript),
+            state_dir=tmp_path,
+            max_session_chars=100,
+            message="Session is {size:,} chars.",
+        )
         assert code == 2
         assert "1,000" in stderr
 
@@ -644,8 +766,11 @@ class TestCheckCompactTrigger:
         transcript = tmp_path / "session.json"
         transcript.write_text("x" * 1000)
         check_compact_trigger(
-            _compact_payload(transcript), state_dir=tmp_path,
-            max_session_chars=100, message="msg")
+            _compact_payload(transcript),
+            state_dir=tmp_path,
+            max_session_chars=100,
+            message="msg",
+        )
         assert (tmp_path / "compact-trigger-last").exists()
 
     def test_hysteresis_suppresses_repeat_fire(self, tmp_path):
@@ -653,6 +778,9 @@ class TestCheckCompactTrigger:
         transcript.write_text("x" * 1000)
         (tmp_path / "compact-trigger-last").write_text("999")
         code, _, _ = check_compact_trigger(
-            _compact_payload(transcript), state_dir=tmp_path,
-            max_session_chars=100, message="msg")
+            _compact_payload(transcript),
+            state_dir=tmp_path,
+            max_session_chars=100,
+            message="msg",
+        )
         assert code == 0

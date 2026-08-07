@@ -9,6 +9,7 @@ Git feeds ref updates on stdin as `<local ref> <local sha1> <remote ref>
 <remote sha1>` lines; we check continue.md as committed at each non-deleted
 local sha1, since that's what would actually land on the remote.
 """
+
 from __future__ import annotations
 
 import sys

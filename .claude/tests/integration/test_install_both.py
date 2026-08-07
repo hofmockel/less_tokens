@@ -1,11 +1,11 @@
 """Integration tests for --agent both mode and per-agent selective uninstall."""
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
@@ -22,6 +22,7 @@ from install import (
 # ---------------------------------------------------------------------------
 # Both-mode specs
 # ---------------------------------------------------------------------------
+
 
 class TestBothModeSpecs:
     def test_includes_claude_hooks(self):
@@ -50,6 +51,7 @@ class TestBothModeSpecs:
 # _our_hook_names
 # ---------------------------------------------------------------------------
 
+
 class TestOurHookNames:
     def test_claude_only_returns_claude_hook_filenames(self):
         names = _our_hook_names(REPO, agents={"claude"})
@@ -74,11 +76,17 @@ class TestOurHookNames:
 # Selective uninstall
 # ---------------------------------------------------------------------------
 
+
 class TestSelectiveUnwire:
     def test_unwire_claude_settings_does_not_touch_codex_hooks_json(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
-        codex_entries = [("PostToolUse", "Edit",
-                          f"python {REPO}/agents/codex/hooks/index-refresh.py")]
+        codex_entries = [
+            (
+                "PostToolUse",
+                "Edit",
+                f"python {REPO}/agents/codex/hooks/index-refresh.py",
+            )
+        ]
         wire_codex_hooks_json(hooks_json, codex_entries)
         original = hooks_json.read_text()
 
@@ -89,8 +97,7 @@ class TestSelectiveUnwire:
     def test_unwire_codex_hooks_json_does_not_touch_claude_settings(self, tmp_path):
         settings = tmp_path / ".claude" / "settings.json"
         entries = [
-            ("PreToolUse", "Read",
-             f"python {REPO}/.claude/hooks/search-first.py"),
+            ("PreToolUse", "Read", f"python {REPO}/.claude/hooks/search-first.py"),
         ]
         wire_settings(settings, entries)
         original = settings.read_text()
@@ -101,8 +108,9 @@ class TestSelectiveUnwire:
 
     def test_uninstall_claude_preserves_codex_hooks(self, tmp_path):
         hooks_json = tmp_path / ".codex" / "hooks.json"
-        wire_codex_hooks_json(hooks_json,
-                              [("PostToolUse", "Edit", "python user_hook.py")])
+        wire_codex_hooks_json(
+            hooks_json, [("PostToolUse", "Edit", "python user_hook.py")]
+        )
         assert hooks_json.exists()
 
         settings = tmp_path / ".claude" / "settings.json"
@@ -113,6 +121,7 @@ class TestSelectiveUnwire:
 # ---------------------------------------------------------------------------
 # Idempotency in both mode
 # ---------------------------------------------------------------------------
+
 
 class TestIdempotentBothMode:
     def test_double_wire_settings_no_duplicates(self, tmp_path):
@@ -145,7 +154,7 @@ class TestIdempotentBothMode:
         hooks_json = tmp_path / ".codex" / "hooks.json"
         entries = [
             ("PostToolUse", "Edit|Write", "python index-refresh.py"),
-            ("PreToolUse",  "mcp__.*",    "python search-first.py"),
+            ("PreToolUse", "mcp__.*", "python search-first.py"),
         ]
         wire_codex_hooks_json(hooks_json, entries)
         added2, present2 = wire_codex_hooks_json(hooks_json, entries)

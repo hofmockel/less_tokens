@@ -67,7 +67,7 @@ def test_presentation_renders_one_image_per_slide():
 
     assert html.count('<section class="slide"') == slide_count
     assert html.count('<figure class="slide-visual">') == slide_count
-    assert html.count('assets/slides/') == (
+    assert html.count("assets/slides/") == (
         image_slide_count + len(build_docs.MAINTENANCE_SKILL_ROLES)
     )
 
@@ -106,7 +106,9 @@ def test_strategy_detail_marks_strategy_navigation_current():
 
 def test_repo_link_uses_github_blob_when_publish_env_is_set(monkeypatch):
     build_docs = _load_build_docs()
-    monkeypatch.setenv("LESS_TOKENS_DOCS_REPO_URL", "https://github.com/hofmockel/less_tokens")
+    monkeypatch.setenv(
+        "LESS_TOKENS_DOCS_REPO_URL", "https://github.com/hofmockel/less_tokens"
+    )
     monkeypatch.setenv("LESS_TOKENS_DOCS_COMMIT", "abc123")
 
     assert build_docs.repo_link("strategies/search-first.html", "README.md") == (
@@ -119,4 +121,7 @@ def test_repo_link_stays_local_without_publish_env(monkeypatch):
     monkeypatch.delenv("LESS_TOKENS_DOCS_REPO_URL", raising=False)
     monkeypatch.delenv("LESS_TOKENS_DOCS_COMMIT", raising=False)
 
-    assert build_docs.repo_link("strategies/search-first.html", "README.md") == "../../../README.md"
+    assert (
+        build_docs.repo_link("strategies/search-first.html", "README.md")
+        == "../../../README.md"
+    )

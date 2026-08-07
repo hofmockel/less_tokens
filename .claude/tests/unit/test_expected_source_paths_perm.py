@@ -11,6 +11,7 @@ logs a warning, and continues so the readable sources are still reported.
 
 This mirrors the enumerate_sources() fix in commit f951d61.
 """
+
 from __future__ import annotations
 
 import sys

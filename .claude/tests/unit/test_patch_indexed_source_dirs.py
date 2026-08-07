@@ -7,6 +7,7 @@ Same conservative posture as patch_venv_py: only patches when the
 existing value is the source default; user customizations are
 preserved.
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,10 +19,7 @@ import install  # noqa: E402
 
 
 def _write_default_config(p: Path) -> None:
-    p.write_text(
-        "INDEXED_SOURCE_DIRS: tuple[str, ...] = ()\n"
-        "OTHER = 1\n"
-    )
+    p.write_text("INDEXED_SOURCE_DIRS: tuple[str, ...] = ()\nOTHER = 1\n")
 
 
 def _host(tmp_path: Path, dirs_with_py: list[str]) -> Path:
@@ -57,9 +55,7 @@ def test_patch_replaces_default_with_discovered(tmp_path):
 
 def test_patch_preserves_user_customization(tmp_path):
     cfg = tmp_path / "search_config.py"
-    cfg.write_text(
-        'INDEXED_SOURCE_DIRS: tuple[str, ...] = ("my_custom/",)\n'
-    )
+    cfg.write_text('INDEXED_SOURCE_DIRS: tuple[str, ...] = ("my_custom/",)\n')
     _host(tmp_path, ["src"])
     patched = install.patch_indexed_source_dirs(cfg, tmp_path)
     assert patched is None

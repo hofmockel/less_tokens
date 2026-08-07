@@ -9,11 +9,9 @@ the wrong path.  The fix also checks for CLAUDE.md so non-git workspaces
 Additionally, the LESS_TOKENS_REPO env var override must take precedence over
 the auto-detection walk.
 """
+
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
 
 from tests.conftest import REPO_ROOT, load_hook
 
@@ -39,6 +37,7 @@ def test_resolve_repo_finds_claude_md_without_git(tmp_path, monkeypatch):
     hook_file.write_text(real_hook)
 
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("sf_test", hook_file)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -59,6 +58,7 @@ def test_resolve_repo_finds_git_without_claude_md(tmp_path, monkeypatch):
     hook_file.write_text(real_hook)
 
     import importlib.util
+
     spec = importlib.util.spec_from_file_location("sf_test2", hook_file)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

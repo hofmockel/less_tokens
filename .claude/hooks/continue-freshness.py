@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: block reads of a stale continue.md until drift is surfaced."""
+
 from __future__ import annotations
 
 import json

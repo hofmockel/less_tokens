@@ -8,6 +8,7 @@ tool output (verified against code.claude.com/docs/en/hooks.md). The fix is
 to emit hookSpecificOutput.updatedToolOutput on a normal exit 0 return, which
 is the documented mechanism for a PostToolUse hook to replace tool output.
 """
+
 from __future__ import annotations
 
 import io
@@ -37,7 +38,9 @@ def test_truncation_emits_updated_tool_output_and_exits_zero(monkeypatch):
     out = json.loads(captured.getvalue())
     updated = out["hookSpecificOutput"]["updatedToolOutput"]
     assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
-    assert len(updated) < len(big), "updatedToolOutput must be the truncated text, not the original"
+    assert len(updated) < len(big), (
+        "updatedToolOutput must be the truncated text, not the original"
+    )
     assert "chars omitted" in out["hookSpecificOutput"]["additionalContext"]
 
 

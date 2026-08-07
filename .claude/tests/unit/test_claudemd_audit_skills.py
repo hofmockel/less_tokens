@@ -19,7 +19,9 @@ def _skill(root: Path, name: str, description: str | None) -> None:
     d = root / name
     d.mkdir(parents=True)
     if description is None:
-        (d / "SKILL.md").write_text(f"# {name}\nno frontmatter here\n", encoding="utf-8")
+        (d / "SKILL.md").write_text(
+            f"# {name}\nno frontmatter here\n", encoding="utf-8"
+        )
     else:
         (d / "SKILL.md").write_text(
             f"---\nname: {name}\ndescription: {description}\n---\n# {name}\nbody\n",
@@ -55,8 +57,10 @@ def test_audit_skills_flags_over_cap_and_missing(tmp_path):
     _skill(skills, "nodesc", None)
 
     # Avoid network/model dependency: force the overlap check to no-op.
-    with patch.object(audit_mod, "BASE", tmp_path), \
-         patch.object(audit_mod, "desc_overlap", return_value=None):
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(audit_mod, "desc_overlap", return_value=None),
+    ):
         result = audit_mod.audit_skills(skills, word_cap=10, dup_sim=0.85)
 
     by_name = {r["name"]: r for r in result["skills"]}
@@ -98,7 +102,14 @@ def test_skills_cli_strict_fails_on_missing_description(tmp_path):
     _skill(skills, "broken", None)
 
     result = subprocess.run(
-        [sys.executable, str(TOOL), "--skills", "--skills-dir", str(skills), "--strict"],
+        [
+            sys.executable,
+            str(TOOL),
+            "--skills",
+            "--skills-dir",
+            str(skills),
+            "--strict",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

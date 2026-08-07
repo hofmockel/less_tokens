@@ -1,4 +1,5 @@
 """Shared fixtures for all test layers."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -75,6 +76,7 @@ def _no_production_telemetry_writes():
     any test writes a real line into production telemetry instead of isolating
     state via LESS_TOKENS_STATE_DIR. Deterministic byte-count diff, no fixtures,
     can't be fabricated or flaky."""
+
     def _sizes() -> dict[str, int]:
         return {
             str(p.relative_to(REPO_ROOT)): p.stat().st_size
@@ -86,9 +88,15 @@ def _no_production_telemetry_writes():
     yield
     after = _sizes()
 
-    grown = {path: (before.get(path, 0), size) for path, size in after.items() if size != before.get(path, 0)}
+    grown = {
+        path: (before.get(path, 0), size)
+        for path, size in after.items()
+        if size != before.get(path, 0)
+    }
     if grown:
-        details = "; ".join(f"{path} ({b} -> {a} bytes)" for path, (b, a) in grown.items())
+        details = "; ".join(
+            f"{path} ({b} -> {a} bytes)" for path, (b, a) in grown.items()
+        )
         pytest.fail(
             "Production telemetry changed during the test run — a hook wrote "
             f"real events instead of honoring LESS_TOKENS_STATE_DIR: {details}"

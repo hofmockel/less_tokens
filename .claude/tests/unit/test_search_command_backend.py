@@ -1,4 +1,5 @@
 """External vector backend is the sole semantic owner when configured."""
+
 from __future__ import annotations
 
 import json
@@ -41,9 +42,7 @@ def _result(**overrides):
     return value
 
 
-def test_command_backend_never_queries_local_index(
-    command_backend, monkeypatch
-):
+def test_command_backend_never_queries_local_index(command_backend, monkeypatch):
     captured = {}
 
     def fake_run(argv, **kwargs):
@@ -87,7 +86,9 @@ def test_command_backend_limits_and_deduplicates_private_candidates(
     monkeypatch.setattr(
         search.subprocess,
         "run",
-        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, json.dumps(candidates), ""),
+        lambda *a, **k: subprocess.CompletedProcess(
+            a[0], 0, json.dumps(candidates), ""
+        ),
     )
 
     hits = search.search("q", k=2, source_type="code", min_score=0.5)
@@ -153,10 +154,14 @@ def test_invalid_external_response_fails_closed(command_backend, monkeypatch, ca
     monkeypatch.setattr(
         search.subprocess,
         "run",
-        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, '{"results": [{"score": 1}]}', ""),
+        lambda *a, **k: subprocess.CompletedProcess(
+            a[0], 0, '{"results": [{"score": 1}]}', ""
+        ),
     )
 
-    with pytest.raises(search.SearchBackendError, match="invalid external search response"):
+    with pytest.raises(
+        search.SearchBackendError, match="invalid external search response"
+    ):
         search.search("q")
     assert capsys.readouterr().err == ""
 

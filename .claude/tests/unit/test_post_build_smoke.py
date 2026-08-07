@@ -5,6 +5,7 @@ user discover it on first search. Implementation: an extra subprocess
 call to `embeddings.py stats` (or `health`) after refresh succeeds, so
 the install output ends with a one-line confidence message.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -26,7 +27,9 @@ def test_build_index_smoke_checks_after_refresh(tmp_path, monkeypatch):
     rc = install.build_index(Path("/venv/py"), tmp_path)
     assert rc == 0
     # First call is the refresh, second is the smoke check.
-    assert len(calls) >= 2, f"expected smoke-check subprocess after refresh, got {calls}"
+    assert len(calls) >= 2, (
+        f"expected smoke-check subprocess after refresh, got {calls}"
+    )
     refresh, smoke = calls[0], calls[1]
     assert refresh[1].endswith("embeddings.py") and refresh[2] == "refresh"
     assert smoke[1].endswith("embeddings.py")

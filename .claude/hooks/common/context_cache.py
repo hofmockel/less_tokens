@@ -1,4 +1,5 @@
 """Shared context-cache logic for repeated reads and searches."""
+
 from __future__ import annotations
 
 import json
@@ -52,7 +53,13 @@ def get_state(state_dir: Path, transcript_path: str | None) -> dict:
         return {"session": None, "call": 0, "reads": {}, "greps": {}, "bash": {}}
     state = load_state(state_dir)
     if state.get("session") != transcript_path:
-        return {"session": transcript_path, "call": 0, "reads": {}, "greps": {}, "bash": {}}
+        return {
+            "session": transcript_path,
+            "call": 0,
+            "reads": {},
+            "greps": {},
+            "bash": {},
+        }
     state.setdefault("bash", {})
     return state
 
@@ -94,7 +101,9 @@ def blocked_read_chars(file_path: str, offset: object, limit: object) -> int:
         return size
 
 
-def check_read(state: dict, file_path: str, offset: object, limit: object) -> str | None:
+def check_read(
+    state: dict, file_path: str, offset: object, limit: object
+) -> str | None:
     key = read_key(file_path, offset, limit)
     entry = state.get("reads", {}).get(key)
     if not entry:
@@ -129,7 +138,9 @@ def record_read(state: dict, file_path: str, offset: object, limit: object) -> N
 
 
 def grep_key(inp: dict) -> str:
-    return ":::".join(str(inp.get(k, "")) for k in ("pattern", "path", "glob", "type", "query"))
+    return ":::".join(
+        str(inp.get(k, "")) for k in ("pattern", "path", "glob", "type", "query")
+    )
 
 
 def check_grep(state: dict, inp: dict, ttl: int) -> str | None:
@@ -220,7 +231,10 @@ def record_near_miss(state_dir: Path, *, kind: str, signature: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"kind": kind, "signature": signature, "ts": time.time()}) + "\n")
+            f.write(
+                json.dumps({"kind": kind, "signature": signature, "ts": time.time()})
+                + "\n"
+            )
     except OSError:
         pass
 
@@ -255,22 +269,28 @@ def check_context_cache(
             record_bash(state, inp, len(payload.tool_output or ""))
             save_state(state_dir, state)
             return 0, "", ""
-        msg, saved_chars = check_bash(state, inp, bash_ttl if bash_ttl is not None else grep_ttl)
+        msg, saved_chars = check_bash(
+            state, inp, bash_ttl if bash_ttl is not None else grep_ttl
+        )
         if msg:
             if log:
-                log({
-                    "strategy": STRATEGY_CONTEXT_CACHE_BASH,
-                    "basis": "measured",
-                    "kept_chars": 0,
-                    "elided_chars": saved_chars,
-                    "content_kind": "cached_bash",
-                    "where": bash_command(inp),
-                    "session_id": sid,
-                    "session_source": ssrc,
-                })
+                log(
+                    {
+                        "strategy": STRATEGY_CONTEXT_CACHE_BASH,
+                        "basis": "measured",
+                        "kept_chars": 0,
+                        "elided_chars": saved_chars,
+                        "content_kind": "cached_bash",
+                        "where": bash_command(inp),
+                        "session_id": sid,
+                        "session_source": ssrc,
+                    }
+                )
             save_state(state_dir, state)
             return 2, "", msg
-        record_near_miss(state_dir, kind="bash", signature=near_miss_signature(bash_command(inp)))
+        record_near_miss(
+            state_dir, kind="bash", signature=near_miss_signature(bash_command(inp))
+        )
     elif payload.tool_name == "Read":
         file_path = str(inp.get("file_path", ""))
         if not file_path:
@@ -291,16 +311,18 @@ def check_context_cache(
         if msg:
             if log:
                 saved_chars = blocked_read_chars(file_path, offset, limit)
-                log({
-                    "strategy": STRATEGY_CONTEXT_CACHE_READ,
-                    "basis": "measured",
-                    "kept_chars": 0,
-                    "elided_chars": saved_chars,
-                    "content_kind": "cached_read",
-                    "where": file_path,
-                    "session_id": sid,
-                    "session_source": ssrc,
-                })
+                log(
+                    {
+                        "strategy": STRATEGY_CONTEXT_CACHE_READ,
+                        "basis": "measured",
+                        "kept_chars": 0,
+                        "elided_chars": saved_chars,
+                        "content_kind": "cached_read",
+                        "where": file_path,
+                        "session_id": sid,
+                        "session_source": ssrc,
+                    }
+                )
             save_state(state_dir, state)
             return 2, "", msg
     else:
@@ -311,19 +333,25 @@ def check_context_cache(
         msg = check_grep(state, inp, grep_ttl)
         if msg:
             if log:
-                log({
-                    "strategy": STRATEGY_CONTEXT_CACHE_GREP,
-                    "basis": "measured",
-                    "kept_chars": 0,
-                    "elided_chars": 0,
-                    "content_kind": "cached_grep",
-                    "where": inp.get("pattern", ""),
-                    "session_id": sid,
-                    "session_source": ssrc,
-                })
+                log(
+                    {
+                        "strategy": STRATEGY_CONTEXT_CACHE_GREP,
+                        "basis": "measured",
+                        "kept_chars": 0,
+                        "elided_chars": 0,
+                        "content_kind": "cached_grep",
+                        "where": inp.get("pattern", ""),
+                        "session_id": sid,
+                        "session_source": ssrc,
+                    }
+                )
             save_state(state_dir, state)
             return 2, "", msg
-        record_near_miss(state_dir, kind="grep", signature=str(inp.get("pattern") or inp.get("query") or "")[:80])
+        record_near_miss(
+            state_dir,
+            kind="grep",
+            signature=str(inp.get("pattern") or inp.get("query") or "")[:80],
+        )
 
     save_state(state_dir, state)
     return 0, "", ""

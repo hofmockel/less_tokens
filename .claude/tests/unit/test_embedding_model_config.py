@@ -6,6 +6,7 @@ from search_config.py; embeddings.py re-exports them as MODEL/DIM (search.py
 imports DIM from embeddings, which is now config-sourced). This guards the
 constants' presence and the wiring.
 """
+
 from __future__ import annotations
 
 import sys

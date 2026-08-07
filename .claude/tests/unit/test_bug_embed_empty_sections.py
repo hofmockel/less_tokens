@@ -1,4 +1,5 @@
 """Regression test: duplication() must return {} (not crash or None) when sections is empty."""
+
 from __future__ import annotations
 
 import sys
@@ -20,12 +21,17 @@ def test_duplication_empty_sections_returns_empty_dict():
     ]
 
     with (
-        patch.dict("sys.modules", {
-            "db": MagicMock(connect_index=MagicMock(return_value=mock_conn)),
-            "embeddings": MagicMock(DIM=384, embed=MagicMock(), unpack_vectors=MagicMock()),
-            "numpy": __import__("numpy"),
-            "search_config": MagicMock(EMBEDDING_MODEL="test-model"),
-        }),
+        patch.dict(
+            "sys.modules",
+            {
+                "db": MagicMock(connect_index=MagicMock(return_value=mock_conn)),
+                "embeddings": MagicMock(
+                    DIM=384, embed=MagicMock(), unpack_vectors=MagicMock()
+                ),
+                "numpy": __import__("numpy"),
+                "search_config": MagicMock(EMBEDDING_MODEL="test-model"),
+            },
+        ),
     ):
         result = audit_mod.duplication(sections)
 
@@ -43,12 +49,17 @@ def test_duplication_sections_without_level_returns_empty_dict():
     ]
 
     with (
-        patch.dict("sys.modules", {
-            "db": MagicMock(connect_index=MagicMock(return_value=mock_conn)),
-            "embeddings": MagicMock(DIM=384, embed=MagicMock(), unpack_vectors=MagicMock()),
-            "numpy": __import__("numpy"),
-            "search_config": MagicMock(EMBEDDING_MODEL="test-model"),
-        }),
+        patch.dict(
+            "sys.modules",
+            {
+                "db": MagicMock(connect_index=MagicMock(return_value=mock_conn)),
+                "embeddings": MagicMock(
+                    DIM=384, embed=MagicMock(), unpack_vectors=MagicMock()
+                ),
+                "numpy": __import__("numpy"),
+                "search_config": MagicMock(EMBEDDING_MODEL="test-model"),
+            },
+        ),
     ):
         result = audit_mod.duplication(sections)
 

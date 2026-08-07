@@ -19,7 +19,9 @@ def _homes(topic="Widget spec", canonical="CANON.md", others=("OTHER.md",)):
 
 
 def test_audit_docs_flags_missing_canonical(tmp_path):
-    (tmp_path / "OTHER.md").write_text("# Other\n\n## Widget\nshort\n", encoding="utf-8")
+    (tmp_path / "OTHER.md").write_text(
+        "# Other\n\n## Widget\nshort\n", encoding="utf-8"
+    )
 
     result = audit_mod.audit_docs(tmp_path, homes=_homes())
 

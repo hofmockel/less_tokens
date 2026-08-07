@@ -1,8 +1,8 @@
 """Unit tests for tools/db.py — schema init, migration, and verify."""
+
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 import pytest
 
@@ -25,17 +25,23 @@ class TestInit:
     def test_documents_table_exists(self, isolated_db):
         db_mod.init()
         with db_mod.connect_index() as c:
-            tables = [r[0] for r in c.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()]
+            tables = [
+                r[0]
+                for r in c.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            ]
         assert "documents" in tables
 
     def test_schema_version_table_exists(self, isolated_db):
         db_mod.init()
         with db_mod.connect_index() as c:
-            tables = [r[0] for r in c.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()]
+            tables = [
+                r[0]
+                for r in c.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            ]
         assert "schema_version" in tables
 
     def test_schema_version_recorded(self, isolated_db):
@@ -53,7 +59,9 @@ class TestInit:
         assert db_mod.init() == 0
 
     def test_missing_schema_file_returns_one(self, isolated_db, monkeypatch):
-        monkeypatch.setattr(db_mod, "SCHEMA_FILE", isolated_db.parent / "nonexistent.sql")
+        monkeypatch.setattr(
+            db_mod, "SCHEMA_FILE", isolated_db.parent / "nonexistent.sql"
+        )
         ret = db_mod.init()
         assert ret == 1
 

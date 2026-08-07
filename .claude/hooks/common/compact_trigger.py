@@ -1,4 +1,5 @@
 """Shared compact-trigger logic — agent-neutral."""
+
 from __future__ import annotations
 
 import json
@@ -36,9 +37,17 @@ def record_session_size_sample(state_dir: Path, *, size: int, threshold: int) ->
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "kind": "session_size", "size": size, "threshold": threshold, "ts": time.time(),
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "kind": "session_size",
+                        "size": size,
+                        "threshold": threshold,
+                        "ts": time.time(),
+                    }
+                )
+                + "\n"
+            )
     except OSError:
         pass
 
@@ -135,16 +144,18 @@ def measure_compaction(
     if compacted and log is not None:
         sid, ssrc = session
         try:
-            log({
-                "strategy": STRATEGY_COMPACTION,
-                "basis": "measured",
-                "kept_chars": cur,
-                "elided_chars": max(0, peak - cur),
-                "content_kind": "transcript",
-                "where": "compact",
-                "session_id": sid,
-                "session_source": ssrc,
-            })
+            log(
+                {
+                    "strategy": STRATEGY_COMPACTION,
+                    "basis": "measured",
+                    "kept_chars": cur,
+                    "elided_chars": max(0, peak - cur),
+                    "content_kind": "transcript",
+                    "where": "compact",
+                    "session_id": sid,
+                    "session_source": ssrc,
+                }
+            )
         except Exception:
             pass
         new_peak = cur

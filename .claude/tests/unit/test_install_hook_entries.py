@@ -1,4 +1,5 @@
 """Tests for build_claude_hook_entries in install.py."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,8 +12,12 @@ from install import build_claude_hook_entries
 
 def _args(**kwargs) -> argparse.Namespace:
     defaults = {
-        "truncate": False, "compact": False, "caveman": False,
-        "no_truncate": False, "no_compact": False, "no_caveman": False,
+        "truncate": False,
+        "compact": False,
+        "caveman": False,
+        "no_truncate": False,
+        "no_compact": False,
+        "no_caveman": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -54,7 +59,9 @@ class TestBuildClaudeHookEntries:
             "savings-html.py",
             "continue-freshness.py",
         ]:
-            assert any(name in cmd for cmd in commands), f"{name} missing from Claude hooks"
+            assert any(name in cmd for cmd in commands), (
+                f"{name} missing from Claude hooks"
+            )
 
     def test_optional_hooks_on_by_default(self, tmp_path):
         # CL2: no flags needed — Claude gets truncate/compact/caveman by default.

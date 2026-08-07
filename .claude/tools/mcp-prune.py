@@ -26,6 +26,7 @@ also accepted). Format:
 Re-adding a server: remove it from .toolignore, then re-run to restore.
 Servers not present in the file are left untouched.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -64,17 +65,32 @@ def prune(settings_path: Path, ignored: set[str]) -> tuple[dict, list[str]]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Remove ignored MCP servers from settings")
-    ap.add_argument("settings", nargs="?", metavar="SETTINGS_FILE",
-                    help="Settings file to process (default: .claude/settings.json)")
-    ap.add_argument("--in-place", action="store_true",
-                    help="Write pruned settings back to the same file")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="Show what would be removed without changing anything")
-    ap.add_argument("--ignore-file", metavar="PATH",
-                    help="Explicit .toolignore path (overrides auto-discovery)")
+    ap.add_argument(
+        "settings",
+        nargs="?",
+        metavar="SETTINGS_FILE",
+        help="Settings file to process (default: .claude/settings.json)",
+    )
+    ap.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Write pruned settings back to the same file",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be removed without changing anything",
+    )
+    ap.add_argument(
+        "--ignore-file",
+        metavar="PATH",
+        help="Explicit .toolignore path (overrides auto-discovery)",
+    )
     args = ap.parse_args()
 
-    settings_path = Path(args.settings) if args.settings else _BASE / ".claude" / "settings.json"
+    settings_path = (
+        Path(args.settings) if args.settings else _BASE / ".claude" / "settings.json"
+    )
     if not settings_path.exists():
         print(f"not found: {settings_path}", file=sys.stderr)
         return 2
@@ -102,7 +118,9 @@ def main() -> int:
             for name in removed:
                 print(f"  - {name}")
         else:
-            print(f"Nothing to remove from {settings_path} (no overlap with .toolignore).")
+            print(
+                f"Nothing to remove from {settings_path} (no overlap with .toolignore)."
+            )
         return 0
 
     if not removed:

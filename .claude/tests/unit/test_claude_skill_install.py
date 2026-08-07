@@ -1,4 +1,5 @@
 """Tests for the Claude-side less-tokens skill and narrow agent definitions (G14/G16/G17)."""
+
 from __future__ import annotations
 
 import sys
@@ -53,10 +54,13 @@ class TestSkillContent:
 
 
 class TestNarrowAgentDefinitions:
-    @pytest.mark.parametrize("name,allowed_tools", [
-        ("explorer.md", {"Read", "Grep", "Glob"}),
-        ("verifier.md", {"Bash", "Read"}),
-    ])
+    @pytest.mark.parametrize(
+        "name,allowed_tools",
+        [
+            ("explorer.md", {"Read", "Grep", "Glob"}),
+            ("verifier.md", {"Bash", "Read"}),
+        ],
+    )
     def test_agent_tools_allowlist_is_narrow(self, name, allowed_tools):
         fm = _frontmatter(AGENTS_SRC / name)
         tools = {t.strip() for t in fm["tools"].split(",")}

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: enforce search-before-Read on indexed files (wired via .claude/settings.json)."""
+
 from __future__ import annotations
 
 import json
@@ -36,10 +37,18 @@ sys.path[:0] = [
 
 try:
     from agents.common.hooks.payload import normalize_claude  # type: ignore[import]
-    from agents.common.hooks.search_first import check_search_first, is_indexed as _common_is_indexed, search_was_recent as _common_recent
+    from agents.common.hooks.search_first import (
+        check_search_first,
+        is_indexed as _common_is_indexed,
+        search_was_recent as _common_recent,
+    )
 except Exception:
     from payload import normalize_claude  # type: ignore[no-redef]
-    from search_first import check_search_first, is_indexed as _common_is_indexed, search_was_recent as _common_recent  # type: ignore[no-redef]
+    from search_first import (
+        check_search_first,
+        is_indexed as _common_is_indexed,
+        search_was_recent as _common_recent,
+    )  # type: ignore[no-redef]
 
 _config: dict = {}
 
@@ -47,6 +56,7 @@ _config: dict = {}
 def _load_config() -> bool:
     try:
         import search_config  # noqa: E402
+
         _config["excluded_prefixes"] = search_config.EXCLUDED_DIR_PREFIXES
         _config["excluded_names"] = search_config.EXCLUDED_DIR_NAMES
         _config["root_globs"] = search_config.INDEXED_ROOT_GLOBS
@@ -57,12 +67,16 @@ def _load_config() -> bool:
         _config["state_file"] = _config["state_dir"] / "last-search"
         _config["window_seconds"] = search_config.WINDOW_SECONDS
     except Exception as e:
-        print(f"search-first: could not load search_config ({e}); gate disabled", file=sys.stderr)
+        print(
+            f"search-first: could not load search_config ({e}); gate disabled",
+            file=sys.stderr,
+        )
         return False
     try:
         from savings_log import append as _log  # noqa: PLC0415
         from savings_log import resolve_session  # noqa: PLC0415
         from savings_log import STRATEGY_SEARCH_BLOCKED  # noqa: PLC0415
+
         _config["log"] = _log
         _config["resolve_session"] = resolve_session
         _config["strategy_search_blocked"] = STRATEGY_SEARCH_BLOCKED
@@ -86,7 +100,11 @@ def search_was_recent() -> bool:
     state_dir = _config.get("state_dir")
     if state_dir is None and _config.get("state_file") is not None:
         state_dir = Path(_config["state_file"]).parent
-    return _common_recent(Path(state_dir), _config["window_seconds"]) if state_dir else False
+    return (
+        _common_recent(Path(state_dir), _config["window_seconds"])
+        if state_dir
+        else False
+    )
 
 
 def main() -> int:
@@ -97,7 +115,9 @@ def main() -> int:
     except Exception:
         return 0
     payload = normalize_claude(raw)
-    code, stdout, stderr = check_search_first(payload, repo=REPO, state_dir=_config["state_dir"], config=_config)
+    code, stdout, stderr = check_search_first(
+        payload, repo=REPO, state_dir=_config["state_dir"], config=_config
+    )
     if code == 2:
         file_path = (payload.tool_input or {}).get("file_path", "")
         try:
@@ -108,17 +128,19 @@ def main() -> int:
             saved = 0
         _resolve = _config.get("resolve_session", lambda _r: ("local-session", "local"))
         sid, ssrc = _resolve(raw)
-        _config.get("log", lambda _: None)({
-            "strategy": _config.get("strategy_search_blocked", "search-blocked"),
-            "basis": "upper_bound",
-            "kept_chars": 0,
-            "elided_chars": saved,
-            "content_kind": "source_file",
-            "where": rel,
-            "session_id": sid,
-            "session_source": ssrc,
-            "correlation_id": f"sf:{rel}",
-        })
+        _config.get("log", lambda _: None)(
+            {
+                "strategy": _config.get("strategy_search_blocked", "search-blocked"),
+                "basis": "upper_bound",
+                "kept_chars": 0,
+                "elided_chars": saved,
+                "content_kind": "source_file",
+                "where": rel,
+                "session_id": sid,
+                "session_source": ssrc,
+                "correlation_id": f"sf:{rel}",
+            }
+        )
         stderr = stderr.replace("Search-first rule:", "Search-first rule (CLAUDE.md):")
     if stdout:
         print(stdout)

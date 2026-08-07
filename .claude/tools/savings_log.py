@@ -14,6 +14,7 @@ schema: ``basis``/``kept_chars``/``elided_chars``/``content_kind``/``where``/
 ``session_id``/``session_source`` plus an optional ``correlation_id``. Tokens
 are never stored — they are derived at report time.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from search_config import active_state_dir
+
     STATE_DIR = active_state_dir()
 except Exception:
     STATE_DIR = CLAUDE_DIR / "state"
@@ -51,20 +53,25 @@ STRATEGY_SEARCH = "search"
 STRATEGY_SUBAGENT_CAP = "subagent-cap"
 
 _KNOWN_STRATEGIES: dict[str, tuple[str, str]] = {
-    STRATEGY_TRUNCATION:           ("Truncation", "measured"),
-    STRATEGY_COMPACTION:           ("Compaction", "measured"),
-    STRATEGY_CONTEXT_CACHE_READ:   ("Cached read (repeat)", "measured"),
-    STRATEGY_CONTEXT_CACHE_GREP:   ("Cached grep (repeat)", "measured"),
-    STRATEGY_CONTEXT_CACHE_BASH:   ("Cached bash (repeat)", "measured"),
-    STRATEGY_SEARCH_BLOCKED:       ("Search-first block", "upper_bound"),
-    STRATEGY_SEARCH:               ("Search (vs full file)", "upper_bound"),
-    STRATEGY_SUBAGENT_CAP:         ("Subagent return cap", "measured"),
+    STRATEGY_TRUNCATION: ("Truncation", "measured"),
+    STRATEGY_COMPACTION: ("Compaction", "measured"),
+    STRATEGY_CONTEXT_CACHE_READ: ("Cached read (repeat)", "measured"),
+    STRATEGY_CONTEXT_CACHE_GREP: ("Cached grep (repeat)", "measured"),
+    STRATEGY_CONTEXT_CACHE_BASH: ("Cached bash (repeat)", "measured"),
+    STRATEGY_SEARCH_BLOCKED: ("Search-first block", "upper_bound"),
+    STRATEGY_SEARCH: ("Search (vs full file)", "upper_bound"),
+    STRATEGY_SUBAGENT_CAP: ("Subagent return cap", "measured"),
 }
 
 
 def _stats_disabled() -> bool:
     """True when the user opted out via LESS_TOKENS_NO_STATS."""
-    return os.environ.get("LESS_TOKENS_NO_STATS", "").strip() not in ("", "0", "false", "False")
+    return os.environ.get("LESS_TOKENS_NO_STATS", "").strip() not in (
+        "",
+        "0",
+        "false",
+        "False",
+    )
 
 
 def resolve_session(raw: dict | None) -> tuple[str, str]:

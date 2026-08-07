@@ -2,6 +2,7 @@
 
 Plain-text parse — avoids a PyYAML dependency for this single check.
 """
+
 from __future__ import annotations
 
 from tests.conftest import REPO_ROOT

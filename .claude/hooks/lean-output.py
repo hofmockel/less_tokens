@@ -6,6 +6,7 @@ through parse.py. Emits hookSpecificOutput only when the result is shorter,
 so the context cost is the signal, not the noise.
 install.py wires this as PostToolUse on Bash.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ def _venv_py() -> Path | None:
     try:
         sys.path.insert(0, str(_TOOLS))
         import search_config  # noqa: E402
+
         p = Path(search_config.VENV_PY)
         return p if p.exists() else None
     except Exception:
@@ -76,7 +78,10 @@ def main() -> None:
     try:
         r = subprocess.run(
             [str(venv_py), str(parse_py), tool],
-            input=raw, capture_output=True, text=True, timeout=10,
+            input=raw,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         parsed = r.stdout
     except Exception:
@@ -86,8 +91,13 @@ def main() -> None:
         sys.exit(0)
 
     saved = len(raw) - len(parsed)
-    print(json.dumps({"hookSpecificOutput":
-        f"[lean-output:{tool}] {saved} chars trimmed\n{parsed}"}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": f"[lean-output:{tool}] {saved} chars trimmed\n{parsed}"
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

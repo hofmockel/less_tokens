@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: block whole-file Reads of high-noise files."""
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,11 @@ except Exception:
     from read_guard import check_read_guard  # type: ignore[no-redef]
 
 try:
-    from search_config import READ_DENY_DATA_EXTS, READ_DENY_DATA_MAX_LINES, READ_DENY_GLOBS  # noqa: E402
+    from search_config import (
+        READ_DENY_DATA_EXTS,
+        READ_DENY_DATA_MAX_LINES,
+        READ_DENY_GLOBS,
+    )  # noqa: E402
 except Exception:
     READ_DENY_GLOBS = ()
     READ_DENY_DATA_MAX_LINES = 1000

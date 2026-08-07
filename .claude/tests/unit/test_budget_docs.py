@@ -36,5 +36,3 @@ def test_changelog_mentions_budget_control_plane():
     assert "Budget-native context control plane" in text
     assert "budget_report.py" in text
     assert "budget_doctor.py" in text
-
-

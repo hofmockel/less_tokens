@@ -5,13 +5,16 @@ Post-Phase-3 the report renders measured and upper-bound in separate panels and
 never cross-sums them, so this guard stays *within one basis* — both fixtures use
 measured strategies (truncation, compaction) and read the measured (first) Total.
 """
+
 from __future__ import annotations
 
 import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / ".claude" / "tools"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent.parent.parent.parent / ".claude" / "tools")
+)
 import stats as stats_mod
 
 
@@ -33,12 +36,18 @@ def test_total_tokens_not_truncated_per_row():
     per-row-summed total would give 0 — the correct total comes from summing
     chars first, then converting once. Calibration-agnostic: derives the
     expected token count from the real divisor instead of hardcoding one."""
-    records = _make_records("truncation", 1, count=5) + _make_records("compaction", 1, count=5)
+    records = _make_records("truncation", 1, count=5) + _make_records(
+        "compaction", 1, count=5
+    )
     total_tokens = _measured_total_tokens(records)
-    assert stats_mod._to_tokens(1) == 0, "fixture assumption broke: 1 char must floor to 0 tokens"
+    assert stats_mod._to_tokens(1) == 0, (
+        "fixture assumption broke: 1 char must floor to 0 tokens"
+    )
     expected = stats_mod._to_tokens(10)
     assert expected > 0, "fixture assumption broke: 10 chars must floor to >0 tokens"
-    assert total_tokens == expected, f"Expected {expected} tokens (10 chars, single conversion), got {total_tokens}"
+    assert total_tokens == expected, (
+        f"Expected {expected} tokens (10 chars, single conversion), got {total_tokens}"
+    )
 
 
 def test_total_tokens_exact_divisible():

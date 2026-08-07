@@ -6,6 +6,7 @@ self-contained HTML report. Fully
 failure-safe and silent: any error (no log yet, import failure, write error)
 returns 0 so it never blocks the turn or nags the transcript.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,6 +38,7 @@ def main() -> int:
     try:
         import stats  # type: ignore[import]
         from savings_log import _stats_disabled  # type: ignore[import]
+
         if _stats_disabled():
             return 0
         session = stats._load_records(all_time=False)

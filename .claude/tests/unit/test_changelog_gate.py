@@ -3,6 +3,7 @@
 Two rules: (1) changelog-exists for code changes, (2) backlog cross-check that a
 CHANGELOG-cited ID is gone from BACKLOG.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -22,6 +23,7 @@ CL_EMPTY = "## [Unreleased]\n\n## [1.0.0]\n- old\n"
 
 
 # --- Rule 1: changelog-exists ------------------------------------------------
+
 
 def test_is_code_change():
     assert gate.is_code_change(".claude/tools/search.py")
@@ -69,7 +71,9 @@ def test_code_change_documented_passes():
 
 # --- Rule 2: backlog cross-check ---------------------------------------------
 
-CL_CITES_P1 = "## [Unreleased]\n- [P1] shipped it\n- plain entry\n\n## [1.0.0]\n- [F9] old\n"
+CL_CITES_P1 = (
+    "## [Unreleased]\n- [P1] shipped it\n- plain entry\n\n## [1.0.0]\n- [F9] old\n"
+)
 BACKLOG = "# Backlog\n- **P1 — thing** *(fixed)*\n- **F2 — other** *(fixed)*\n"
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PostToolUse hook: nudge to compact when transcript grows large."""
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,10 @@ sys.path[:0] = [
 ]
 
 try:
-    from agents.common.hooks.compact_trigger import check_compact_trigger, measure_compaction  # type: ignore[import]
+    from agents.common.hooks.compact_trigger import (
+        check_compact_trigger,
+        measure_compaction,
+    )  # type: ignore[import]
     from agents.common.hooks.payload import normalize_claude
 except Exception:
     from compact_trigger import check_compact_trigger, measure_compaction  # type: ignore[no-redef]
@@ -44,6 +48,7 @@ except Exception:
 try:
     from search_config import AGENT_MODEL, MAX_SESSION_CHARS, active_state_dir  # noqa: E402
     from model_profiles import scaled_compact_chars  # noqa: E402
+
     MAX_SESSION_CHARS = scaled_compact_chars(MAX_SESSION_CHARS, AGENT_MODEL)
 except Exception:
     MAX_SESSION_CHARS = 750_000
@@ -51,15 +56,18 @@ except Exception:
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
 
+
 try:
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
 except Exception:
+
     def _log_savings(_r: dict) -> None:
         pass
 
     def resolve_session(_raw: dict | None) -> tuple[str, str]:
         return "local-session", "local"
+
 
 STATE_FILE = active_state_dir() / "compact-trigger-last"
 

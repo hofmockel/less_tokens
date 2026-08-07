@@ -1,4 +1,5 @@
 """Shared concise-response analysis for Claude and Codex."""
+
 from __future__ import annotations
 
 import json
@@ -68,7 +69,9 @@ def last_assistant_text(transcript_path: str) -> str:
     return ""
 
 
-def analyze(text: str, *, max_response_words: int, min_filler_hits: int = 1) -> list[str]:
+def analyze(
+    text: str, *, max_response_words: int, min_filler_hits: int = 1
+) -> list[str]:
     if not text:
         return []
     if DOCUMENT_DRAFT_SENTINEL in text:

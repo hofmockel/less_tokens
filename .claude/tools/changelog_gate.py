@@ -12,6 +12,7 @@
 Pure checks (`check`, `lingering_backlog_ids`) are unit-testable; the CLI gathers
 the diff from git and reads the two files. Wired into CI and `.pre-commit-config.yaml`.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,8 +25,8 @@ CHANGELOG = "CHANGELOG.md"
 BACKLOG = "BACKLOG.md"
 
 ID = r"[A-Z]+\d+"
-CITED = re.compile(rf"\[({ID})\]")        # [P1] in a CHANGELOG entry
-HEADING = re.compile(rf"\*\*({ID})\s*—")   # **P1 — in BACKLOG
+CITED = re.compile(rf"\[({ID})\]")  # [P1] in a CHANGELOG entry
+HEADING = re.compile(rf"\*\*({ID})\s*—")  # **P1 — in BACKLOG
 
 
 def is_code_change(path: str) -> bool:
@@ -43,7 +44,7 @@ def unreleased_section(changelog_text: str) -> str:
     m = re.search(r"^##\s*\[Unreleased\]\s*$", changelog_text, re.MULTILINE)
     if not m:
         return ""
-    rest = changelog_text[m.end():]
+    rest = changelog_text[m.end() :]
     nxt = re.search(r"^##\s", rest, re.MULTILINE)
     return rest[: nxt.start()] if nxt else rest
 
@@ -104,7 +105,9 @@ def changed_files(base: str | None) -> list[str]:
         if out.strip():
             return [line for line in out.splitlines() if line.strip()]
     # local / pre-commit: staged + unstaged vs HEAD
-    out = _git(["diff", "--name-only", "HEAD"]) + _git(["diff", "--name-only", "--cached"])
+    out = _git(["diff", "--name-only", "HEAD"]) + _git(
+        ["diff", "--name-only", "--cached"]
+    )
     return sorted({line for line in out.splitlines() if line.strip()})
 
 
@@ -116,8 +119,16 @@ def main(argv: list[str]) -> int:
         base = argv[1]
 
     repo = Path(__file__).resolve().parents[2]
-    text = (repo / CHANGELOG).read_text(encoding="utf-8") if (repo / CHANGELOG).exists() else ""
-    backlog_text = (repo / BACKLOG).read_text(encoding="utf-8") if (repo / BACKLOG).exists() else ""
+    text = (
+        (repo / CHANGELOG).read_text(encoding="utf-8")
+        if (repo / CHANGELOG).exists()
+        else ""
+    )
+    backlog_text = (
+        (repo / BACKLOG).read_text(encoding="utf-8")
+        if (repo / BACKLOG).exists()
+        else ""
+    )
 
     ok = True
     # Rule 1: changelog-exists

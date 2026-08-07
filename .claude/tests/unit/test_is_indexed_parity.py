@@ -5,6 +5,7 @@ Both hooks delegate to the single shared `is_indexed` in
 *same* config so mid-path excluded dirs can never diverge again — the
 divergence that the old CLAUDE.md "Known bugs worth avoiding" note warned about.
 """
+
 from __future__ import annotations
 
 import importlib.util

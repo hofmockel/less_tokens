@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PostToolUse hook: truncate oversized Bash, Read, WebFetch, and Glob results."""
+
 from __future__ import annotations
 
 import json
@@ -36,17 +37,34 @@ sys.path[:0] = [
 
 try:
     from agents.common.hooks.payload import normalize_claude  # type: ignore[import]
-    from agents.common.hooks.truncate_output import check_truncate_output, truncate_bash, truncate_chars, truncate_glob
+    from agents.common.hooks.truncate_output import (
+        check_truncate_output,
+        truncate_bash,
+        truncate_chars,
+        truncate_glob,
+    )
 except Exception:
     from payload import normalize_claude  # type: ignore[no-redef]
-    from truncate_output import check_truncate_output, truncate_bash, truncate_chars, truncate_glob  # type: ignore[no-redef]
+    from truncate_output import (
+        check_truncate_output,
+        truncate_bash,
+        truncate_chars,
+        truncate_glob,
+    )  # type: ignore[no-redef]
 
 try:
-    from search_config import AGENT_MODEL, MAX_GLOB_RESULTS, MAX_TOOL_OUTPUT_CHARS, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES  # noqa: E402
+    from search_config import (
+        AGENT_MODEL,
+        MAX_GLOB_RESULTS,
+        MAX_TOOL_OUTPUT_CHARS,
+        TOOL_OUTPUT_HEAD_LINES,
+        TOOL_OUTPUT_TAIL_LINES,
+    )  # noqa: E402
     from model_profiles import scaled_tool_output_chars  # noqa: E402
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
     from savings_log import STRATEGY_TRUNCATION  # noqa: E402
+
     MAX_TOOL_OUTPUT_CHARS = scaled_tool_output_chars(MAX_TOOL_OUTPUT_CHARS, AGENT_MODEL)
 except Exception:
     MAX_TOOL_OUTPUT_CHARS = 4000
@@ -83,23 +101,29 @@ def main() -> int:
         # see https://code.claude.com/docs/en/hooks.md#posttooluse-decision-control.
         sid, ssrc = resolve_session(raw)
         kept = len(stdout)
-        _log_savings({
-            "strategy": STRATEGY_TRUNCATION,
-            "basis": "measured",
-            "kept_chars": kept,
-            "elided_chars": max(0, len(payload.tool_output) - kept),
-            "content_kind": "tool_output",
-            "where": payload.tool_name,
-            "session_id": sid,
-            "session_source": ssrc,
-        })
-        print(json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PostToolUse",
-                "updatedToolOutput": stdout,
-                "additionalContext": stderr,
+        _log_savings(
+            {
+                "strategy": STRATEGY_TRUNCATION,
+                "basis": "measured",
+                "kept_chars": kept,
+                "elided_chars": max(0, len(payload.tool_output) - kept),
+                "content_kind": "tool_output",
+                "where": payload.tool_name,
+                "session_id": sid,
+                "session_source": ssrc,
             }
-        }))
+        )
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PostToolUse",
+                        "updatedToolOutput": stdout,
+                        "additionalContext": stderr,
+                    }
+                }
+            )
+        )
         return 0
     return code
 

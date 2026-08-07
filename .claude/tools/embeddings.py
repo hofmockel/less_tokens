@@ -19,6 +19,7 @@ Usage:
   python3 tools/embeddings.py health          # verify every expected source has chunks
   python3 tools/embeddings.py switch-model <model> --dim <N>  # atomic model+reindex swap
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,6 +43,7 @@ warnings.filterwarnings(
 )
 
 import numpy as np  # noqa: E402
+
 
 def _find_base() -> Path:
     """Project root: cwd when it contains .claude/tools/search_config.py, else __file__ ancestor.
@@ -129,6 +131,7 @@ def _sha256(s: str) -> str:
 
 # ----- chunking helpers -----------------------------------------------------
 
+
 def _split_at_boundary(text: str, max_chars: int) -> list[str]:
     """Split text into pieces ≤ max_chars at paragraph, then line boundaries."""
     if len(text) <= max_chars:
@@ -170,10 +173,10 @@ _JS_DECL = re.compile(
     r"^(?:export\s+(?:default\s+)?)?"
     r"(?:"
     r"(?:async\s+)?function\s*\*?\s*(\w+)"  # named function / generator
-    r"|class\s+(\w+)"                        # class
-    r"|(?:const|let|var)\s+(\w+)\s*="       # const/let/var assignment
-    r"|(?:interface|enum)\s+(\w+)"           # TS interface / enum
-    r"|type\s+(\w+)\s*="                     # TS type alias
+    r"|class\s+(\w+)"  # class
+    r"|(?:const|let|var)\s+(\w+)\s*="  # const/let/var assignment
+    r"|(?:interface|enum)\s+(\w+)"  # TS interface / enum
+    r"|type\s+(\w+)\s*="  # TS type alias
     r")"
 )
 _JS_EXPORT_DEFAULT = re.compile(
@@ -272,9 +275,7 @@ def chunk_python(path: Path) -> list[tuple[str, str]]:
     mod_doc = ast.get_docstring(tree)
     if mod_doc:
         out.append(("__module__", mod_doc))
-    add_ctx = bool(
-        mod_doc and search_config.CHUNK_INCLUDE_MODULE_CONTEXT
-    )
+    add_ctx = bool(mod_doc and search_config.CHUNK_INCLUDE_MODULE_CONTEXT)
 
     def _ctx(code: str) -> str:
         # Prefix the module docstring as a comment so the chunk still reads
@@ -370,7 +371,8 @@ def chunk_sql(path: Path) -> list[tuple[str, str]]:
             continue
         m = re.search(
             r"CREATE\s+(?:TABLE|VIEW|INDEX)\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)",
-            b, re.IGNORECASE,
+            b,
+            re.IGNORECASE,
         )
         key = m.group(1) if m else f"stmt:{_sha256(b)[:8]}"
         out.append((key, b))
@@ -401,6 +403,7 @@ def chunk_changelog(path: Path) -> list[tuple[str, str]]:
 
 # ----- source enumeration ---------------------------------------------------
 
+
 def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
     """Return ([(source_type, source_path, source_key, text), ...], incomplete).
 
@@ -426,8 +429,10 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
                 for k, t in chunks:
                     out.append((st, rel, k, t))
             else:
-                print(f"  WARN: unsupported glob extension {f.suffix!r} — {rel} skipped",
-                      file=sys.stderr)
+                print(
+                    f"  WARN: unsupported glob extension {f.suffix!r} — {rel} skipped",
+                    file=sys.stderr,
+                )
 
     # Python from indexed subdirs + root .py
     py_paths: list[Path] = []
@@ -443,8 +448,10 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             # Flag the run incomplete so refresh() does not prune the rows
             # belonging to the part we could not read.
             incomplete = True
-            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
-                  file=sys.stderr)
+            print(
+                f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                file=sys.stderr,
+            )
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -463,8 +470,9 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
             sql_paths.extend(d.glob("*.sql"))
         except OSError as e:
             incomplete = True
-            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
-                  file=sys.stderr)
+            print(
+                f"  WARN: skipping unreadable SQL dir {dir_str} — {e}", file=sys.stderr
+            )
             continue
     sql_paths.extend(BASE.glob("*.sql"))
     for sq in sorted(set(sql_paths)):
@@ -485,8 +493,10 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
                 js_paths.extend(d.rglob(ext))
         except OSError as e:
             incomplete = True
-            print(f"  WARN: skipping unreadable JS/TS dir {dir_str} — {e}",
-                  file=sys.stderr)
+            print(
+                f"  WARN: skipping unreadable JS/TS dir {dir_str} — {e}",
+                file=sys.stderr,
+            )
     for js in sorted(set(js_paths)):
         if _excluded(js):
             continue
@@ -498,6 +508,7 @@ def enumerate_sources() -> tuple[list[tuple[str, str, str, str]], bool]:
 
 
 # ----- local embed ---------------------------------------------------------
+
 
 def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
     """Local fastembed encode. Returns (N, DIM) float32 normalized."""
@@ -512,6 +523,7 @@ def embed(texts: list[str], input_type: str = "document") -> np.ndarray:
 
 
 # ----- refresh --------------------------------------------------------------
+
 
 def _dry_run_report(full: bool) -> int:
     """Print add/update/unchanged/delete counts without touching index.db.
@@ -530,8 +542,7 @@ def _dry_run_report(full: bool) -> int:
                 existing = {
                     (r[0], r[1]): r[2]
                     for r in conn.execute(
-                        "SELECT source_path, source_key, content_hash "
-                        "FROM documents"
+                        "SELECT source_path, source_key, content_hash FROM documents"
                     ).fetchall()
                 }
             except sqlite3.OperationalError:
@@ -555,8 +566,9 @@ def _dry_run_report(full: bool) -> int:
         deleted = len(set(existing) - seen)
 
     print("DRY RUN — no changes written")
-    print(f"  add: {added}  update: {updated}  "
-          f"unchanged: {unchanged}  delete: {deleted}")
+    print(
+        f"  add: {added}  update: {updated}  unchanged: {unchanged}  delete: {deleted}"
+    )
     return 0
 
 
@@ -587,22 +599,30 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
             conn.execute("DELETE FROM documents")
             conn.commit()
         elif full and incomplete:
-            print("  WARN: enumeration incomplete (unreadable source dir) — "
-                  "downgrading --full to incremental so existing rows are "
-                  "not wiped", file=sys.stderr)
+            print(
+                "  WARN: enumeration incomplete (unreadable source dir) — "
+                "downgrading --full to incremental so existing rows are "
+                "not wiped",
+                file=sys.stderr,
+            )
 
         if stale_format and incomplete:
-            print(f"  WARN: index.db predates the current vector layout "
-                  f"(user_version {uv} < {VEC_FORMAT}) but enumeration was "
-                  f"incomplete — deferring the forced re-embed until a "
-                  f"clean refresh", file=sys.stderr)
+            print(
+                f"  WARN: index.db predates the current vector layout "
+                f"(user_version {uv} < {VEC_FORMAT}) but enumeration was "
+                f"incomplete — deferring the forced re-embed until a "
+                f"clean refresh",
+                file=sys.stderr,
+            )
         elif stale_format:
             n = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
             if n:
-                print(f"  WARN: index.db predates the current vector layout "
-                      f"(user_version {uv} < {VEC_FORMAT}) — re-embedding all "
-                      f"{n} rows so search scores aren't silently corrupt",
-                      file=sys.stderr)
+                print(
+                    f"  WARN: index.db predates the current vector layout "
+                    f"(user_version {uv} < {VEC_FORMAT}) — re-embedding all "
+                    f"{n} rows so search scores aren't silently corrupt",
+                    file=sys.stderr,
+                )
                 conn.execute("DELETE FROM documents")
             conn.commit()
 
@@ -624,9 +644,12 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
 
         deleted = 0
         if incomplete:
-            print("  WARN: enumeration incomplete — skipping prune; "
-                  "stale-but-usable rows kept until a clean refresh "
-                  "reconciles them", file=sys.stderr)
+            print(
+                "  WARN: enumeration incomplete — skipping prune; "
+                "stale-but-usable rows kept until a clean refresh "
+                "reconciles them",
+                file=sys.stderr,
+            )
         else:
             for sp, sk in set(existing) - seen:
                 conn.execute(
@@ -637,13 +660,13 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
         conn.commit()
 
         unchanged = len(seen) - len(to_embed)
-        print(f"  to embed: {len(to_embed)}  "
-              f"unchanged: {unchanged}  "
-              f"deleted: {deleted}")
+        print(
+            f"  to embed: {len(to_embed)}  unchanged: {unchanged}  deleted: {deleted}"
+        )
 
         embedded = 0
         for i in range(0, len(to_embed), BATCH):
-            batch = to_embed[i:i + BATCH]
+            batch = to_embed[i : i + BATCH]
             texts = [b[3] for b in batch]
             try:
                 vecs = embed(texts)
@@ -679,6 +702,7 @@ def refresh(full: bool = False, dry_run: bool = False) -> int:
             # Nothing changed — touch index.db so search.py's mtime-based stale
             # check doesn't fire until a source file actually changes again.
             import os as _os
+
             db_path = sys.modules[connect_index.__module__].INDEX_DB
             _os.utime(db_path, None)
 
@@ -703,8 +727,10 @@ def expected_source_paths() -> set[str]:
         except OSError as e:
             # One unreadable subtree must not crash health/verify and
             # report a false coverage gap — skip it and keep the rest.
-            print(f"  WARN: skipping unreadable paths under {dir_str} — {e}",
-                  file=sys.stderr)
+            print(
+                f"  WARN: skipping unreadable paths under {dir_str} — {e}",
+                file=sys.stderr,
+            )
     py_paths.extend(BASE.glob("*.py"))
     for py in sorted(set(py_paths)):
         if _excluded(py):
@@ -718,8 +744,9 @@ def expected_source_paths() -> set[str]:
         try:
             sql_paths.extend(d.glob("*.sql"))
         except OSError as e:
-            print(f"  WARN: skipping unreadable SQL dir {dir_str} — {e}",
-                  file=sys.stderr)
+            print(
+                f"  WARN: skipping unreadable SQL dir {dir_str} — {e}", file=sys.stderr
+            )
             continue
     sql_paths.extend(BASE.glob("*.sql"))
     for sq in sorted(set(sql_paths)):
@@ -750,9 +777,11 @@ def _produces_no_chunks(rel_path: str) -> bool:
         elif suffix == ".sql":
             chunks = chunk_sql(abs_path)
         elif suffix == ".md":
-            chunks = (chunk_changelog(abs_path)
-                      if abs_path.name == "CHANGELOG.md"
-                      else chunk_markdown(abs_path))
+            chunks = (
+                chunk_changelog(abs_path)
+                if abs_path.name == "CHANGELOG.md"
+                else chunk_markdown(abs_path)
+            )
         else:
             return False
     except Exception:
@@ -773,8 +802,11 @@ def switch_model(model: str, dim: int) -> int:
     a full re-index for nothing.
     """
     if model == MODEL and dim == DIM:
-        print(f"switch-model: EMBEDDING_MODEL is already {model!r} "
-              f"with DIM {dim}; nothing to do.", file=sys.stderr)
+        print(
+            f"switch-model: EMBEDDING_MODEL is already {model!r} "
+            f"with DIM {dim}; nothing to do.",
+            file=sys.stderr,
+        )
         return 2
 
     cfg = _config_path()
@@ -794,14 +826,19 @@ def switch_model(model: str, dim: int) -> int:
         flags=re.MULTILINE,
     )
     if new == text:
-        print("switch-model: could not locate EMBEDDING_MODEL / EMBEDDING_DIM "
-              "in search_config.py — edit manually then run "
-              "`embeddings.py refresh --full`.", file=sys.stderr)
+        print(
+            "switch-model: could not locate EMBEDDING_MODEL / EMBEDDING_DIM "
+            "in search_config.py — edit manually then run "
+            "`embeddings.py refresh --full`.",
+            file=sys.stderr,
+        )
         return 1
     cfg.write_text(new)
     print(f"switch-model: set EMBEDDING_MODEL={model!r}, EMBEDDING_DIM={dim}.")
-    print("Running `refresh --full` — every chunk is re-embedded; this may "
-          "take a while and downloads the new model on first use.")
+    print(
+        "Running `refresh --full` — every chunk is re-embedded; this may "
+        "take a while and downloads the new model on first use."
+    )
     return refresh(full=True)
 
 
@@ -813,9 +850,11 @@ def health() -> int:
     """
     expected = expected_source_paths()
     with connect_index() as c:
-        counts = dict(c.execute(
-            "SELECT source_path, COUNT(*) FROM documents GROUP BY source_path"
-        ).fetchall())
+        counts = dict(
+            c.execute(
+                "SELECT source_path, COUNT(*) FROM documents GROUP BY source_path"
+            ).fetchall()
+        )
 
     candidate = [src for src in sorted(expected) if counts.get(src, 0) == 0]
     missing = [src for src in candidate if not _produces_no_chunks(src)]
@@ -824,8 +863,10 @@ def health() -> int:
     if not missing:
         total = sum(counts.values())
         suffix = f" ({skipped_empty} empty file(s) ignored)" if skipped_empty else ""
-        print(f"OK — {len(expected)} expected sources covered "
-              f"({total} chunks total){suffix}.")
+        print(
+            f"OK — {len(expected)} expected sources covered "
+            f"({total} chunks total){suffix}."
+        )
         return 0
 
     print(f"⚠ {len(missing)} index gap(s):")
@@ -852,9 +893,7 @@ def stats(verbose: bool = False) -> int:
             "GROUP BY source_type ORDER BY source_type"
         ).fetchall()
         total = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
-        newest = c.execute(
-            "SELECT MAX(updated_at) FROM documents"
-        ).fetchone()[0]
+        newest = c.execute("SELECT MAX(updated_at) FROM documents").fetchone()[0]
         files = c.execute(
             "SELECT COUNT(DISTINCT source_path) FROM documents"
         ).fetchone()[0]
@@ -867,10 +906,10 @@ def stats(verbose: bool = False) -> int:
     print(f"indexed files: {files}")
     if newest:
         try:
-            age = (datetime.now(timezone.utc)
-                   - datetime.fromisoformat(newest)).total_seconds()
-            print(f"index age: {_format_age(max(0.0, age))} "
-                  f"(newest chunk {newest})")
+            age = (
+                datetime.now(timezone.utc) - datetime.fromisoformat(newest)
+            ).total_seconds()
+            print(f"index age: {_format_age(max(0.0, age))} (newest chunk {newest})")
         except ValueError:
             print(f"index age: unknown (newest chunk {newest})")
     else:
@@ -879,18 +918,18 @@ def stats(verbose: bool = False) -> int:
     expected = expected_source_paths()
     with connect_index() as c:
         indexed = {
-            r[0] for r in c.execute(
-                "SELECT DISTINCT source_path FROM documents"
-            ).fetchall()
+            r[0]
+            for r in c.execute("SELECT DISTINCT source_path FROM documents").fetchall()
         }
     covered = len(expected & indexed)
     pct = (100.0 * covered / len(expected)) if expected else 0.0
-    print(f"coverage: {covered}/{len(expected)} expected sources "
-          f"({pct:.0f}%)")
+    print(f"coverage: {covered}/{len(expected)} expected sources ({pct:.0f}%)")
     missing = sorted(expected - indexed)
     if missing:
-        print(f"  missing: {', '.join(missing[:10])}"
-              + (" …" if len(missing) > 10 else ""))
+        print(
+            f"  missing: {', '.join(missing[:10])}"
+            + (" …" if len(missing) > 10 else "")
+        )
     return 0
 
 
@@ -899,11 +938,17 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("refresh")
     r.add_argument("--full", action="store_true", help="delete-all and rebuild")
-    r.add_argument("--dry-run", action="store_true",
-                   help="show add/update/delete counts without writing")
+    r.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show add/update/delete counts without writing",
+    )
     s = sub.add_parser("stats")
-    s.add_argument("--verbose", action="store_true",
-                   help="also show index age, file count, and coverage")
+    s.add_argument(
+        "--verbose",
+        action="store_true",
+        help="also show index age, file count, and coverage",
+    )
     sub.add_parser("health")
     sub.add_parser("savings")
     sm = sub.add_parser(
@@ -911,8 +956,12 @@ def main() -> int:
         help="rewrite EMBEDDING_MODEL/DIM in search_config.py and reindex",
     )
     sm.add_argument("model", help="new fastembed model id, e.g. BAAI/bge-base-en-v1.5")
-    sm.add_argument("--dim", type=int, required=True,
-                    help="embedding dimension of the new model (e.g. 768)")
+    sm.add_argument(
+        "--dim",
+        type=int,
+        required=True,
+        help="embedding dimension of the new model (e.g. 768)",
+    )
     args = ap.parse_args()
     if args.cmd == "refresh":
         return refresh(full=args.full, dry_run=args.dry_run)
@@ -920,6 +969,7 @@ def main() -> int:
         return health()
     if args.cmd == "savings":
         from stats import main as _savings_main  # noqa: PLC0415
+
         return _savings_main()
     if args.cmd == "switch-model":
         return switch_model(args.model, dim=args.dim)

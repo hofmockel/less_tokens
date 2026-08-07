@@ -4,6 +4,7 @@
 fallback that would find `.claude/tools/search.py` is gated on '/' absence.
 Fix: remove the '/' guard so rglob is always tried as fallback.
 """
+
 from __future__ import annotations
 
 import sys

@@ -26,7 +26,10 @@ def test_audit_rules_reports_each_markdown_rule(tmp_path):
         result = audit_mod.audit_rules(rules, budget=50)
 
     assert result["path"] == ".claude/rules"
-    assert [Path(item["path"]).name for item in result["files"]] == ["long.md", "short.md"]
+    assert [Path(item["path"]).name for item in result["files"]] == [
+        "long.md",
+        "short.md",
+    ]
     assert result["over_budget"] is True
     assert result["total_tokens"] > 0
 
@@ -57,7 +60,16 @@ def test_rules_cli_strict_fails_when_rule_exceeds_budget(tmp_path):
     (rules / "big.md").write_text("# Big\n" + ("token " * 80), encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, str(TOOL), "--rules", "--rules-dir", str(rules), "--budget", "5", "--strict"],
+        [
+            sys.executable,
+            str(TOOL),
+            "--rules",
+            "--rules-dir",
+            str(rules),
+            "--budget",
+            "5",
+            "--strict",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

@@ -1,4 +1,5 @@
 """State-dir isolation: Claude and Codex hooks write/read separate state directories."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 CLAUDE_HOOKS = REPO / ".claude" / "hooks"
@@ -20,7 +20,9 @@ _BASE_ENV = {
 }
 
 
-def run_hook(hook_path: Path, payload: dict, extra_env: dict | None = None) -> tuple[int, str, str]:
+def run_hook(
+    hook_path: Path, payload: dict, extra_env: dict | None = None
+) -> tuple[int, str, str]:
     env = {**_BASE_ENV, **(extra_env or {})}
     result = subprocess.run(
         [sys.executable, str(hook_path)],
@@ -36,6 +38,7 @@ def run_hook(hook_path: Path, payload: dict, extra_env: dict | None = None) -> t
 # compact-trigger state dir isolation
 # ---------------------------------------------------------------------------
 
+
 class TestCompactTriggerStateDirIsolation:
     def test_codex_hook_writes_state_to_custom_dir(self, tmp_path):
         """Codex compact-trigger writes its state file to LESS_TOKENS_STATE_DIR."""
@@ -45,8 +48,11 @@ class TestCompactTriggerStateDirIsolation:
 
         code, stdout, stderr = run_hook(
             CODEX_HOOKS / "compact-trigger.py",
-            {"hook_event_name": "PreCompact", "trigger": "auto",
-             "transcript_path": str(transcript)},
+            {
+                "hook_event_name": "PreCompact",
+                "trigger": "auto",
+                "transcript_path": str(transcript),
+            },
             extra_env={
                 "LESS_TOKENS_STATE_DIR": str(state_dir),
                 "LESS_TOKENS_AGENT": "codex",
@@ -63,8 +69,12 @@ class TestCompactTriggerStateDirIsolation:
 
         code, _, _ = run_hook(
             CLAUDE_HOOKS / "compact-trigger.py",
-            {"tool_name": "Bash", "tool_input": {}, "tool_result": "",
-             "transcript_path": str(transcript)},
+            {
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_result": "",
+                "transcript_path": str(transcript),
+            },
             extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
         )
         assert code == 2
@@ -80,8 +90,12 @@ class TestCompactTriggerStateDirIsolation:
 
         run_hook(
             CODEX_HOOKS / "compact-trigger.py",
-            {"tool_name": "Bash", "tool_input": {}, "tool_response": "",
-             "transcript_path": str(transcript)},
+            {
+                "tool_name": "Bash",
+                "tool_input": {},
+                "tool_response": "",
+                "transcript_path": str(transcript),
+            },
             extra_env={"LESS_TOKENS_STATE_DIR": str(codex_state)},
         )
         assert not (claude_state / "compact-trigger-last").exists()
@@ -90,6 +104,7 @@ class TestCompactTriggerStateDirIsolation:
 # ---------------------------------------------------------------------------
 # search-first state dir isolation
 # ---------------------------------------------------------------------------
+
 
 class TestSearchFirstStateDirIsolation:
     def test_gate_clears_when_sentinel_in_state_dir(self, tmp_path):
@@ -100,9 +115,11 @@ class TestSearchFirstStateDirIsolation:
 
         code, _, _ = run_hook(
             CLAUDE_HOOKS / "search-first.py",
-            {"tool_name": "Read",
-             "tool_input": {"file_path": str(REPO / "README.md")},
-             "tool_result": ""},
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(REPO / "README.md")},
+                "tool_result": "",
+            },
             extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
         )
         assert code == 0
@@ -117,9 +134,11 @@ class TestSearchFirstStateDirIsolation:
 
         code, _, _ = run_hook(
             CLAUDE_HOOKS / "search-first.py",
-            {"tool_name": "Read",
-             "tool_input": {"file_path": str(REPO / "README.md")},
-             "tool_result": ""},
+            {
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(REPO / "README.md")},
+                "tool_result": "",
+            },
             extra_env={"LESS_TOKENS_STATE_DIR": str(empty_dir)},
         )
         assert code == 2
@@ -141,6 +160,7 @@ class TestSearchFirstStateDirIsolation:
 # v2 budget-plane state dir isolation (events.jsonl contamination regression)
 # ---------------------------------------------------------------------------
 
+
 class TestBudgetObserverStateDirIsolation:
     """Pins the bug where events_path() derived .less_tokens/state from the
     repo root regardless of LESS_TOKENS_STATE_DIR, writing real telemetry
@@ -160,7 +180,11 @@ class TestBudgetObserverStateDirIsolation:
 
         run_hook(
             CLAUDE_HOOKS / "budget-observer.py",
-            {"tool_name": "Bash", "tool_input": {"command": "pwd"}, "tool_result": "some output"},
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "pwd"},
+                "tool_result": "some output",
+            },
             extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)},
         )
 
@@ -170,7 +194,9 @@ class TestBudgetObserverStateDirIsolation:
             "LESS_TOKENS_STATE_DIR — state-dir override was ignored"
         )
         custom_events = state_dir / ".less_tokens" / "state" / "events.jsonl"
-        assert custom_events.exists(), "expected v2 event to land under the overridden state dir"
+        assert custom_events.exists(), (
+            "expected v2 event to land under the overridden state dir"
+        )
 
     def test_codex_budget_observer_writes_events_to_custom_dir(self, tmp_path):
         """Codex's budget-observer.py shares budget_hook_outcome — same fix, same coverage."""
@@ -179,8 +205,15 @@ class TestBudgetObserverStateDirIsolation:
 
         run_hook(
             CODEX_HOOKS / "budget-observer.py",
-            {"tool_name": "Bash", "tool_input": {"command": "pwd"}, "tool_response": "some output"},
-            extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir), "LESS_TOKENS_AGENT": "codex"},
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "pwd"},
+                "tool_response": "some output",
+            },
+            extra_env={
+                "LESS_TOKENS_STATE_DIR": str(state_dir),
+                "LESS_TOKENS_AGENT": "codex",
+            },
         )
 
         after = self._real_log_line_count()
@@ -189,4 +222,6 @@ class TestBudgetObserverStateDirIsolation:
             "LESS_TOKENS_STATE_DIR — state-dir override was ignored"
         )
         custom_events = state_dir / ".less_tokens" / "state" / "events.jsonl"
-        assert custom_events.exists(), "expected v2 event to land under the overridden state dir"
+        assert custom_events.exists(), (
+            "expected v2 event to land under the overridden state dir"
+        )

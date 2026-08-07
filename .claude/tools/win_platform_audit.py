@@ -16,6 +16,7 @@ Deliberately narrow: this does not attempt to catch console-encoding
 (`SYSTEMROOT`) bugs — see WIN1's `DECISIONS.md` entry for why those are left
 as one-off fixes rather than folded into a generic mechanism.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,7 +27,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent.parent
 SCAN_TARGETS = ["agents", "install.py", ".claude/tools"]
 EXCLUDE_DIR_NAMES = {
-    "tests", "__pycache__", ".venv-tokens", ".less_tokens", ".codex", "docs-site",
+    "tests",
+    "__pycache__",
+    ".venv-tokens",
+    ".less_tokens",
+    ".codex",
+    "docs-site",
 }
 LAUNCHER_DIR_SEGMENTS = {"bin", "Scripts"}
 PLATFORM_LITERALS = {"win32", "nt"}
@@ -54,7 +60,10 @@ def _function_has_platform_check(func: ast.AST) -> bool:
         if isinstance(node, ast.Compare):
             operands = [node.left, *node.comparators]
             for operand in operands:
-                if isinstance(operand, ast.Constant) and operand.value in PLATFORM_LITERALS:
+                if (
+                    isinstance(operand, ast.Constant)
+                    and operand.value in PLATFORM_LITERALS
+                ):
                     return True
     return False
 
@@ -101,17 +110,29 @@ def check_bare_launcher_exists(tree: ast.Module, filename: str) -> list[str]:
     extensionless launcher via existence alone.
     """
     violations = []
-    for func in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+    for func in [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]:
         if _function_has_platform_check(func):
             continue
         bare_vars: set[str] = set()
         for node in ast.walk(func):
-            if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
                 parts = _path_join_parts(node.value)
                 if parts and _is_bare_launcher_chain(parts):
                     bare_vars.add(node.targets[0].id)
         for node in ast.walk(func):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "exists"):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "exists"
+            ):
                 continue
             target = node.func.value
             hit = False
@@ -131,7 +152,11 @@ def check_bare_launcher_exists(tree: ast.Module, filename: str) -> list[str]:
 
 def check_posix_only_subprocess_kwargs(tree: ast.Module, filename: str) -> list[str]:
     violations = []
-    for func in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+    for func in [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]:
         if _function_has_platform_check(func):
             continue
         for node in ast.walk(func):
@@ -169,7 +194,9 @@ def main() -> int:
         print("win_platform_audit: found unguarded platform-sensitive patterns:")
         for v in violations:
             print(f"  {v}")
-        print(f"\n{len(violations)} problem(s). See .claude/tools/win_platform_audit.py docstring for scope.")
+        print(
+            f"\n{len(violations)} problem(s). See .claude/tools/win_platform_audit.py docstring for scope."
+        )
         return 1
     print("win_platform_audit: clean.")
     return 0

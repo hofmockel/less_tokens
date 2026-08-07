@@ -6,6 +6,7 @@ never cache-blocked. The identical repeat via `mcp__filesystem__read_text_file`
 was already blocked (see `test_context_cache_blocks_repeat_read` in
 `test_codex_hooks.py`) — only the Bash-path wiring was missing.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,17 +20,21 @@ CODEX_HOOKS = REPO / "agents" / "codex" / "hooks"
 
 _ENV = {
     **os.environ,
-    "PYTHONPATH": os.pathsep.join((
-        str(REPO / ".claude" / "tests"),
-        str(REPO / ".claude" / "tools"),
-        str(REPO / "agents" / "common" / "hooks"),
-        os.environ.get("PYTHONPATH", ""),
-    )),
+    "PYTHONPATH": os.pathsep.join(
+        (
+            str(REPO / ".claude" / "tests"),
+            str(REPO / ".claude" / "tools"),
+            str(REPO / "agents" / "common" / "hooks"),
+            os.environ.get("PYTHONPATH", ""),
+        )
+    ),
     "LESS_TOKENS_REPO": str(REPO),
 }
 
 
-def _run_hook(hook_name: str, payload: dict, extra_env: dict | None = None) -> tuple[int, str, str]:
+def _run_hook(
+    hook_name: str, payload: dict, extra_env: dict | None = None
+) -> tuple[int, str, str]:
     env = {**_ENV, **(extra_env or {})}
     result = subprocess.run(
         [sys.executable, str(CODEX_HOOKS / hook_name)],
@@ -68,9 +73,15 @@ def test_context_cache_blocks_repeat_bash_cat_read(tmp_path):
         "tool_response": "print(1)\n",
         "transcript_path": str(tmp_path / "transcript.jsonl"),
     }
-    code1, _, _ = _run_hook("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-    code_post, _, _ = _run_hook("context-cache.py", post, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
-    code2, stdout2, stderr2 = _run_hook("context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)})
+    code1, _, _ = _run_hook(
+        "context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)}
+    )
+    code_post, _, _ = _run_hook(
+        "context-cache.py", post, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)}
+    )
+    code2, stdout2, stderr2 = _run_hook(
+        "context-cache.py", pre, extra_env={"LESS_TOKENS_STATE_DIR": str(state_dir)}
+    )
     assert code1 == 0
     assert code_post == 0
     assert "context-cache" in _deny_reason(code2, stdout2, stderr2)

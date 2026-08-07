@@ -1,4 +1,5 @@
 """Shared read guard logic for high-noise files."""
+
 from __future__ import annotations
 
 import fnmatch
@@ -34,7 +35,14 @@ def check_read_guard(
     offset: object = None,
     deny_globs: tuple[str, ...] = (),
     data_max_lines: int = 1000,
-    data_exts: tuple[str, ...] = (".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".parquet"),
+    data_exts: tuple[str, ...] = (
+        ".csv",
+        ".tsv",
+        ".json",
+        ".jsonl",
+        ".ndjson",
+        ".parquet",
+    ),
 ) -> str | None:
     """Return a block reason for a wasteful whole-file read, or None."""
     if offset is not None:

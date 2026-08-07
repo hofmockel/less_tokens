@@ -25,15 +25,14 @@ def _no_duplication_index(monkeypatch):
     # pruning-mechanics tests exercise (that's claudemd_audit's own test's job).
     monkeypatch.setattr(audit_mod, "duplication", lambda sections: None)
 
+
 BIG_SECTION = "## Architecture deep dive\n" + ("word " * 300) + "\n"
 
 
 def _write_claude_md(tmp_path: Path) -> Path:
     p = tmp_path / "CLAUDE.md"
     p.write_text(
-        "# CLAUDE.md\n\n"
-        "## Keep this\nShort standing rule.\n\n"
-        + BIG_SECTION,
+        "# CLAUDE.md\n\n## Keep this\nShort standing rule.\n\n" + BIG_SECTION,
         encoding="utf-8",
     )
     return p
@@ -53,7 +52,10 @@ def test_dry_run_does_not_mutate_files(tmp_path, capsys):
     doc.write_text("# Documentation\n", encoding="utf-8")
     before = path.read_text(encoding="utf-8")
 
-    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path):
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "BASE", tmp_path),
+    ):
         rc = prune_mod.main(["--agent", "claude", "--budget", "50"])
 
     assert rc == 0
@@ -69,7 +71,10 @@ def test_apply_moves_section_and_leaves_pointer(tmp_path):
     doc = tmp_path / "DOCUMENTATION.md"
     doc.write_text("# Documentation\nExisting.\n", encoding="utf-8")
 
-    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path):
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "BASE", tmp_path),
+    ):
         rc = prune_mod.main(["--agent", "claude", "--budget", "50", "--apply"])
 
     assert rc == 0
@@ -89,8 +94,13 @@ def test_apply_no_pointer_leaves_no_trace(tmp_path):
     doc = tmp_path / "DOCUMENTATION.md"
     doc.write_text("# Documentation\n", encoding="utf-8")
 
-    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path):
-        rc = prune_mod.main(["--agent", "claude", "--budget", "50", "--apply", "--no-pointer"])
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "BASE", tmp_path),
+    ):
+        rc = prune_mod.main(
+            ["--agent", "claude", "--budget", "50", "--apply", "--no-pointer"]
+        )
 
     assert rc == 0
     after = path.read_text(encoding="utf-8")
@@ -136,12 +146,18 @@ def test_verify_recall_pass_and_fail(tmp_path):
         def refresh():
             return 0
 
-    with patch.object(prune_mod, "search_mod", FakeSearch), \
-         patch.object(prune_mod, "embeddings_mod", FakeEmbeddings):
-        results = prune_mod.verify_recall(["Architecture deep dive"], "DOCUMENTATION.md")
+    with (
+        patch.object(prune_mod, "search_mod", FakeSearch),
+        patch.object(prune_mod, "embeddings_mod", FakeEmbeddings),
+    ):
+        results = prune_mod.verify_recall(
+            ["Architecture deep dive"], "DOCUMENTATION.md"
+        )
         assert results == [{"title": "Architecture deep dive", "passed": True}]
 
-        fail_results = prune_mod.verify_recall(["Nonexistent topic"], "DOCUMENTATION.md")
+        fail_results = prune_mod.verify_recall(
+            ["Nonexistent topic"], "DOCUMENTATION.md"
+        )
         assert fail_results == [{"title": "Nonexistent topic", "passed": False}]
 
 
@@ -164,10 +180,15 @@ def test_apply_verify_recall_fail_returns_exit_1(tmp_path):
         def refresh():
             return 0
 
-    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path), \
-         patch.object(prune_mod, "search_mod", FakeSearch), \
-         patch.object(prune_mod, "embeddings_mod", FakeEmbeddings):
-        rc = prune_mod.main(["--agent", "claude", "--budget", "50", "--apply", "--verify-recall"])
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "search_mod", FakeSearch),
+        patch.object(prune_mod, "embeddings_mod", FakeEmbeddings),
+    ):
+        rc = prune_mod.main(
+            ["--agent", "claude", "--budget", "50", "--apply", "--verify-recall"]
+        )
 
     assert rc == 1
 
@@ -180,9 +201,14 @@ def test_apply_verify_recall_missing_numpy_returns_clean_exit_2(tmp_path, capsys
     def _raise(*args, **kwargs):
         raise ModuleNotFoundError("No module named 'numpy'", name="numpy")
 
-    with patch.object(audit_mod, "BASE", tmp_path), patch.object(prune_mod, "BASE", tmp_path), \
-         patch.object(prune_mod, "verify_recall", _raise):
-        rc = prune_mod.main(["--agent", "claude", "--budget", "50", "--apply", "--verify-recall"])
+    with (
+        patch.object(audit_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "BASE", tmp_path),
+        patch.object(prune_mod, "verify_recall", _raise),
+    ):
+        rc = prune_mod.main(
+            ["--agent", "claude", "--budget", "50", "--apply", "--verify-recall"]
+        )
 
     assert rc == 2
     err = capsys.readouterr().err
@@ -196,7 +222,15 @@ def test_cli_agent_codex_targets_agents_md(tmp_path):
     (tmp_path / "DOCUMENTATION.md").write_text("# Documentation\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, str(TOOL), "--agent", "codex", "--path", str(agents_md), "--json"],
+        [
+            sys.executable,
+            str(TOOL),
+            "--agent",
+            "codex",
+            "--path",
+            str(agents_md),
+            "--json",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -211,7 +245,14 @@ def test_cli_agent_codex_targets_agents_md(tmp_path):
 
 def test_cli_missing_doc_exits_2(tmp_path):
     result = subprocess.run(
-        [sys.executable, str(TOOL), "--agent", "claude", "--path", str(tmp_path / "CLAUDE.md")],
+        [
+            sys.executable,
+            str(TOOL),
+            "--agent",
+            "claude",
+            "--path",
+            str(tmp_path / "CLAUDE.md"),
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

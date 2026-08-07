@@ -5,6 +5,7 @@ transcript starts small but `size < last + hysteresis` holds true, preventing
 the nudge from ever firing. The fix requires `last <= size` before suppressing,
 so a new (smaller) session always fires when it exceeds the threshold.
 """
+
 from __future__ import annotations
 
 import json

@@ -1,4 +1,5 @@
 """Tests for the HP1 conformance/savings workload matrix."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -19,7 +20,14 @@ assert _SPEC and _SPEC.loader
 conformance_matrix = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(conformance_matrix)
 
-REQUIRED_FIELDS = ("code_present", "configured", "event_fired", "action_enforced", "basis", "fixture")
+REQUIRED_FIELDS = (
+    "code_present",
+    "configured",
+    "event_fired",
+    "action_enforced",
+    "basis",
+    "fixture",
+)
 
 
 def _matrix() -> dict:
@@ -49,7 +57,9 @@ def test_no_entry_is_a_guessed_number():
     for key, entry in matrix.items():
         if entry.get("status") == "not_yet_measured":
             continue
-        assert entry["basis"] == "measured", f"{key} basis is not 'measured': {entry['basis']!r}"
+        assert entry["basis"] == "measured", (
+            f"{key} basis is not 'measured': {entry['basis']!r}"
+        )
 
 
 def test_render_contains_markers_and_every_workload():
@@ -70,7 +80,9 @@ def test_conformance_matrix_docs_are_current():
 def test_check_mode_detects_drift(tmp_path, monkeypatch):
     stale = REPO / "README.md"
     text = stale.read_text(encoding="utf-8")
-    drifted = text.replace(conformance_matrix.BEGIN, conformance_matrix.BEGIN + "\nSTALE", 1)
+    drifted = text.replace(
+        conformance_matrix.BEGIN, conformance_matrix.BEGIN + "\nSTALE", 1
+    )
     tmp_readme = tmp_path / "README.md"
     tmp_readme.write_text(drifted, encoding="utf-8")
     monkeypatch.setattr(conformance_matrix, "REPO", tmp_path)

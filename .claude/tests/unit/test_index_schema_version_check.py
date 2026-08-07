@@ -1,4 +1,5 @@
 """Regression test: _index_db_at_current_schema must reject v1 indexes."""
+
 from __future__ import annotations
 
 import sqlite3

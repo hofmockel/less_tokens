@@ -9,6 +9,7 @@ different/older index legitimately contains. The fix derives the choices
 from `SELECT DISTINCT source_type FROM documents` at runtime, falling back
 to unconstrained (None) when the index is unavailable.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -78,7 +79,5 @@ class TestArgparseTracksIndex:
         """
         monkeypatch.setattr(search, "active_state_dir", lambda: tmp_path / "state")
         monkeypatch.setattr(search, "search", lambda *a, **k: [])
-        monkeypatch.setattr(
-            sys, "argv", ["search.py", "q", "--source-type", "legacy"]
-        )
+        monkeypatch.setattr(sys, "argv", ["search.py", "q", "--source-type", "legacy"])
         assert search.main() == 0

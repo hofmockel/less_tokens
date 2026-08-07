@@ -5,6 +5,7 @@ platform. Both install.detect_venv() and search_config (VENV_PY) now
 prefer it over relative-path guesses, so an activated venv is used
 without editing search_config or passing --venv.
 """
+
 from __future__ import annotations
 
 import sys

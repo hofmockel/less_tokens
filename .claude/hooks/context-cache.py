@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: block repeat Read/Grep calls already in context."""
+
 from __future__ import annotations
 
 import json
@@ -68,7 +69,11 @@ except Exception:
     from payload import normalize_claude  # type: ignore[no-redef]
 
 try:
-    from search_config import CONTEXT_CACHE_ENABLED, CONTEXT_CACHE_GREP_TTL, active_state_dir as _active_state_dir  # noqa: E402
+    from search_config import (
+        CONTEXT_CACHE_ENABLED,
+        CONTEXT_CACHE_GREP_TTL,
+        active_state_dir as _active_state_dir,
+    )  # noqa: E402
 except Exception:
     CONTEXT_CACHE_ENABLED = True
     CONTEXT_CACHE_GREP_TTL = 300
@@ -76,10 +81,12 @@ except Exception:
     def _active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
 
+
 try:
     from savings_log import append as _log  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
 except Exception:
+
     def _log(_r: dict) -> None:
         pass
 
@@ -124,7 +131,9 @@ def main() -> int:
         state_dir=_active_state_dir(),
         enabled=CONTEXT_CACHE_ENABLED,
         grep_ttl=CONTEXT_CACHE_GREP_TTL,
-        event_name=str(raw.get("hook_event_name") or raw.get("hookEventName") or "PreToolUse"),
+        event_name=str(
+            raw.get("hook_event_name") or raw.get("hookEventName") or "PreToolUse"
+        ),
         log=_log,
         session=resolve_session(raw),
     )

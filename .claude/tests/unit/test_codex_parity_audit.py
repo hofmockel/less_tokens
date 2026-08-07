@@ -45,17 +45,25 @@ def _write_codex_install(
     (root / "AGENTS.md").write_text("# Test install\n", encoding="utf-8")
     common_hooks = root / ".less_tokens" / "hooks"
     if real_hooks:
-        shutil.copytree(REPO / "agents" / "common" / "hooks", common_hooks, dirs_exist_ok=True)
-        shutil.copytree(REPO / "agents" / "codex" / "hooks", hooks_dir, dirs_exist_ok=True)
+        shutil.copytree(
+            REPO / "agents" / "common" / "hooks", common_hooks, dirs_exist_ok=True
+        )
+        shutil.copytree(
+            REPO / "agents" / "codex" / "hooks", hooks_dir, dirs_exist_ok=True
+        )
     else:
         common_hooks.mkdir(parents=True)
-        shutil.copy2(REPO / "agents" / "common" / "hooks" / "hook_manifest.py", common_hooks)
+        shutil.copy2(
+            REPO / "agents" / "common" / "hooks" / "hook_manifest.py", common_hooks
+        )
     with redirect_stdout(io.StringIO()):
         write_python_launcher(root, launcher_rel("codex"), Path(sys.executable))
     if not real_hooks:
         for hook_spec in HOOK_SPECS:
             if hook_spec.codex_script:
-                (hooks_dir / hook_spec.codex_script).write_text("# hook\n", encoding="utf-8")
+                (hooks_dir / hook_spec.codex_script).write_text(
+                    "# hook\n", encoding="utf-8"
+                )
     entries = build_codex_hook_entries(
         Path(sys.executable),
         root,
@@ -71,7 +79,9 @@ def _write_codex_install(
         if drop_script == script:
             continue
         if stale_commands:
-            command = f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
+            command = (
+                f"LESS_TOKENS_AGENT=codex .less_tokens/bin/python .codex/hooks/{script}"
+            )
         hooks.append({"event": event, "matcher": matcher, "command": command})
     (root / ".codex" / "hooks.json").write_text(
         json.dumps({"hooks": codex_hooks_json_value(hooks)}), encoding="utf-8"
@@ -99,7 +109,9 @@ def test_codex_parity_audit_reports_best_effort_when_fully_wired(tmp_path):
     assert "fail open" in by_name["search-first"].notes
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax"
+)
 def test_codex_parity_audit_passes_current_generated_install(tmp_path):
     _write_codex_install(tmp_path, real_hooks=True)
 
@@ -113,7 +125,9 @@ def test_codex_parity_audit_passes_current_generated_install(tmp_path):
     parity_rows = [row for row in rows if row.feature == "feature-parity"]
     assert parity_rows
     assert all(row.enforcement == "best-effort-only" for row in parity_rows)
-    assert any(row.strategy == "subagent-cap" and row.enforcement == "missing" for row in rows)
+    assert any(
+        row.strategy == "subagent-cap" and row.enforcement == "missing" for row in rows
+    )
 
 
 def test_codex_parity_audit_fails_on_legacy_flat_hooks_json(tmp_path):
@@ -124,8 +138,13 @@ def test_codex_parity_audit_fails_on_legacy_flat_hooks_json(tmp_path):
         tmp_path,
         Namespace(no_truncate=False, no_compact=False, no_caveman=False),
     )
-    flat = [{"event": ev, "matcher": matcher, "command": cmd} for ev, matcher, cmd in entries]
-    (tmp_path / ".codex" / "hooks.json").write_text(json.dumps({"hooks": flat}), encoding="utf-8")
+    flat = [
+        {"event": ev, "matcher": matcher, "command": cmd}
+        for ev, matcher, cmd in entries
+    ]
+    (tmp_path / ".codex" / "hooks.json").write_text(
+        json.dumps({"hooks": flat}), encoding="utf-8"
+    )
 
     _, problems = audit_mod.audit(tmp_path)
 
@@ -155,7 +174,9 @@ def test_codex_parity_audit_rejects_stale_relative_commands(tmp_path):
     assert any("stale command" in row.notes for row in parity_rows)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax"
+)
 def test_codex_parity_audit_runs_representative_command_from_nested_cwd(tmp_path):
     _write_codex_install(tmp_path)
     marker = tmp_path / "nested-cwd.txt"
@@ -172,7 +193,9 @@ def test_codex_parity_audit_runs_representative_command_from_nested_cwd(tmp_path
     assert marker.read_text(encoding="utf-8") == str(tmp_path / ".codex" / "hooks")
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Codex hook env prefix is POSIX shell syntax"
+)
 def test_codex_parity_audit_fails_when_nested_cwd_command_cannot_run(tmp_path):
     _write_codex_install(tmp_path)
     script = tmp_path / ".codex" / "hooks" / "search-first.py"
@@ -208,7 +231,9 @@ def test_codex_parity_audit_flags_orphaned_wiring_with_no_manifest_adapter(tmp_p
 
 
 @pytest.mark.parametrize("strategy", sorted(audit_mod.ACCEPTED_UNWIRED))
-def test_codex_parity_audit_does_not_block_on_accepted_stop_limitation(tmp_path, strategy):
+def test_codex_parity_audit_does_not_block_on_accepted_stop_limitation(
+    tmp_path, strategy
+):
     """PT9: compact-trigger/terse-output/savings-html can never wire their Stop-based
     commands in headless codex exec (DECISIONS.md CX18) — this is permanent, not a
     regression, so it must not appear in `problems` (which gates CI), only in notes."""

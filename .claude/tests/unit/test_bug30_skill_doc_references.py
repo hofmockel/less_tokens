@@ -3,9 +3,9 @@
 The high-yield file list and agent prompt template referenced the AIPortfolio
 project, making them useless as guidance for less_tokens bug hunts.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
 
 from tests.conftest import REPO_ROOT
 

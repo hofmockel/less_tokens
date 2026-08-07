@@ -1,4 +1,5 @@
 """Tests for install.py do_check (--check flag)."""
+
 from __future__ import annotations
 
 import argparse
@@ -37,7 +38,7 @@ def _minimal_install(tmp_path: Path, venv_py: Path | None = None) -> Path:
     tools.mkdir(parents=True)
 
     config = tools / "search_config.py"
-    config.write_text(f'VENV_PY = {repr(venv_py.as_posix())}\n')
+    config.write_text(f"VENV_PY = {repr(venv_py.as_posix())}\n")
 
     hooks = tmp_path / ".claude" / "hooks"
     hooks.mkdir(parents=True)
@@ -51,16 +52,31 @@ def _minimal_install(tmp_path: Path, venv_py: Path | None = None) -> Path:
     conn.close()
 
     settings = tmp_path / ".claude" / "settings.json"
-    settings.write_text(json.dumps({
-        "hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "python hook.py"}]}]}
-    }))
+    settings.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "Read",
+                            "hooks": [{"type": "command", "command": "python hook.py"}],
+                        }
+                    ]
+                }
+            }
+        )
+    )
 
     budget_config = tmp_path / ".less_tokens" / "config"
     budget_config.mkdir(parents=True)
-    (budget_config / "budget.json").write_text(json.dumps({
-        "version": 2,
-        "categories": {"session_summary": 3000},
-    }))
+    (budget_config / "budget.json").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "categories": {"session_summary": 3000},
+            }
+        )
+    )
 
     budget_pkg = tmp_path / ".less_tokens" / "hooks" / "budget"
     budget_pkg.mkdir(parents=True)
@@ -92,12 +108,18 @@ def _minimal_codex_install(tmp_path: Path) -> Path:
     entries = build_codex_hook_entries(venv_py, root, _args(agent="codex"))
     for _, _, cmd in entries:
         (codex_hooks / Path(shlex.split(cmd)[-1]).name).touch()
-    (root / ".codex" / "hooks.json").write_text(json.dumps({
-        "hooks": codex_hooks_json_value([
-            {"event": ev, "matcher": matcher, "command": cmd}
-            for ev, matcher, cmd in entries
-        ])
-    }))
+    (root / ".codex" / "hooks.json").write_text(
+        json.dumps(
+            {
+                "hooks": codex_hooks_json_value(
+                    [
+                        {"event": ev, "matcher": matcher, "command": cmd}
+                        for ev, matcher, cmd in entries
+                    ]
+                )
+            }
+        )
+    )
 
     (root / "AGENTS.md").write_text(
         "<!-- less_tokens: begin -->\n## Token Discipline\n<!-- less_tokens: end -->\n"
@@ -149,10 +171,10 @@ class TestDoCheckAllPass:
         assert ".less_tokens/config/budget.json present" in out
         assert "Codex hook wrappers run from nested cwd" in out
         hook_calls = [
-            call for call in mock_run.call_args_list
-            if call.args and any(
-                str(root / ".codex" / "hooks") in str(arg) for arg in call.args[0]
-            )
+            call
+            for call in mock_run.call_args_list
+            if call.args
+            and any(str(root / ".codex" / "hooks") in str(arg) for arg in call.args[0])
         ]
         assert len(hook_calls) == 2
         for call in hook_calls:
@@ -163,6 +185,7 @@ class TestDoCheckAllPass:
     def test_codex_check_does_not_require_claude_hooks(self, tmp_path, capsys):
         root = _minimal_codex_install(tmp_path)
         import shutil
+
         shutil.rmtree(root / ".claude" / "hooks")
         with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
@@ -257,6 +280,7 @@ class TestDoCheckHooks:
     def test_fails_when_hooks_dir_absent(self, tmp_path, capsys):
         root = _minimal_install(tmp_path)
         import shutil
+
         shutil.rmtree(root / ".claude" / "hooks")
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0
@@ -280,12 +304,16 @@ class TestDoCheckHooks:
         entries = build_codex_hook_entries(
             root / "fake_venv" / "bin" / "python", root, _args(agent="codex")
         )
-        (root / ".codex" / "hooks.json").write_text(json.dumps({
-            "hooks": [
-                {"event": ev, "matcher": matcher, "command": cmd}
-                for ev, matcher, cmd in entries
-            ]
-        }))
+        (root / ".codex" / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "hooks": [
+                        {"event": ev, "matcher": matcher, "command": cmd}
+                        for ev, matcher, cmd in entries
+                    ]
+                }
+            )
+        )
         with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
             rc = do_check(root, _args(agent="codex"))
@@ -297,14 +325,16 @@ class TestDoCheckHooks:
         entries = build_codex_hook_entries(
             root / "fake_venv" / "bin" / "python", root, _args(agent="codex")
         )
-        legacy = [[
-            {
-                "event": event,
-                "matcher": matcher,
-                "hooks": [{"type": "command", "command": command}],
-            }
-            for event, matcher, command in entries
-        ]]
+        legacy = [
+            [
+                {
+                    "event": event,
+                    "matcher": matcher,
+                    "hooks": [{"type": "command", "command": command}],
+                }
+                for event, matcher, command in entries
+            ]
+        ]
         (root / ".codex" / "hooks.json").write_text(json.dumps({"hooks": legacy}))
         with _supported_codex_runtime(), patch("subprocess.run") as mock_run:
             mock_run.side_effect = _successful_codex_check_run
@@ -342,9 +372,22 @@ class TestDoCheckSettings:
     def test_local_flag_checks_settings_local_json(self, tmp_path, capsys):
         root = _minimal_install(tmp_path)
         local = root / ".claude" / "settings.local.json"
-        local.write_text(json.dumps({
-            "hooks": {"PreToolUse": [{"matcher": "Read", "hooks": [{"type": "command", "command": "python hook.py"}]}]}
-        }))
+        local.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Read",
+                                "hooks": [
+                                    {"type": "command", "command": "python hook.py"}
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+        )
         (root / ".claude" / "settings.json").unlink()
         with patch("subprocess.run") as mock_run:
             mock_run.return_value.returncode = 0

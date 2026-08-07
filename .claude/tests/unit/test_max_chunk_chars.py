@@ -4,6 +4,7 @@ Without a size limit, a large markdown section or a long function body
 becomes a single giant chunk. MAX_CHUNK_CHARS in search_config caps chunk
 size so results fit a model's context window without overwhelming it.
 """
+
 from __future__ import annotations
 
 import sys
@@ -59,4 +60,6 @@ def test_zero_disables_splitting(tmp_path, monkeypatch):
 
     chunks = dict(embeddings.chunk_markdown(md))
     assert "Huge" in chunks
-    assert len(chunks["Huge"]) == len("## Huge\n\n") + 5000  # heading + separator + body
+    assert (
+        len(chunks["Huge"]) == len("## Huge\n\n") + 5000
+    )  # heading + separator + body

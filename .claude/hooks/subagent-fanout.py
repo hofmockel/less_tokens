@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PreToolUse+PostToolUse:Task hook (SA2): log subagent fan-out telemetry —
 prompt size at spawn, return size at completion, paired into one event."""
+
 from __future__ import annotations
 
 import json
@@ -59,13 +60,16 @@ except Exception:
 try:
     from search_config import active_state_dir as _active_state_dir  # noqa: E402
 except Exception:
+
     def _active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
+
 
 try:
     from savings_log import append as _log_savings  # noqa: E402
     from savings_log import resolve_session  # noqa: E402
 except Exception:
+
     def _log_savings(_r: dict) -> None:
         pass
 
@@ -92,8 +96,11 @@ def main() -> int:
         payload = normalize_claude(raw)
         sid, ssrc = resolve_session(raw)
         record = handle_post_return(
-            _active_state_dir(), tool_input, len(payload.tool_output),
-            session_id=sid, session_source=ssrc,
+            _active_state_dir(),
+            tool_input,
+            len(payload.tool_output),
+            session_id=sid,
+            session_source=ssrc,
         )
         _log_savings(record)
         return 0

@@ -1,4 +1,5 @@
 """Unit tests for tools/toolcost.py and tools/mcp-prune.py."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ sys.path.insert(0, str(BASE / ".claude" / "tools"))
 
 import toolcost
 import importlib
+
 mcp_prune = importlib.import_module("mcp-prune")
 
 
@@ -18,13 +20,16 @@ mcp_prune = importlib.import_module("mcp-prune")
 # toolcost: token estimation
 # ---------------------------------------------------------------------------
 
+
 class TestEstTokens:
     def test_empty_dict(self):
         assert toolcost.est_tokens({}) == 0  # len("{}") // 4 == 0
 
     def test_string(self):
         s = "x" * 40
-        assert toolcost.est_tokens(s) == int(len(json.dumps(s)) / toolcost.CHARS_PER_TOKEN)
+        assert toolcost.est_tokens(s) == int(
+            len(json.dumps(s)) / toolcost.CHARS_PER_TOKEN
+        )
 
     def test_tool_schema(self):
         tool = {
@@ -52,6 +57,7 @@ class TestEstTokens:
 # ---------------------------------------------------------------------------
 # toolcost: load_mcp_servers
 # ---------------------------------------------------------------------------
+
 
 class TestLoadMcpServers:
     def test_missing_file(self, tmp_path):
@@ -86,6 +92,7 @@ class TestLoadMcpServers:
 # ---------------------------------------------------------------------------
 # toolcost: load_toolignore
 # ---------------------------------------------------------------------------
+
 
 class TestLoadToolignore:
     def test_no_file(self, tmp_path):
@@ -124,6 +131,7 @@ class TestLoadToolignore:
 # ---------------------------------------------------------------------------
 # toolcost: render_table
 # ---------------------------------------------------------------------------
+
 
 class TestRenderTable:
     def _rows(self):
@@ -169,27 +177,33 @@ class TestRenderTable:
 # toolcost: _recv skips server notifications
 # ---------------------------------------------------------------------------
 
+
 class TestRecv:
     def _make_proc(self, lines: list[bytes]):
         """Return a mock Popen whose stdout yields the given lines."""
         import io
         from unittest.mock import MagicMock
+
         proc = MagicMock()
         proc.stdout = io.BytesIO(b"".join(line + b"\n" for line in lines))
         return proc
 
     def test_skips_notification_before_response(self):
         """_recv must skip JSON-RPC notifications and return the real response."""
-        notification = json.dumps({
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {"level": "info", "data": "server ready"},
-        }).encode()
-        response = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": {"tools": [{"name": "my_tool"}]},
-        }).encode()
+        notification = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/message",
+                "params": {"level": "info", "data": "server ready"},
+            }
+        ).encode()
+        response = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "result": {"tools": [{"name": "my_tool"}]},
+            }
+        ).encode()
 
         proc = self._make_proc([notification, response])
         result = toolcost._recv(proc, timeout=5.0)
@@ -199,10 +213,13 @@ class TestRecv:
 
     def test_single_response_no_notification(self):
         """_recv returns normal response when no notification precedes it."""
-        response = json.dumps({
-            "jsonrpc": "2.0", "id": 1,
-            "result": {"protocolVersion": "2024-11-05", "capabilities": {}},
-        }).encode()
+        response = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {"protocolVersion": "2024-11-05", "capabilities": {}},
+            }
+        ).encode()
         proc = self._make_proc([response])
         result = toolcost._recv(proc, timeout=5.0)
         assert result is not None
@@ -219,6 +236,7 @@ class TestPruneLoadIgnore:
 # ---------------------------------------------------------------------------
 # mcp-prune: prune()
 # ---------------------------------------------------------------------------
+
 
 class TestPrune:
     def _settings(self, tmp_path, servers: dict) -> Path:

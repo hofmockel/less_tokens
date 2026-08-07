@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse hook: turn whole-file Reads of search hits into slices."""
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,10 @@ sys.path[:0] = [
 ]
 
 try:
-    from agents.common.hooks.auto_slice import check_auto_slice, ranges_for as _ranges_for_common  # type: ignore[import]
+    from agents.common.hooks.auto_slice import (
+        check_auto_slice,
+        ranges_for as _ranges_for_common,
+    )  # type: ignore[import]
     from agents.common.hooks.payload import normalize_claude
 except Exception:
     from auto_slice import check_auto_slice, ranges_for as _ranges_for_common  # type: ignore[no-redef]
@@ -44,15 +48,19 @@ except Exception:
 try:
     from search_config import active_state_dir, WINDOW_SECONDS  # noqa: E402
 except Exception:
+
     def active_state_dir() -> Path:  # type: ignore[misc]
         return REPO / ".claude" / "state"
+
     WINDOW_SECONDS = 300
 
 RANGES_FILE = active_state_dir() / "last-search.json"
 
 
 def _ranges_for(file_path: str) -> list[list[int]]:
-    return _ranges_for_common(file_path, ranges_file=RANGES_FILE, window_seconds=WINDOW_SECONDS)
+    return _ranges_for_common(
+        file_path, ranges_file=RANGES_FILE, window_seconds=WINDOW_SECONDS
+    )
 
 
 def main() -> int:

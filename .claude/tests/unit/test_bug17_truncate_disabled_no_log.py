@@ -3,10 +3,10 @@
 When MAX_TOOL_OUTPUT_CHARS == 0, the hook should pass through immediately
 without calling _log_savings at all, even for very large results.
 """
+
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from tests.conftest import REPO_ROOT, load_hook
 
 sys.path.insert(0, str(REPO_ROOT / ".claude" / "tools"))
@@ -21,7 +21,9 @@ def test_no_savings_logged_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setattr(mod, "_log_savings", logged.append)
 
     # Simulate a large Bash result that would trigger truncation if enabled.
-    import json, io
+    import json
+    import io
+
     payload = json.dumps({"tool_name": "Bash", "tool_result": "x" * 10_000})
     monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
 

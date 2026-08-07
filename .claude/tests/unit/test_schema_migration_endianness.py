@@ -10,6 +10,7 @@ calls `ensure_current_schema()` at startup so the one-time invalidation fires
 on the normal upgrade path (install --build / manual refresh / index-refresh
 hook) without a manual `db.py migrate`.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -39,8 +40,7 @@ def _make_v1_index(path: Path) -> None:
         " UNIQUE (source_path, source_key));"
     )
     conn.execute(
-        "INSERT INTO schema_version (version, applied_at) "
-        "VALUES (1, '2026-01-01')"
+        "INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01')"
     )
     conn.execute(
         "INSERT INTO documents (source_type, source_path, source_key, text, "
@@ -67,9 +67,7 @@ def _insert_row(path: Path) -> None:
 def _version(path: Path) -> int:
     conn = sqlite3.connect(path)
     try:
-        return conn.execute(
-            "SELECT MAX(version) FROM schema_version"
-        ).fetchone()[0]
+        return conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
     finally:
         conn.close()
 
@@ -137,9 +135,7 @@ class TestEnsureCurrentSchema:
 
 
 class TestRefreshAutoMigrates:
-    def test_refresh_invalidates_v1_before_model_check(
-        self, tmp_path, monkeypatch
-    ):
+    def test_refresh_invalidates_v1_before_model_check(self, tmp_path, monkeypatch):
         """refresh() must call ensure_current_schema() at the very top, so a
         v1 index is invalidated even where fastembed is unavailable (refresh()
         returns early after the model check).

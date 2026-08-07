@@ -1,5 +1,6 @@
 """SA1: PostToolUse:Task hook caps an oversized subagent return before it
 lands in the parent's transcript, preserving pass/fail/blocker-style fields."""
+
 from __future__ import annotations
 
 import io
@@ -9,7 +10,10 @@ import sys
 from tests.conftest import REPO_ROOT, load_hook
 
 from agents.common.hooks.payload import HookPayload
-from agents.common.hooks.truncate_output import check_truncate_subagent, truncate_subagent
+from agents.common.hooks.truncate_output import (
+    check_truncate_subagent,
+    truncate_subagent,
+)
 
 HOOK = REPO_ROOT / ".claude" / "hooks" / "subagent-cap.py"
 

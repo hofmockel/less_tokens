@@ -9,6 +9,7 @@ normal operation but hid bugs in tests and edge cases.
 The fix removes the magic fallback: access _config["window_seconds"] directly
 so a missing key raises KeyError (logic bug) rather than silently using 300.
 """
+
 from __future__ import annotations
 
 import sys

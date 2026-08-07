@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PostToolUse:Task hook: cap an oversized subagent return before it lands
 in the parent's transcript (SA1)."""
+
 from __future__ import annotations
 
 import json
@@ -64,27 +65,35 @@ def main() -> int:
     except Exception:
         return 0
     payload = normalize_claude(raw)
-    code, stdout, stderr = check_truncate_subagent(payload, max_chars=MAX_SUBAGENT_OUTPUT_CHARS)
+    code, stdout, stderr = check_truncate_subagent(
+        payload, max_chars=MAX_SUBAGENT_OUTPUT_CHARS
+    )
     if code == 2:
         sid, ssrc = resolve_session(raw)
         kept = len(stdout)
-        _log_savings({
-            "strategy": STRATEGY_SUBAGENT_CAP,
-            "basis": "measured",
-            "kept_chars": kept,
-            "elided_chars": max(0, len(payload.tool_output) - kept),
-            "content_kind": "subagent_output",
-            "where": payload.tool_name,
-            "session_id": sid,
-            "session_source": ssrc,
-        })
-        print(json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PostToolUse",
-                "updatedToolOutput": stdout,
-                "additionalContext": stderr,
+        _log_savings(
+            {
+                "strategy": STRATEGY_SUBAGENT_CAP,
+                "basis": "measured",
+                "kept_chars": kept,
+                "elided_chars": max(0, len(payload.tool_output) - kept),
+                "content_kind": "subagent_output",
+                "where": payload.tool_name,
+                "session_id": sid,
+                "session_source": ssrc,
             }
-        }))
+        )
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PostToolUse",
+                        "updatedToolOutput": stdout,
+                        "additionalContext": stderr,
+                    }
+                }
+            )
+        )
         return 0
     return code
 

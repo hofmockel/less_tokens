@@ -6,6 +6,7 @@ captured search results. embeddings.py registers a process-wide warnings filter
 at import; search.py imports embeddings at module load, so both entrypoints are
 covered. This test keeps that filter from regressing.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -22,7 +23,7 @@ def test_urllib3_libressl_warning_is_filtered():
     code = (
         "import sys; sys.path.insert(0, r'{tools}');"
         "import embeddings, warnings;"
-        "warnings.warn(\"urllib3 v2 only supports OpenSSL 1.1.1+, currently "
+        'warnings.warn("urllib3 v2 only supports OpenSSL 1.1.1+, currently '
         "the 'ssl' module is compiled with 'LibreSSL 2.8.3'.\", Warning)"
     ).format(tools=REPO_ROOT / ".claude" / "tools")
     result = subprocess.run(

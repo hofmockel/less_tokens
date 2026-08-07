@@ -8,6 +8,7 @@ un-pasteable hint. The fix routes both through `_venv_python_call()`, which
 uses json.dumps to emit a valid Python string literal while keeping the
 existing `"..."` form for ordinary paths.
 """
+
 from __future__ import annotations
 
 import ast

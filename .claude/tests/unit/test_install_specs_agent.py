@@ -1,15 +1,20 @@
 """Unit tests for _install_specs() and selected_agents() with different agent sets."""
+
 from __future__ import annotations
 
 import sys
 from argparse import Namespace
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(REPO))
-from install import _install_specs, build_codex_hook_entries, launcher_cmd, selected_agents
+from install import (
+    _install_specs,
+    build_codex_hook_entries,
+    launcher_cmd,
+    selected_agents,
+)
 
 
 class TestSelectedAgents:
@@ -65,7 +70,8 @@ class TestInstallSpecsAgentSelector:
         specs = _install_specs(caveman=False, agents={"codex"})
         dest_dirs = {s[1] for s in specs}
         skill_names = {
-            p.name for p in (REPO / "agents" / "codex" / "skills").iterdir()
+            p.name
+            for p in (REPO / "agents" / "codex" / "skills").iterdir()
             if p.is_dir() and (p / "SKILL.md").exists()
         }
         assert {f".less_tokens/skills/{name}" for name in skill_names} <= dest_dirs
@@ -92,13 +98,20 @@ class TestInstallSpecsAgentSelector:
         assert ".claude/rules" not in dest_dirs
 
     def test_default_agents_matches_explicit_claude(self):
-        assert _install_specs(caveman=False) == _install_specs(caveman=False, agents={"claude"})
+        assert _install_specs(caveman=False) == _install_specs(
+            caveman=False, agents={"claude"}
+        )
 
 
 class TestLauncherCommands:
     def test_codex_launcher_command_is_absolute_less_tokens_python(self, tmp_path):
         import sys as _sys
-        rel = Path(".less_tokens") / "bin" / ("python.cmd" if _sys.platform == "win32" else "python")
+
+        rel = (
+            Path(".less_tokens")
+            / "bin"
+            / ("python.cmd" if _sys.platform == "win32" else "python")
+        )
         expected = (tmp_path / rel).resolve().as_posix()
         assert launcher_cmd("codex", tmp_path) == expected
 
@@ -113,4 +126,6 @@ class TestLauncherCommands:
         expected = (tmp_path / ".less_tokens" / "bin" / "python").resolve().as_posix()
         assert all(expected in cmd for cmd in commands)
         assert all(".venv/bin/python" not in cmd for cmd in commands)
-        assert all(str((tmp_path / ".codex" / "hooks").resolve()) in cmd for cmd in commands)
+        assert all(
+            str((tmp_path / ".codex" / "hooks").resolve()) in cmd for cmd in commands
+        )

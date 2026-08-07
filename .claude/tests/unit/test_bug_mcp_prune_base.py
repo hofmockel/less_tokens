@@ -1,4 +1,5 @@
 """Regression test: mcp-prune._BASE must resolve to host project root, not less_tokens dir."""
+
 from __future__ import annotations
 
 import importlib
@@ -8,13 +9,16 @@ from pathlib import Path
 _tools = Path(__file__).resolve().parent.parent.parent.parent / ".claude" / "tools"
 sys.path.insert(0, str(_tools))
 import db  # noqa: E402
+
 mcp_prune = importlib.import_module("mcp-prune")
 
 
 def test_find_base_uses_cwd_when_marker_present(tmp_path, monkeypatch):
     """When cwd contains .claude/tools/search_config.py, _find_base() returns cwd."""
     (tmp_path / ".claude" / "tools").mkdir(parents=True)
-    (tmp_path / ".claude" / "tools" / "search_config.py").write_text("", encoding="utf-8")
+    (tmp_path / ".claude" / "tools" / "search_config.py").write_text(
+        "", encoding="utf-8"
+    )
     monkeypatch.chdir(tmp_path)
     result = db._find_base()
     assert result == tmp_path.resolve()

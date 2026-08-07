@@ -1,4 +1,5 @@
 """Shared continue.md freshness-gate tests."""
+
 from __future__ import annotations
 
 import subprocess

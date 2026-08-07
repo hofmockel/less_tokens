@@ -5,6 +5,7 @@ dedup: two distinct files whose best chunks embed almost identically would both 
 context budget on the same content. search() now skips the second and backfills the
 next distinct hit. Controlled by search_config.SEARCH_DEDUP_SIM (>= 1.0 disables it).
 """
+
 from __future__ import annotations
 
 import sqlite3

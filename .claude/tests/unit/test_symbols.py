@@ -1,10 +1,12 @@
 """Unit tests for the symbol index (S8)."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 
 import sys
+
 TOOLS = Path(__file__).resolve().parent.parent.parent / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))

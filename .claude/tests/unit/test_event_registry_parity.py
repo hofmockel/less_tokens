@@ -8,6 +8,7 @@ These tests are static (source-scan) rather than behavioral so a *new* emitter a
 the future is caught automatically, without needing to update a hand-written expected-key
 list here (that hand-written list is exactly the drift this test exists to prevent).
 """
+
 from __future__ import annotations
 
 import re
@@ -57,7 +58,9 @@ def _emitted_constant_names() -> set[str]:
     """Every savings_log.STRATEGY_* constant referenced as a "strategy" value
     (directly or via a local fallback assignment), across the scanned files."""
     names: set[str] = set()
-    const_re = re.compile(r'"strategy"\s*:\s*(STRATEGY_[A-Z_]+|_config\.get\("strategy_\w+"[^)]*\))')
+    const_re = re.compile(
+        r'"strategy"\s*:\s*(STRATEGY_[A-Z_]+|_config\.get\("strategy_\w+"[^)]*\))'
+    )
     for f in _iter_py_files():
         text = f.read_text(encoding="utf-8")
         for m in const_re.finditer(text):
@@ -91,11 +94,10 @@ def test_every_emitted_constant_name_exists_in_savings_log():
     """Every STRATEGY_* constant referenced at a call site must actually be defined
     in savings_log (catches a typo'd import name that isn't caught by the literal scan)."""
     referenced = _emitted_constant_names()
-    assert referenced, "expected at least one STRATEGY_* constant reference in scanned files"
-    defined = {
-        name for name in dir(savings_log)
-        if name.startswith("STRATEGY_")
-    }
+    assert referenced, (
+        "expected at least one STRATEGY_* constant reference in scanned files"
+    )
+    defined = {name for name in dir(savings_log) if name.startswith("STRATEGY_")}
     missing = referenced - defined
     assert not missing, f"Referenced but undefined in savings_log: {sorted(missing)}"
 

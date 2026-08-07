@@ -3,6 +3,7 @@
 `-type` is absent from _ALLOW_RE, so `find . -type f` is intercepted as a
 bare dump. The fix is to add `type` to the allowed predicates list.
 """
+
 from __future__ import annotations
 
 import importlib.util

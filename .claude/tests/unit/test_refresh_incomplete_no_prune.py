@@ -12,6 +12,7 @@ report whether enumeration was complete and makes `refresh()` skip both
 delete paths when it was not, keeping the stale-but-usable index until a
 clean refresh reconciles it.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -37,9 +38,16 @@ def _seed_row(dbp, source_path, source_key, text="x"):
             "INSERT INTO documents (source_type, source_path, source_key, "
             "text, content_hash, embedding, embedding_model, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("code", source_path, source_key, text, "deadbeef",
-             b"\x00\x00\x00\x00", embeddings.MODEL,
-             "2026-01-01T00:00:00+00:00"),
+            (
+                "code",
+                source_path,
+                source_key,
+                text,
+                "deadbeef",
+                b"\x00\x00\x00\x00",
+                embeddings.MODEL,
+                "2026-01-01T00:00:00+00:00",
+            ),
         )
         c.commit()
     finally:
@@ -49,10 +57,13 @@ def _seed_row(dbp, source_path, source_key, text="x"):
 def _row_exists(dbp, source_path, source_key) -> bool:
     c = sqlite3.connect(dbp)
     try:
-        return c.execute(
-            "SELECT 1 FROM documents WHERE source_path=? AND source_key=?",
-            (source_path, source_key),
-        ).fetchone() is not None
+        return (
+            c.execute(
+                "SELECT 1 FROM documents WHERE source_path=? AND source_key=?",
+                (source_path, source_key),
+            ).fetchone()
+            is not None
+        )
     finally:
         c.close()
 
@@ -72,10 +83,9 @@ def _patch_no_model(monkeypatch):
     """
     monkeypatch.setattr(embeddings, "_get_model", lambda: None)
     monkeypatch.setattr(
-        embeddings, "embed",
-        lambda texts, *a, **k: np.zeros(
-            (len(texts), embeddings.DIM), dtype=np.float32
-        ),
+        embeddings,
+        "embed",
+        lambda texts, *a, **k: np.zeros((len(texts), embeddings.DIM), dtype=np.float32),
     )
 
 
@@ -108,8 +118,9 @@ def unreadable_source_tree(tmp_path, monkeypatch):
 def test_enumerate_sources_reports_incomplete(unreadable_source_tree):
     sources, incomplete = embeddings.enumerate_sources()
     assert incomplete is True
-    assert any(row[1] == "good/ok.py" for row in sources), \
+    assert any(row[1] == "good/ok.py" for row in sources), (
         "readable source must still be enumerated"
+    )
 
 
 def test_enumerate_sources_complete_when_all_readable(tmp_path, monkeypatch):
@@ -131,23 +142,21 @@ def test_incremental_refresh_keeps_rows_when_incomplete(
     _seed_row(temp_index, "bad/old.py", "old_fn")
 
     assert embeddings.refresh() == 0
-    assert _row_exists(temp_index, "bad/old.py", "old_fn"), \
+    assert _row_exists(temp_index, "bad/old.py", "old_fn"), (
         "row under the unreadable subtree must survive an incomplete refresh"
+    )
 
 
-def test_full_refresh_does_not_wipe_when_incomplete(
-    temp_index, unreadable_source_tree
-):
+def test_full_refresh_does_not_wipe_when_incomplete(temp_index, unreadable_source_tree):
     _seed_row(temp_index, "bad/old.py", "old_fn")
 
     assert embeddings.refresh(full=True) == 0
-    assert _row_exists(temp_index, "bad/old.py", "old_fn"), \
+    assert _row_exists(temp_index, "bad/old.py", "old_fn"), (
         "refresh --full must not wipe rows when enumeration is incomplete"
+    )
 
 
-def test_complete_refresh_still_prunes_orphans(
-    temp_index, tmp_path, monkeypatch
-):
+def test_complete_refresh_still_prunes_orphans(temp_index, tmp_path, monkeypatch):
     """Guard: when enumeration IS complete, a row whose file is gone is
     still pruned — the fix must not over-suppress normal deletion.
     """
@@ -162,5 +171,6 @@ def test_complete_refresh_still_prunes_orphans(
     _seed_row(temp_index, "good/gone.py", "stale_fn")
 
     assert embeddings.refresh() == 0
-    assert not _row_exists(temp_index, "good/gone.py", "stale_fn"), \
+    assert not _row_exists(temp_index, "good/gone.py", "stale_fn"), (
         "orphan row must still be pruned on a complete refresh"
+    )

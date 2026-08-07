@@ -4,6 +4,7 @@ Guards the measurement pipe only: peak tracking, compaction detection, the
 both-sides arithmetic identity, and the "fire only on a real shrink" rule. No
 test asserts a savings magnitude from a fabricated transcript.
 """
+
 from __future__ import annotations
 
 import json
@@ -94,7 +95,9 @@ def test_new_session_path_resets_without_emitting(tmp_path):
     # different transcript path, even though small vs the old peak
     t = _write(tmp_path / "new.jsonl", 30_000)
     events, peak = _run(
-        tmp_path, t, peak_state={"transcript": str(tmp_path / "old.jsonl"), "peak": 800_000}
+        tmp_path,
+        t,
+        peak_state={"transcript": str(tmp_path / "old.jsonl"), "peak": 800_000},
     )
     assert events == []
     assert peak == {"transcript": str(t), "peak": 30_000}
@@ -112,7 +115,10 @@ def test_missing_transcript_path_is_noop(tmp_path):
 # threshold decision is made.
 # ---------------------------------------------------------------------------
 
-from agents.common.hooks.compact_trigger import check_compact_trigger, record_session_size_sample  # noqa: E402
+from agents.common.hooks.compact_trigger import (
+    check_compact_trigger,
+    record_session_size_sample,
+)  # noqa: E402
 
 
 def test_record_session_size_sample_appends_jsonl(tmp_path):
@@ -120,14 +126,21 @@ def test_record_session_size_sample_appends_jsonl(tmp_path):
     log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(log) == 1
     entry = json.loads(log[0])
-    assert entry == {"kind": "session_size", "size": 12345, "threshold": THRESHOLD, "ts": entry["ts"]}
+    assert entry == {
+        "kind": "session_size",
+        "size": 12345,
+        "threshold": THRESHOLD,
+        "ts": entry["ts"],
+    }
 
 
 def test_check_compact_trigger_samples_size_even_when_under_threshold(tmp_path):
     transcript = _write(tmp_path / "t.jsonl", 1000)
     code, _, _ = check_compact_trigger(
-        _payload(str(transcript)), state_dir=tmp_path,
-        max_session_chars=THRESHOLD, message="compact now",
+        _payload(str(transcript)),
+        state_dir=tmp_path,
+        max_session_chars=THRESHOLD,
+        message="compact now",
     )
     assert code == 0
     log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()
@@ -139,8 +152,10 @@ def test_check_compact_trigger_samples_size_even_when_under_threshold(tmp_path):
 def test_check_compact_trigger_samples_size_when_over_threshold_too(tmp_path):
     transcript = _write(tmp_path / "t.jsonl", THRESHOLD + 1000)
     code, _, _ = check_compact_trigger(
-        _payload(str(transcript)), state_dir=tmp_path,
-        max_session_chars=THRESHOLD, message="compact now",
+        _payload(str(transcript)),
+        state_dir=tmp_path,
+        max_session_chars=THRESHOLD,
+        message="compact now",
     )
     assert code == 2
     log = (tmp_path / "near_misses.jsonl").read_text(encoding="utf-8").splitlines()

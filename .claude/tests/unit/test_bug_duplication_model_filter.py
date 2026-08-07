@@ -6,6 +6,7 @@ and returns None, silently disabling duplicate detection.
 
 The fix: add WHERE embedding_model = ? so only same-model rows are stacked.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -48,15 +49,31 @@ def mixed_model_db(tmp_path, monkeypatch):
     conn.execute(
         "INSERT INTO documents (source_type, source_path, source_key, text, "
         "content_hash, embedding, embedding_model, updated_at) VALUES (?,?,?,?,?,?,?,?)",
-        ("doc", "notes.md", "sec_a", "some content", "h1",
-         _pack([0.1, 0.2, 0.3, 0.4]), CURRENT_MODEL, "2025-01-01"),
+        (
+            "doc",
+            "notes.md",
+            "sec_a",
+            "some content",
+            "h1",
+            _pack([0.1, 0.2, 0.3, 0.4]),
+            CURRENT_MODEL,
+            "2025-01-01",
+        ),
     )
     # stale-model row (dim=8) — would cause vstack ValueError if mixed
     conn.execute(
         "INSERT INTO documents (source_type, source_path, source_key, text, "
         "content_hash, embedding, embedding_model, updated_at) VALUES (?,?,?,?,?,?,?,?)",
-        ("doc", "stale.md", "sec_b", "stale content", "h2",
-         _pack([0.1] * 8), STALE_MODEL, "2024-01-01"),
+        (
+            "doc",
+            "stale.md",
+            "sec_b",
+            "stale content",
+            "h2",
+            _pack([0.1] * 8),
+            STALE_MODEL,
+            "2024-01-01",
+        ),
     )
     conn.commit()
     conn.close()
@@ -81,10 +98,11 @@ def test_duplication_filters_by_model(mixed_model_db, monkeypatch):
         return fake_q
 
     def fake_unpack(blob, dim):
-        vals = struct.unpack(f"<{len(blob)//4}f", blob)
+        vals = struct.unpack(f"<{len(blob) // 4}f", blob)
         return np.array(vals, dtype="float32")
 
     import embeddings as emb_mod
+
     monkeypatch.setattr(emb_mod, "DIM", CURRENT_DIM)
 
     def safe_unpack(blob, dim):

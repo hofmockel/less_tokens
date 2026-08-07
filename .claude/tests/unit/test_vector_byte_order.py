@@ -13,6 +13,7 @@ Cross-endian behaviour cannot be exercised on a little-endian CI host, so
 these tests pin the *contract* (explicit little-endian, host-independent)
 rather than the host's native byte order.
 """
+
 from __future__ import annotations
 
 import sqlite3

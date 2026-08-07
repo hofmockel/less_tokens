@@ -18,6 +18,7 @@ Usage:
   python .claude/tools/claudemd_audit.py --skills [--word-cap N]
   python .claude/tools/claudemd_audit.py --docs [--max-pointer-tokens N]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,27 +59,43 @@ except Exception:
     SKILL_DESC_DUP_SIM = 0.85
     SKILLS_DIR = ".claude/skills"
 
-DUP_SIM = 0.80          # cosine above which a section is "already discoverable"
-DUP_MIN_TOKENS = 120    # don't bother flagging tiny sections as dup
+DUP_SIM = 0.80  # cosine above which a section is "already discoverable"
+DUP_MIN_TOKENS = 120  # don't bother flagging tiny sections as dup
 BIG_SECTION_TOKENS = 250  # size that warrants review when no dup data
 LONG_SENTENCE_WORDS = 40
-DOC_POINTER_MAX_TOKENS = 80  # non-canonical section over this must collapse to a pointer
+DOC_POINTER_MAX_TOKENS = (
+    80  # non-canonical section over this must collapse to a pointer
+)
 
 # One canonical home per cross-cutting root-doc topic; everywhere else in
 # `others` should reduce to a short pointer, not restate the content.
 CANONICAL_HOMES = [
-    {"topic": "Repo layout tree", "canonical": "DOCUMENTATION.md",
-     "others": ["README.md"]},
-    {"topic": "Install / config / usage / hook wiring", "canonical": "DOCUMENTATION.md",
-     "others": ["README.md"]},
-    {"topic": "Contributing", "canonical": "CONTRIBUTING.md",
-     "others": ["README.md", "DOCUMENTATION.md"]},
-    {"topic": "License", "canonical": "README.md",
-     "others": ["DOCUMENTATION.md"]},
-    {"topic": "Caveman / terse-output spec", "canonical": ".claude/rules/caveman.md",
-     "others": ["CLAUDE.md", "DOCUMENTATION.md"]},
-    {"topic": "Token-reduction strategy", "canonical": "DOCUMENTATION.md",
-     "others": ["BACKLOG.md"]},
+    {
+        "topic": "Repo layout tree",
+        "canonical": "DOCUMENTATION.md",
+        "others": ["README.md"],
+    },
+    {
+        "topic": "Install / config / usage / hook wiring",
+        "canonical": "DOCUMENTATION.md",
+        "others": ["README.md"],
+    },
+    {
+        "topic": "Contributing",
+        "canonical": "CONTRIBUTING.md",
+        "others": ["README.md", "DOCUMENTATION.md"],
+    },
+    {"topic": "License", "canonical": "README.md", "others": ["DOCUMENTATION.md"]},
+    {
+        "topic": "Caveman / terse-output spec",
+        "canonical": ".claude/rules/caveman.md",
+        "others": ["CLAUDE.md", "DOCUMENTATION.md"],
+    },
+    {
+        "topic": "Token-reduction strategy",
+        "canonical": "DOCUMENTATION.md",
+        "others": ["BACKLOG.md"],
+    },
 ]
 
 _TOPIC_STOPWORDS = {"the", "and", "for", "spec"}
@@ -113,13 +130,21 @@ def parse_sections(text: str) -> list[dict]:
     sections = []
     if heads and heads[0][0] > 0:
         body = "\n".join(lines[: heads[0][0]])
-        sections.append({"level": 0, "title": "(preamble)", "start": 1,
-                         "end": heads[0][0], "body": body})
+        sections.append(
+            {
+                "level": 0,
+                "title": "(preamble)",
+                "start": 1,
+                "end": heads[0][0],
+                "body": body,
+            }
+        )
     for idx, (i, lvl, title) in enumerate(heads):
         end = heads[idx + 1][0] if idx + 1 < len(heads) else len(lines)
         body = "\n".join(lines[i:end])
-        sections.append({"level": lvl, "title": title, "start": i + 1,
-                         "end": end, "body": body})
+        sections.append(
+            {"level": lvl, "title": title, "start": i + 1, "end": end, "body": body}
+        )
     return sections
 
 
@@ -135,7 +160,6 @@ def _topic_keywords(topic: str) -> list[str]:
 def _matches_topic(title: str, keywords: list[str]) -> bool:
     t = title.lower()
     return any(k in t for k in keywords)
-
 
 
 _IGNORE_DIRS = {".git", ".venv", ".venv-tokens", "__pycache__", "node_modules"}
@@ -191,9 +215,15 @@ def scan_refs(text: str) -> list[dict]:
                 continue
             seen.add(key)
             fp = _resolve(tok)
-            out.append({"ref": tok, "line": lineno, "kind": "path",
-                        "ok": fp is not None,
-                        "reason": "" if fp is not None else "path not found"})
+            out.append(
+                {
+                    "ref": tok,
+                    "line": lineno,
+                    "kind": "path",
+                    "ok": fp is not None,
+                    "reason": "" if fp is not None else "path not found",
+                }
+            )
     return out
 
 
@@ -215,6 +245,7 @@ def duplication(sections: list[dict]):
         import embeddings as _emb  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
         import search_config  # noqa: PLC0415
+
         connect_index = _db.connect_index
         DIM = _emb.DIM
         embed = _emb.embed
@@ -239,7 +270,7 @@ def duplication(sections: list[dict]):
         mats.append(v.reshape(-1))
         meta.append(r["source_path"])
     M = np.vstack(mats).astype("float32")
-    M /= (np.linalg.norm(M, axis=1, keepdims=True) + 1e-9)
+    M /= np.linalg.norm(M, axis=1, keepdims=True) + 1e-9
     targets = [s for s in sections if s["level"]]
     if not targets:
         return {}
@@ -248,7 +279,7 @@ def duplication(sections: list[dict]):
     except Exception:
         return None
     Q = np.asarray(Q, dtype="float32")
-    Q /= (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-9)
+    Q /= np.linalg.norm(Q, axis=1, keepdims=True) + 1e-9
     sims = Q @ M.T
     out = {}
     for i, s in enumerate(targets):
@@ -262,7 +293,7 @@ def verdict(sec: dict, dup, verb: dict) -> str:
     if dup is not None:
         sim, src = dup.get(sec["title"], (0.0, ""))
         if sim >= DUP_SIM and tok >= DUP_MIN_TOKENS:
-            return f"CUT→doc (dup {sim*100:.0f}% {src})"
+            return f"CUT→doc (dup {sim * 100:.0f}% {src})"
     if dup is None and tok >= BIG_SECTION_TOKENS and sec["level"] in (1, 2):
         return "REVIEW (likely CUT→doc; run with index for dup check)"
     if verb["filler"] or verb["long_sentences"]:
@@ -280,27 +311,36 @@ def audit(path: Path, budget: int) -> dict:
     for s in sections:
         s["_tokens"] = est_tokens(s["body"])
         verb = scan_verbosity(s["body"])
-        rows.append({
-            "title": s["title"], "level": s["level"],
-            "lines": f"{s['start']}-{s['end']}", "tokens": s["_tokens"],
-            "filler": verb["filler"], "long_sentences": verb["long_sentences"],
-            "verdict": verdict(s, dup, verb),
-        })
+        rows.append(
+            {
+                "title": s["title"],
+                "level": s["level"],
+                "lines": f"{s['start']}-{s['end']}",
+                "tokens": s["_tokens"],
+                "filler": verb["filler"],
+                "long_sentences": verb["long_sentences"],
+                "verdict": verdict(s, dup, verb),
+            }
+        )
     dead = [r for r in refs if not r["ok"]]
     return {
-        "path": path.relative_to(BASE).as_posix() if path.is_relative_to(BASE) else path.as_posix(),
-        "total_tokens": total_tokens, "budget": budget,
+        "path": path.relative_to(BASE).as_posix()
+        if path.is_relative_to(BASE)
+        else path.as_posix(),
+        "total_tokens": total_tokens,
+        "budget": budget,
         "over_budget": budget and total_tokens > budget,
         "dup_check": dup is not None,
-        "sections": rows, "refs": refs, "dead_refs": dead,
+        "sections": rows,
+        "refs": refs,
+        "dead_refs": dead,
         "overflow_doc": CLAUDE_MD_OVERFLOW_DOC,
     }
 
 
 def audit_rules(rules_dir: Path, budget: int) -> dict:
     files = sorted(
-        p for p in rules_dir.glob("*.md")
-        if p.is_file() and not p.name.startswith(".")
+        p for p in rules_dir.glob("*.md") if p.is_file() and not p.name.startswith(".")
     )
     audits = []
     for file in files:
@@ -308,7 +348,9 @@ def audit_rules(rules_dir: Path, budget: int) -> dict:
         result["overflow_doc"] = RULES_OVERFLOW_DOC
         audits.append(result)
     return {
-        "path": rules_dir.relative_to(BASE).as_posix() if rules_dir.is_relative_to(BASE) else rules_dir.as_posix(),
+        "path": rules_dir.relative_to(BASE).as_posix()
+        if rules_dir.is_relative_to(BASE)
+        else rules_dir.as_posix(),
         "budget": budget,
         "files": audits,
         "total_tokens": sum(int(a["total_tokens"]) for a in audits),
@@ -318,8 +360,9 @@ def audit_rules(rules_dir: Path, budget: int) -> dict:
     }
 
 
-def audit_docs(base: Path, homes: list[dict] | None = None,
-                max_tokens: int | None = None) -> dict:
+def audit_docs(
+    base: Path, homes: list[dict] | None = None, max_tokens: int | None = None
+) -> dict:
     """Check root-doc CANONICAL_HOMES: each topic's canonical file must exist,
     and any matching-heading section elsewhere must stay short (a pointer),
     not restate the content."""
@@ -343,25 +386,37 @@ def audit_docs(base: Path, homes: list[dict] | None = None,
                 body = "\n".join(sec["body"].splitlines()[1:])
                 tokens = int(est_tokens(_strip_code(body)))
                 if not canon_exists:
-                    violations.append({
-                        "topic": home["topic"], "kind": "missing-canonical",
-                        "file": other, "line": sec["start"],
-                        "detail": f"canonical home {canonical} for '{home['topic']}' "
-                                  "does not exist yet",
-                    })
+                    violations.append(
+                        {
+                            "topic": home["topic"],
+                            "kind": "missing-canonical",
+                            "file": other,
+                            "line": sec["start"],
+                            "detail": f"canonical home {canonical} for '{home['topic']}' "
+                            "does not exist yet",
+                        }
+                    )
                 elif tokens > max_tokens:
-                    violations.append({
-                        "topic": home["topic"], "kind": "over-length",
-                        "file": other, "line": sec["start"],
-                        "detail": f"'{sec['title']}' is {tokens} tok (cap {max_tokens}); "
-                                  f"trim to a pointer, full content belongs in {canonical}",
-                    })
+                    violations.append(
+                        {
+                            "topic": home["topic"],
+                            "kind": "over-length",
+                            "file": other,
+                            "line": sec["start"],
+                            "detail": f"'{sec['title']}' is {tokens} tok (cap {max_tokens}); "
+                            f"trim to a pointer, full content belongs in {canonical}",
+                        }
+                    )
         if not canon_exists and not matched_any:
-            violations.append({
-                "topic": home["topic"], "kind": "missing-canonical",
-                "file": canonical, "line": 0,
-                "detail": f"canonical home for '{home['topic']}' does not exist",
-            })
+            violations.append(
+                {
+                    "topic": home["topic"],
+                    "kind": "missing-canonical",
+                    "file": canonical,
+                    "line": 0,
+                    "detail": f"canonical home for '{home['topic']}' does not exist",
+                }
+            )
     return {"homes": len(homes), "violations": violations}
 
 
@@ -372,7 +427,9 @@ def render_docs(a: dict) -> str:
         return "\n".join(L)
     L.append("")
     for v in a["violations"]:
-        L.append(f"  {v['file']}:{v['line']}  [{v['kind']}] {v['topic']} — {v['detail']}")
+        L.append(
+            f"  {v['file']}:{v['line']}  [{v['kind']}] {v['topic']} — {v['detail']}"
+        )
     return "\n".join(L)
 
 
@@ -389,6 +446,7 @@ def parse_skill_desc(path: Path) -> dict:
         fm_text = m.group(1)
         try:
             import yaml  # noqa: PLC0415
+
             fm = yaml.safe_load(fm_text) or {}
             name = str(fm.get("name", name))
             desc = str(fm.get("description", "") or "")
@@ -425,10 +483,12 @@ def desc_overlap(items: list[dict]):
     except Exception:
         return None
     try:
-        Q = np.asarray(embed([d for _, d in descs], input_type="query"), dtype="float32")
+        Q = np.asarray(
+            embed([d for _, d in descs], input_type="query"), dtype="float32"
+        )
     except Exception:
         return None
-    Q /= (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-9)
+    Q /= np.linalg.norm(Q, axis=1, keepdims=True) + 1e-9
     sims = Q @ Q.T
     np.fill_diagonal(sims, -1.0)
     out = {}
@@ -444,7 +504,7 @@ def skill_verdict(words: int, cap: int, dup_for, dup_sim: float) -> str:
     if dup_for is not None:
         sim, other = dup_for
         if sim >= dup_sim:
-            return f"OVERLAP {sim*100:.0f}% with {other} (merge/disambiguate)"
+            return f"OVERLAP {sim * 100:.0f}% with {other} (merge/disambiguate)"
     if cap and words > cap:
         return f"OVER cap by {words - cap}w (trim)"
     return "KEEP"
@@ -458,21 +518,26 @@ def audit_skills(skills_dir: Path, word_cap: int, dup_sim: float) -> dict:
     for it in items:
         words = len(it["description"].split())
         df = dup.get(it["name"]) if dup else None
-        rows.append({
-            "name": it["name"],
-            "words": words,
-            "tokens": est_tokens(it["description"]),
-            "over_cap": bool(word_cap and words > word_cap),
-            "missing": words == 0,
-            "dup": df,
-            "verdict": skill_verdict(words, word_cap, df, dup_sim),
-            "path": str(it["path"].relative_to(BASE))
-            if it["path"].is_relative_to(BASE) else str(it["path"]),
-        })
+        rows.append(
+            {
+                "name": it["name"],
+                "words": words,
+                "tokens": est_tokens(it["description"]),
+                "over_cap": bool(word_cap and words > word_cap),
+                "missing": words == 0,
+                "dup": df,
+                "verdict": skill_verdict(words, word_cap, df, dup_sim),
+                "path": str(it["path"].relative_to(BASE))
+                if it["path"].is_relative_to(BASE)
+                else str(it["path"]),
+            }
+        )
     return {
         "path": str(skills_dir.relative_to(BASE))
-        if skills_dir.is_relative_to(BASE) else str(skills_dir),
-        "word_cap": word_cap, "dup_sim": dup_sim,
+        if skills_dir.is_relative_to(BASE)
+        else str(skills_dir),
+        "word_cap": word_cap,
+        "dup_sim": dup_sim,
         "dup_check": dup is not None,
         "skills": rows,
         "total_words": sum(int(r["words"]) for r in rows),
@@ -485,11 +550,15 @@ def audit_skills(skills_dir: Path, word_cap: int, dup_sim: float) -> dict:
 def render_skills(a: dict) -> str:
     L = []
     status = "OVER" if a["over_cap"] else "ok"
-    L.append(f"{a['path']}: {len(a['skills'])} skill(s), "
-             f"~{a['total_tokens']:,} desc tokens always-loaded "
-             f"(cap {a['word_cap']}w each) [{status}]")
+    L.append(
+        f"{a['path']}: {len(a['skills'])} skill(s), "
+        f"~{a['total_tokens']:,} desc tokens always-loaded "
+        f"(cap {a['word_cap']}w each) [{status}]"
+    )
     if not a["dup_check"]:
-        L.append("overlap check: SKIPPED (no fastembed) — word-cap + missing-desc checks ran")
+        L.append(
+            "overlap check: SKIPPED (no fastembed) — word-cap + missing-desc checks ran"
+        )
     if not a["skills"]:
         L.append("no SKILL.md files found")
         return "\n".join(L)
@@ -505,10 +574,14 @@ def render(a: dict) -> str:
     L = []
     status = "OVER" if a["over_budget"] else "ok"
     over = f" — OVER by {a['total_tokens'] - a['budget']:,}" if a["over_budget"] else ""
-    L.append(f"{a['path']}: ~{a['total_tokens']:,} tokens "
-             f"(budget {a['budget']:,}) [{status}]{over}")
+    L.append(
+        f"{a['path']}: ~{a['total_tokens']:,} tokens "
+        f"(budget {a['budget']:,}) [{status}]{over}"
+    )
     if not a["dup_check"]:
-        L.append("dup check: SKIPPED (no index/fastembed) — token + ref + verbosity checks ran")
+        L.append(
+            "dup check: SKIPPED (no index/fastembed) — token + ref + verbosity checks ran"
+        )
     L.append("")
     L.append(f"{'verdict':<42} {'tok':>5}  section")
     L.append("-" * 78)
@@ -532,16 +605,20 @@ def render(a: dict) -> str:
     cut = [r for r in a["sections"] if r["verdict"].startswith(("CUT", "REVIEW"))]
     if cut:
         save = sum(r["tokens"] for r in cut)
-        L.append(f"move {len(cut)} section(s) → {a['overflow_doc']} (indexed): "
-                 f"~{save:,} tokens off every turn")
+        L.append(
+            f"move {len(cut)} section(s) → {a['overflow_doc']} (indexed): "
+            f"~{save:,} tokens off every turn"
+        )
     return "\n".join(L)
 
 
 def render_rules(a: dict) -> str:
     L = []
     status = "OVER" if a["over_budget"] else "ok"
-    L.append(f"{a['path']}: {len(a['files'])} rule file(s), ~{a['total_tokens']:,} total tokens "
-             f"(budget {a['budget']:,} each) [{status}]")
+    L.append(
+        f"{a['path']}: {len(a['files'])} rule file(s), ~{a['total_tokens']:,} total tokens "
+        f"(budget {a['budget']:,} each) [{status}]"
+    )
     if not a["files"]:
         L.append("no markdown rule files found")
         return "\n".join(L)
@@ -556,26 +633,48 @@ def render_rules(a: dict) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Audit CLAUDE.md token tax")
     ap.add_argument("path", nargs="?", default=str(BASE / "CLAUDE.md"))
-    ap.add_argument("--rules", action="store_true",
-                    help="audit every markdown rule under .claude/rules/")
+    ap.add_argument(
+        "--rules",
+        action="store_true",
+        help="audit every markdown rule under .claude/rules/",
+    )
     ap.add_argument("--rules-dir", default=str(BASE / ".claude" / "rules"))
-    ap.add_argument("--skills", action="store_true",
-                    help="audit every SKILL.md description under .claude/skills/")
+    ap.add_argument(
+        "--skills",
+        action="store_true",
+        help="audit every SKILL.md description under .claude/skills/",
+    )
     ap.add_argument("--skills-dir", default=str(BASE / SKILLS_DIR))
-    ap.add_argument("--word-cap", type=int, default=None,
-                    help="per-description word cap for --skills (default SKILL_DESC_WORD_CAP)")
-    ap.add_argument("--docs", action="store_true",
-                    help="check root docs against CANONICAL_HOMES (README/DOCUMENTATION/etc.)")
-    ap.add_argument("--max-pointer-tokens", type=int, default=None,
-                    help="token cap for a non-canonical doc section (default DOC_POINTER_MAX_TOKENS)")
+    ap.add_argument(
+        "--word-cap",
+        type=int,
+        default=None,
+        help="per-description word cap for --skills (default SKILL_DESC_WORD_CAP)",
+    )
+    ap.add_argument(
+        "--docs",
+        action="store_true",
+        help="check root docs against CANONICAL_HOMES (README/DOCUMENTATION/etc.)",
+    )
+    ap.add_argument(
+        "--max-pointer-tokens",
+        type=int,
+        default=None,
+        help="token cap for a non-canonical doc section (default DOC_POINTER_MAX_TOKENS)",
+    )
     ap.add_argument("--budget", type=int, default=None)
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--strict", action="store_true",
-                    help="exit 1 if over budget or dead refs found")
+    ap.add_argument(
+        "--strict", action="store_true", help="exit 1 if over budget or dead refs found"
+    )
     args = ap.parse_args()
 
     if args.docs:
-        cap = args.max_pointer_tokens if args.max_pointer_tokens is not None else DOC_POINTER_MAX_TOKENS
+        cap = (
+            args.max_pointer_tokens
+            if args.max_pointer_tokens is not None
+            else DOC_POINTER_MAX_TOKENS
+        )
         a = audit_docs(BASE, max_tokens=cap)
         print(json.dumps(a, indent=2) if args.json else render_docs(a))
         if args.strict and a["violations"]:

@@ -6,6 +6,7 @@ settings.local.json) so Claude rewrites can't clobber them. The hook docstring
 previously said settings.local.json, misleading anyone debugging why the gate
 isn't firing.
 """
+
 from __future__ import annotations
 
 from tests.conftest import REPO_ROOT, load_hook

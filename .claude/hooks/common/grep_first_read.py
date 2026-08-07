@@ -1,4 +1,5 @@
 """Shared large-file read gate."""
+
 from __future__ import annotations
 
 import json
@@ -41,6 +42,7 @@ def _in_last_search(p: Path, *, ranges_file: Path, window_seconds: int) -> bool:
 def _symbol_hint(p: Path) -> str:
     try:
         from symbols import lookup  # type: ignore[import]
+
         hits = lookup(p.stem)
         if hits:
             return f"  /def {p.stem}  ->  {hits[0]['file']}:{hits[0]['line']}\n"
@@ -114,7 +116,7 @@ def check_grep_first_read(
         f"Grep-first gate: {p.name} is {lines:,} lines (threshold {threshold}).\n"
         f"{hint}"
         f"  {venv_py} {tool_prefix}/symbols.py <name>\n"
-        f"  {venv_py} {tool_prefix}/search.py \"<query>\"\n"
+        f'  {venv_py} {tool_prefix}/search.py "<query>"\n'
         f"Then: {read_example.format(file_path=str(p), start='<line>', limit='<n>')}"
     )
     return 2, "", msg

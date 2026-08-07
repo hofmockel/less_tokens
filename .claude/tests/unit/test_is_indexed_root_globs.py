@@ -4,6 +4,7 @@ The hardcoded check `rel.endswith((".md", ".py", ".sql"))` ignores
 _config["root_globs"]; if a user configures INDEXED_ROOT_GLOBS differently
 the gate is out of sync with the indexer.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
